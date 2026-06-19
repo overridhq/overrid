@@ -1,0 +1,43 @@
+# Local agent/runtime state
+/.docdex/
+/.docdex-state/
+.codex55_sds_queue/
+.mcoda/
+.cache/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Operating-system/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Build and dependency outputs
+build/
+dist/
+out/
+target/
+coverage/
+node_modules/
+.next/
+.turbo/
+.venv/
+venv/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+
+# Development-only planning, raw source, and agent progress trails
+docs/planning/
+docs/old_whitepaper.txt
+docs/**/progress.md
+docs/sds/service_sds_refinement_plan.md
+docs/sds/service_sds_refinement_progress.md
+scripts/run_sds_codex55_queue.py
