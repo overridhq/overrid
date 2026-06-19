@@ -34,6 +34,8 @@ Provide short-lived reservations, concurrency locks, atomic lease sets, renewal,
 
 The detailed design contract lives in [Overlease SDS](../../sds/execution_scheduling/overlease.md).
 
+- [SUB BUILD PLAN #21 - Overlease](../../build_plan/sub_build_plan_021_overlease.md)
+
 ## Design Alignment
 
 - Treat Overlease as the reservation and execution-eligibility authority, not the scheduler, runner, or billing service.

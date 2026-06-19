@@ -31,7 +31,8 @@ Discover usable node capacity beyond hardware names so placement can be evidence
 
 ## Detailed SDS
 
-The detailed design contract lives in [Hardware Discovery SDS](../../sds/execution_scheduling/hardware_discovery.md).
+- [Hardware Discovery SDS](../../sds/execution_scheduling/hardware_discovery.md)
+- [SUB BUILD PLAN #17 - Hardware Discovery](../../build_plan/sub_build_plan_017_hardware_discovery.md)
 
 ## Design Alignment
 

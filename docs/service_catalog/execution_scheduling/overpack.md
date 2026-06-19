@@ -35,6 +35,8 @@ Workload manifest in [Phase 3: Private Execution Loop](../../build_plan/phase_03
 
 The detailed design contract lives in [Overpack SDS](../../sds/execution_scheduling/overpack.md).
 
+- [SUB BUILD PLAN #24 - Overpack](../../build_plan/sub_build_plan_024_overpack.md)
+
 ## Design Alignment
 
 - Treat Overpack as the manifest/package contract, not the runner, scheduler, storage service, or deployment planner.

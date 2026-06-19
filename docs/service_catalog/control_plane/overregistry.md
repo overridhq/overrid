@@ -35,6 +35,10 @@ Store versioned resource, workload, package, provider, node capability, purpose 
 
 - [Overregistry SDS](../../sds/control_plane/overregistry.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #12 - Overregistry](../../build_plan/sub_build_plan_012_overregistry.md)
+
 ## Design Alignment
 
 - Treat Overregistry as the immutable versioned fact store for manifests, providers, nodes, capabilities, packages, native apps, and catalog records.

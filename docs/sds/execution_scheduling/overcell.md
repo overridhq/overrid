@@ -13,6 +13,7 @@ Overcell is the node-side backbone for Phase 2. It enrolls a node, maintains liv
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [overcell.md](../../service_catalog/execution_scheduling/overcell.md) |
+| Sub-build plan | [SUB BUILD PLAN #20 - Overcell](../../build_plan/sub_build_plan_020_overcell.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

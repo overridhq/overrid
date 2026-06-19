@@ -78,6 +78,21 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 | SDS #8: [Overgate](../sds/control_plane/overgate.md) | [SUB BUILD PLAN #8 - Overgate](sub_build_plan_008_overgate.md) | First build point remains Phase 1, with Phase 0 prerequisites and later hardening through policy, metering, product integration, and grid-resident operation. |
 | SDS #9: [Overkey](../sds/control_plane/overkey.md) | [SUB BUILD PLAN #9 - Overkey](sub_build_plan_009_overkey.md) | First build point remains Phase 1, with Phase 0 prerequisites and broader key/secret-ref expansion through Phase 8 plus later policy, product, grid-resident, and governance hardening. |
 | SDS #10: [Overpass](../sds/control_plane/overpass.md) | [SUB BUILD PLAN #10 - Overpass](sub_build_plan_010_overpass.md) | First build point remains Phase 1, with Phase 0 prerequisites and broader namespace/route-binding expansion through Phase 8 plus later policy, product, grid-resident, native-app, and governance hardening. |
+| SDS #12: [Overregistry](../sds/control_plane/overregistry.md) | [SUB BUILD PLAN #12 - Overregistry](sub_build_plan_012_overregistry.md) | First build point remains Phase 1, with Phase 0 prerequisites and later expansion through provider capability, package provenance, policy/trust, metering refs, product clients, grid-resident operation, federation/public catalogs, native-app catalogs, and governance hardening. |
+| SDS #13: [Overrid Protocol Core](../sds/control_plane/overrid_protocol_core.md) | [SUB BUILD PLAN #13 - Overrid Protocol Core](sub_build_plan_013_overrid_protocol_core.md) | First build point remains Phase 0 as the protocol specification and conformance layer, with Phase 1 golden-trace adoption and later expansion through all service domains plus Phase 13 PIP governance. |
+| SDS #14: [Overtenant](../sds/control_plane/overtenant.md) | [SUB BUILD PLAN #14 - Overtenant](sub_build_plan_014_overtenant.md) | First build point remains Phase 1, with Phase 0 prerequisites and later expansion through policy, accounting refs, product clients, grid-resident operation, namespace/storage refs, federation/public scopes, native-app clients, and governance hardening. |
+| SDS #15: [Overwatch](../sds/control_plane/overwatch.md) | [SUB BUILD PLAN #15 - Overwatch](sub_build_plan_015_overwatch.md) | First build point remains Phase 1, with Phase 0 prerequisites and later expansion through trust/policy evidence, accounting evidence refs, product clients, grid-resident health/failover/restore, storage/archive refs, federation/public evidence, native-app trace consumers, and governance/compliance exports. |
+| SDS #16: [Benchmark Runner](../sds/execution_scheduling/benchmark_runner.md) | [SUB BUILD PLAN #16 - Benchmark Runner](sub_build_plan_016_benchmark_runner.md) | First build point remains Phase 2, with Phase 0 and Phase 1 prerequisites and later handoffs through private execution, verification/challenges, metering visibility, grid-resident operation, public-provider anti-gaming, product clients, and governance hardening. |
+| SDS #17: [Hardware Discovery](../sds/execution_scheduling/hardware_discovery.md) | [SUB BUILD PLAN #17 - Hardware Discovery](sub_build_plan_017_hardware_discovery.md) | First build point remains Phase 2, with Phase 0 and Phase 1 prerequisites and later handoffs through private execution eligibility, policy/verification evidence, metering visibility, system-service runtime readiness, federation/public-provider hardening, client reads, and governance hardening. |
+| SDS #18: [Node Installer](../sds/execution_scheduling/node_installer.md) | [SUB BUILD PLAN #18 - Node Installer](sub_build_plan_018_node_installer.md) | First build point remains Phase 2, with Phase 0 and Phase 1 prerequisites and later handoffs through private execution readiness, policy/verification evidence, installer overhead visibility, grid-resident update/rollback operation, provider onboarding, public-provider hardening, and governance hardening. |
+| SDS #19: [Overcache](../sds/execution_scheduling/overcache.md) | [SUB BUILD PLAN #19 - Overcache](sub_build_plan_019_overcache.md) | First useful build work remains Phase 4 metadata-first cache trust scopes, with Phase 3 consumers, Phase 5 usage-fact handoff, Phase 8 storage/namespace expansion, Phase 11 public low-sensitivity constraints, and governance hardening. |
+| SDS #20: [Overcell](../sds/execution_scheduling/overcell.md) | [SUB BUILD PLAN #20 - Overcell](sub_build_plan_020_overcell.md) | First build point remains Phase 2, with Phase 0 and Phase 1 prerequisites and later handoffs through Phase 3 lease-bound execution, Phase 5 raw usage facts, Phase 7 system-service eligibility, public-provider hardening, and governance. |
+| SDS #21: [Overlease](../sds/execution_scheduling/overlease.md) | [SUB BUILD PLAN #21 - Overlease](sub_build_plan_021_overlease.md) | First build point remains Phase 3, with Phase 0 through Phase 2 prerequisites and later handoffs through policy/trust, metering/accounting, grid-resident system-service leasing, public-provider constraints, and governance. |
+| SDS #22: [Overmesh](../sds/execution_scheduling/overmesh.md) | [SUB BUILD PLAN #22 - Overmesh](sub_build_plan_022_overmesh.md) | First build point remains Phase 4 for trusted private endpoint discovery and tenant-scoped service routing, with Phase 8 namespace route resolution plus later product, grid-resident, federation, public-provider, native-app, and governance hardening. |
+| SDS #23: [Overmeter](../sds/execution_scheduling/overmeter.md) | [SUB BUILD PLAN #23 - Overmeter](sub_build_plan_023_overmeter.md) | First build point remains Phase 3 for raw usage events, with signed rollups and accounting handoff in Phase 5 plus later product, grid-resident, native-app, public-provider, and governance hardening. |
+| SDS #24: [Overpack](../sds/execution_scheduling/overpack.md) | [SUB BUILD PLAN #24 - Overpack](sub_build_plan_024_overpack.md) | First build point remains Phase 3 for strict workload manifests, with application-intent deployment expansion in Phase 9 plus later federation, public-provider, native-app, and governance hardening. |
+| SDS #25: [Overrun](../sds/execution_scheduling/overrun.md) | [SUB BUILD PLAN #25 - Overrun](sub_build_plan_025_overrun.md) | First build point remains Phase 3 for lease-bound sandbox execution, with Phase 8 Overstore/Overvault integration, Phase 11 public low-sensitivity sandbox constraints, and later governance hardening. |
+| SDS #26: [Oversched](../sds/execution_scheduling/oversched.md) | [SUB BUILD PLAN #26 - Oversched](sub_build_plan_026_oversched.md) | First build point remains Phase 3 for deterministic private-swarm placement, reason codes, Overlease reservation requests, and replayable decisions, with later trust, federation/public, system-service, native-platform, and governance hardening. |
 
 ## Phase 0: Foundation
 
@@ -124,6 +139,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 **Core components:**
 
 - Overcell node agent with install, register, heartbeat, shutdown, and update flow.
+- Node Installer for signed bundle verification, scoped enrollment, protected config rendering, supervised service install, idempotent lifecycle commands, rollback, diagnostics, and uninstall.
 - Node classes: compute, GPU, storage, structured-state, cache, gateway, and specialized.
 - Hardware discovery for CPU, RAM, GPU, storage, bandwidth, OS, accelerator runtime, and region.
 - Benchmark runner for useful capacity, not only hardware names.
@@ -143,7 +159,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 **Core components:**
 
 - Overpack v0 manifest for command jobs, containers/WASI where feasible, model references, inputs, outputs, egress policy, and resource cards.
-- Oversched v0 for private-swarm placement using capability, availability, trust class, region, cache hints, and resource cards.
+- Oversched v0 for private-swarm placement using queue priority, capability, availability, workload/resource cards, policy, trust, grant, cost-class, cache, locality, lease availability, reason codes, and replayable placement decisions.
 - Overlease v0 for short-lived reservations and stale lease cleanup.
 - Overrun v0 for sandbox preparation, package verification, execution supervision, result capture, and safe termination.
 - Overmeter v0 for raw usage events: CPU time, GPU time, storage, bandwidth, wall time, queue wait, and model inference.
@@ -185,6 +201,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 - ORU states: available, reserved, held, spent, earned, sponsored, refunded/corrected, expired/revoked.
 - Resource-class dimensions: CPU-ORU, GPU-ORU, STOR-ORU, NET-ORU, MEM-ORU, DATA-ORU.
 - Overmeter rollup signing, retention, and dispute windows.
+- Overcache usage facts for cache hits, misses, writes, storage bytes, egress, warming, eviction, and saved upstream work.
 - Seal Ledger append-only accounting for balances, holds, usage rollups, corrections, disputes, and settlement state.
 - Overmark v0 for bounded reference rates, resource cards, budgets, and placement signals.
 - Overgrant primitives for programmable allocation of sponsored, grant-funded, and purpose-scoped resources.

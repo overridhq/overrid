@@ -34,6 +34,7 @@ Build tenant, subtenant, role, quota, suspension, private-swarm, white-label, an
 ## Detailed SDS
 
 - [Overtenant SDS](../../sds/control_plane/overtenant.md)
+- [SUB BUILD PLAN #14 - Overtenant](../../build_plan/sub_build_plan_014_overtenant.md)
 
 ## Design Alignment
 

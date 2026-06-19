@@ -13,10 +13,11 @@ Hardware Discovery is an evidence collection and normalization component. It rep
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [hardware_discovery.md](../../service_catalog/execution_scheduling/hardware_discovery.md) |
+| Sub-build plan | [SUB BUILD PLAN #17 - Hardware Discovery](../../build_plan/sub_build_plan_017_hardware_discovery.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 2: Seed Private Swarm](../../build_plan/phase_02_seed_private_swarm.md) |
+| Build phase alignment | [Phase 2: Seed Private Swarm](../../build_plan/phase_02_seed_private_swarm.md), [Phase 3: Private Execution Loop](../../build_plan/phase_03_private_execution_loop.md), [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md), [Phase 7: Grid-Resident Backbone](../../build_plan/phase_07_grid_resident_backbone.md), [Phase 10: Trusted Federation and Public-Interest Pools](../../build_plan/phase_10_trusted_federation_public_interest_pools.md), [Phase 11: Limited Public Low-Sensitivity Pool](../../build_plan/phase_11_limited_public_low_sensitivity_pool.md), [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md) |
 
 ## Service Family
 

@@ -33,6 +33,10 @@ Define the protocol rules that make all Overrid services behave like one coheren
 
 - [Overrid Protocol Core SDS](../../sds/control_plane/overrid_protocol_core.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #13 - Overrid Protocol Core](../../build_plan/sub_build_plan_013_overrid_protocol_core.md)
+
 ## Design Alignment
 
 - Treat Protocol Core as a specification and conformance layer, not a deployed runtime service.

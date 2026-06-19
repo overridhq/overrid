@@ -13,6 +13,7 @@ Overtenant is the authority for tenant scope and role-based control. It tells Ov
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [overtenant.md](../../service_catalog/control_plane/overtenant.md) |
+| Sub-build plan | [SUB BUILD PLAN #14 - Overtenant](../../build_plan/sub_build_plan_014_overtenant.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

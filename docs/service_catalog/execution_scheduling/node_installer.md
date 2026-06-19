@@ -32,7 +32,8 @@ Make seed and provider node onboarding repeatable and auditable.
 
 ## Detailed SDS
 
-The detailed design contract lives in [Node Installer SDS](../../sds/execution_scheduling/node_installer.md).
+- [Node Installer SDS](../../sds/execution_scheduling/node_installer.md)
+- [SUB BUILD PLAN #18 - Node Installer](../../build_plan/sub_build_plan_018_node_installer.md)
 
 ## Design Alignment
 

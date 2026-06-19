@@ -13,10 +13,11 @@ Benchmark Runner is the evidence-producing benchmark coordinator for Phase 2 pri
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [benchmark_runner.md](../../service_catalog/execution_scheduling/benchmark_runner.md) |
+| Sub-build plan | [SUB BUILD PLAN #16 - Benchmark Runner](../../build_plan/sub_build_plan_016_benchmark_runner.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 2: Seed Private Swarm](../../build_plan/phase_02_seed_private_swarm.md), [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md) |
+| Build phase alignment | [Phase 2: Seed Private Swarm](../../build_plan/phase_02_seed_private_swarm.md), [Phase 3: Private Execution Loop](../../build_plan/phase_03_private_execution_loop.md), [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md), [Phase 7: Grid-Resident Backbone](../../build_plan/phase_07_grid_resident_backbone.md), [Phase 11: Limited Public Low-Sensitivity Pool](../../build_plan/phase_11_limited_public_low_sensitivity_pool.md), [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md) |
 
 ## Service Family
 

@@ -35,6 +35,8 @@ Private discovery in [Phase 4: Trust, Policy, and Verification](../../build_plan
 
 The detailed design contract lives in [Overmesh SDS](../../sds/execution_scheduling/overmesh.md).
 
+- [SUB BUILD PLAN #22 - Overmesh](../../build_plan/sub_build_plan_022_overmesh.md)
+
 ## Design Alignment
 
 - Treat Overmesh as policy-bound private connectivity and route metadata, not an unmanaged public network or generic VPN.

@@ -15,7 +15,7 @@ The founder hardware is the bootstrap environment. The architecture must already
 ## Build Order
 
 1. Define node roles and inventory schema.
-2. Build Overcell node-agent install and registration.
+2. Build Node Installer and Overcell node-agent registration.
 3. Add heartbeat and lifecycle state.
 4. Add hardware discovery.
 5. Add benchmark runner.
@@ -38,11 +38,14 @@ Define node classes:
 
 Each node record should include owner, tenant visibility, physical or logical location, trust class, resource class, maintenance state, and current eligibility.
 
-## Workstream 2: Overcell Node Agent
+## Workstream 2: Node Installer And Overcell Node Agent
 
-Build the node agent with:
+Build the signed installer and node agent with:
 
-- Install command.
+- Signed bundle verification and local preflight checks.
+- Scoped enrollment through Overkey and Overgate.
+- Protected node-agent config rendering.
+- Supervised service installation.
 - Registration command.
 - Node credential creation or enrollment.
 - Heartbeat.
@@ -52,7 +55,7 @@ Build the node agent with:
 - Version reporting.
 - Upgrade placeholder.
 
-The first agent can be narrow, but it must be built as a long-running supervised process, not a one-off script.
+The first installer can be narrow, but it must install the Rust Overcell agent as a long-running supervised process, not a one-off script or remote shell.
 
 ## Workstream 3: Heartbeat And Lifecycle
 
@@ -110,6 +113,7 @@ Add tenant-scoped resource visibility:
 
 - At least one seed server registers.
 - At least one GPU node registers.
+- Signed installer reruns are idempotent and preserve node identity.
 - Control plane shows live, stale, expired, draining, and disabled states in tests or fixtures.
 - Benchmark records are persisted and linked to node capability records.
 - Node-agent reconnect after restart preserves identity and state.

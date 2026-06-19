@@ -34,6 +34,8 @@ Raw events in [Phase 3: Private Execution Loop](../../build_plan/phase_03_privat
 
 The detailed design contract lives in [Overmeter SDS](../../sds/execution_scheduling/overmeter.md).
 
+- [SUB BUILD PLAN #23 - Overmeter](../../build_plan/sub_build_plan_023_overmeter.md)
+
 ## Design Alignment
 
 - Treat Overmeter as raw usage and signed rollup infrastructure, not billing, pricing, settlement, or ledger mutation.

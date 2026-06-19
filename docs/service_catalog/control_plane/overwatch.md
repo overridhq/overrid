@@ -33,6 +33,7 @@ Event log in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control
 ## Detailed SDS
 
 - [Overwatch SDS](../../sds/control_plane/overwatch.md)
+- [SUB BUILD PLAN #15 - Overwatch](../../build_plan/sub_build_plan_015_overwatch.md)
 
 ## Design Alignment
 

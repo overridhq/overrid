@@ -51,10 +51,13 @@ Build placement logic for private swarm:
 - Filter by resource class.
 - Filter by capability record.
 - Filter by node state.
+- Filter by workload class, data class, package trust, egress, secret, and policy refs.
 - Filter by trust class.
 - Filter by locality or region if requested.
 - Consider cache hints.
-- Choose candidate and emit placement decision event.
+- Apply grant, cost-class, lease-availability, and private-swarm fairness constraints before scoring.
+- Choose candidate, record candidate snapshots, filter results, score explanations, reason codes, and replay bundle refs.
+- Request reservations through Overlease only after a durable placement decision exists.
 
 The first scheduler should be deterministic and explainable. Reason codes are more important than sophisticated optimization at this stage.
 

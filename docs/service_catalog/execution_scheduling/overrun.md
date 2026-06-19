@@ -10,8 +10,11 @@ Build sandbox preparation, pre-flight checks, execution supervision, credential 
 
 ## Dependencies
 
+- Overcell.
 - Overlease.
 - Overpack.
+- Oversched.
+- Overguard.
 - Overvault.
 - Overstore.
 - Overmeter.
@@ -37,6 +40,8 @@ Build sandbox preparation, pre-flight checks, execution supervision, credential 
 ## Detailed SDS
 
 The detailed design contract lives in [Overrun SDS](../../sds/execution_scheduling/overrun.md).
+
+- [SUB BUILD PLAN #25 - Overrun](../../build_plan/sub_build_plan_025_overrun.md)
 
 ## Design Alignment
 

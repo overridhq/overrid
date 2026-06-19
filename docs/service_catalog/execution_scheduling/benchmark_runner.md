@@ -31,7 +31,8 @@ Measure useful node capacity so scheduling and verification do not rely only on 
 
 ## Detailed SDS
 
-The detailed design contract lives in [Benchmark Runner SDS](../../sds/execution_scheduling/benchmark_runner.md).
+- [Benchmark Runner SDS](../../sds/execution_scheduling/benchmark_runner.md)
+- [SUB BUILD PLAN #16 - Benchmark Runner](../../build_plan/sub_build_plan_016_benchmark_runner.md)
 
 ## Design Alignment
 

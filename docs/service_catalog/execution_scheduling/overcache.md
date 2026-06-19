@@ -32,7 +32,8 @@ Trust scopes in [Phase 4: Trust, Policy, and Verification](../../build_plan/phas
 
 ## Detailed SDS
 
-The detailed design contract lives in [Overcache SDS](../../sds/execution_scheduling/overcache.md).
+- [Overcache SDS](../../sds/execution_scheduling/overcache.md)
+- [SUB BUILD PLAN #19 - Overcache](../../build_plan/sub_build_plan_019_overcache.md)
 
 ## Design Alignment
 

@@ -13,17 +13,18 @@ Overcache exists to reduce repeated compute, storage, and network waste. It is u
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [overcache.md](../../service_catalog/execution_scheduling/overcache.md) |
+| Sub-build plan | [SUB BUILD PLAN #19 - Overcache](../../build_plan/sub_build_plan_019_overcache.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) |
+| Build phase alignment | [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md), [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md), [Phase 11: Limited Public Low-Sensitivity Pool](../../build_plan/phase_11_limited_public_low_sensitivity_pool.md) |
 
 ## Service Family
 
 - Family: Execution and scheduling
 - Owning layer: Policy-governed reuse and cache metadata
 - Primary data scope: cache keys, cache entries, trust scopes, provenance, artifact refs, access grants, invalidations, warming jobs, eviction records, and cache usage events
-- First build phase from service plan: cache trust scopes in [Phase 4](../../build_plan/phase_04_trust_policy_verification.md), broader reuse after [Phase 8](../../build_plan/phase_08_data_storage_namespace_platform.md)
+- First build phase from service plan: cache trust scopes in [Phase 4](../../build_plan/phase_04_trust_policy_verification.md), usage-fact handoff in [Phase 5](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md), and broader reuse after [Phase 8](../../build_plan/phase_08_data_storage_namespace_platform.md)
 
 ## Problem Statement
 

@@ -86,6 +86,8 @@ Convert raw usage into signed rollups:
 - Policy refs.
 - Signature.
 - Dispute window.
+- Cache dimensions from Overcache: hit, miss, write, read, storage bytes, egress, warming, eviction, retention, invalidation, and saved upstream work.
+- Model inference, RAG retrieval, mesh transfer, storage, native app, and service-unit dimensions as those source services come online.
 
 Rollups are the bridge between execution and accounting.
 

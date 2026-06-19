@@ -32,7 +32,8 @@ Build the node-agent and resource abstraction for participant-owned compute, GPU
 
 ## Detailed SDS
 
-The detailed design contract lives in [Overcell SDS](../../sds/execution_scheduling/overcell.md).
+- [Overcell SDS](../../sds/execution_scheduling/overcell.md)
+- [SUB BUILD PLAN #20 - Overcell](../../build_plan/sub_build_plan_020_overcell.md)
 
 ## Design Alignment
 

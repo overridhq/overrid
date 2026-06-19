@@ -17,6 +17,7 @@ Overregistry is the declared-facts store for Overrid. It keeps accepted manifest
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) |
+| Sub-build plan | [SUB BUILD PLAN #12 - Overregistry](../../build_plan/sub_build_plan_012_overregistry.md) |
 
 ## Service Family
 
