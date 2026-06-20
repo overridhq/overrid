@@ -35,6 +35,7 @@ tmp/
 temp/
 
 # Development-only planning, raw source, and agent progress trails
+docs/tubitak/
 docs/planning/
 docs/old_whitepaper.txt
 docs/**/progress.md

@@ -6,12 +6,12 @@ use overrid_contracts::{
     SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
 };
 
+use crate::artifacts::{ArtifactLocator, ArtifactSummary};
 use crate::assertions::{
     accounting_ledger_dag_trace_contract, assert_golden_trace, execution_loop_dag_trace_contract,
     phase01_protocol_trace_contract, policy_dispute_dag_trace_contract, GoldenTraceAssertion,
     ObservedTrace, ObservedTraceEvent,
 };
-use crate::artifacts::{ArtifactLocator, ArtifactSummary};
 use crate::fixtures::{sanitize_identifier, stable_short_token, DEFAULT_FIXTURE_SEED};
 use crate::local_stack::{
     is_local_test_profile, LocalStackHarness, LocalStackReport, ServiceHealthSummary,
@@ -700,12 +700,10 @@ impl HarnessRunner {
                                 report.reason_class = "assertion".to_owned();
                                 report.message =
                                     "scenario golden trace assertion failed".to_owned();
-                                report.artifacts = vec![
-                                    ArtifactLocator::new(&self.options.artifact_root).lookup(
-                                        &context.run_id,
-                                        ArtifactRetentionClass::FailureEvidence,
-                                    ),
-                                ];
+                                report.artifacts = vec![ArtifactLocator::new(
+                                    &self.options.artifact_root,
+                                )
+                                .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence)];
                             }
                             assertion_refs.push(phase7_assertion.assertion.assertion_id);
                         }
@@ -714,7 +712,8 @@ impl HarnessRunner {
                         report.status = HarnessRunStatus::Failed;
                         report.reason_code = "golden_trace.contract_invalid".to_owned();
                         report.reason_class = "assertion".to_owned();
-                        report.message = "scenario golden trace contract did not validate".to_owned();
+                        report.message =
+                            "scenario golden trace contract did not validate".to_owned();
                         report.artifacts = vec![ArtifactLocator::new(&self.options.artifact_root)
                             .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence)];
                     }
@@ -1540,9 +1539,10 @@ mod tests {
             });
             assert_eq!(output.status, HarnessRunStatus::Passed, "{scenario_id}");
             assert_eq!(output.reason_code, "run.passed", "{scenario_id}");
-            assert!(output
-                .assertion_refs
-                .contains(&assertion_id.to_owned()), "{scenario_id}");
+            assert!(
+                output.assertion_refs.contains(&assertion_id.to_owned()),
+                "{scenario_id}"
+            );
             assert!(output.lifecycle.contains(&HarnessLifecycleState::Asserting));
         }
     }

@@ -74,10 +74,7 @@ pub struct ObservedTrace {
 }
 
 impl ObservedTrace {
-    pub fn new(
-        events: Vec<ObservedTraceEvent>,
-        causal_edges: Vec<(String, String)>,
-    ) -> Self {
+    pub fn new(events: Vec<ObservedTraceEvent>, causal_edges: Vec<(String, String)>) -> Self {
         Self {
             events,
             causal_edges,
@@ -142,9 +139,18 @@ pub fn phase01_protocol_trace_contract(
                 "event_tenant_created".to_owned(),
                 "event_identity_created".to_owned(),
             ),
-            ("event_identity_created".to_owned(), "event_key_created".to_owned()),
-            ("event_key_created".to_owned(), "event_audit_written".to_owned()),
-            ("event_audit_written".to_owned(), "event_audit_read".to_owned()),
+            (
+                "event_identity_created".to_owned(),
+                "event_key_created".to_owned(),
+            ),
+            (
+                "event_key_created".to_owned(),
+                "event_audit_written".to_owned(),
+            ),
+            (
+                "event_audit_written".to_owned(),
+                "event_audit_read".to_owned(),
+            ),
             (
                 "event_audit_read".to_owned(),
                 "event_idempotency_observed".to_owned(),
@@ -190,8 +196,16 @@ pub fn execution_loop_dag_trace_contract() -> Result<GoldenTrace, HarnessContrac
             ),
             ("event_lease_acquired", "execution.lease", "lease.acquired"),
             ("event_runner_started", "execution.runner", "runner.started"),
-            ("event_result_recorded", "execution.result", "result.recorded"),
-            ("event_retry_evaluated", "execution.retry", "retry.evaluated"),
+            (
+                "event_result_recorded",
+                "execution.result",
+                "result.recorded",
+            ),
+            (
+                "event_retry_evaluated",
+                "execution.retry",
+                "retry.evaluated",
+            ),
             (
                 "event_cancellation_checked",
                 "execution.cancellation",
@@ -262,11 +276,11 @@ pub fn policy_dispute_dag_trace_contract() -> Result<GoldenTrace, HarnessContrac
             ),
         ],
         &[
-            ("event_policy_package_loaded", "event_verification_requested"),
             (
+                "event_policy_package_loaded",
                 "event_verification_requested",
-                "event_verification_decided",
             ),
+            ("event_verification_requested", "event_verification_decided"),
             ("event_verification_decided", "event_dispute_window_opened"),
             (
                 "event_dispute_window_opened",
@@ -277,10 +291,7 @@ pub fn policy_dispute_dag_trace_contract() -> Result<GoldenTrace, HarnessContrac
                 "event_policy_audit_written",
             ),
         ],
-        &[(
-            "event_policy_audit_written",
-            "event_verification_requested",
-        )],
+        &[("event_policy_audit_written", "event_verification_requested")],
     )
 }
 
@@ -292,7 +303,11 @@ pub fn accounting_ledger_dag_trace_contract() -> Result<GoldenTrace, HarnessCont
             ("event_ledger_debited", "ledger.debit", "ledger.debited"),
             ("event_receipt_written", "receipt.write", "receipt.written"),
             ("event_receipt_read", "receipt.read", "receipt.read"),
-            ("event_ledger_audit_written", "ledger.audit", "audit.written"),
+            (
+                "event_ledger_audit_written",
+                "ledger.audit",
+                "audit.written",
+            ),
         ],
         &[
             ("event_usage_metered", "event_ledger_debited"),
@@ -659,8 +674,16 @@ mod tests {
         let trace = execution_loop_dag_trace_contract().unwrap();
         let observed = ObservedTrace::new(
             vec![
-                ObservedTraceEvent::new("event_usage_recorded", "execution.usage", "usage.recorded"),
-                ObservedTraceEvent::new("event_queue_admitted", "execution.queue", "queue.admitted"),
+                ObservedTraceEvent::new(
+                    "event_usage_recorded",
+                    "execution.usage",
+                    "usage.recorded",
+                ),
+                ObservedTraceEvent::new(
+                    "event_queue_admitted",
+                    "execution.queue",
+                    "queue.admitted",
+                ),
                 ObservedTraceEvent::diagnostic(
                     "event_execution_diagnostic_extra",
                     "execution.diagnostic",
@@ -734,12 +757,10 @@ mod tests {
                 .zip(trace.stable_reason_codes.iter())
                 .map(|(node, reason)| ObservedTraceEvent::new(node, "execution.loop", reason))
                 .collect(),
-            vec![
-                (
-                    "event_audit_written".to_owned(),
-                    "event_runner_started".to_owned(),
-                ),
-            ],
+            vec![(
+                "event_audit_written".to_owned(),
+                "event_runner_started".to_owned(),
+            )],
         );
 
         let assertion = assert_golden_trace(
@@ -769,8 +790,9 @@ mod tests {
             trace.required_causal_edges.clone(),
         );
         observed.events[0].reason_code = "usage.private_payload_seen".to_owned();
-        observed.events[1] =
-            observed.events[1].clone().with_schema_version("integration-harness.v0.99");
+        observed.events[1] = observed.events[1]
+            .clone()
+            .with_schema_version("integration-harness.v0.99");
 
         let assertion = assert_golden_trace(
             "assertion_phase7_accounting_ledger_trace",
