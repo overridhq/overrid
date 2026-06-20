@@ -42,12 +42,15 @@ pub struct GlobalOptions {
     pub reason: Option<String>,
     pub trace_id: Option<String>,
     pub idempotency_key: Option<String>,
+    pub new_idempotency_key: bool,
     pub expected_state: Option<String>,
     pub target_ref: Option<String>,
     pub manifest_kind: Option<String>,
     pub manifest_ref: Option<String>,
     pub workload_ref: Option<String>,
     pub workload_kind: Option<String>,
+    pub timeout_ms: Option<u64>,
+    pub max_retries: Option<u8>,
     pub dry_run: bool,
 }
 
@@ -79,12 +82,15 @@ impl Default for GlobalOptions {
             reason: None,
             trace_id: None,
             idempotency_key: None,
+            new_idempotency_key: false,
             expected_state: None,
             target_ref: None,
             manifest_kind: None,
             manifest_ref: None,
             workload_ref: None,
             workload_kind: None,
+            timeout_ms: None,
+            max_retries: None,
             dry_run: false,
         }
     }
@@ -103,6 +109,7 @@ pub enum Command {
     Key(KeyCommand),
     Manifest(ManifestCommand),
     Workload(WorkloadCommand),
+    IdempotencyCache(IdempotencyCacheCommand),
     Planned(PlannedCommand),
 }
 
@@ -249,6 +256,21 @@ impl WorkloadCommand {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdempotencyCacheCommand {
+    Inspect,
+    Reset,
+}
+
+impl IdempotencyCacheCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Inspect => "idempotency-cache inspect",
+            Self::Reset => "idempotency-cache reset",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlannedCommand {
     Node,
     WorkloadExecution,
@@ -295,6 +317,7 @@ pub enum CliParseError {
     UnknownCommand(String),
     ConflictingOutputMode,
     InvalidOutputMode(String),
+    InvalidNumericFlag(&'static str, String),
 }
 
 impl fmt::Display for CliParseError {
@@ -307,6 +330,9 @@ impl fmt::Display for CliParseError {
                 formatter.write_str("--json conflicts with --output human")
             }
             Self::InvalidOutputMode(mode) => write!(formatter, "invalid output mode: {mode}"),
+            Self::InvalidNumericFlag(flag, value) => {
+                write!(formatter, "invalid numeric value for {flag}: {value}")
+            }
         }
     }
 }
@@ -339,6 +365,7 @@ where
             "--revoked" => globals.revoked = true,
             "--expired" => globals.expired = true,
             "--dry-run" => globals.dry_run = true,
+            "--new-idempotency-key" => globals.new_idempotency_key = true,
             "--profile" => globals.profile = Some(next_value(&mut iter, "--profile")?),
             "--environment" => globals.environment = Some(next_value(&mut iter, "--environment")?),
             "--endpoint" => globals.endpoint = Some(next_value(&mut iter, "--endpoint")?),
@@ -390,6 +417,14 @@ where
             "--workload-kind" => {
                 globals.workload_kind = Some(next_value(&mut iter, "--workload-kind")?)
             }
+            "--timeout-ms" => {
+                let value = next_value(&mut iter, "--timeout-ms")?;
+                globals.timeout_ms = Some(parse_numeric_flag("--timeout-ms", &value)?);
+            }
+            "--max-retries" => {
+                let value = next_value(&mut iter, "--max-retries")?;
+                globals.max_retries = Some(parse_numeric_flag("--max-retries", &value)?);
+            }
             "--output" => {
                 let value = next_value(&mut iter, "--output")?;
                 match value.as_str() {
@@ -409,6 +444,15 @@ where
 
     let command = command_from_tokens(&command_tokens)?;
     Ok(ParsedCli { globals, command })
+}
+
+fn parse_numeric_flag<T>(flag: &'static str, value: &str) -> Result<T, CliParseError>
+where
+    T: std::str::FromStr,
+{
+    value
+        .parse::<T>()
+        .map_err(|_| CliParseError::InvalidNumericFlag(flag, value.to_owned()))
 }
 
 fn next_value<I>(iter: &mut I, flag: &'static str) -> Result<String, CliParseError>
@@ -449,6 +493,7 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "manifest" => manifest_command(tokens),
         "node" => Ok(Command::Planned(PlannedCommand::Node)),
         "workload" => workload_command(tokens),
+        "idempotency" | "idempotency-cache" => idempotency_cache_command(tokens),
         "policy" => Ok(Command::Planned(PlannedCommand::Policy)),
         "usage" | "receipt" | "dispute" => Ok(Command::Planned(PlannedCommand::Usage)),
         "package" | "deploy" | "deployment" => Ok(Command::Planned(PlannedCommand::Package)),
@@ -515,6 +560,16 @@ fn workload_command(tokens: &[String]) -> Result<Command, CliParseError> {
             Ok(Command::Planned(PlannedCommand::WorkloadExecution))
         }
         other => Err(CliParseError::UnknownCommand(format!("workload {other}"))),
+    }
+}
+
+fn idempotency_cache_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("inspect") {
+        "inspect" => Ok(Command::IdempotencyCache(IdempotencyCacheCommand::Inspect)),
+        "reset" => Ok(Command::IdempotencyCache(IdempotencyCacheCommand::Reset)),
+        other => Err(CliParseError::UnknownCommand(format!(
+            "idempotency-cache {other}"
+        ))),
     }
 }
 
@@ -672,6 +727,12 @@ mod tests {
             parse_cli(["overrid", "workload", "logs"]).unwrap().command,
             Command::Planned(PlannedCommand::WorkloadExecution)
         );
+        assert_eq!(
+            parse_cli(["overrid", "idempotency-cache", "inspect"])
+                .unwrap()
+                .command,
+            Command::IdempotencyCache(IdempotencyCacheCommand::Inspect)
+        );
     }
 
     #[test]
@@ -696,6 +757,11 @@ mod tests {
             "synthetic",
             "--workload-ref",
             "workload_local",
+            "--new-idempotency-key",
+            "--timeout-ms",
+            "4500",
+            "--max-retries",
+            "3",
             "--dry-run",
         ])
         .unwrap();
@@ -718,6 +784,17 @@ mod tests {
             parsed.globals.workload_ref.as_deref(),
             Some("workload_local")
         );
+        assert!(parsed.globals.new_idempotency_key);
+        assert_eq!(parsed.globals.timeout_ms, Some(4500));
+        assert_eq!(parsed.globals.max_retries, Some(3));
         assert!(parsed.globals.dry_run);
+    }
+
+    #[test]
+    fn rejects_invalid_phase6_numeric_flags() {
+        assert!(matches!(
+            parse_cli(["overrid", "tenant", "create", "--timeout-ms", "soon"]),
+            Err(CliParseError::InvalidNumericFlag("--timeout-ms", value)) if value == "soon"
+        ));
     }
 }

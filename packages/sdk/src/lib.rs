@@ -8,8 +8,12 @@ use overrid_contracts::{
 };
 pub use overrid_contracts::{
     CliProfile, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
-    EnvironmentClass, FixtureAllowance, SignerHandoff,
+    EnvironmentClass, ErrorDecodeRecord, ExitCodeClass, FixtureAllowance, RetryClass,
+    RetryTimeoutPolicy, SignerHandoff,
 };
+
+pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+pub const DEFAULT_MAX_RETRIES: u8 = 2;
 
 const PRIVATE_SERVICE_TARGETS: &[&str] = &[
     "overbase",
@@ -61,10 +65,83 @@ impl ClientConfig {
     pub fn local_overgate(raw_endpoint: impl Into<String>) -> Result<Self, SdkError> {
         Ok(Self {
             endpoint: OvergateEndpoint::parse(raw_endpoint, EnvironmentClass::Local)?,
-            timeout_ms: 10_000,
-            max_retries: 2,
+            timeout_ms: DEFAULT_TIMEOUT_MS,
+            max_retries: DEFAULT_MAX_RETRIES,
             schema_version: SUPPORTED_SCHEMA_VERSION.to_owned(),
         })
+    }
+}
+
+pub fn retry_timeout_policy(
+    max_retries: Option<u8>,
+    timeout_ms: Option<u64>,
+) -> RetryTimeoutPolicy {
+    RetryTimeoutPolicy::bounded(
+        max_retries.unwrap_or(DEFAULT_MAX_RETRIES),
+        timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
+    )
+}
+
+pub fn decode_phase6_error(
+    reason_code: &str,
+    _message: &str,
+    exit_class: ExitCodeClass,
+    retry_class: RetryClass,
+) -> ErrorDecodeRecord {
+    ErrorDecodeRecord::new(
+        error_source_family(exit_class),
+        reason_code,
+        retry_class,
+        exit_class,
+        remediation_hint(reason_code, exit_class, retry_class),
+    )
+}
+
+fn error_source_family(exit_class: ExitCodeClass) -> &'static str {
+    match exit_class {
+        ExitCodeClass::Success => "success",
+        ExitCodeClass::Usage | ExitCodeClass::Config | ExitCodeClass::LocalIo => "cli",
+        ExitCodeClass::Credential => "credential",
+        ExitCodeClass::Schema => "schema",
+        ExitCodeClass::Policy => "policy",
+        ExitCodeClass::Phase => "phase",
+        ExitCodeClass::Idempotency => "idempotency",
+        ExitCodeClass::Transport | ExitCodeClass::Timeout | ExitCodeClass::Platform => "platform",
+    }
+}
+
+fn remediation_hint(
+    reason_code: &str,
+    exit_class: ExitCodeClass,
+    retry_class: RetryClass,
+) -> &'static str {
+    match retry_class {
+        RetryClass::SafeRetry => "retry with the same idempotency key",
+        RetryClass::RetryAfter => {
+            "retry after the service-provided wait window with the same idempotency key"
+        }
+        RetryClass::OperatorReview => "capture the trace id and request operator review",
+        RetryClass::NotRetryable => match exit_class {
+            ExitCodeClass::Phase => "wait for the owning phase before retrying this route",
+            ExitCodeClass::Credential => "fix the credential reference before retrying",
+            ExitCodeClass::Schema => "update the CLI or schema pin before retrying",
+            ExitCodeClass::Policy => "change the request to satisfy policy before retrying",
+            ExitCodeClass::Idempotency => {
+                "inspect or reset the local idempotency cache before retrying"
+            }
+            ExitCodeClass::Timeout => "check status by trace id before deciding whether to retry",
+            ExitCodeClass::Usage if reason_code == "missing_reason" => {
+                "provide a non-empty --reason for admin-impacting operations"
+            }
+            ExitCodeClass::Usage => "correct the command arguments before retrying",
+            ExitCodeClass::Config => {
+                "correct the profile or endpoint configuration before retrying"
+            }
+            ExitCodeClass::Transport | ExitCodeClass::Platform | ExitCodeClass::LocalIo => {
+                "inspect diagnostics and retry only after the local condition is fixed"
+            }
+            ExitCodeClass::Success => "no remediation required",
+        },
     }
 }
 
@@ -417,6 +494,33 @@ mod tests {
         assert!(request
             .headers
             .contains(&("x-overrid-target".to_owned(), "overgate".to_owned())));
+    }
+
+    #[test]
+    fn builds_bounded_retry_timeout_policy() {
+        let default_policy = retry_timeout_policy(None, None);
+        assert_eq!(default_policy.max_retries, DEFAULT_MAX_RETRIES);
+        assert_eq!(default_policy.timeout_ms, DEFAULT_TIMEOUT_MS);
+        assert!(default_policy.bounded);
+
+        let clamped = retry_timeout_policy(Some(9), Some(900_000));
+        assert_eq!(clamped.max_retries, 5);
+        assert_eq!(clamped.timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn decodes_errors_without_internal_details() {
+        let record = decode_phase6_error(
+            "transport_unavailable",
+            "socket reset",
+            ExitCodeClass::Transport,
+            RetryClass::SafeRetry,
+        );
+
+        assert_eq!(record.source_family, "platform");
+        assert_eq!(record.retry_class, RetryClass::SafeRetry);
+        assert!(record.remediation_hint.contains("same idempotency key"));
+        assert!(!record.raw_internal_error_exposed);
     }
 
     #[test]

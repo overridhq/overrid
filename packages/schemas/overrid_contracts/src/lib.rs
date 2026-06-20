@@ -880,6 +880,23 @@ fn contains_raw_secret_marker(value: &str) -> bool {
         || lower.contains("raw_key")
 }
 
+fn idempotency_component(value: &str) -> String {
+    let mut rendered = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    while rendered.contains("__") {
+        rendered = rendered.replace("__", "_");
+    }
+    rendered.trim_matches('_').to_owned()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraceContext {
     pub trace_id: String,
@@ -913,6 +930,158 @@ impl IdempotencyRecord {
             command_type: command_type.into(),
             schema_version: ensure_supported_schema_version(schema_version)?,
         })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonicalIdempotencyFingerprint {
+    pub environment_class: EnvironmentClass,
+    pub endpoint_identity: String,
+    pub tenant_id: String,
+    pub actor_id: String,
+    pub command_type: String,
+    pub target_ref: String,
+    pub canonical_payload_hash: String,
+    pub expected_current_state: Option<String>,
+    pub reason: Option<String>,
+    pub schema_version: SchemaVersion,
+    pub fingerprint: String,
+}
+
+impl CanonicalIdempotencyFingerprint {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        environment_class: EnvironmentClass,
+        endpoint_identity: impl Into<String>,
+        tenant_id: impl Into<String>,
+        actor_id: impl Into<String>,
+        command_type: impl Into<String>,
+        target_ref: impl Into<String>,
+        canonical_payload_hash: impl Into<String>,
+        expected_current_state: Option<String>,
+        reason: Option<String>,
+        schema_version: &str,
+        fingerprint: impl Into<String>,
+    ) -> Result<Self, ContractError> {
+        Ok(Self {
+            environment_class,
+            endpoint_identity: endpoint_identity.into(),
+            tenant_id: tenant_id.into(),
+            actor_id: actor_id.into(),
+            command_type: command_type.into(),
+            target_ref: target_ref.into(),
+            canonical_payload_hash: canonical_payload_hash.into(),
+            expected_current_state,
+            reason,
+            schema_version: ensure_supported_schema_version(schema_version)?,
+            fingerprint: fingerprint.into(),
+        })
+    }
+
+    pub fn idempotency_key(&self) -> String {
+        format!("idem_{}", idempotency_component(&self.fingerprint))
+    }
+
+    pub fn new_operation_idempotency_key(&self, trace_id: &str) -> String {
+        format!(
+            "idem_new_{}_{}",
+            idempotency_component(&self.fingerprint),
+            idempotency_component(trace_id)
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetryTimeoutPolicy {
+    pub max_retries: u8,
+    pub timeout_ms: u64,
+    pub bounded: bool,
+    pub retryable_classes: Vec<RetryClass>,
+    pub non_retryable_reason_families: Vec<String>,
+}
+
+impl RetryTimeoutPolicy {
+    pub fn bounded(max_retries: u8, timeout_ms: u64) -> Self {
+        Self {
+            max_retries: max_retries.min(5),
+            timeout_ms: timeout_ms.clamp(1, 600_000),
+            bounded: true,
+            retryable_classes: vec![RetryClass::SafeRetry, RetryClass::RetryAfter],
+            non_retryable_reason_families: [
+                "schema",
+                "auth",
+                "policy",
+                "phase",
+                "credential",
+                "idempotency_duplicate",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErrorDecodeRecord {
+    pub source_family: String,
+    pub reason_code: String,
+    pub retry_class: RetryClass,
+    pub exit_class: ExitCodeClass,
+    pub remediation_hint: String,
+    pub raw_internal_error_exposed: bool,
+}
+
+impl ErrorDecodeRecord {
+    pub fn new(
+        source_family: impl Into<String>,
+        reason_code: impl Into<String>,
+        retry_class: RetryClass,
+        exit_class: ExitCodeClass,
+        remediation_hint: impl Into<String>,
+    ) -> Self {
+        Self {
+            source_family: source_family.into(),
+            reason_code: reason_code.into(),
+            retry_class,
+            exit_class,
+            remediation_hint: remediation_hint.into(),
+            raw_internal_error_exposed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalIdempotencyCacheRecord {
+    pub cache_scope: String,
+    pub profile_name: String,
+    pub environment_class: EnvironmentClass,
+    pub command_fingerprint: String,
+    pub idempotency_key: String,
+    pub owner_only: bool,
+    pub contains_private_payload: bool,
+    pub resettable: bool,
+    pub inspectable: bool,
+}
+
+impl LocalIdempotencyCacheRecord {
+    pub fn new(
+        profile_name: impl Into<String>,
+        environment_class: EnvironmentClass,
+        command_fingerprint: impl Into<String>,
+        idempotency_key: impl Into<String>,
+    ) -> Self {
+        Self {
+            cache_scope: "profile_environment".to_owned(),
+            profile_name: profile_name.into(),
+            environment_class,
+            command_fingerprint: command_fingerprint.into(),
+            idempotency_key: idempotency_key.into(),
+            owner_only: true,
+            contains_private_payload: false,
+            resettable: true,
+            inspectable: true,
+        }
     }
 }
 
@@ -1236,6 +1405,80 @@ mod tests {
         );
         assert_eq!(envelope.trace_context.trace_id, "trace_cli_local");
         assert!(!envelope.exposes_key_material);
+    }
+
+    #[test]
+    fn canonical_idempotency_fingerprint_carries_phase6_inputs() {
+        let fingerprint = CanonicalIdempotencyFingerprint::new(
+            EnvironmentClass::Local,
+            "fp_local_dev",
+            "tenant_local",
+            "actor_local",
+            "tenant create",
+            "tenant_local",
+            "hash_1234",
+            Some("absent".to_owned()),
+            Some("bootstrap tenant".to_owned()),
+            SUPPORTED_SCHEMA_VERSION,
+            "local:fp_local_dev:tenant:create",
+        )
+        .unwrap();
+
+        assert_eq!(fingerprint.endpoint_identity, "fp_local_dev");
+        assert_eq!(
+            fingerprint.expected_current_state.as_deref(),
+            Some("absent")
+        );
+        assert_eq!(fingerprint.reason.as_deref(), Some("bootstrap tenant"));
+        assert_eq!(fingerprint.schema_version.raw(), SUPPORTED_SCHEMA_VERSION);
+        assert!(fingerprint.idempotency_key().starts_with("idem_"));
+        assert!(fingerprint
+            .new_operation_idempotency_key("trace_cli_new")
+            .starts_with("idem_new_"));
+    }
+
+    #[test]
+    fn retry_timeout_policy_is_bounded_and_classified() {
+        let policy = RetryTimeoutPolicy::bounded(9, 900_000);
+
+        assert_eq!(policy.max_retries, 5);
+        assert_eq!(policy.timeout_ms, 600_000);
+        assert!(policy.bounded);
+        assert!(policy.retryable_classes.contains(&RetryClass::SafeRetry));
+        assert!(policy
+            .non_retryable_reason_families
+            .contains(&"phase".to_owned()));
+    }
+
+    #[test]
+    fn error_decode_record_hides_internal_errors() {
+        let record = ErrorDecodeRecord::new(
+            "platform",
+            "transport_unavailable",
+            RetryClass::SafeRetry,
+            ExitCodeClass::Transport,
+            "retry with the same idempotency key",
+        );
+
+        assert_eq!(record.retry_class, RetryClass::SafeRetry);
+        assert_eq!(record.exit_class, ExitCodeClass::Transport);
+        assert!(!record.raw_internal_error_exposed);
+    }
+
+    #[test]
+    fn local_idempotency_cache_record_is_refs_only() {
+        let record = LocalIdempotencyCacheRecord::new(
+            "local-dev",
+            EnvironmentClass::Local,
+            "fingerprint_local",
+            "idem_fingerprint_local",
+        );
+
+        assert_eq!(record.cache_scope, "profile_environment");
+        assert!(record.owner_only);
+        assert!(!record.contains_private_payload);
+        assert!(record.inspectable);
+        assert!(record.resettable);
     }
 
     #[test]

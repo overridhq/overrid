@@ -1,15 +1,20 @@
 use overrid_contracts::{
-    BootstrapAcceptanceRecord, BootstrapCommandFamily, CliProfile, ConfirmationPolicy,
-    CredentialReference, CredentialReferenceClass, EnvironmentClass, ExitCodeClass,
-    FixtureAllowance, ManifestBootstrapRef, ProfileValidationError, RetryClass,
+    BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint, CliProfile,
+    ConfirmationPolicy, CredentialReference, CredentialReferenceClass, EnvironmentClass,
+    ErrorDecodeRecord, ExitCodeClass, FixtureAllowance, LocalIdempotencyCacheRecord,
+    ManifestBootstrapRef, ProfileValidationError, RetryClass, RetryTimeoutPolicy,
     SignedCommandEnvelope, SyntheticWorkloadPendingState, SUPPORTED_SCHEMA_VERSION,
 };
-use overrid_sdk::{enforce_profile_environment, CommandSafetyInput, SdkError};
+use overrid_sdk::{
+    decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
+    SdkError,
+};
 
 use crate::build_metadata::{human_version_lines, version_info};
 use crate::parser::{
-    parse_cli, AuthCommand, Command, CredentialCommand, GlobalOptions, IdentityCommand, KeyCommand,
-    ManifestCommand, OutputMode, PlannedCommand, ProfileCommand, TenantCommand, WorkloadCommand,
+    parse_cli, AuthCommand, Command, CredentialCommand, GlobalOptions, IdempotencyCacheCommand,
+    IdentityCommand, KeyCommand, ManifestCommand, OutputMode, PlannedCommand, ProfileCommand,
+    TenantCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
@@ -56,6 +61,9 @@ where
             Command::Doctor => success(render_doctor(&parsed.globals)),
             Command::Profile(command) => profile_command_result(command, &parsed.globals),
             Command::Credential(command) => credential_command_result(command, &parsed.globals),
+            Command::IdempotencyCache(command) => {
+                idempotency_cache_command_result(command, &parsed.globals)
+            }
             Command::Auth(command) => auth_command_result(command, &parsed.globals),
             Command::Tenant(command) => tenant_command_result(command, &parsed.globals),
             Command::Identity(command) => identity_command_result(command, &parsed.globals),
@@ -176,6 +184,38 @@ fn credential_command_result(command: CredentialCommand, globals: &GlobalOptions
             .signer_handoff
             .as_ref()
             .map(|handoff| handoff.signature_ref.as_str()),
+        globals.output,
+    ))
+}
+
+fn idempotency_cache_command_result(
+    command: IdempotencyCacheCommand,
+    globals: &GlobalOptions,
+) -> CliRunResult {
+    let profile = match build_profile(globals) {
+        Ok(profile) => profile,
+        Err(error) => {
+            return phase3_error_result(
+                EXIT_CONFIG,
+                globals.output,
+                "profile_validation_failed",
+                &error.to_string(),
+            )
+        }
+    };
+    let command_fingerprint = cache_fingerprint_for_profile(&profile);
+    let idempotency_key = format!("idem_{command_fingerprint}");
+    let cache_record = LocalIdempotencyCacheRecord::new(
+        profile.name.clone(),
+        profile.environment,
+        command_fingerprint,
+        idempotency_key,
+    );
+
+    success(render_idempotency_cache_result(
+        command,
+        &profile,
+        &cache_record,
         globals.output,
     ))
 }
@@ -317,7 +357,11 @@ struct BootstrapContext {
     credential: CredentialReference,
     trace_id: String,
     idempotency_key: String,
+    idempotency_key_source: String,
     target_ref: String,
+    fingerprint: CanonicalIdempotencyFingerprint,
+    retry_policy: RetryTimeoutPolicy,
+    cache_record: LocalIdempotencyCacheRecord,
     signed_envelope: Option<SignedCommandEnvelope>,
     audit_refs: Vec<String>,
 }
@@ -408,9 +452,44 @@ fn prepare_bootstrap_context(
         .trace_id
         .clone()
         .unwrap_or_else(|| LOCAL_TRACE_ID.to_owned());
-    let idempotency_key = globals.idempotency_key.clone().unwrap_or_else(|| {
-        deterministic_idempotency_key(&profile, command_name, target_ref.as_str())
-    });
+    let retry_policy = retry_timeout_policy(globals.max_retries, globals.timeout_ms);
+    let payload_hash = canonical_payload_hash(payload_type, target_ref.as_str(), globals);
+    let fingerprint = match canonical_fingerprint(
+        &profile,
+        command_name,
+        target_ref.as_str(),
+        payload_hash.as_str(),
+        globals,
+    ) {
+        Ok(fingerprint) => fingerprint,
+        Err(error) => {
+            return Err(contract_error_result(
+                globals.output,
+                command_name,
+                &error.to_string(),
+            ))
+        }
+    };
+    let (idempotency_key, idempotency_key_source) =
+        if let Some(idempotency_key) = globals.idempotency_key.clone() {
+            (idempotency_key, "explicit".to_owned())
+        } else if globals.new_idempotency_key {
+            (
+                fingerprint.new_operation_idempotency_key(&trace_id),
+                "new_operation".to_owned(),
+            )
+        } else {
+            (
+                fingerprint.idempotency_key(),
+                "canonical_fingerprint".to_owned(),
+            )
+        };
+    let cache_record = LocalIdempotencyCacheRecord::new(
+        profile.name.clone(),
+        profile.environment,
+        fingerprint.fingerprint.clone(),
+        idempotency_key.clone(),
+    );
     let audit_refs = if mutating {
         vec![format!(
             "audit_cli_bootstrap_{}",
@@ -463,7 +542,11 @@ fn prepare_bootstrap_context(
         credential,
         trace_id,
         idempotency_key,
+        idempotency_key_source,
         target_ref,
+        fingerprint,
+        retry_policy,
+        cache_record,
         signed_envelope,
         audit_refs,
     })
@@ -795,6 +878,7 @@ fn render_help(all_phases: bool) -> String {
         "  doctor                          print redacted local diagnostics and capability status".to_owned(),
         "  profile create|list|select|inspect|reset".to_owned(),
         "  credential enroll|inspect".to_owned(),
+        "  idempotency-cache inspect|reset".to_owned(),
         "  auth login|whoami".to_owned(),
         "  tenant create|list|inspect|suspend".to_owned(),
         "  identity create|list|inspect|disable".to_owned(),
@@ -818,6 +902,9 @@ fn render_help(all_phases: bool) -> String {
         "  --reason TEXT                   reason for admin-impacting operations".to_owned(),
         "  --trace-id ID                   override local trace id".to_owned(),
         "  --idempotency-key KEY           override deterministic idempotency key".to_owned(),
+        "  --new-idempotency-key           create a new key for the same canonical fingerprint".to_owned(),
+        "  --timeout-ms MS                 bounded SDK wait timeout".to_owned(),
+        "  --max-retries COUNT             bounded SDK retry count".to_owned(),
         "  --expected-state STATE          expected current state for mutation".to_owned(),
         "  --target-ref REF                command target reference".to_owned(),
         "  --manifest-kind KIND            resource, workload, package, provider, or native_app".to_owned(),
@@ -915,19 +1002,24 @@ fn render_error_json(
     capabilities: &[CapabilityRoute<'_>],
     trace_id: Option<&str>,
 ) -> String {
+    let error_decode_record = decode_phase6_error(reason_code, message, exit_class, retry_class);
     let error_json = format!(
         concat!(
             "{{",
             "\"reason_code\":\"{}\",",
             "\"message\":\"{}\",",
             "\"phase_gate\":\"{}\",",
-            "\"retry_class\":\"{}\"",
+            "\"retry_class\":\"{}\",",
+            "\"remediation_hint\":\"{}\",",
+            "\"error_decode_record\":{}",
             "}}"
         ),
         json_escape(reason_code),
         json_escape(message),
         json_escape(phase_gate),
         json_escape(retry_class.as_str()),
+        json_escape(&error_decode_record.remediation_hint),
+        render_error_decode_record_json(&error_decode_record),
     );
     render_envelope_json(
         command_name,
@@ -1004,6 +1096,27 @@ fn render_envelope_json(
         ),
         render_capabilities_json(capabilities),
         json_owned_string_array(audit_refs),
+    )
+}
+
+fn render_error_decode_record_json(record: &ErrorDecodeRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"source_family\":\"{}\",",
+            "\"reason_code\":\"{}\",",
+            "\"retry_class\":\"{}\",",
+            "\"exit_class\":\"{}\",",
+            "\"remediation_hint\":\"{}\",",
+            "\"raw_internal_error_exposed\":{}",
+            "}}"
+        ),
+        json_escape(&record.source_family),
+        json_escape(&record.reason_code),
+        json_escape(record.retry_class.as_str()),
+        json_escape(record.exit_class.as_str()),
+        json_escape(&record.remediation_hint),
+        record.raw_internal_error_exposed,
     )
 }
 
@@ -1292,6 +1405,64 @@ fn render_credential_result(
     }
 }
 
+fn render_idempotency_cache_result(
+    command: IdempotencyCacheCommand,
+    profile: &CliProfile,
+    cache_record: &LocalIdempotencyCacheRecord,
+    output: OutputMode,
+) -> String {
+    match output {
+        OutputMode::Human => format!(
+            "idempotency_cache_{}: {} {} private_payload=false",
+            match command {
+                IdempotencyCacheCommand::Inspect => "inspect",
+                IdempotencyCacheCommand::Reset => "reset",
+            },
+            profile.name,
+            profile.environment.as_str()
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"cache_action\":\"{}\",",
+                    "\"cache_status\":\"{}\",",
+                    "\"local_idempotency_cache\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                match command {
+                    IdempotencyCacheCommand::Inspect => "inspect",
+                    IdempotencyCacheCommand::Reset => "reset",
+                },
+                match command {
+                    IdempotencyCacheCommand::Inspect => "empty",
+                    IdempotencyCacheCommand::Reset => "reset",
+                },
+                render_local_idempotency_cache_json(cache_record),
+            );
+            render_success_json(
+                command.as_str(),
+                &result_json,
+                &["parsed", "profile_loaded", "payload_validated", "completed"],
+                Some(&profile.name),
+                Some(&profile.endpoint_fingerprint),
+                &[
+                    "local_idempotency_cache_available",
+                    "owner_only_storage_policy",
+                    "secret_free_refs_only",
+                ],
+                &[CapabilityRoute {
+                    route: "idempotency-cache",
+                    phase_gate: "phase_6",
+                    available: true,
+                }],
+            )
+        }
+    }
+}
+
 fn render_bootstrap_result(
     family: BootstrapCommandFamily,
     command_name: &str,
@@ -1370,6 +1541,7 @@ fn render_bootstrap_result(
                     "\"target_ref\":\"{}\",",
                     "\"payload_type\":\"{}\",",
                     "\"idempotency_key\":\"{}\",",
+                    "\"idempotency_key_source\":\"{}\",",
                     "\"trace_id\":\"{}\",",
                     "\"signed\":{},",
                     "\"signature_ref\":{},",
@@ -1377,6 +1549,9 @@ fn render_bootstrap_result(
                     "\"reason\":{},",
                     "\"dry_run\":{},",
                     "\"submitted_via\":\"sdk_overgate_contract\",",
+                    "\"canonical_idempotency_fingerprint\":{},",
+                    "\"retry_timeout_policy\":{},",
+                    "\"local_idempotency_cache\":{},",
                     "\"signed_command_envelope\":{},",
                     "\"acceptance\":{}{}",
                     "}}"
@@ -1391,6 +1566,7 @@ fn render_bootstrap_result(
                 json_escape(&context.target_ref),
                 json_escape(payload_type),
                 json_escape(&context.idempotency_key),
+                json_escape(&context.idempotency_key_source),
                 json_escape(&context.trace_id),
                 signed,
                 json_optional_string(
@@ -1402,6 +1578,9 @@ fn render_bootstrap_result(
                 json_optional_string(globals.expected_state.as_deref()),
                 json_optional_string(globals.reason.as_deref()),
                 globals.dry_run,
+                render_canonical_fingerprint_json(&context.fingerprint),
+                render_retry_timeout_policy_json(&context.retry_policy),
+                render_local_idempotency_cache_json(&context.cache_record),
                 render_signed_command_envelope_json(context.signed_envelope.as_ref()),
                 render_acceptance_json(acceptance.as_ref()),
                 render_bootstrap_extra_json(result_kind, globals, context),
@@ -1483,6 +1662,88 @@ fn render_acceptance_json(record: Option<&BootstrapAcceptanceRecord>) -> String 
         json_escape(&record.phase_gate),
         json_escape(&record.pending_state),
         json_owned_string_array(&record.audit_refs),
+    )
+}
+
+fn render_canonical_fingerprint_json(fingerprint: &CanonicalIdempotencyFingerprint) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"environment_class\":\"{}\",",
+            "\"endpoint_identity\":\"{}\",",
+            "\"tenant_id\":\"{}\",",
+            "\"actor_id\":\"{}\",",
+            "\"command_type\":\"{}\",",
+            "\"target_ref\":\"{}\",",
+            "\"canonical_payload_hash\":\"{}\",",
+            "\"expected_current_state\":{},",
+            "\"reason\":{},",
+            "\"schema_version\":\"{}\",",
+            "\"fingerprint\":\"{}\"",
+            "}}"
+        ),
+        json_escape(fingerprint.environment_class.as_str()),
+        json_escape(&fingerprint.endpoint_identity),
+        json_escape(&fingerprint.tenant_id),
+        json_escape(&fingerprint.actor_id),
+        json_escape(&fingerprint.command_type),
+        json_escape(&fingerprint.target_ref),
+        json_escape(&fingerprint.canonical_payload_hash),
+        json_optional_string(fingerprint.expected_current_state.as_deref()),
+        json_optional_string(fingerprint.reason.as_deref()),
+        json_escape(fingerprint.schema_version.raw()),
+        json_escape(&fingerprint.fingerprint),
+    )
+}
+
+fn render_retry_timeout_policy_json(policy: &RetryTimeoutPolicy) -> String {
+    let retryable_classes = policy
+        .retryable_classes
+        .iter()
+        .map(|retry_class| retry_class.as_str().to_owned())
+        .collect::<Vec<_>>();
+    format!(
+        concat!(
+            "{{",
+            "\"max_retries\":{},",
+            "\"timeout_ms\":{},",
+            "\"bounded\":{},",
+            "\"retryable_classes\":{},",
+            "\"non_retryable_reason_families\":{}",
+            "}}"
+        ),
+        policy.max_retries,
+        policy.timeout_ms,
+        policy.bounded,
+        json_owned_string_array(&retryable_classes),
+        json_owned_string_array(&policy.non_retryable_reason_families),
+    )
+}
+
+fn render_local_idempotency_cache_json(record: &LocalIdempotencyCacheRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"cache_scope\":\"{}\",",
+            "\"profile_name\":\"{}\",",
+            "\"environment_class\":\"{}\",",
+            "\"command_fingerprint\":\"{}\",",
+            "\"idempotency_key\":\"{}\",",
+            "\"owner_only\":{},",
+            "\"contains_private_payload\":{},",
+            "\"resettable\":{},",
+            "\"inspectable\":{}",
+            "}}"
+        ),
+        json_escape(&record.cache_scope),
+        json_escape(&record.profile_name),
+        json_escape(record.environment_class.as_str()),
+        json_escape(&record.command_fingerprint),
+        json_escape(&record.idempotency_key),
+        record.owner_only,
+        record.contains_private_payload,
+        record.resettable,
+        record.inspectable,
     )
 }
 
@@ -1686,6 +1947,7 @@ fn default_target_ref(globals: &GlobalOptions, fallback: &str) -> String {
         .unwrap_or_else(|| fallback.to_owned())
 }
 
+#[allow(dead_code)]
 fn deterministic_idempotency_key(
     profile: &CliProfile,
     command_name: &str,
@@ -1699,6 +1961,75 @@ fn deterministic_idempotency_key(
         id_component(command_name),
         id_component(target_ref),
     )
+}
+
+fn canonical_payload_hash(payload_type: &str, target_ref: &str, globals: &GlobalOptions) -> String {
+    stable_hash(&format!(
+        "payload_type={}|target_ref={}|expected_state={}|reason={}|manifest_kind={}|manifest_ref={}|workload_kind={}|workload_ref={}|schema={}",
+        payload_type,
+        target_ref,
+        globals.expected_state.as_deref().unwrap_or("none"),
+        globals.reason.as_deref().unwrap_or("none"),
+        globals.manifest_kind.as_deref().unwrap_or("none"),
+        globals.manifest_ref.as_deref().unwrap_or("none"),
+        globals.workload_kind.as_deref().unwrap_or("none"),
+        globals.workload_ref.as_deref().unwrap_or("none"),
+        SUPPORTED_SCHEMA_VERSION,
+    ))
+}
+
+fn canonical_fingerprint(
+    profile: &CliProfile,
+    command_name: &str,
+    target_ref: &str,
+    canonical_payload_hash: &str,
+    globals: &GlobalOptions,
+) -> Result<CanonicalIdempotencyFingerprint, overrid_contracts::ContractError> {
+    let source = format!(
+        "environment={}|endpoint={}|tenant={}|actor={}|command={}|target={}|payload_hash={}|expected_state={}|reason={}|schema={}",
+        profile.environment.as_str(),
+        profile.endpoint_fingerprint,
+        profile.tenant_id,
+        profile.actor_id,
+        command_name,
+        target_ref,
+        canonical_payload_hash,
+        globals.expected_state.as_deref().unwrap_or("none"),
+        globals.reason.as_deref().unwrap_or("none"),
+        SUPPORTED_SCHEMA_VERSION,
+    );
+    let fingerprint = id_component(&format!("fp_{}", stable_hash(&source)));
+    CanonicalIdempotencyFingerprint::new(
+        profile.environment,
+        profile.endpoint_fingerprint.clone(),
+        profile.tenant_id.clone(),
+        profile.actor_id.clone(),
+        command_name,
+        target_ref,
+        canonical_payload_hash,
+        globals.expected_state.clone(),
+        globals.reason.clone(),
+        SUPPORTED_SCHEMA_VERSION,
+        fingerprint,
+    )
+}
+
+fn stable_hash(value: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in value.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("hash_{hash:016x}")
+}
+
+fn cache_fingerprint_for_profile(profile: &CliProfile) -> String {
+    id_component(&format!(
+        "cache_{}_{}_{}",
+        profile.name,
+        profile.environment.as_str(),
+        profile.endpoint_fingerprint
+    ))
 }
 
 fn id_component(value: &str) -> String {
@@ -1928,11 +2259,108 @@ mod tests {
         assert_eq!(first.stdout, second.stdout);
         assert!(first.stdout.contains("\"signed\":true"));
         assert!(first.stdout.contains("\"signed_command_envelope\""));
-        assert!(first.stdout.contains("\"idempotency_key\":\"idem_local_tenant_local_actor_local_tenant_create_tenant_local\""));
+        assert!(first.stdout.contains("\"idempotency_key\":\"idem_fp_hash_"));
+        assert!(first
+            .stdout
+            .contains("\"idempotency_key_source\":\"canonical_fingerprint\""));
+        assert!(first
+            .stdout
+            .contains("\"canonical_idempotency_fingerprint\""));
+        assert!(first.stdout.contains("\"endpoint_identity\":\"fp_local\""));
+        assert!(first.stdout.contains("\"canonical_payload_hash\":\"hash_"));
+        assert!(first
+            .stdout
+            .contains("\"expected_current_state\":\"absent\""));
+        assert!(first.stdout.contains("\"retry_timeout_policy\""));
+        assert!(first.stdout.contains("\"max_retries\":2"));
+        assert!(first.stdout.contains("\"timeout_ms\":10000"));
+        assert!(first.stdout.contains("\"local_idempotency_cache\""));
+        assert!(first.stdout.contains("\"contains_private_payload\":false"));
         assert!(first
             .stdout
             .contains("\"audit_refs\":[\"audit_cli_bootstrap_tenant_create\"]"));
         assert!(first.stdout.contains("\"expected_state\":\"absent\""));
+    }
+
+    #[test]
+    fn new_idempotency_key_changes_operation_without_changing_fingerprint_shape() {
+        let default_args = args_with(
+            &["tenant", "create", "--json", "--expected-state", "absent"],
+            LOCAL_PROFILE_ARGS,
+        );
+        let new_args = args_with(
+            &[
+                "tenant",
+                "create",
+                "--json",
+                "--expected-state",
+                "absent",
+                "--new-idempotency-key",
+                "--trace-id",
+                "trace_cli_new",
+            ],
+            LOCAL_PROFILE_ARGS,
+        );
+        let default_result = run_args(default_args);
+        let new_result = run_args(new_args);
+
+        assert_eq!(default_result.exit_code, EXIT_SUCCESS);
+        assert_eq!(new_result.exit_code, EXIT_SUCCESS);
+        assert_ne!(default_result.stdout, new_result.stdout);
+        assert!(new_result
+            .stdout
+            .contains("\"idempotency_key\":\"idem_new_fp_hash_"));
+        assert!(new_result
+            .stdout
+            .contains("\"idempotency_key_source\":\"new_operation\""));
+        assert!(new_result.stdout.contains("\"trace_id\":\"trace_cli_new\""));
+    }
+
+    #[test]
+    fn timeout_and_retry_flags_flow_into_policy() {
+        let args = args_with(
+            &[
+                "tenant",
+                "create",
+                "--json",
+                "--timeout-ms",
+                "4500",
+                "--max-retries",
+                "3",
+            ],
+            LOCAL_PROFILE_ARGS,
+        );
+        let result = run_args(args);
+
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"retry_timeout_policy\""));
+        assert!(result.stdout.contains("\"timeout_ms\":4500"));
+        assert!(result.stdout.contains("\"max_retries\":3"));
+    }
+
+    #[test]
+    fn idempotency_cache_commands_are_local_and_secret_free() {
+        let inspect_args = args_with(
+            &["idempotency-cache", "inspect", "--json"],
+            LOCAL_PROFILE_ARGS,
+        );
+        let reset_args = args_with(
+            &["idempotency-cache", "reset", "--json"],
+            LOCAL_PROFILE_ARGS,
+        );
+
+        let inspect = run_args(inspect_args);
+        let reset = run_args(reset_args);
+
+        assert_eq!(inspect.exit_code, EXIT_SUCCESS);
+        assert_eq!(reset.exit_code, EXIT_SUCCESS);
+        assert!(inspect.stdout.contains("\"cache_action\":\"inspect\""));
+        assert!(inspect.stdout.contains("\"owner_only\":true"));
+        assert!(inspect
+            .stdout
+            .contains("\"contains_private_payload\":false"));
+        assert!(reset.stdout.contains("\"cache_action\":\"reset\""));
+        assert!(reset.stdout.contains("\"resettable\":true"));
     }
 
     #[test]
@@ -1942,6 +2370,10 @@ mod tests {
 
         assert_eq!(result.exit_code, EXIT_USAGE);
         assert!(result.stdout.contains("\"reason_code\":\"missing_reason\""));
+        assert!(result.stdout.contains("\"error_decode_record\""));
+        assert!(result
+            .stdout
+            .contains("\"raw_internal_error_exposed\":false"));
     }
 
     #[test]

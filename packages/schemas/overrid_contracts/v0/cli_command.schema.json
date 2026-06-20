@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/cli_command.schema.json",
   "title": "Overrid CLI Command Contracts",
-  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, and Phase 1 bootstrap command shapes defined by SUB BUILD PLAN #2 Phases 2 through 5.",
+  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, and Phase 1 bootstrap command shapes defined by SUB BUILD PLAN #2 Phases 2 through 6.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     },
     "contracts": {
       "type": "array",
-      "minItems": 21,
+      "minItems": 25,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -43,7 +43,11 @@
           "signed_command_envelope",
           "bootstrap_acceptance_record",
           "manifest_bootstrap_ref",
-          "synthetic_workload_pending_state"
+          "synthetic_workload_pending_state",
+          "canonical_idempotency_fingerprint",
+          "retry_timeout_policy",
+          "error_decode_record",
+          "local_idempotency_cache_record"
         ]
       }
     }
@@ -110,6 +114,181 @@
         "retry_after",
         "operator_review"
       ]
+    },
+    "canonical_idempotency_fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_class",
+        "endpoint_identity",
+        "tenant_id",
+        "actor_id",
+        "command_type",
+        "target_ref",
+        "canonical_payload_hash",
+        "expected_current_state",
+        "reason",
+        "schema_version",
+        "fingerprint"
+      ],
+      "properties": {
+        "environment_class": {
+          "$ref": "#/$defs/environment_class"
+        },
+        "endpoint_identity": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "command_type": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "target_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "canonical_payload_hash": {
+          "type": "string",
+          "pattern": "^hash_[A-Fa-f0-9]{16}$"
+        },
+        "expected_current_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "retry_timeout_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_retries",
+        "timeout_ms",
+        "bounded",
+        "retryable_classes",
+        "non_retryable_reason_families"
+      ],
+      "properties": {
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "bounded": {
+          "const": true
+        },
+        "retryable_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/retry_class"
+          }
+        },
+        "non_retryable_reason_families": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    },
+    "error_decode_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_family",
+        "reason_code",
+        "retry_class",
+        "exit_class",
+        "remediation_hint",
+        "raw_internal_error_exposed"
+      ],
+      "properties": {
+        "source_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "retry_class": {
+          "$ref": "#/$defs/retry_class"
+        },
+        "exit_class": {
+          "$ref": "#/$defs/exit_code_class"
+        },
+        "remediation_hint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "raw_internal_error_exposed": {
+          "const": false
+        }
+      }
+    },
+    "local_idempotency_cache_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cache_scope",
+        "profile_name",
+        "environment_class",
+        "command_fingerprint",
+        "idempotency_key",
+        "owner_only",
+        "contains_private_payload",
+        "resettable",
+        "inspectable"
+      ],
+      "properties": {
+        "cache_scope": {
+          "const": "profile_environment"
+        },
+        "profile_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "environment_class": {
+          "$ref": "#/$defs/environment_class"
+        },
+        "command_fingerprint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/idempotency_key"
+        },
+        "owner_only": {
+          "const": true
+        },
+        "contains_private_payload": {
+          "const": false
+        },
+        "resettable": {
+          "type": "boolean"
+        },
+        "inspectable": {
+          "type": "boolean"
+        }
+      }
     },
     "command_lifecycle_state": {
       "enum": [
@@ -794,7 +973,9 @@
         "reason_code",
         "message",
         "phase_gate",
-        "retry_class"
+        "retry_class",
+        "remediation_hint",
+        "error_decode_record"
       ],
       "properties": {
         "reason_code": {
@@ -808,6 +989,12 @@
         },
         "retry_class": {
           "$ref": "#/$defs/retry_class"
+        },
+        "remediation_hint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "error_decode_record": {
+          "$ref": "#/$defs/error_decode_record"
         }
       }
     }
@@ -837,7 +1024,11 @@
         "signed_command_envelope",
         "bootstrap_acceptance_record",
         "manifest_bootstrap_ref",
-        "synthetic_workload_pending_state"
+        "synthetic_workload_pending_state",
+        "canonical_idempotency_fingerprint",
+        "retry_timeout_policy",
+        "error_decode_record",
+        "local_idempotency_cache_record"
       ]
     }
   ]

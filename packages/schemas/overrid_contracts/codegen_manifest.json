@@ -37,6 +37,12 @@
     "manifest_bootstrap_ref",
     "synthetic_workload_pending_state"
   ],
+  "phase6_contracts": [
+    "canonical_idempotency_fingerprint",
+    "retry_timeout_policy",
+    "error_decode_record",
+    "local_idempotency_cache_record"
+  ],
   "guardrails": [
     "JSON Schema is the docs-facing and fixture-facing source of truth.",
     "The Rust projection is consumed by the CLI and SDK but must not become contract authority.",
@@ -45,6 +51,10 @@
     "Profiles and credential references must be secret-free and environment-scoped before request construction.",
     "Signer handoff returns signature refs only and never exposes raw key material.",
     "Command lifecycle, exit classes, diagnostics, and capability snapshots must be rendered from the canonical output envelope.",
-    "Phase 1 bootstrap commands must construct signed SDK/Overgate envelopes and must not call Overtenant, Overpass, Overkey, Overregistry, Overqueue, or Overwatch directly."
+    "Phase 1 bootstrap commands must construct signed SDK/Overgate envelopes and must not call Overtenant, Overpass, Overkey, Overregistry, Overqueue, or Overwatch directly.",
+    "Canonical idempotency fingerprints must include environment, endpoint identity, tenant, actor, command, target, canonical payload hash, expected current state, reason, and schema version.",
+    "Retry and timeout policy must stay bounded, classify retryable transport/platform failures, and keep denials non-retryable.",
+    "Error decode records must expose stable reason codes, retry classes, exit classes, and remediation hints without raw internal errors.",
+    "Local idempotency cache records must be scoped to profile/environment, owner-only, inspectable/resettable, and free of private payloads."
   ]
 }
