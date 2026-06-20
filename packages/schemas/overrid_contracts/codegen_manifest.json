@@ -181,6 +181,32 @@
       "Later deployment, federation, public-pool, native-app, governance, incident, migration, reporting, and scale gates must remain planned or missing-required-contract evidence until their owning phase contracts exist."
     ]
   },
+  "integration_harness_phase10": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase10_handoff.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_sensitive_material.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsupported_phase.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_direct_service_url.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_private_storage_read.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Harness self-validation must cover manifest loading, fixture generation, local stack lifecycle, scenario execution, assertion records, golden traces, artifact export, redaction, and phase selection.",
+      "Tech-stack alignment must keep harness ownership Rust-first, fixture surfaces JSON/JSON Schema based, and local substitutes Overrid-shaped.",
+      "Security and redaction checks must prove fixture credentials stay test_only, artifact bundles stay secret-free, non-local profiles are blocked, and direct private storage reads are denied.",
+      "Docs and progress evidence must keep the SDS, build plan, phase plan, phase progress, wrapper validation, and Docdex memory aligned.",
+      "Downstream handoff requires service builders to add scenario manifests, fixture refs, golden traces or assertion refs, redacted artifact expectations, and service contract coverage before marking integration-ready."
+    ]
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",

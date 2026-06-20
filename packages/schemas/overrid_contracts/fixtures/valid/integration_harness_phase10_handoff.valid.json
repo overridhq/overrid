@@ -1,0 +1,302 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase10_harness_validation_handoff",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase10_harness_validation_handoff_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:phase10_builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:harness_builder"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:phase10_builder",
+        "key_id": "fixture_phase10_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_phase10_runner",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:harness_self_validation"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:harness_self_validation"
+    ],
+    "package_refs": [
+      "package:local:harness_self_validation"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:harness_validation"
+    ],
+    "policy_context_refs": [
+      "policy:local:test_only_harness_validation"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase10_harness_validation_handoff",
+    "master_phase": 10,
+    "gate_class": "regression",
+    "tags": [
+      "phase10",
+      "harness_self_validation",
+      "tech_stack_alignment",
+      "security_redaction",
+      "downstream_handoff",
+      "service_contract_coverage"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase10_harness_validation_handoff"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase10_harness_self_consistency",
+        "action_kind": "local_helper",
+        "input_refs": [
+          "helper:diagnostic_check:harness_self_validation",
+          "helper:stack_lifecycle:phase10",
+          "helper:artifact_lookup:redaction_bundle",
+          "helper:event_export:golden_trace"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase10:self_consistency"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      },
+      {
+        "step_id": "step_phase10_tech_stack_alignment",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:phase10:tech_stack_alignment",
+          "assertion:no_conventional_runtime_boundary"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase10:tech_stack_alignment"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      },
+      {
+        "step_id": "step_phase10_security_redaction",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:phase10:security_redaction",
+          "assertion:no_prod_defaults",
+          "assertion:no_raw_secret_bundle"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase10:security_redaction"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      },
+      {
+        "step_id": "step_phase10_downstream_handoff",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:phase10:downstream_handoff",
+          "assertion:scenario_manifest_before_integration_ready",
+          "assertion:redacted_artifact_expectations"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase10:downstream_handoff"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ],
+    "cleanup_rules": [
+      "collect_artifacts_then_reset"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase10_harness_validation_handoff",
+    "scenario_ids": [
+      "scenario_phase10_harness_validation_handoff"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_phase10_0001",
+    "status": "passed",
+    "started_at_ms": 1781980800000,
+    "ended_at_ms": 1781980805000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase10:self_consistency",
+      "assertion:phase10:tech_stack_alignment",
+      "assertion:phase10:security_redaction",
+      "assertion:phase10:downstream_handoff"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase10_harness_validation_handoff"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    }
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase10_harness_validation_handoff",
+    "scenario_id": "scenario_phase10_harness_validation_handoff",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.phase10.handoff_rules",
+    "expected_value": "manifest_fixture_trace_artifact_coverage_ready",
+    "actual_value": "manifest_fixture_trace_artifact_coverage_ready",
+    "artifact_refs": [
+      "artifact:bundle:phase10_harness_validation_handoff"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase10_harness_validation_handoff",
+    "assertion_mode": "partial_order",
+    "required_nodes": [
+      {
+        "node_id": "event_manifest_loaded",
+        "event_kind": "manifest.loaded",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "manifest.loaded"
+      },
+      {
+        "node_id": "event_artifacts_redacted",
+        "event_kind": "artifact.redaction_checked",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "artifact.redaction_checked"
+      },
+      {
+        "node_id": "event_handoff_ready",
+        "event_kind": "handoff.ready",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "handoff.ready"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_manifest_loaded",
+        "to": "event_artifacts_redacted"
+      },
+      {
+        "from": "event_artifacts_redacted",
+        "to": "event_handoff_ready"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_handoff_ready",
+        "to": "event_internal_api_called"
+      }
+    ],
+    "stable_reason_codes": [
+      "manifest.loaded",
+      "artifact.redaction_checked",
+      "handoff.ready"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase10_harness_validation_handoff",
+    "run_id": "run_phase10_harness_validation_handoff",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private",
+        "fixture.key_material"
+      ],
+      "scanner_passed": true,
+      "contains_raw_secret": false,
+      "contains_private_key": false,
+      "contains_token": false,
+      "contains_private_payload": false,
+      "contains_fixture_key_material": false
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase10_harness_validation_handoff:redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase10_harness_validation_handoff"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase10_harness_validation_handoff"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase10_harness_validation_handoff:redacted"
+    ],
+    "stack_health_refs": [
+      "artifact:health:phase10_harness_validation_handoff"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase10_harness_validation_handoff"
+    ],
+    "schema_version_refs": [
+      "artifact:schema_version:integration_harness_v0_1"
+    ],
+    "assertion_diff_refs": [
+      "artifact:assertion_diff:phase10_harness_validation_handoff"
+    ],
+    "redaction_report_ref": "artifact:redaction_report:phase10_harness_validation_handoff",
+    "reproduction_command": "overrid test scenario scenario_phase10_harness_validation_handoff --profile local --json",
+    "artifact_refs": [
+      "artifact:bundle:phase10_harness_validation_handoff"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    },
+    "retention_policy": {
+      "retention_class": "phase_gate_evidence",
+      "retain_on_success": true,
+      "retain_on_failure": true,
+      "max_age_days": 30
+    }
+  }
+}
