@@ -2665,7 +2665,11 @@ impl ArtifactBundle {
                 ensure_harness_ref_prefix(field, value, "artifact:")?;
             }
         }
-        ensure_harness_ref_prefix("redaction report ref", &self.redaction_report_ref, "artifact:")?;
+        ensure_harness_ref_prefix(
+            "redaction report ref",
+            &self.redaction_report_ref,
+            "artifact:",
+        )?;
         harness_require_non_empty(&self.reproduction_command, "reproduction command")?;
         if self.artifact_refs.is_empty() {
             return Err(HarnessContractError::MissingArtifactPolicy);

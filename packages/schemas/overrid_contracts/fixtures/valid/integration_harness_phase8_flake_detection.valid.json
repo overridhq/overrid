@@ -212,7 +212,7 @@
       "artifact:schema_version:integration_harness_v0_1"
     ],
     "assertion_diff_refs": [
-      "artifact:assertion_diff:phase8_flake_detection"
+      "artifact:assertion_diff:phase8_flake_detection:unstable_event_ordering"
     ],
     "redaction_report_ref": "artifact:redaction_report:phase8_flake_detection",
     "reproduction_command": "overrid test scenario scenario_phase8_flake_detection --profile local --fixture fixture_phase8_flake_detection --trace-root trace_phase8_flake_detection --artifact-output target/overrid/integration_harness/artifacts/run_phase8_flake_detection/bundle.json --json",

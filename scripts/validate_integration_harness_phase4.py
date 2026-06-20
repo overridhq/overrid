@@ -262,8 +262,8 @@ def validate_cli_behavior() -> None:
         "integration missing ready local stack health",
     )
     assert_true(
-        any(artifact["retention_class"] == "phase_gate_evidence" for artifact in integration_result["artifacts"]),
-        "integration should retain phase gate evidence",
+        any(artifact["retention_class"] == "smoke_compact" for artifact in integration_result["artifacts"]),
+        "integration should retain smoke compact evidence",
     )
     assert_true(
         any(ref.startswith("artifact:reason_codes:") for ref in integration_result["diagnostic_refs"]),

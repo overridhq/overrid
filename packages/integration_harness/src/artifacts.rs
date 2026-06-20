@@ -125,7 +125,10 @@ impl ArtifactSummary {
             assertion_refs
                 .iter()
                 .map(|assertion_ref| {
-                    format!("artifact:assertion_diff:{}", sanitize_identifier(assertion_ref))
+                    format!(
+                        "artifact:assertion_diff:{}",
+                        sanitize_identifier(assertion_ref)
+                    )
                 })
                 .collect()
         };
@@ -160,7 +163,9 @@ pub fn retention_class_for_outcome(
     gate_class: &str,
 ) -> ArtifactRetentionClass {
     match status {
-        HarnessRunStatus::Failed | HarnessRunStatus::Blocked => ArtifactRetentionClass::FailureEvidence,
+        HarnessRunStatus::Failed | HarnessRunStatus::Blocked => {
+            ArtifactRetentionClass::FailureEvidence
+        }
         HarnessRunStatus::Passed if gate_class == "smoke" => ArtifactRetentionClass::SmokeCompact,
         HarnessRunStatus::Passed if gate_class == "release_candidate" => {
             ArtifactRetentionClass::ReleaseCandidate
@@ -216,7 +221,10 @@ fn repo_relative_artifact_output_path(path: &str, run_id: &str) -> String {
     if let Some(index) = path.find(DEFAULT_ARTIFACT_ROOT) {
         return path[index..].to_owned();
     }
-    format!("{DEFAULT_ARTIFACT_ROOT}/{}/bundle.json", sanitize_identifier(run_id))
+    format!(
+        "{DEFAULT_ARTIFACT_ROOT}/{}/bundle.json",
+        sanitize_identifier(run_id)
+    )
 }
 
 #[cfg(test)]
@@ -261,9 +269,9 @@ mod tests {
             summary.retention_policy.retention_class,
             ArtifactRetentionClass::FailureEvidence
         );
-        assert!(summary.reproduction_command.contains(
-            "overrid test scenario scenario_phase8_flake_detection"
-        ));
+        assert!(summary
+            .reproduction_command
+            .contains("overrid test scenario scenario_phase8_flake_detection"));
         assert!(summary.reproduction_command.contains("--trace-root"));
         assert!(!summary.reproduction_command.contains("/Users/"));
         assert!(summary.flake_metadata.is_nondeterministic());

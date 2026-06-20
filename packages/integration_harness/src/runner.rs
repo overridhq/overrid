@@ -802,10 +802,8 @@ impl HarnessRunner {
                     .unwrap_or_else(|| retention_class_for_outcome(status, "regression"))
             });
         let artifacts = if artifacts.is_empty() {
-            vec![
-                ArtifactLocator::new(&self.options.artifact_root)
-                    .lookup(&context.run_id, retention_class),
-            ]
+            vec![ArtifactLocator::new(&self.options.artifact_root)
+                .lookup(&context.run_id, retention_class)]
         } else {
             artifacts
         };
