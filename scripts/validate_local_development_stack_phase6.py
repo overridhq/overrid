@@ -105,7 +105,8 @@ def assert_secret_free(payload: dict[str, Any], context: str) -> None:
     for marker in RAW_SECRET_MARKERS:
         assert_true(marker not in rendered, f"{context} exposes raw secret marker {marker}")
 
-    events = payload.get("result", payload.get("error", {})).get("lifecycle_events", [])
+    envelope_body = payload.get("result") or payload.get("error") or {}
+    events = envelope_body.get("lifecycle_events", [])
     assert_true(events, f"{context} lifecycle events missing")
     for event in events:
         assert_true(event["contains_raw_secret"] is False, f"{context} event exposes a raw secret")
@@ -126,7 +127,7 @@ def check_docs_and_source() -> None:
     tech_stack = read_text(TECH_STACK)
     suite = read_text(SUITE_VALIDATOR)
 
-    assert_contains(sub_plan, "## Phase 6: Lifecycle Orchestration And Readiness", SUB_PLAN)
+    assert_contains(sub_plan, "## Phase 6: Lifecycle Orchestration And Health Readiness", SUB_PLAN)
     for item in ["**6.1", "**6.2", "**6.3", "**6.4", "**6.5"]:
         assert_contains(sub_plan, item, SUB_PLAN)
     for expected in [
