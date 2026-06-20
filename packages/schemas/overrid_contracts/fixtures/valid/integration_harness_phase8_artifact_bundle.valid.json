@@ -1,0 +1,242 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase8_artifact_bundle",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase8_artifact_bundle_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:no_op"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase8_artifact_bundle",
+    "master_phase": 8,
+    "gate_class": "release_candidate",
+    "tags": [
+      "phase8",
+      "artifact_bundle",
+      "redaction",
+      "reproduction",
+      "retention"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase8_artifact_bundle"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase8_artifact_bundle_assert",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:phase8:artifact_bundle",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase8:artifact_bundle"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ],
+    "cleanup_rules": [
+      "collect_artifacts_then_reset"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase8_artifact_bundle",
+    "scenario_ids": [
+      "scenario_phase8_artifact_bundle"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781978000000,
+    "ended_at_ms": 1781978005000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase8:artifact_bundle"
+    ],
+    "artifact_policy": "release_candidate",
+    "artifact_refs": [
+      "artifact:bundle:phase8_artifact_bundle"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    }
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase8_artifact_bundle",
+    "scenario_id": "scenario_phase8_artifact_bundle",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.artifact_bundle",
+    "expected_value": "redacted_reproducible_bundle",
+    "actual_value": "redacted_reproducible_bundle",
+    "artifact_refs": [
+      "artifact:bundle:phase8_artifact_bundle"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase8_artifact_bundle",
+    "assertion_mode": "exact",
+    "required_nodes": [
+      {
+        "node_id": "event_artifacts_collected",
+        "event_kind": "artifact.collection",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "artifact.collected"
+      },
+      {
+        "node_id": "event_artifacts_redacted",
+        "event_kind": "artifact.redaction",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "artifact.redacted"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_artifacts_collected",
+        "to": "event_artifacts_redacted"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_artifacts_redacted",
+        "to": "event_raw_secret_exported"
+      }
+    ],
+    "stable_reason_codes": [
+      "artifact.collected",
+      "artifact.redacted"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase8_artifact_bundle",
+    "run_id": "run_phase8_artifact_bundle",
+    "retention_class": "release_candidate",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "redacted_api_envelope",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private",
+        "fixture.key_material"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase8_artifact_bundle:redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase8_artifact_bundle"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase8_artifact_bundle"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase8_artifact_bundle:redacted"
+    ],
+    "stack_health_refs": [
+      "artifact:health:phase8_artifact_bundle:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase8_artifact_bundle"
+    ],
+    "schema_version_refs": [
+      "artifact:schema_version:integration_harness_v0_1"
+    ],
+    "assertion_diff_refs": [
+      "artifact:assertion_diff:phase8_artifact_bundle"
+    ],
+    "redaction_report_ref": "artifact:redaction_report:phase8_artifact_bundle",
+    "reproduction_command": "overrid test scenario scenario_phase8_artifact_bundle --profile local --fixture fixture_phase8_artifact_bundle --trace-root trace_phase8_artifact_bundle --artifact-output target/overrid/integration_harness/artifacts/run_phase8_artifact_bundle/bundle.json --json",
+    "artifact_refs": [
+      "artifact:logs:phase8_artifact_bundle:redacted",
+      "artifact:health:phase8_artifact_bundle:local_stack"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    },
+    "retention_policy": {
+      "retention_class": "release_candidate",
+      "minimum_retention_days": 90,
+      "prune_after_days": 365,
+      "compact_success_summary": false
+    },
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

@@ -1978,6 +1978,140 @@ impl ArtifactRetentionClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedactionScanReport {
+    pub policy: String,
+    pub redacted_fields: Vec<String>,
+    pub scanner_passed: bool,
+    pub rejected_markers: Vec<String>,
+}
+
+impl RedactionScanReport {
+    pub fn passed(redacted_fields: Vec<String>) -> Self {
+        Self {
+            policy: "secret_free_refs_only".to_owned(),
+            redacted_fields,
+            scanner_passed: true,
+            rejected_markers: Vec::new(),
+        }
+    }
+
+    pub fn failed(rejected_markers: Vec<String>) -> Self {
+        Self {
+            policy: "secret_free_refs_only".to_owned(),
+            redacted_fields: Vec::new(),
+            scanner_passed: false,
+            rejected_markers,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.policy, "redaction policy")?;
+        if self.policy != "secret_free_refs_only" {
+            return Err(HarnessContractError::RawSecretInArtifact);
+        }
+        if !self.scanner_passed || !self.rejected_markers.is_empty() {
+            return Err(HarnessContractError::RawSecretInArtifact);
+        }
+        for value in self.redacted_fields.iter().chain(&self.rejected_markers) {
+            if contains_raw_secret_marker(value) {
+                return Err(HarnessContractError::RawSecretInArtifact);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlakeMetadata {
+    pub repeated_run_count: u32,
+    pub timing_variance_ms: u64,
+    pub nondeterministic_assertion_markers: Vec<String>,
+    pub unstable_event_ordering: bool,
+    pub tolerance_window_used: bool,
+}
+
+impl FlakeMetadata {
+    pub fn stable() -> Self {
+        Self {
+            repeated_run_count: 1,
+            timing_variance_ms: 0,
+            nondeterministic_assertion_markers: Vec::new(),
+            unstable_event_ordering: false,
+            tolerance_window_used: false,
+        }
+    }
+
+    pub fn unstable_event_ordering(markers: Vec<String>) -> Self {
+        Self {
+            repeated_run_count: 3,
+            timing_variance_ms: 125,
+            nondeterministic_assertion_markers: markers,
+            unstable_event_ordering: true,
+            tolerance_window_used: true,
+        }
+    }
+
+    pub fn is_nondeterministic(&self) -> bool {
+        self.unstable_event_ordering || !self.nondeterministic_assertion_markers.is_empty()
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        if self.repeated_run_count == 0 {
+            return Err(HarnessContractError::MissingRequiredField(
+                "repeated run count",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactRetentionPolicy {
+    pub retention_class: ArtifactRetentionClass,
+    pub minimum_retention_days: u16,
+    pub prune_after_days: u16,
+    pub compact_success_summary: bool,
+}
+
+impl ArtifactRetentionPolicy {
+    pub fn for_class(retention_class: ArtifactRetentionClass) -> Self {
+        match retention_class {
+            ArtifactRetentionClass::SmokeCompact => Self {
+                retention_class,
+                minimum_retention_days: 1,
+                prune_after_days: 7,
+                compact_success_summary: true,
+            },
+            ArtifactRetentionClass::FailureEvidence => Self {
+                retention_class,
+                minimum_retention_days: 30,
+                prune_after_days: 90,
+                compact_success_summary: false,
+            },
+            ArtifactRetentionClass::ReleaseCandidate => Self {
+                retention_class,
+                minimum_retention_days: 90,
+                prune_after_days: 365,
+                compact_success_summary: false,
+            },
+            ArtifactRetentionClass::PhaseGateEvidence => Self {
+                retention_class,
+                minimum_retention_days: 14,
+                prune_after_days: 180,
+                compact_success_summary: false,
+            },
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        if self.minimum_retention_days == 0 || self.prune_after_days < self.minimum_retention_days {
+            return Err(HarnessContractError::MissingArtifactPolicy);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixtureKey {
     pub key_ref: String,
     pub key_id: String,
@@ -2259,6 +2393,7 @@ pub struct TestRunRecord {
     pub assertion_refs: Vec<String>,
     pub artifact_policy: ArtifactRetentionClass,
     pub artifact_refs: Vec<String>,
+    pub flake_metadata: FlakeMetadata,
 }
 
 impl TestRunRecord {
@@ -2291,6 +2426,7 @@ impl TestRunRecord {
             assertion_refs: vec!["assertion:phase0:trace_order".to_owned()],
             artifact_policy: ArtifactRetentionClass::PhaseGateEvidence,
             artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
+            flake_metadata: FlakeMetadata::stable(),
         };
         record.validate()?;
         Ok(record)
@@ -2318,6 +2454,10 @@ impl TestRunRecord {
         }
         if self.artifact_refs.is_empty() {
             return Err(HarnessContractError::MissingArtifactPolicy);
+        }
+        self.flake_metadata.validate()?;
+        if self.status == HarnessRunStatus::Passed && self.flake_metadata.is_nondeterministic() {
+            return Err(HarnessContractError::RawSecretInArtifact);
         }
         Ok(())
     }
@@ -2420,14 +2560,20 @@ pub struct ArtifactBundle {
     pub retention_class: ArtifactRetentionClass,
     pub privacy_classifications: Vec<String>,
     pub redaction_policy: String,
+    pub redaction_report: RedactionScanReport,
     pub redacted_log_refs: Vec<String>,
     pub overwatch_export_refs: Vec<String>,
     pub cli_output_refs: Vec<String>,
     pub api_payload_envelope_refs: Vec<String>,
     pub stack_health_refs: Vec<String>,
     pub fixture_version_refs: Vec<String>,
+    pub schema_version_refs: Vec<String>,
+    pub assertion_diff_refs: Vec<String>,
+    pub redaction_report_ref: String,
     pub reproduction_command: String,
     pub artifact_refs: Vec<String>,
+    pub flake_metadata: FlakeMetadata,
+    pub retention_policy: ArtifactRetentionPolicy,
     pub contains_raw_secret: bool,
     pub contains_private_key: bool,
     pub contains_token: bool,
@@ -2455,15 +2601,26 @@ impl ArtifactBundle {
                 "redacted_local_log".to_owned(),
             ],
             redaction_policy: "secret_free_refs_only".to_owned(),
+            redaction_report: RedactionScanReport::passed(vec![
+                "headers.authorization".to_owned(),
+                "payload.private".to_owned(),
+            ]),
             redacted_log_refs: vec!["artifact:logs:phase0_smoke_redacted".to_owned()],
             overwatch_export_refs: vec!["artifact:overwatch:phase0_smoke".to_owned()],
             cli_output_refs: vec!["artifact:cli_output:phase0_smoke".to_owned()],
             api_payload_envelope_refs: vec!["artifact:api_envelope:phase0_smoke".to_owned()],
             stack_health_refs: vec!["artifact:health:local_stack".to_owned()],
             fixture_version_refs: vec!["artifact:fixture_version:phase0_smoke".to_owned()],
+            schema_version_refs: vec!["artifact:schema_version:integration_harness_v0_1".to_owned()],
+            assertion_diff_refs: vec!["artifact:assertion_diff:phase0_smoke".to_owned()],
+            redaction_report_ref: "artifact:redaction_report:phase0_smoke".to_owned(),
             reproduction_command:
                 "overrid test scenario scenario_phase0_smoke --profile local --json".to_owned(),
             artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
+            flake_metadata: FlakeMetadata::stable(),
+            retention_policy: ArtifactRetentionPolicy::for_class(
+                ArtifactRetentionClass::PhaseGateEvidence,
+            ),
             contains_raw_secret,
             contains_private_key: false,
             contains_token: false,
@@ -2485,6 +2642,12 @@ impl ArtifactBundle {
             ));
         }
         harness_require_non_empty(&self.redaction_policy, "redaction policy")?;
+        self.redaction_report.validate()?;
+        self.flake_metadata.validate()?;
+        self.retention_policy.validate()?;
+        if self.retention_policy.retention_class != self.retention_class {
+            return Err(HarnessContractError::MissingArtifactPolicy);
+        }
         for (field, refs) in [
             ("redacted log refs", &self.redacted_log_refs),
             ("Overwatch export refs", &self.overwatch_export_refs),
@@ -2492,6 +2655,8 @@ impl ArtifactBundle {
             ("API payload envelope refs", &self.api_payload_envelope_refs),
             ("stack health refs", &self.stack_health_refs),
             ("fixture version refs", &self.fixture_version_refs),
+            ("schema version refs", &self.schema_version_refs),
+            ("assertion diff refs", &self.assertion_diff_refs),
         ] {
             if refs.is_empty() {
                 return Err(HarnessContractError::MissingRequiredField(field));
@@ -2500,6 +2665,7 @@ impl ArtifactBundle {
                 ensure_harness_ref_prefix(field, value, "artifact:")?;
             }
         }
+        ensure_harness_ref_prefix("redaction report ref", &self.redaction_report_ref, "artifact:")?;
         harness_require_non_empty(&self.reproduction_command, "reproduction command")?;
         if self.artifact_refs.is_empty() {
             return Err(HarnessContractError::MissingArtifactPolicy);
@@ -3551,6 +3717,22 @@ mod tests {
         assert!(bundle
             .fixture_version_refs
             .contains(&"artifact:fixture_version:phase0_smoke".to_owned()));
+        assert!(bundle
+            .schema_version_refs
+            .contains(&"artifact:schema_version:integration_harness_v0_1".to_owned()));
+        assert!(bundle
+            .assertion_diff_refs
+            .contains(&"artifact:assertion_diff:phase0_smoke".to_owned()));
+        assert_eq!(
+            bundle.redaction_report_ref,
+            "artifact:redaction_report:phase0_smoke"
+        );
+        assert!(bundle.redaction_report.scanner_passed);
+        assert!(!bundle.flake_metadata.is_nondeterministic());
+        assert_eq!(
+            bundle.retention_policy.retention_class,
+            ArtifactRetentionClass::PhaseGateEvidence
+        );
         assert!(!bundle.contains_raw_secret);
         assert!(!bundle.contains_private_key);
         assert!(!bundle.contains_token);
@@ -3612,6 +3794,44 @@ mod tests {
             Err(HarnessContractError::MissingRequiredField(
                 "Overwatch export refs"
             ))
+        ));
+    }
+
+    #[test]
+    fn validates_phase8_flake_redaction_and_retention_contracts() {
+        let mut flake_run = TestRunRecord::terminal(
+            "run_phase8_flake_detection",
+            HarnessRunStatus::Failed,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+        flake_run.flake_metadata = FlakeMetadata::unstable_event_ordering(vec![
+            "assertion:phase8:unstable_event_ordering".to_owned(),
+        ]);
+        flake_run.validate().unwrap();
+        assert!(flake_run.flake_metadata.is_nondeterministic());
+
+        let mut passed_run = flake_run.clone();
+        passed_run.status = HarnessRunStatus::Passed;
+        assert!(matches!(
+            passed_run.validate(),
+            Err(HarnessContractError::RawSecretInArtifact)
+        ));
+
+        let retention = ArtifactRetentionPolicy::for_class(ArtifactRetentionClass::FailureEvidence);
+        assert_eq!(retention.minimum_retention_days, 30);
+        assert_eq!(retention.prune_after_days, 90);
+        retention.validate().unwrap();
+
+        let redaction = RedactionScanReport::passed(vec![
+            "headers.authorization".to_owned(),
+            "payload.private".to_owned(),
+        ]);
+        redaction.validate().unwrap();
+
+        assert!(matches!(
+            RedactionScanReport::failed(vec!["token=".to_owned()]).validate(),
+            Err(HarnessContractError::RawSecretInArtifact)
         ));
     }
 

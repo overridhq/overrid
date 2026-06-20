@@ -6,7 +6,7 @@ use overrid_contracts::{
     SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
 };
 
-use crate::artifacts::{ArtifactLocator, ArtifactSummary};
+use crate::artifacts::{retention_class_for_outcome, ArtifactLocator, ArtifactSummary};
 use crate::assertions::{
     accounting_ledger_dag_trace_contract, assert_golden_trace, execution_loop_dag_trace_contract,
     phase01_protocol_trace_contract, policy_dispute_dag_trace_contract, GoldenTraceAssertion,
@@ -747,18 +747,30 @@ impl HarnessRunner {
         assertion_refs: Vec<String>,
         report: LocalStackReport,
     ) -> HarnessCliOutput {
+        let status = report.status;
+        let reason_code = report.reason_code;
+        let reason_class = report.reason_class;
+        let scenario_context = scenarios.first().cloned();
+        let artifacts = self.enrich_artifacts(
+            report.artifacts,
+            status,
+            scenario_context.as_ref(),
+            &context,
+            &trace_root,
+            &assertion_refs,
+        );
         HarnessCliOutput {
             command_name: command_name.to_owned(),
-            status: report.status,
-            reason_code: report.reason_code,
-            reason_class: report.reason_class,
+            status,
+            reason_code,
+            reason_class,
             profile: self.options.profile.clone(),
             phase_filter: self.options.requested_phase,
             run_id: Some(context.run_id),
             trace_root: Some(trace_root),
             scenarios: scenario_items(scenarios),
             lifecycle,
-            artifacts: report.artifacts,
+            artifacts,
             dependency_status: report.dependency_status,
             service_health: report.service_health,
             reset_refs: report.reset_refs,
@@ -770,6 +782,53 @@ impl HarnessRunner {
             assertion_refs,
             message: report.message,
         }
+    }
+
+    fn enrich_artifacts(
+        &self,
+        artifacts: Vec<ArtifactSummary>,
+        status: HarnessRunStatus,
+        scenario: Option<&ScenarioManifestRef>,
+        context: &HarnessRunContext,
+        trace_root: &str,
+        assertion_refs: &[String],
+    ) -> Vec<ArtifactSummary> {
+        let retention_class = scenario
+            .map(|scenario| retention_class_for_outcome(status, &scenario.gate_class))
+            .unwrap_or_else(|| {
+                artifacts
+                    .first()
+                    .map(|artifact| artifact.retention_class)
+                    .unwrap_or_else(|| retention_class_for_outcome(status, "regression"))
+            });
+        let artifacts = if artifacts.is_empty() {
+            vec![
+                ArtifactLocator::new(&self.options.artifact_root)
+                    .lookup(&context.run_id, retention_class),
+            ]
+        } else {
+            artifacts
+        };
+        artifacts
+            .into_iter()
+            .map(|artifact| {
+                let artifact = artifact.with_retention_class(retention_class);
+                if let Some(scenario) = scenario {
+                    let flake_detected = status == HarnessRunStatus::Failed
+                        && scenario.tags.iter().any(|tag| tag == "flake_detection");
+                    artifact.with_run_context(
+                        &self.options.profile,
+                        &scenario.scenario_id,
+                        &scenario.setup_fixture_refs,
+                        trace_root,
+                        assertion_refs,
+                        flake_detected,
+                    )
+                } else {
+                    artifact
+                }
+            })
+            .collect()
     }
 
     fn manifest_blocked_output(
@@ -1174,19 +1233,111 @@ fn artifacts_json(artifacts: &[ArtifactSummary]) -> String {
                     "\"run_id\":\"{}\",",
                     "\"bundle_ref\":\"{}\",",
                     "\"path\":\"{}\",",
+                    "\"manifest_ref\":\"{}\",",
+                    "\"redaction_report_ref\":\"{}\",",
                     "\"retention_class\":\"{}\",",
-                    "\"redaction_policy\":\"{}\"",
+                    "\"redaction_policy\":\"{}\",",
+                    "\"collection_refs\":{},",
+                    "\"redaction_report\":{},",
+                    "\"reproduction_command\":\"{}\",",
+                    "\"flake_metadata\":{},",
+                    "\"retention_policy\":{}",
                     "}}"
                 ),
                 json_escape(&artifact.run_id),
                 json_escape(&artifact.bundle_ref),
                 json_escape(&artifact.path),
+                json_escape(&artifact.manifest_ref),
+                json_escape(&artifact.redaction_report_ref),
                 json_escape(artifact.retention_class.as_str()),
                 json_escape(&artifact.redaction_policy),
+                artifact_collection_refs_json(&artifact.collection_refs),
+                redaction_report_json(&artifact.redaction_report),
+                json_escape(&artifact.reproduction_command),
+                flake_metadata_json(&artifact.flake_metadata),
+                retention_policy_json(&artifact.retention_policy),
             )
         })
         .collect::<Vec<_>>();
     format!("[{}]", values.join(","))
+}
+
+fn artifact_collection_refs_json(refs: &crate::artifacts::ArtifactCollectionRefs) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"redacted_log_refs\":{},",
+            "\"overwatch_export_refs\":{},",
+            "\"cli_output_refs\":{},",
+            "\"api_payload_envelope_refs\":{},",
+            "\"stack_health_refs\":{},",
+            "\"fixture_version_refs\":{},",
+            "\"schema_version_refs\":{},",
+            "\"assertion_diff_refs\":{}",
+            "}}"
+        ),
+        json_string_array(&refs.redacted_log_refs),
+        json_string_array(&refs.overwatch_export_refs),
+        json_string_array(&refs.cli_output_refs),
+        json_string_array(&refs.api_payload_envelope_refs),
+        json_string_array(&refs.stack_health_refs),
+        json_string_array(&refs.fixture_version_refs),
+        json_string_array(&refs.schema_version_refs),
+        json_string_array(&refs.assertion_diff_refs),
+    )
+}
+
+fn redaction_report_json(report: &overrid_contracts::RedactionScanReport) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"policy\":\"{}\",",
+            "\"redacted_fields\":{},",
+            "\"scanner_passed\":{},",
+            "\"rejected_markers\":{}",
+            "}}"
+        ),
+        json_escape(&report.policy),
+        json_string_array(&report.redacted_fields),
+        report.scanner_passed,
+        json_string_array(&report.rejected_markers),
+    )
+}
+
+fn flake_metadata_json(metadata: &overrid_contracts::FlakeMetadata) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"repeated_run_count\":{},",
+            "\"timing_variance_ms\":{},",
+            "\"nondeterministic_assertion_markers\":{},",
+            "\"unstable_event_ordering\":{},",
+            "\"tolerance_window_used\":{}",
+            "}}"
+        ),
+        metadata.repeated_run_count,
+        metadata.timing_variance_ms,
+        json_string_array(&metadata.nondeterministic_assertion_markers),
+        metadata.unstable_event_ordering,
+        metadata.tolerance_window_used,
+    )
+}
+
+fn retention_policy_json(policy: &overrid_contracts::ArtifactRetentionPolicy) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"retention_class\":\"{}\",",
+            "\"minimum_retention_days\":{},",
+            "\"prune_after_days\":{},",
+            "\"compact_success_summary\":{}",
+            "}}"
+        ),
+        json_escape(policy.retention_class.as_str()),
+        policy.minimum_retention_days,
+        policy.prune_after_days,
+        policy.compact_success_summary,
+    )
 }
 
 fn service_health_json(service_health: &[ServiceHealthSummary]) -> String {
@@ -1545,6 +1696,57 @@ mod tests {
             );
             assert!(output.lifecycle.contains(&HarnessLifecycleState::Asserting));
         }
+    }
+
+    #[test]
+    fn phase8_artifacts_emit_redaction_reproduction_flake_and_retention_metadata() {
+        let release_candidate = runner().run(HarnessCliCommand::Scenario {
+            name: "scenario_phase8_artifact_bundle".to_owned(),
+        });
+        assert_eq!(release_candidate.status, HarnessRunStatus::Passed);
+        assert_eq!(release_candidate.reason_code, "run.passed");
+        let artifact = release_candidate
+            .artifacts
+            .first()
+            .expect("Phase 8 passed scenario emits artifact evidence");
+        assert_eq!(
+            artifact.retention_class,
+            ArtifactRetentionClass::ReleaseCandidate
+        );
+        assert!(artifact.redaction_report.scanner_passed);
+        assert!(artifact
+            .reproduction_command
+            .contains("scenario_phase8_artifact_bundle"));
+        assert!(!artifact.reproduction_command.contains("/Users/"));
+        assert!(!artifact.flake_metadata.is_nondeterministic());
+
+        let flake = runner().run(HarnessCliCommand::Scenario {
+            name: "scenario_phase8_flake_detection".to_owned(),
+        });
+        assert_eq!(flake.status, HarnessRunStatus::Failed);
+        assert_eq!(flake.reason_code, "flake.unstable_event_ordering");
+        let artifact = flake
+            .artifacts
+            .first()
+            .expect("Phase 8 flake scenario emits failure evidence");
+        assert_eq!(
+            artifact.retention_class,
+            ArtifactRetentionClass::FailureEvidence
+        );
+        assert!(artifact.redaction_report.scanner_passed);
+        assert!(artifact.flake_metadata.is_nondeterministic());
+        assert_eq!(artifact.flake_metadata.repeated_run_count, 3);
+        assert!(artifact
+            .collection_refs
+            .assertion_diff_refs
+            .iter()
+            .any(|value| value.contains("unstable_event_ordering")));
+
+        let json = flake.result_json();
+        assert!(json.contains("\"redaction_report\""));
+        assert!(json.contains("\"reproduction_command\""));
+        assert!(json.contains("\"flake_metadata\""));
+        assert!(json.contains("\"retention_policy\""));
     }
 
     #[test]

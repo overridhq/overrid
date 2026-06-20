@@ -133,6 +133,30 @@
       "Policy, verification, dispute, usage, ledger, and receipt traces must remain secret-free and expose authorized refs without direct service, storage, ledger, payment, or pricing assumptions."
     ]
   },
+  "integration_harness_phase8": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase8_artifact_bundle.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase8_flake_detection.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_sensitive_material.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Artifact collection must expose redacted logs, Overwatch exports, CLI outputs, API payload envelopes, service health snapshots, fixture versions, schema versions, assertion diffs, scenario ids, trace roots, and stable reason codes.",
+      "Redaction scanner evidence must fail closed for raw secrets, tokens, private keys, signatures, private payloads, decrypted RAG content, fixture key material, private file contents, and unsafe local paths.",
+      "Reproduction commands must include profile, fixture manifest, scenario id, trace root when applicable, artifact output path, and preserve failed scenario reason-code classification on rerun.",
+      "Flake metadata must capture repeated run count, timing variance, nondeterministic assertion markers, unstable event ordering, and tolerance-window use without marking nondeterminism as success.",
+      "Retention classes must distinguish compact successful smoke, failure evidence, release candidates, and phase-gate evidence without adding non-Rust runtime authority."
+    ]
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",

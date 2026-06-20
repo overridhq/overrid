@@ -320,6 +320,11 @@ fn run_local_helper_step(
 }
 
 fn run_assertion_step(step: &ScenarioStepRef) -> (HarnessRunStatus, String, String, Vec<String>) {
+    if contains_input(step, "assertion:unstable_event_ordering")
+        || contains_input(step, "assertion:nondeterministic_marker")
+    {
+        return failed("flake.unstable_event_ordering");
+    }
     if contains_input(step, "assertion:wrong_reason_code") {
         return failed("assertion.reason_code_mismatch");
     }
@@ -601,5 +606,23 @@ mod tests {
         );
         failed.status = HarnessRunStatus::Passed;
         assert_eq!(classify_step_results(&[failed]), HarnessRunStatus::Passed);
+    }
+
+    #[test]
+    fn assertion_step_runner_marks_flakes_as_failed_not_successful() {
+        let runner = ScenarioStepRunner::new();
+        let result = runner.run_step(
+            &step(
+                "step_phase8_flake",
+                ScenarioActionKind::Assertion,
+                &["assertion:unstable_event_ordering"],
+                HarnessRunStatus::Failed,
+            ),
+            &context(),
+        );
+
+        assert_eq!(result.status, HarnessRunStatus::Failed);
+        assert_eq!(result.reason_code, "flake.unstable_event_ordering");
+        assert_eq!(result.reason_class, "assertion");
     }
 }
