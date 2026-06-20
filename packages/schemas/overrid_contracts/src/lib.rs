@@ -1352,6 +1352,232 @@ impl DisputeReadModel {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProductKind {
+    Docdex,
+    Mcoda,
+    Codali,
+}
+
+impl ProductKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Docdex => "docdex",
+            Self::Mcoda => "mcoda",
+            Self::Codali => "codali",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductWorkflowRecipe {
+    pub product: ProductKind,
+    pub workflow_ref: String,
+    pub workload_kind: String,
+    pub command_recipes: Vec<String>,
+    pub required_refs: Vec<String>,
+    pub expected_failure_modes: Vec<String>,
+    pub safe_retry_patterns: Vec<String>,
+    pub submitted_via: String,
+    pub sdk_overgate_only: bool,
+    pub authorized_refs_only: bool,
+    pub secret_free_json_output: bool,
+    pub dynamic_model_resource_selection: bool,
+    pub direct_internal_api_access: bool,
+    pub direct_storage_access: bool,
+    pub raw_http_required: bool,
+    pub hardcoded_model_or_provider: bool,
+    pub hardcoded_node_assumption: bool,
+    pub paid_service_assumption: bool,
+}
+
+impl ProductWorkflowRecipe {
+    pub fn new(
+        product: ProductKind,
+        workflow_ref: impl Into<String>,
+        workload_kind: impl Into<String>,
+    ) -> Self {
+        let workflow_ref = workflow_ref.into();
+        let workload_kind = workload_kind.into();
+        let (command_recipes, required_refs, expected_failure_modes, safe_retry_patterns) =
+            match product {
+                ProductKind::Docdex => (
+                    vec![
+                        format!(
+                            "overrid workload submit --workload-kind {workload_kind} --workload-ref {workflow_ref} --json"
+                        ),
+                        format!("overrid workload status --workload-ref {workflow_ref} --json"),
+                        format!("overrid workload result --workload-ref {workflow_ref} --json"),
+                        format!(
+                            "overrid workload cancel --workload-ref {workflow_ref} --reason operator_requested --json"
+                        ),
+                        format!("overrid usage show --target-ref usage:{workflow_ref} --json"),
+                        format!("overrid receipt show --target-ref receipt:{workflow_ref} --json"),
+                    ],
+                    vec![
+                        "encrypted_index_ref",
+                        "retrieval_job_ref",
+                        "search_result_ref",
+                        "usage_rollup_ref",
+                        "receipt_ref",
+                    ],
+                    vec![
+                        "policy.egress_denied",
+                        "budget.exhausted",
+                        "credential.scope_denied",
+                        "result.cancelled",
+                    ],
+                    vec![
+                        "retry_same_idempotency_key_for_transport",
+                        "resume_with_workload_ref",
+                        "cancel_then_resubmit_after_policy_fix",
+                    ],
+                ),
+                ProductKind::Mcoda => (
+                    vec![
+                        format!(
+                            "overrid workload submit --workload-kind {workload_kind} --workload-ref {workflow_ref} --json"
+                        ),
+                        format!("overrid workload status --workload-ref {workflow_ref} --json"),
+                        format!("overrid workload logs --workload-ref {workflow_ref} --json"),
+                        format!("overrid workload result --workload-ref {workflow_ref} --json"),
+                        format!(
+                            "overrid workload cancel --workload-ref {workflow_ref} --reason operator_requested --json"
+                        ),
+                        format!("overrid usage show --target-ref usage:{workflow_ref} --json"),
+                    ],
+                    vec![
+                        "agent_workload_ref",
+                        "dynamic_model_metadata_ref",
+                        "resource_metadata_ref",
+                        "tool_boundary_ref",
+                        "budget_ref",
+                        "usage_rollup_ref",
+                    ],
+                    vec![
+                        "policy.unsupported_workload_class",
+                        "budget.exhausted",
+                        "tool.boundary_denied",
+                        "provider.unavailable",
+                    ],
+                    vec![
+                        "retry_same_idempotency_key_for_safe_transport",
+                        "switch_model_via_metadata_ref",
+                        "operator_review_for_policy_denial",
+                    ],
+                ),
+                ProductKind::Codali => (
+                    vec![
+                        format!("overrid package validate --target-ref package:{workflow_ref} --json"),
+                        format!(
+                            "overrid workload submit --workload-kind {workload_kind} --workload-ref {workflow_ref} --json"
+                        ),
+                        format!("overrid workload logs --workload-ref {workflow_ref} --json"),
+                        format!("overrid workload result --workload-ref {workflow_ref} --json"),
+                        format!(
+                            "overrid workload cancel --workload-ref {workflow_ref} --reason operator_requested --json"
+                        ),
+                        format!("overrid usage show --target-ref usage:{workflow_ref} --json"),
+                    ],
+                    vec![
+                        "code_agent_package_ref",
+                        "repository_context_ref",
+                        "execution_log_ref",
+                        "artifact_refs",
+                        "repair_boundary_ref",
+                        "phase_usage_ref",
+                    ],
+                    vec![
+                        "policy.resource_denied",
+                        "package.invalid",
+                        "repo_context.ref_denied",
+                        "repair.boundary_exceeded",
+                    ],
+                    vec![
+                        "retry_failed_phase_after_repair_ref",
+                        "preserve_repo_context_ref",
+                        "operator_review_for_policy_denial",
+                    ],
+                ),
+            };
+
+        Self {
+            product,
+            workflow_ref,
+            workload_kind,
+            command_recipes,
+            required_refs: required_refs.into_iter().map(str::to_owned).collect(),
+            expected_failure_modes: expected_failure_modes
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            safe_retry_patterns: safe_retry_patterns
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            submitted_via: "sdk_overgate_contract".to_owned(),
+            sdk_overgate_only: true,
+            authorized_refs_only: true,
+            secret_free_json_output: true,
+            dynamic_model_resource_selection: true,
+            direct_internal_api_access: false,
+            direct_storage_access: false,
+            raw_http_required: false,
+            hardcoded_model_or_provider: false,
+            hardcoded_node_assumption: false,
+            paid_service_assumption: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiAutomationProfile {
+    pub profile_kind: String,
+    pub environment_class: EnvironmentClass,
+    pub credential_reference_class: String,
+    pub credential_reference_id: String,
+    pub allowed_credential_ref_kinds: Vec<String>,
+    pub submitted_via: String,
+    pub short_lived_service_account_required: bool,
+    pub ambient_persistent_keychain_allowed: bool,
+    pub requires_non_interactive_confirmation: bool,
+    pub json_output_stable: bool,
+    pub secret_free_output: bool,
+    pub branch_on_exit_class: bool,
+}
+
+impl CiAutomationProfile {
+    pub fn new(
+        environment_class: EnvironmentClass,
+        credential_reference_class: impl Into<String>,
+        credential_reference_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            profile_kind: "ci".to_owned(),
+            environment_class,
+            credential_reference_class: credential_reference_class.into(),
+            credential_reference_id: credential_reference_id.into(),
+            allowed_credential_ref_kinds: [
+                "ci_reference",
+                "signing_agent",
+                "fixture",
+                "hardware_token",
+                "mounted_secret_ref",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            submitted_via: "sdk_overgate_contract".to_owned(),
+            short_lived_service_account_required: true,
+            ambient_persistent_keychain_allowed: false,
+            requires_non_interactive_confirmation: true,
+            json_output_stable: true,
+            secret_free_output: true,
+            branch_on_exit_class: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProfileValidationError {
     MissingRequiredField(&'static str),
@@ -2145,6 +2371,72 @@ mod tests {
             workload.timeline_refs,
             vec!["timeline:workload_local:pending".to_owned()]
         );
+    }
+
+    #[test]
+    fn phase9_product_workflow_recipe_keeps_products_on_sdk_overgate_refs() {
+        let docdex = ProductWorkflowRecipe::new(
+            ProductKind::Docdex,
+            "workload_docdex_index",
+            "docdex_encrypted_index",
+        );
+        assert_eq!(docdex.product.as_str(), "docdex");
+        assert_eq!(docdex.submitted_via, "sdk_overgate_contract");
+        assert!(docdex.sdk_overgate_only);
+        assert!(docdex.authorized_refs_only);
+        assert!(docdex.secret_free_json_output);
+        assert!(docdex.required_refs.contains(&"encrypted_index_ref".to_owned()));
+        assert!(!docdex.direct_internal_api_access);
+        assert!(!docdex.direct_storage_access);
+        assert!(!docdex.raw_http_required);
+
+        let mcoda = ProductWorkflowRecipe::new(
+            ProductKind::Mcoda,
+            "workload_mcoda_agent",
+            "mcoda_agent_workload",
+        );
+        assert!(mcoda.dynamic_model_resource_selection);
+        assert!(mcoda
+            .required_refs
+            .contains(&"dynamic_model_metadata_ref".to_owned()));
+        assert!(!mcoda.hardcoded_model_or_provider);
+        assert!(!mcoda.hardcoded_node_assumption);
+        assert!(!mcoda.paid_service_assumption);
+
+        let codali = ProductWorkflowRecipe::new(
+            ProductKind::Codali,
+            "workload_codali_package",
+            "codali_code_agent_package",
+        );
+        assert!(codali.required_refs.contains(&"artifact_refs".to_owned()));
+        assert!(codali
+            .expected_failure_modes
+            .contains(&"policy.resource_denied".to_owned()));
+        assert!(codali
+            .safe_retry_patterns
+            .contains(&"retry_failed_phase_after_repair_ref".to_owned()));
+    }
+
+    #[test]
+    fn phase9_ci_automation_profile_requires_explicit_short_lived_refs() {
+        let profile = CiAutomationProfile::new(
+            EnvironmentClass::Ci,
+            "ci_reference",
+            "ci://overrid/service-account/short-lived",
+        );
+
+        assert_eq!(profile.profile_kind, "ci");
+        assert_eq!(profile.environment_class.as_str(), "ci");
+        assert_eq!(profile.submitted_via, "sdk_overgate_contract");
+        assert!(profile.short_lived_service_account_required);
+        assert!(profile.requires_non_interactive_confirmation);
+        assert!(profile.json_output_stable);
+        assert!(profile.secret_free_output);
+        assert!(profile.branch_on_exit_class);
+        assert!(!profile.ambient_persistent_keychain_allowed);
+        assert!(profile
+            .allowed_credential_ref_kinds
+            .contains(&"mounted_secret_ref".to_owned()));
     }
 
     #[test]

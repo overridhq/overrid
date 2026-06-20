@@ -107,6 +107,21 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - Execution diagnostics gate: execution timelines cite Overgate, Overqueue, Oversched, Overlease, Overrun, Overwatch, node heartbeat, package, and result-state refs with stable reason codes.
 - Validation gate: `scripts/validate_cli_phase7.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
 
+## Phase 8 Implementation Gates
+
+- Policy/package gate: `policy dry-run` and `package validate` expose read-only SDK/Overgate decisions with package schema/signature/hash/dependency/permission/SBOM/provenance/policy refs and no direct policy or package-store access.
+- Accounting read gate: `usage show`, `receipt show`, `ledger inspect`, and `dispute inspect` expose authorized read-model refs without meter, ledger, dispute, or payment mutation access.
+- Assumption gate: Phase 8 output and fixtures avoid pricing, revenue, customer-count, market-volume, blockchain, and NFT assumptions.
+- Validation gate: `scripts/validate_cli_phase8.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
+
+## Phase 9 Implementation Gates
+
+- Product workflow gate: Docdex, Mcoda, and Codali workload paths render `product_workflow_recipe` metadata for submit/status/logs/result/cancel, usage, and receipt flows through CLI/SDK/Overgate only.
+- Mcoda metadata gate: Mcoda product recipes expose dynamic model/resource metadata, tool-boundary, budget, and usage refs without hardcoded model, provider, node, or paid-service assumptions.
+- Codali artifact gate: Codali product recipes expose repository context, logs, artifacts, repair boundary, structured result, and per-phase usage refs without direct private storage access.
+- CI automation gate: explicit `environment=ci` profiles render `ci_automation_profile` with short-lived or mounted credential refs, stable secret-free JSON, non-interactive behavior, and no ambient persistent keychain defaults.
+- Validation gate: `scripts/validate_cli_phase9.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
+
 ## Validation
 
 - CLI can complete the [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) synthetic workload path.

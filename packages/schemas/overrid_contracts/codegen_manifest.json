@@ -19,6 +19,9 @@
     ],
     "phase8_valid": [
       "packages/cli/fixtures/valid/phase8_policy_package_accounting.valid.json"
+    ],
+    "phase9_valid": [
+      "packages/cli/fixtures/valid/phase9_product_integration.valid.json"
     ]
   },
   "phase3_contracts": [
@@ -66,6 +69,10 @@
     "receipt_ledger_read",
     "dispute_read_model"
   ],
+  "phase9_contracts": [
+    "product_workflow_recipe",
+    "ci_automation_profile"
+  ],
   "guardrails": [
     "JSON Schema is the docs-facing and fixture-facing source of truth.",
     "The Rust projection is consumed by the CLI and SDK but must not become contract authority.",
@@ -85,6 +92,10 @@
     "Phase 8 policy dry-run commands must remain dry-run/read-only and route through SDK/Overgate contracts without direct policy-service access.",
     "Phase 8 package validation commands must expose schema/signature/hash/dependency/permission/SBOM/provenance/policy compatibility refs without direct package-store access.",
     "Phase 8 usage, receipt, ledger, and dispute read commands must expose authorized read-model refs without direct meter, ledger, dispute, or payment mutation access.",
-    "Phase 8 accounting outputs must not encode pricing, revenue, customer-count, market-volume, blockchain, or NFT assumptions."
+    "Phase 8 accounting outputs must not encode pricing, revenue, customer-count, market-volume, blockchain, or NFT assumptions.",
+    "Phase 9 product integration workflows for Docdex, Mcoda, and Codali must route through CLI/SDK/Overgate recipes and authorized refs, not direct internal APIs.",
+    "Phase 9 Mcoda product workflows must keep model, provider, resource, tool-boundary, budget, and usage metadata dynamic without hardcoded model, node, paid-service, raw HTTP, or private-storage assumptions.",
+    "Phase 9 Codali product workflows must expose repository context, logs, artifacts, structured results, retry/repair boundaries, and per-agent-phase usage through authorized refs only.",
+    "Phase 9 CI automation profiles must use explicit ci profile kinds and short-lived or mounted credential refs with stable secret-free JSON output and no ambient persistent keychain defaults."
   ]
 }

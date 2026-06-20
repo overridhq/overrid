@@ -1,8 +1,9 @@
 # Overrid CLI
 
 This package contains the Phase 5 Rust CLI bootstrap slice, Phase 6
-automation hardening, Phase 7 seed private swarm/execution command slice, and
-Phase 8 policy/package/accounting read command slice
+automation hardening, Phase 7 seed private swarm/execution command slice,
+Phase 8 policy/package/accounting read command slice, and Phase 9 product
+integration/automation hardening slice
 for `SUB BUILD PLAN #2 - CLI`.
 
 It is a Cargo workspace member and depends on the Rust contract projection in
@@ -42,3 +43,13 @@ receipt and ledger refs, and dispute read models fixture-backed until owning
 services expose live backends. Outputs use authorized SDK/Overgate refs only,
 stay dry-run or read-only, and explicitly avoid pricing, revenue,
 customer-count, market-volume, blockchain, or NFT assumptions.
+
+Phase 9 product integration attaches `product_workflow_recipe` output to
+Docdex, Mcoda, and Codali workload paths. The recipes document submit,
+inspect/status, logs/result, cancellation, usage, and receipt commands through
+the existing Rust CLI/SDK/Overgate route, with authorized refs only and no
+direct internal APIs, raw HTTP, private storage, hardcoded model/node/provider,
+or paid-service assumptions. CI automation outputs `ci_automation_profile`
+metadata for explicit `environment=ci` profiles, requiring short-lived or
+mounted credential refs, stable secret-free JSON, non-interactive behavior, and
+no ambient persistent keychain defaults.

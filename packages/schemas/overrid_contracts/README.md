@@ -2,7 +2,8 @@
 
 This package contains the Phase 2 through Phase 5 CLI contract source plus
 Phase 6 hardening contracts, Phase 7 execution contracts, Phase 8
-policy/package/accounting read contracts, and the Rust
+policy/package/accounting read contracts, Phase 9 product integration and CI
+automation contracts, and the Rust
 projection for `SUB BUILD PLAN #2 - CLI`.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
@@ -48,3 +49,13 @@ validation and accounting reads on SDK/Overgate contracts, expose only
 authorized refs, forbid direct meter/ledger/dispute/package/policy access, and
 exclude pricing, revenue, customer-count, market-volume, blockchain, and NFT
 assumptions.
+
+Phase 9 product and automation contracts define `product_workflow_recipe` and
+`ci_automation_profile`. Product recipes cover Docdex, Mcoda, and Codali
+workflow commands through CLI/SDK/Overgate only, including authorized workload,
+log, artifact, usage, receipt, budget, model/resource, tool-boundary, and retry
+refs without direct internal APIs, raw HTTP, private storage paths, hardcoded
+model/node/provider choices, or paid-service assumptions. CI automation
+profiles require explicit `profile_kind=ci`, short-lived or mounted credential
+refs, stable secret-free JSON, non-interactive confirmation behavior, and no
+ambient persistent keychain defaults.

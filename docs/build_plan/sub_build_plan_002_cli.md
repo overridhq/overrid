@@ -433,6 +433,16 @@ When a CLI command needs new platform behavior, update documentation in this ord
   - Output: CLI command reference and product integration examples aligned to SDS #2.
   - Validation: Docs review confirms examples route through SDK/Overgate and use no direct internal API or private storage access.
 
+### Phase 9 Gate Outputs
+
+| Gate | Output | Validation |
+| --- | --- | --- |
+| Docdex workflow gate | `product_workflow_recipe` output for `docdex_encrypted_index` workload submit/status/result/cancel plus usage and receipt recipes. | `scripts/validate_cli_phase9.py` proves encrypted index, retrieval, usage, and receipt refs stay on CLI/SDK/Overgate paths with no direct internal API or raw HTTP requirement. |
+| Mcoda workflow gate | `product_workflow_recipe` output for `mcoda_agent_workload` with dynamic model/resource metadata, tool-boundary, budget, and usage refs. | Rust tests and `scripts/validate_cli_phase9.py` prove no hardcoded model, node, provider, or paid-service assumptions enter output. |
+| Codali workflow gate | `product_workflow_recipe` output for `codali_code_agent_package` with repository context, logs, artifacts, repair boundary, and per-phase usage refs. | Rust tests and `scripts/validate_cli_phase9.py` prove logs/artifacts use authorized refs and policy/resource failures surface stable reason codes. |
+| CI automation gate | `ci_automation_profile` output for explicit `environment=ci` profiles using short-lived or mounted credential refs. | `scripts/validate_cli_phase9.py` proves stable secret-free JSON, non-interactive behavior, `profile_kind=ci`, and no ambient persistent keychain defaults. |
+| Documentation gate | CLI and schema package docs describe supported product workflows, expected failure modes, and retry patterns. | `scripts/validate_cli_phase9.py`, `scripts/validate_overrid.py`, and `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass before Phase 9 is reported complete. |
+
 ## Phase 10: Validation, Release Readiness, Security Review, And Handoff
 
 ### Work Items

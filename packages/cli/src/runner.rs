@@ -1,13 +1,13 @@
 use overrid_contracts::{
     BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint, CliProfile,
-    ConfirmationPolicy, CredentialReference, CredentialReferenceClass, DisputeReadModel,
-    EnvironmentClass, ErrorDecodeRecord, ExecutionDiagnosticEvent, ExecutionLogBundle,
-    ExecutionResultRef, ExecutionTimeline, ExitCodeClass, FixtureAllowance,
+    CiAutomationProfile, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
+    DisputeReadModel, EnvironmentClass, ErrorDecodeRecord, ExecutionDiagnosticEvent,
+    ExecutionLogBundle, ExecutionResultRef, ExecutionTimeline, ExitCodeClass, FixtureAllowance,
     LocalIdempotencyCacheRecord, ManifestBootstrapRef, NodeState, NodeStatusRecord,
     PackageValidationState, PackageValidationSummary, PolicyDryRunDecision, PollingPlan,
-    ProfileValidationError, ReceiptLedgerRead, RetryClass, RetryTimeoutPolicy,
-    SignedCommandEnvelope, SyntheticWorkloadPendingState, UsageOruRollup, WorkloadExecutionState,
-    SUPPORTED_SCHEMA_VERSION,
+    ProductKind, ProductWorkflowRecipe, ProfileValidationError, ReceiptLedgerRead, RetryClass,
+    RetryTimeoutPolicy, SignedCommandEnvelope, SyntheticWorkloadPendingState, UsageOruRollup,
+    WorkloadExecutionState, SUPPORTED_SCHEMA_VERSION,
 };
 use overrid_sdk::{
     decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
@@ -1831,7 +1831,7 @@ fn render_node_result(
                     "\"node_status\":{},",
                     "\"capability_refs\":{},",
                     "\"signed_command_envelope\":{},",
-                    "\"acceptance\":{}",
+                    "\"acceptance\":{}{}{}",
                     "}}"
                 ),
                 json_escape(command.as_str()),
@@ -1976,6 +1976,8 @@ fn render_workload_execution_result(
                     &context.audit_refs,
                     signed,
                 ),
+                render_product_workflow_recipe_optional_json(globals, context),
+                render_ci_automation_profile_optional_json(context),
             );
             let lifecycle = if signed {
                 &[
@@ -2952,10 +2954,12 @@ fn render_bootstrap_extra_json(
                 String::new()
             };
             format!(
-                ",\"synthetic_workload_pending_state\":{}{}{}",
+                ",\"synthetic_workload_pending_state\":{}{}{}{}{}",
                 render_workload_pending_json(&workload),
                 event_suffix,
-                execution_suffix
+                execution_suffix,
+                render_product_workflow_recipe_optional_json(globals, context),
+                render_ci_automation_profile_optional_json(context),
             )
         }
     }
@@ -2994,6 +2998,175 @@ fn render_workload_pending_json(workload: &SyntheticWorkloadPendingState) -> Str
         json_escape(&workload.queue_state),
         workload.execution_implied,
         json_owned_string_array(&workload.timeline_refs),
+    )
+}
+
+fn render_product_workflow_recipe_optional_json(
+    globals: &GlobalOptions,
+    context: &BootstrapContext,
+) -> String {
+    product_workflow_recipe(globals, context)
+        .map(|recipe| {
+            format!(
+                ",\"product_workflow_recipe\":{}",
+                render_product_workflow_recipe_json(&recipe)
+            )
+        })
+        .unwrap_or_default()
+}
+
+fn product_workflow_recipe(
+    globals: &GlobalOptions,
+    context: &BootstrapContext,
+) -> Option<ProductWorkflowRecipe> {
+    let product = product_kind_for_workload(globals, context)?;
+    let workflow_ref = globals
+        .workload_ref
+        .as_deref()
+        .unwrap_or(&context.target_ref);
+    let workload_kind = globals
+        .workload_kind
+        .as_deref()
+        .unwrap_or_else(|| default_product_workload_kind(product));
+    Some(ProductWorkflowRecipe::new(
+        product,
+        workflow_ref,
+        workload_kind,
+    ))
+}
+
+fn product_kind_for_workload(
+    globals: &GlobalOptions,
+    context: &BootstrapContext,
+) -> Option<ProductKind> {
+    let normalized = format!(
+        "{} {} {}",
+        globals.workload_kind.as_deref().unwrap_or_default(),
+        globals.workload_ref.as_deref().unwrap_or_default(),
+        context.target_ref,
+    )
+    .to_ascii_lowercase()
+    .replace('-', "_");
+
+    if normalized.contains("docdex")
+        || normalized.contains("encrypted_index")
+        || normalized.contains("retrieval")
+        || normalized.contains("search_job")
+    {
+        Some(ProductKind::Docdex)
+    } else if normalized.contains("codali")
+        || normalized.contains("code_agent")
+        || normalized.contains("repo_context")
+    {
+        Some(ProductKind::Codali)
+    } else if normalized.contains("mcoda")
+        || normalized.contains("model_metadata")
+        || normalized.contains("tool_boundary")
+    {
+        Some(ProductKind::Mcoda)
+    } else {
+        None
+    }
+}
+
+fn default_product_workload_kind(product: ProductKind) -> &'static str {
+    match product {
+        ProductKind::Docdex => "docdex_encrypted_index",
+        ProductKind::Mcoda => "mcoda_agent_workload",
+        ProductKind::Codali => "codali_code_agent_package",
+    }
+}
+
+fn render_product_workflow_recipe_json(recipe: &ProductWorkflowRecipe) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"product\":\"{}\",",
+            "\"workflow_ref\":\"{}\",",
+            "\"workload_kind\":\"{}\",",
+            "\"command_recipes\":{},",
+            "\"required_refs\":{},",
+            "\"expected_failure_modes\":{},",
+            "\"safe_retry_patterns\":{},",
+            "\"submitted_via\":\"{}\",",
+            "\"sdk_overgate_only\":{},",
+            "\"authorized_refs_only\":{},",
+            "\"secret_free_json_output\":{},",
+            "\"dynamic_model_resource_selection\":{},",
+            "\"direct_internal_api_access\":{},",
+            "\"direct_storage_access\":{},",
+            "\"raw_http_required\":{},",
+            "\"hardcoded_model_or_provider\":{},",
+            "\"hardcoded_node_assumption\":{},",
+            "\"paid_service_assumption\":{}",
+            "}}"
+        ),
+        json_escape(recipe.product.as_str()),
+        json_escape(&recipe.workflow_ref),
+        json_escape(&recipe.workload_kind),
+        json_owned_string_array(&recipe.command_recipes),
+        json_owned_string_array(&recipe.required_refs),
+        json_owned_string_array(&recipe.expected_failure_modes),
+        json_owned_string_array(&recipe.safe_retry_patterns),
+        json_escape(&recipe.submitted_via),
+        recipe.sdk_overgate_only,
+        recipe.authorized_refs_only,
+        recipe.secret_free_json_output,
+        recipe.dynamic_model_resource_selection,
+        recipe.direct_internal_api_access,
+        recipe.direct_storage_access,
+        recipe.raw_http_required,
+        recipe.hardcoded_model_or_provider,
+        recipe.hardcoded_node_assumption,
+        recipe.paid_service_assumption,
+    )
+}
+
+fn render_ci_automation_profile_optional_json(context: &BootstrapContext) -> String {
+    if context.profile.environment != EnvironmentClass::Ci {
+        return String::new();
+    }
+    let profile = CiAutomationProfile::new(
+        context.profile.environment,
+        context.credential.class.as_str(),
+        context.credential.reference_id.clone(),
+    );
+    format!(
+        ",\"ci_automation_profile\":{}",
+        render_ci_automation_profile_json(&profile)
+    )
+}
+
+fn render_ci_automation_profile_json(profile: &CiAutomationProfile) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"profile_kind\":\"{}\",",
+            "\"environment_class\":\"{}\",",
+            "\"credential_reference_class\":\"{}\",",
+            "\"credential_reference_id\":\"{}\",",
+            "\"allowed_credential_ref_kinds\":{},",
+            "\"submitted_via\":\"{}\",",
+            "\"short_lived_service_account_required\":{},",
+            "\"ambient_persistent_keychain_allowed\":{},",
+            "\"requires_non_interactive_confirmation\":{},",
+            "\"json_output_stable\":{},",
+            "\"secret_free_output\":{},",
+            "\"branch_on_exit_class\":{}",
+            "}}"
+        ),
+        json_escape(&profile.profile_kind),
+        json_escape(profile.environment_class.as_str()),
+        json_escape(&profile.credential_reference_class),
+        json_escape(&profile.credential_reference_id),
+        json_owned_string_array(&profile.allowed_credential_ref_kinds),
+        json_escape(&profile.submitted_via),
+        profile.short_lived_service_account_required,
+        profile.ambient_persistent_keychain_allowed,
+        profile.requires_non_interactive_confirmation,
+        profile.json_output_stable,
+        profile.secret_free_output,
+        profile.branch_on_exit_class,
     )
 }
 
@@ -3333,6 +3506,31 @@ mod tests {
         "key-1",
         "--fixture-allowance",
         "local_only",
+    ];
+
+    const CI_PROFILE_ARGS: &[&str] = &[
+        "--profile",
+        "ci-automation",
+        "--environment",
+        "ci",
+        "--endpoint",
+        "http://127.0.0.1:18080/overgate",
+        "--endpoint-fingerprint",
+        "fp_ci",
+        "--tenant",
+        "tenant_ci",
+        "--actor",
+        "actor_ci",
+        "--credential-namespace",
+        "ci",
+        "--credential-class",
+        "ci_reference",
+        "--credential-ref",
+        "ci://overrid/service-account/short-lived",
+        "--key-id",
+        "ci-key-1",
+        "--fixture-allowance",
+        "test_harness_only",
     ];
 
     fn args_with<'a>(prefix: &[&'a str], suffix: &[&'a str]) -> Vec<&'a str> {
@@ -3990,6 +4188,108 @@ mod tests {
         assert!(dispute.stdout.contains("\"tenant_role_filtered\":true"));
         assert!(dispute.stdout.contains("\"direct_dispute_mutation\":false"));
         assert!(dispute.stdout.contains("\"direct_ledger_mutation\":false"));
+    }
+
+    #[test]
+    fn phase9_product_and_ci_workflows_emit_authorized_recipes() {
+        let docdex = run_args(args_with(
+            &[
+                "workload",
+                "submit",
+                "--json",
+                "--workload-kind",
+                "docdex_encrypted_index",
+                "--workload-ref",
+                "workload_docdex_index",
+                "--target-ref",
+                "docdex_index",
+            ],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(docdex.exit_code, EXIT_SUCCESS);
+        assert!(docdex.stdout.contains("\"product_workflow_recipe\""));
+        assert!(docdex.stdout.contains("\"product\":\"docdex\""));
+        assert!(docdex.stdout.contains("encrypted_index_ref"));
+        assert!(docdex.stdout.contains("overrid workload cancel"));
+        assert!(docdex.stdout.contains("overrid usage show"));
+        assert!(docdex.stdout.contains("overrid receipt show"));
+        assert!(docdex.stdout.contains("\"sdk_overgate_only\":true"));
+        assert!(docdex.stdout.contains("\"direct_internal_api_access\":false"));
+        assert!(docdex.stdout.contains("\"raw_http_required\":false"));
+        assert!(docdex.stdout.contains("\"authorized_refs_only\":true"));
+
+        let mcoda = run_args(args_with(
+            &[
+                "workload",
+                "status",
+                "--json",
+                "--workload-kind",
+                "mcoda_agent_workload",
+                "--workload-ref",
+                "workload_mcoda_agent",
+                "--target-ref",
+                "mcoda_model_metadata",
+            ],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(mcoda.exit_code, EXIT_SUCCESS);
+        assert!(mcoda.stdout.contains("\"product\":\"mcoda\""));
+        assert!(mcoda.stdout.contains("dynamic_model_metadata_ref"));
+        assert!(mcoda.stdout.contains("resource_metadata_ref"));
+        assert!(mcoda.stdout.contains("tool_boundary_ref"));
+        assert!(mcoda.stdout.contains("\"dynamic_model_resource_selection\":true"));
+        assert!(mcoda.stdout.contains("\"hardcoded_model_or_provider\":false"));
+        assert!(mcoda.stdout.contains("\"hardcoded_node_assumption\":false"));
+        assert!(mcoda.stdout.contains("\"paid_service_assumption\":false"));
+
+        let codali = run_args(args_with(
+            &[
+                "workload",
+                "result",
+                "--json",
+                "--workload-kind",
+                "codali_code_agent_package",
+                "--workload-ref",
+                "workload_codali_package",
+                "--target-ref",
+                "codali_repo_context",
+            ],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(codali.exit_code, EXIT_SUCCESS);
+        assert!(codali.stdout.contains("\"product\":\"codali\""));
+        assert!(codali.stdout.contains("repository_context_ref"));
+        assert!(codali.stdout.contains("artifact_refs"));
+        assert!(codali.stdout.contains("repair_boundary_ref"));
+        assert!(codali.stdout.contains("phase_usage_ref"));
+        assert!(codali.stdout.contains("policy.resource_denied"));
+        assert!(codali.stdout.contains("\"direct_storage_access\":false"));
+        assert!(codali.stdout.contains("\"execution_result\""));
+
+        let ci = run_args(args_with(
+            &[
+                "workload",
+                "submit",
+                "--json",
+                "--workload-kind",
+                "docdex_encrypted_index",
+                "--workload-ref",
+                "workload_docdex_ci",
+                "--target-ref",
+                "docdex_ci_index",
+            ],
+            CI_PROFILE_ARGS,
+        ));
+        assert_eq!(ci.exit_code, EXIT_SUCCESS);
+        assert!(ci.stdout.contains("\"ci_automation_profile\""));
+        assert!(ci.stdout.contains("\"profile_kind\":\"ci\""));
+        assert!(ci.stdout.contains("\"environment_class\":\"ci\""));
+        assert!(ci.stdout.contains("\"credential_reference_class\":\"ci_reference\""));
+        assert!(ci.stdout.contains("mounted_secret_ref"));
+        assert!(ci.stdout.contains("\"ambient_persistent_keychain_allowed\":false"));
+        assert!(ci.stdout.contains("\"requires_non_interactive_confirmation\":true"));
+        assert!(ci.stdout.contains("\"json_output_stable\":true"));
+        assert!(ci.stdout.contains("\"branch_on_exit_class\":true"));
     }
 
     #[test]

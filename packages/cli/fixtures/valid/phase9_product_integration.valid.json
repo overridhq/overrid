@@ -1,0 +1,99 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "phase": "cli_phase_09",
+  "products": {
+    "docdex": {
+      "workload_kind": "docdex_encrypted_index",
+      "required_commands": [
+        "workload submit",
+        "workload status",
+        "workload result",
+        "workload cancel",
+        "usage show",
+        "receipt show"
+      ],
+      "required_refs": [
+        "encrypted_index_ref",
+        "retrieval_job_ref",
+        "search_result_ref",
+        "usage_rollup_ref",
+        "receipt_ref"
+      ]
+    },
+    "mcoda": {
+      "workload_kind": "mcoda_agent_workload",
+      "required_commands": [
+        "workload submit",
+        "workload status",
+        "workload logs",
+        "workload result",
+        "workload cancel",
+        "usage show"
+      ],
+      "required_refs": [
+        "agent_workload_ref",
+        "dynamic_model_metadata_ref",
+        "resource_metadata_ref",
+        "tool_boundary_ref",
+        "budget_ref",
+        "usage_rollup_ref"
+      ]
+    },
+    "codali": {
+      "workload_kind": "codali_code_agent_package",
+      "required_commands": [
+        "package validate",
+        "workload submit",
+        "workload logs",
+        "workload result",
+        "workload cancel",
+        "usage show"
+      ],
+      "required_refs": [
+        "code_agent_package_ref",
+        "repository_context_ref",
+        "execution_log_ref",
+        "artifact_refs",
+        "repair_boundary_ref",
+        "phase_usage_ref"
+      ]
+    }
+  },
+  "ci_profile": {
+    "profile_kind": "ci",
+    "environment_class": "ci",
+    "allowed_credential_ref_kinds": [
+      "ci_reference",
+      "signing_agent",
+      "fixture",
+      "hardware_token",
+      "mounted_secret_ref"
+    ]
+  },
+  "expected_failure_modes": [
+    "policy.egress_denied",
+    "budget.exhausted",
+    "tool.boundary_denied",
+    "policy.resource_denied",
+    "package.invalid",
+    "repo_context.ref_denied",
+    "repair.boundary_exceeded"
+  ],
+  "guardrails": {
+    "submitted_via": "sdk_overgate_contract",
+    "sdk_overgate_only": true,
+    "authorized_refs_only": true,
+    "secret_free_json_output": true,
+    "dynamic_model_resource_selection": true,
+    "direct_internal_api_access": false,
+    "direct_storage_access": false,
+    "raw_http_required": false,
+    "hardcoded_model_or_provider": false,
+    "hardcoded_node_assumption": false,
+    "paid_service_assumption": false,
+    "ambient_persistent_keychain_allowed": false,
+    "requires_non_interactive_confirmation": true,
+    "json_output_stable": true,
+    "branch_on_exit_class": true
+  }
+}
