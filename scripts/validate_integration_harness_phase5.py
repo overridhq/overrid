@@ -239,7 +239,8 @@ def validate_fixture_code() -> None:
 def validate_rust_behavior() -> None:
     run(["cargo", "check", "-p", "overrid-integration-harness"])
     result = run(["cargo", "test", "-p", "overrid-integration-harness"])
-    assert_contains(result.stdout, "34 passed", Path("cargo test -p overrid-integration-harness"))
+    assert_contains(result.stdout, "test result: ok.", Path("cargo test -p overrid-integration-harness"))
+    assert_contains(result.stdout, "0 failed", Path("cargo test -p overrid-integration-harness"))
 
 
 def main() -> int:

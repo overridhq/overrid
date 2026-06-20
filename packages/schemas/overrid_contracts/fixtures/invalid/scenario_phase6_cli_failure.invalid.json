@@ -1,0 +1,38 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "expected_violation": "signature.invalid",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_cli_failure_invalid",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase6",
+      "invalid",
+      "cli"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_failed"
+    ],
+    "steps": [
+      {
+        "step_id": "step_cli_invalid_signature",
+        "action_kind": "cli",
+        "input_refs": [
+          "command:invalid_signature"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "failed",
+        "assertion_refs": [
+          "assertion:phase6:signature_invalid"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ]
+  }
+}

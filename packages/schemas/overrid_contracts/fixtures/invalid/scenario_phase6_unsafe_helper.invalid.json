@@ -1,0 +1,37 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "expected_violation": "safety.local_helper_not_allowed",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_unsafe_helper_invalid",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase6",
+      "invalid",
+      "local_helper"
+    ],
+    "required_services": [
+      "service:local_stack"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_step_runners"
+    ],
+    "steps": [
+      {
+        "step_id": "step_unsafe_helper_mutation",
+        "action_kind": "local_helper",
+        "input_refs": [
+          "helper:production_mutation"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "blocked",
+        "assertion_refs": [
+          "assertion:phase6:safety_helper_not_allowed"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ]
+  }
+}

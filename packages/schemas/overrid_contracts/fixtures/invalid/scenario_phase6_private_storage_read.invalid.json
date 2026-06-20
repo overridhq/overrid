@@ -1,0 +1,38 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "expected_violation": "safety.private_storage_read",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_private_storage_read_invalid",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase6",
+      "invalid",
+      "sdk"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_step_runners"
+    ],
+    "steps": [
+      {
+        "step_id": "step_private_storage_read",
+        "action_kind": "sdk",
+        "input_refs": [
+          "storage:private:read"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "blocked",
+        "assertion_refs": [
+          "assertion:phase6:safety_private_storage_read"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ]
+  }
+}

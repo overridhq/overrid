@@ -1,0 +1,38 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "expected_violation": "safety.direct_service_url",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_direct_service_url_invalid",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase6",
+      "invalid",
+      "api"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_blocked"
+    ],
+    "steps": [
+      {
+        "step_id": "step_direct_service_url",
+        "action_kind": "api",
+        "input_refs": [
+          "service_url:overgate-admin"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "blocked",
+        "assertion_refs": [
+          "assertion:phase6:safety_direct_service_url"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ]
+  }
+}

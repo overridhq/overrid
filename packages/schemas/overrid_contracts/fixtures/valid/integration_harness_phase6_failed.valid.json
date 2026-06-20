@@ -1,0 +1,196 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase6_failed",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase6_failed_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:no_op"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_failed_invalid_signature",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase1",
+      "phase6",
+      "failed",
+      "cli"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_failed"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase6_cli_invalid_signature",
+        "action_kind": "cli",
+        "input_refs": [
+          "command:invalid_signature"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "failed",
+        "assertion_refs": [
+          "assertion:phase6:signature_invalid"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ],
+    "cleanup_rules": [
+      "collect_artifacts_then_reset"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase6_failed_invalid_signature",
+    "scenario_ids": [
+      "scenario_phase6_failed_invalid_signature"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "failed",
+    "started_at_ms": 1781975200000,
+    "ended_at_ms": 1781975201000,
+    "reason_code": "signature.invalid",
+    "reason_class": "assertion",
+    "assertion_refs": [
+      "assertion:phase6:signature_invalid"
+    ],
+    "artifact_policy": "failure_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase6_failed_invalid_signature"
+    ]
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase6_signature_invalid",
+    "scenario_id": "scenario_phase6_failed_invalid_signature",
+    "status": "failed",
+    "reason_code": "signature.invalid",
+    "field_path": "$.steps[0].input_refs",
+    "expected_value": "valid_signature_ref",
+    "actual_value": "command:invalid_signature",
+    "artifact_refs": [
+      "artifact:bundle:phase6_failed_invalid_signature"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase6_failed_invalid_signature",
+    "assertion_mode": "exact",
+    "required_nodes": [
+      {
+        "node_id": "event_cli_step_failed",
+        "event_kind": "scenario_step.failed",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "signature.invalid"
+      }
+    ],
+    "required_causal_edges": [],
+    "forbidden_transitions": [
+      {
+        "from": "event_cli_step_failed",
+        "to": "event_run_passed"
+      }
+    ],
+    "stable_reason_codes": [
+      "signature.invalid"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase6_failed_invalid_signature",
+    "run_id": "run_phase6_failed_invalid_signature",
+    "retention_class": "failure_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase6_failed_invalid_signature_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase6_failed_invalid_signature"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase6_failed_invalid_signature"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase6_failed_invalid_signature"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase6_failed"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase6_failed_invalid_signature --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:phase6_failed_invalid_signature",
+      "artifact:health:local_stack"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

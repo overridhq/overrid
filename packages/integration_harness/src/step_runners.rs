@@ -145,7 +145,9 @@ impl ScenarioStepRunner {
             message: match status {
                 HarnessRunStatus::Passed => "scenario steps completed".to_owned(),
                 HarnessRunStatus::Failed => "scenario step assertion failed".to_owned(),
-                HarnessRunStatus::Blocked => "scenario step dependency or safety check blocked".to_owned(),
+                HarnessRunStatus::Blocked => {
+                    "scenario step dependency or safety check blocked".to_owned()
+                }
                 HarnessRunStatus::Planned | HarnessRunStatus::Running => {
                     "scenario steps did not reach a terminal state".to_owned()
                 }
@@ -191,8 +193,16 @@ impl ScenarioStepRunner {
                 .then(|| format!("artifact:cli_stdout:{token}:redacted")),
             stderr_ref: (step.action_kind == ScenarioActionKind::Cli)
                 .then(|| format!("artifact:cli_stderr:{token}:redacted")),
-            payload_ref: matches!(step.action_kind, ScenarioActionKind::Sdk | ScenarioActionKind::Api)
-                .then(|| format!("artifact:{}_payload:{token}:redacted", step.action_kind.as_str())),
+            payload_ref: matches!(
+                step.action_kind,
+                ScenarioActionKind::Sdk | ScenarioActionKind::Api
+            )
+            .then(|| {
+                format!(
+                    "artifact:{}_payload:{token}:redacted",
+                    step.action_kind.as_str()
+                )
+            }),
             assertion_refs: step.assertion_refs.clone(),
             artifact_refs: vec![format!(
                 "artifact:step:{}:{token}:redacted",
@@ -286,7 +296,11 @@ fn run_local_helper_step(
     let mut dependency_verified = false;
     for input in &step.input_refs {
         if input.starts_with("service:") {
-            if context.available_services.iter().any(|service| service == input) {
+            if context
+                .available_services
+                .iter()
+                .any(|service| service == input)
+            {
                 dependency_verified = true;
                 continue;
             }
@@ -334,10 +348,7 @@ fn enforce_expected_terminal_class(
     )
 }
 
-fn terminal_reason(
-    results: &[ScenarioStepResult],
-    status: HarnessRunStatus,
-) -> (String, String) {
+fn terminal_reason(results: &[ScenarioStepResult], status: HarnessRunStatus) -> (String, String) {
     match status {
         HarnessRunStatus::Passed => ("run.passed".to_owned(), "success".to_owned()),
         HarnessRunStatus::Failed => results
@@ -446,7 +457,10 @@ mod tests {
             trace_root: "trace_phase6".to_owned(),
             profile: "local".to_owned(),
             phase_filter: Some(1),
-            available_services: vec!["service:local_stack".to_owned(), "service:overgate".to_owned()],
+            available_services: vec![
+                "service:local_stack".to_owned(),
+                "service:overgate".to_owned(),
+            ],
         }
     }
 
@@ -527,10 +541,8 @@ mod tests {
                 HarnessRunStatus::Failed,
             ),
         ] {
-            let result = runner.run_step(
-                &step("step_sdk_api", kind, &[input], expected),
-                &context(),
-            );
+            let result =
+                runner.run_step(&step("step_sdk_api", kind, &[input], expected), &context());
             assert_eq!(result.status, expected);
             assert_eq!(result.reason_code, reason);
         }

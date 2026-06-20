@@ -1,0 +1,38 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "expected_violation": "assertion.reason_code_mismatch",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase6_assertion_failure_invalid",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase6",
+      "invalid",
+      "assertion"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase6_step_runners"
+    ],
+    "steps": [
+      {
+        "step_id": "step_assert_wrong_reason",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:wrong_reason_code"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "failed",
+        "assertion_refs": [
+          "assertion:phase6:reason_code_mismatch"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ]
+  }
+}

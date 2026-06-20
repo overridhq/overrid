@@ -385,9 +385,7 @@ fn extract_scenario_steps(
                 path: path.to_owned(),
                 field: "action_kind",
             })
-            .and_then(|raw| {
-                ScenarioActionKind::parse(&raw).map_err(ManifestLoadError::from)
-            })?;
+            .and_then(|raw| ScenarioActionKind::parse(&raw).map_err(ManifestLoadError::from))?;
         let timeout_ms = extract_u64_field(&step_text, "timeout_ms").ok_or_else(|| {
             ManifestLoadError::MissingField {
                 path: path.to_owned(),
@@ -419,10 +417,7 @@ fn extract_scenario_steps(
     Ok(steps)
 }
 
-fn parse_harness_status(
-    path: &str,
-    raw: &str,
-) -> Result<HarnessRunStatus, ManifestLoadError> {
+fn parse_harness_status(path: &str, raw: &str) -> Result<HarnessRunStatus, ManifestLoadError> {
     match raw {
         "planned" => Ok(HarnessRunStatus::Planned),
         "running" => Ok(HarnessRunStatus::Running),

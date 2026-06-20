@@ -80,6 +80,32 @@
       ]
     }
   },
+  "integration_harness_phase6": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase6_step_runners.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase6_blocked.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase6_failed.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_direct_service_url.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_private_storage_read.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_unsafe_helper.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_cli_failure.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_phase6_assertion_failure.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Scenario step runners must use CLI, SDK, API, local helper, and assertion paths without direct private storage reads or direct service URLs.",
+      "Blocked step outcomes must stay blocked and failed step outcomes must retain failure evidence artifacts.",
+      "Local helper actions are limited to stack lifecycle, seed verification, artifact lookup, event export, and diagnostic checks."
+    ]
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",

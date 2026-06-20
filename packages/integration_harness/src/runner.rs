@@ -902,8 +902,11 @@ fn local_stack_lifecycle(report: &LocalStackReport) -> Vec<HarnessLifecycleState
                 .transition(HarnessLifecycleState::Running)
                 .expect("seeding to running is valid");
             lifecycle
+                .transition(HarnessLifecycleState::Asserting)
+                .expect("running to asserting is valid");
+            lifecycle
                 .transition(HarnessLifecycleState::CollectingArtifacts)
-                .expect("running to collecting_artifacts is valid");
+                .expect("asserting to collecting_artifacts is valid");
             lifecycle
                 .transition(HarnessLifecycleState::Failed)
                 .expect("collecting_artifacts to failed is valid");
@@ -918,6 +921,14 @@ fn local_stack_lifecycle(report: &LocalStackReport) -> Vec<HarnessLifecycleState
                 lifecycle
                     .transition(HarnessLifecycleState::Seeding)
                     .expect("resetting to seeding is valid");
+            }
+            if !report.smoke_refs.is_empty() {
+                lifecycle
+                    .transition(HarnessLifecycleState::Running)
+                    .expect("seeding to running is valid");
+                lifecycle
+                    .transition(HarnessLifecycleState::Asserting)
+                    .expect("running to asserting is valid");
             }
             lifecycle
                 .transition(HarnessLifecycleState::CollectingArtifacts)
@@ -1332,6 +1343,72 @@ mod tests {
         assert_eq!(output.status, HarnessRunStatus::Planned);
         assert_eq!(output.scenarios.len(), 2);
         assert!(output.result_json().contains("\"phase_filter\":0"));
+    }
+
+    #[test]
+    fn phase6_step_runner_scenario_runs_all_black_box_action_kinds() {
+        let output = runner().run(HarnessCliCommand::Scenario {
+            name: "scenario_phase6_step_runners".to_owned(),
+        });
+        assert_eq!(output.status, HarnessRunStatus::Passed);
+        assert_eq!(output.reason_code, "run.passed");
+        assert_eq!(output.step_results.len(), 5);
+        let action_kinds = output
+            .step_results
+            .iter()
+            .map(|step| step.action_kind_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            action_kinds,
+            vec!["cli", "sdk", "api", "local_helper", "assertion"]
+        );
+        assert!(output.step_results.iter().any(|step| step
+            .stdout_ref
+            .as_deref()
+            .unwrap_or("")
+            .ends_with(":redacted")));
+        assert!(output.step_results.iter().any(|step| step
+            .payload_ref
+            .as_deref()
+            .unwrap_or("")
+            .contains(":sdk_payload:")));
+        assert!(output.step_results.iter().any(|step| step
+            .payload_ref
+            .as_deref()
+            .unwrap_or("")
+            .contains(":api_payload:")));
+        assert!(output.result_json().contains("\"step_results\""));
+        assert!(output.result_json().contains("\"assertion_refs\""));
+        assert!(output.lifecycle.contains(&HarnessLifecycleState::Asserting));
+    }
+
+    #[test]
+    fn phase6_blocked_and_failed_step_runs_keep_failure_evidence_lifecycle() {
+        let blocked = runner().run(HarnessCliCommand::Scenario {
+            name: "scenario_phase6_blocked_direct_service".to_owned(),
+        });
+        assert_eq!(blocked.status, HarnessRunStatus::Blocked);
+        assert_eq!(blocked.reason_code, "safety.direct_service_url");
+        assert!(blocked.lifecycle.contains(&HarnessLifecycleState::Running));
+        assert!(blocked
+            .lifecycle
+            .contains(&HarnessLifecycleState::Asserting));
+        assert!(blocked
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.retention_class == ArtifactRetentionClass::FailureEvidence));
+
+        let failed = runner().run(HarnessCliCommand::Scenario {
+            name: "scenario_phase6_failed_invalid_signature".to_owned(),
+        });
+        assert_eq!(failed.status, HarnessRunStatus::Failed);
+        assert_eq!(failed.reason_code, "signature.invalid");
+        assert!(failed.lifecycle.contains(&HarnessLifecycleState::Running));
+        assert!(failed.lifecycle.contains(&HarnessLifecycleState::Asserting));
+        assert!(failed
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.retention_class == ArtifactRetentionClass::FailureEvidence));
     }
 
     #[test]
