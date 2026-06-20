@@ -166,9 +166,17 @@ def validate_local_stack_code() -> None:
         "component:event_log",
         "component:object_artifact_stub",
         "component:node_agent_simulator",
+        "component:diagnostic_log_stream",
         "ArtifactRetentionClass::PhaseGateEvidence",
         "ArtifactRetentionClass::FailureEvidence",
         "dependency.service_unavailable",
+        "dependency.local_stack_unavailable",
+        "dependency.reset_incomplete",
+        "safety.unmarked_test_state",
+        "local-health-timeout",
+        "local-port-conflict",
+        "local-degraded-optional",
+        "local-reset-incomplete",
     ]:
         assert_contains(local_stack_rs, expected, HARNESS / "src/local_stack.rs")
 
@@ -184,6 +192,7 @@ def validate_local_stack_code() -> None:
         "seed_refs",
         "diagnostic_refs",
         "smoke_refs",
+        "event_refs",
         "safety.non_local_profile",
     ]:
         assert_contains(runner_rs, expected, HARNESS / "src/runner.rs")
@@ -192,23 +201,41 @@ def validate_local_stack_code() -> None:
         "test_integration_runs_phase0_smoke_with_local_stack_health",
         "test_reset_runs_local_stack_reset_and_seed",
         "test_reset_rejects_non_local_profile",
+        "test_scenario_reports_blocked_dependency_with_artifacts",
     ]:
         assert_contains(cli_runner, expected, CLI / "src/runner.rs")
 
 
-def validate_result_shape(result: dict[str, Any], command: str, expected_status: str) -> None:
+def validate_result_shape(
+    result: dict[str, Any],
+    command: str,
+    expected_status: str,
+    *,
+    expect_reset_seed: bool = True,
+    expect_stack_ready: bool = True,
+) -> None:
     assert_true(result["schema_version"] == "integration-harness.v0.1", "wrong harness schema version")
     assert_true(result["command"] == command, f"wrong command for {command}")
     assert_true(result["status"] == expected_status, f"wrong status for {command}")
-    assert_true("stack_ready" in result["lifecycle"], f"{command} did not report stack readiness")
-    assert_true("resetting" in result["lifecycle"], f"{command} did not report reset")
-    assert_true("seeding" in result["lifecycle"], f"{command} did not report seed")
+    if expect_stack_ready:
+        assert_true("stack_ready" in result["lifecycle"], f"{command} did not report stack readiness")
+    else:
+        assert_true("stack_ready" not in result["lifecycle"], f"{command} should not report stack readiness")
+    if expect_reset_seed:
+        assert_true("resetting" in result["lifecycle"], f"{command} did not report reset")
+        assert_true("seeding" in result["lifecycle"], f"{command} did not report seed")
+        assert_true(result["reset_refs"], f"{command} missing reset refs")
+        assert_true(result["seed_refs"], f"{command} missing seed refs")
+    else:
+        assert_true("resetting" not in result["lifecycle"], f"{command} should not reset before blocked result")
+        assert_true("seeding" not in result["lifecycle"], f"{command} should not seed before blocked result")
+        assert_true(result["reset_refs"] == [], f"{command} should not report reset refs")
+        assert_true(result["seed_refs"] == [], f"{command} should not report seed refs")
     assert_true("collecting_artifacts" in result["lifecycle"], f"{command} did not collect artifacts")
     assert_true(result["service_health"], f"{command} missing service health")
-    assert_true(result["reset_refs"], f"{command} missing reset refs")
-    assert_true(result["seed_refs"], f"{command} missing seed refs")
     assert_true(result["diagnostic_refs"], f"{command} missing diagnostic refs")
     assert_true(result["artifacts"], f"{command} missing artifacts")
+    assert_true(result["event_refs"], f"{command} missing local event refs")
 
 
 def validate_cli_behavior() -> None:
@@ -220,6 +247,14 @@ def validate_cli_behavior() -> None:
     assert_true(integration_result["lifecycle"][-1] == "passed", "integration did not end passed")
     assert_true(integration_result["smoke_refs"], "integration missing smoke refs")
     assert_true(
+        any(ref.startswith("smoke:fixture_tenant_created:") for ref in integration_result["smoke_refs"]),
+        "integration missing fixture tenant smoke ref",
+    )
+    assert_true(
+        any(ref.startswith("smoke:test_key_used:") for ref in integration_result["smoke_refs"]),
+        "integration missing test-key smoke ref",
+    )
+    assert_true(
         any(
             health["service_id"] == "service:local_stack" and health["state"] == "ready"
             for health in integration_result["service_health"]
@@ -229,6 +264,10 @@ def validate_cli_behavior() -> None:
     assert_true(
         any(artifact["retention_class"] == "phase_gate_evidence" for artifact in integration_result["artifacts"]),
         "integration should retain phase gate evidence",
+    )
+    assert_true(
+        any(ref.startswith("artifact:reason_codes:") for ref in integration_result["diagnostic_refs"]),
+        "integration diagnostics should include reason-code refs",
     )
 
     smoke = run_cli(["test", "scenario", "scenario_phase0_smoke", "--json"])
@@ -245,7 +284,7 @@ def validate_cli_behavior() -> None:
     assert_true(blocked["ok"] is False, "blocked dependency should be ok=false")
     assert_true(blocked["reason_code"] == "dependency.service_unavailable", "wrong blocked reason")
     blocked_result = blocked["result"]
-    validate_result_shape(blocked_result, "test scenario", "blocked")
+    validate_result_shape(blocked_result, "test scenario", "blocked", expect_reset_seed=False)
     assert_true(blocked_result["lifecycle"][-1] == "blocked", "blocked dependency did not end blocked")
     assert_true(
         "service:overqueue:unavailable" in blocked_result["dependency_status"],
@@ -255,6 +294,65 @@ def validate_cli_behavior() -> None:
         any(artifact["retention_class"] == "failure_evidence" for artifact in blocked_result["artifacts"]),
         "blocked dependency should retain failure evidence",
     )
+
+    already_running = run_cli(["test", "integration", "--profile", "local-already-running", "--json"])
+    assert_true(already_running["ok"] is True, "already-running profile should be ok")
+    validate_result_shape(already_running["result"], "test integration", "passed")
+    assert_true(
+        any("already_running_verified" in ref for ref in already_running["result"]["event_refs"]),
+        "already-running profile missing verification event",
+    )
+
+    degraded = run_cli(["test", "integration", "--profile", "local-degraded-optional", "--json"])
+    assert_true(degraded["ok"] is True, "optional degraded profile should still pass")
+    validate_result_shape(degraded["result"], "test integration", "passed")
+    assert_true(
+        any(
+            health["service_id"] == "component:diagnostic_log_stream"
+            and health["state"] == "degraded"
+            and health["required"] is False
+            for health in degraded["result"]["service_health"]
+        ),
+        "degraded optional profile missing optional degraded health",
+    )
+
+    timeout = run_cli(["test", "integration", "--profile", "local-health-timeout", "--json"], expected_exit=3)
+    assert_true(timeout["reason_code"] == "dependency.local_stack_unavailable", "health timeout reason drifted")
+    validate_result_shape(
+        timeout["result"],
+        "test integration",
+        "blocked",
+        expect_reset_seed=False,
+        expect_stack_ready=False,
+    )
+    assert_true(
+        "component:api:timeout" in timeout["result"]["dependency_status"],
+        "health timeout missing API timeout status",
+    )
+
+    port_conflict = run_cli(["test", "integration", "--profile", "local-port-conflict", "--json"], expected_exit=3)
+    assert_true(port_conflict["reason_code"] == "dependency.local_stack_unavailable", "port conflict reason drifted")
+    validate_result_shape(
+        port_conflict["result"],
+        "test integration",
+        "blocked",
+        expect_reset_seed=False,
+        expect_stack_ready=False,
+    )
+    assert_true(
+        "component:api:port_conflict" in port_conflict["result"]["dependency_status"],
+        "port conflict missing API port-conflict status",
+    )
+
+    reset_incomplete = run_cli(["test", "reset", "--profile", "local-reset-incomplete", "--json"], expected_exit=3)
+    assert_true(reset_incomplete["reason_code"] == "dependency.reset_incomplete", "reset incomplete reason drifted")
+    assert_true(reset_incomplete["result"]["reset_refs"], "reset incomplete should report attempted cleanup refs")
+    assert_true(reset_incomplete["result"]["seed_refs"] == [], "reset incomplete must abort before seed")
+    assert_true("seeding" not in reset_incomplete["result"]["lifecycle"], "reset incomplete lifecycle must skip seed")
+
+    unmarked = run_cli(["test", "reset", "--profile", "local-unmarked-state", "--json"], expected_exit=3)
+    assert_true(unmarked["reason_code"] == "safety.unmarked_test_state", "unmarked-state reason drifted")
+    assert_true(unmarked["result"]["seed_refs"] == [], "unmarked reset must abort before seed")
 
     unsafe_reset = run_cli(
         ["test", "reset", "--profile", "production_like", "--json"],

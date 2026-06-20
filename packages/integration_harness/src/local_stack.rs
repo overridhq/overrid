@@ -19,7 +19,49 @@ const READY_STACK_COMPONENTS: &[(&str, bool)] = &[
     ("component:event_log", true),
     ("component:object_artifact_stub", true),
     ("component:node_agent_simulator", true),
+    ("component:diagnostic_log_stream", false),
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalStackProfileMode {
+    CleanStart,
+    AlreadyRunning,
+    HealthTimeout,
+    PortConflict,
+    DegradedOptional,
+    ResetIncomplete,
+    UnmarkedState,
+}
+
+impl LocalStackProfileMode {
+    fn from_profile(profile: &str) -> Self {
+        match profile {
+            "local-already-running" => Self::AlreadyRunning,
+            "local-health-timeout" => Self::HealthTimeout,
+            "local-port-conflict" => Self::PortConflict,
+            "local-degraded-optional" => Self::DegradedOptional,
+            "local-reset-incomplete" => Self::ResetIncomplete,
+            "local-unmarked-state" => Self::UnmarkedState,
+            _ => Self::CleanStart,
+        }
+    }
+}
+
+pub fn is_local_test_profile(profile: &str) -> bool {
+    matches!(
+        profile,
+        "local"
+            | "local-dev"
+            | "test"
+            | "ci"
+            | "local-already-running"
+            | "local-health-timeout"
+            | "local-port-conflict"
+            | "local-degraded-optional"
+            | "local-reset-incomplete"
+            | "local-unmarked-state"
+    )
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceHealthSummary {
@@ -32,11 +74,21 @@ pub struct ServiceHealthSummary {
 
 impl ServiceHealthSummary {
     fn ready(service_id: &str, required: bool, trace_root: &str) -> Self {
+        Self::with_state(service_id, "ready", required, "health.ready", trace_root)
+    }
+
+    fn with_state(
+        service_id: &str,
+        state: &str,
+        required: bool,
+        reason_code: &str,
+        trace_root: &str,
+    ) -> Self {
         Self {
             service_id: service_id.to_string(),
-            state: "ready".to_string(),
+            state: state.to_string(),
             required,
-            reason_code: "health.ready".to_string(),
+            reason_code: reason_code.to_string(),
             evidence_ref: format!(
                 "health:{}:{}",
                 sanitize_identifier(service_id),
@@ -46,23 +98,23 @@ impl ServiceHealthSummary {
     }
 
     fn unavailable(service_id: &str, trace_root: &str) -> Self {
-        Self {
-            service_id: service_id.to_string(),
-            state: "unavailable".to_string(),
-            required: true,
-            reason_code: "dependency.service_unavailable".to_string(),
-            evidence_ref: format!(
-                "health:{}:{}",
-                sanitize_identifier(service_id),
-                stable_short_token(&[trace_root])
-            ),
-        }
+        Self::with_state(
+            service_id,
+            "unavailable",
+            true,
+            "dependency.service_unavailable",
+            trace_root,
+        )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalStackSnapshot {
     pub profile: String,
+    pub ready: bool,
+    pub reason_code: String,
+    pub reason_class: String,
+    pub message: String,
     pub service_health: Vec<ServiceHealthSummary>,
     pub dependency_status: Vec<String>,
     pub event_refs: Vec<String>,
@@ -80,6 +132,7 @@ pub struct LocalStackReport {
     pub seed_refs: Vec<String>,
     pub diagnostic_refs: Vec<String>,
     pub smoke_refs: Vec<String>,
+    pub event_refs: Vec<String>,
     pub artifacts: Vec<ArtifactSummary>,
 }
 
@@ -98,10 +151,38 @@ impl LocalStackHarness {
     }
 
     pub fn start_stack(&self, trace_root: &str) -> LocalStackSnapshot {
+        let mode = self.profile_mode();
         let service_health = READY_STACK_COMPONENTS
             .iter()
-            .map(|(service_id, required)| {
-                ServiceHealthSummary::ready(service_id, *required, trace_root)
+            .map(|(service_id, required)| match (mode, *service_id) {
+                (LocalStackProfileMode::HealthTimeout, "component:api") => {
+                    ServiceHealthSummary::with_state(
+                        service_id,
+                        "timeout",
+                        *required,
+                        "health.timeout",
+                        trace_root,
+                    )
+                }
+                (LocalStackProfileMode::PortConflict, "component:api") => {
+                    ServiceHealthSummary::with_state(
+                        service_id,
+                        "port_conflict",
+                        *required,
+                        "health.port_conflict",
+                        trace_root,
+                    )
+                }
+                (LocalStackProfileMode::DegradedOptional, "component:diagnostic_log_stream") => {
+                    ServiceHealthSummary::with_state(
+                        service_id,
+                        "degraded",
+                        *required,
+                        "health.degraded_optional",
+                        trace_root,
+                    )
+                }
+                _ => ServiceHealthSummary::ready(service_id, *required, trace_root),
             })
             .collect::<Vec<_>>();
         let dependency_status = service_health
@@ -109,16 +190,75 @@ impl LocalStackHarness {
             .map(|health| format!("{}:{}", health.service_id, health.state))
             .collect::<Vec<_>>();
         let event_token = stable_short_token(&[trace_root]);
+        let ready = service_health
+            .iter()
+            .all(|health| !health.required || health.state == "ready");
+        let (reason_code, reason_class, message) = if ready {
+            (
+                "health.ready",
+                "success",
+                "Local/test stack readiness verified",
+            )
+        } else {
+            match mode {
+                LocalStackProfileMode::HealthTimeout => (
+                    "dependency.local_stack_unavailable",
+                    "dependency",
+                    "Local stack health checks timed out before readiness",
+                ),
+                LocalStackProfileMode::PortConflict => (
+                    "dependency.local_stack_unavailable",
+                    "dependency",
+                    "Local stack startup blocked by a loopback port conflict",
+                ),
+                _ => (
+                    "dependency.local_stack_unavailable",
+                    "dependency",
+                    "Local stack startup failed before readiness",
+                ),
+            }
+        };
+        let mut event_refs = vec![format!("event:local_stack:start_requested:{event_token}")];
+        if mode == LocalStackProfileMode::AlreadyRunning {
+            event_refs.push(format!(
+                "event:local_stack:already_running_verified:{event_token}"
+            ));
+        }
+        for health in &service_health {
+            event_refs.push(format!(
+                "event:local_stack:service_starting:{}:{event_token}",
+                sanitize_identifier(&health.service_id)
+            ));
+            match health.state.as_str() {
+                "ready" => event_refs.push(format!(
+                    "event:local_stack:service_ready:{}:{event_token}",
+                    sanitize_identifier(&health.service_id)
+                )),
+                "degraded" => event_refs.push(format!(
+                    "event:local_stack:service_degraded:{}:{event_token}",
+                    sanitize_identifier(&health.service_id)
+                )),
+                _ => event_refs.push(format!(
+                    "event:local_stack:failed:{}:{event_token}",
+                    sanitize_identifier(&health.service_id)
+                )),
+            }
+        }
+        if ready {
+            event_refs.push(format!("event:local_stack:health_verified:{event_token}"));
+        } else {
+            event_refs.push(format!("event:local_stack:failed:{event_token}"));
+        }
 
         LocalStackSnapshot {
             profile: self.profile.clone(),
+            ready,
+            reason_code: reason_code.to_string(),
+            reason_class: reason_class.to_string(),
+            message: message.to_string(),
             service_health,
             dependency_status,
-            event_refs: vec![
-                format!("event:local_stack:start_requested:{event_token}"),
-                format!("event:local_stack:services_ready:{event_token}"),
-                format!("event:local_stack:health_verified:{event_token}"),
-            ],
+            event_refs,
         }
     }
 
@@ -129,8 +269,31 @@ impl LocalStackHarness {
         trace_root: &str,
     ) -> LocalStackReport {
         let snapshot = self.start_stack(trace_root);
+        if !snapshot.ready {
+            return self.start_blocked_report(snapshot, run_id, trace_root);
+        }
+
         let reset_refs = self.reset_refs(run_id);
+        if let Some(report) = self.reset_safety_blocked_report(
+            snapshot.clone(),
+            reset_refs.clone(),
+            run_id,
+            trace_root,
+        ) {
+            return report;
+        }
+
         let seed_refs = self.seed(fixtures);
+        let event_refs = self.lifecycle_event_refs(
+            snapshot.event_refs,
+            &[
+                "reset_started",
+                "reset_completed",
+                "seed_started",
+                "seed_completed",
+            ],
+            trace_root,
+        );
         let (diagnostic_refs, artifacts) = self.diagnostics(
             run_id,
             trace_root,
@@ -148,6 +311,7 @@ impl LocalStackHarness {
             seed_refs,
             diagnostic_refs,
             smoke_refs: Vec::new(),
+            event_refs,
             artifacts,
         }
     }
@@ -160,42 +324,67 @@ impl LocalStackHarness {
         trace_root: &str,
     ) -> LocalStackReport {
         let snapshot = self.start_stack(trace_root);
-        let missing_services = self.missing_required_services(scenario, &snapshot);
-        let reset_refs = self.reset_refs(run_id);
-        let seed_refs = self.seed(fixtures);
-
-        if missing_services.is_empty() {
-            let (diagnostic_refs, artifacts) = self.diagnostics(
-                run_id,
-                trace_root,
-                ArtifactRetentionClass::PhaseGateEvidence,
-            );
-
-            return LocalStackReport {
-                status: HarnessRunStatus::Passed,
-                reason_code: "run.passed".to_string(),
-                reason_class: "success".to_string(),
-                message:
-                    "Phase 0 smoke orchestration completed through deterministic local stack hooks"
-                        .to_string(),
-                service_health: snapshot.service_health,
-                dependency_status: snapshot.dependency_status,
-                reset_refs,
-                seed_refs,
-                diagnostic_refs,
-                smoke_refs: self.smoke_refs(run_id, trace_root),
-                artifacts,
-            };
+        if !snapshot.ready {
+            return self.start_blocked_report(snapshot, run_id, trace_root);
         }
 
-        self.blocked_dependency_report(
-            snapshot,
-            missing_services,
-            reset_refs,
-            seed_refs,
+        let missing_services = self.missing_required_services(scenario, &snapshot);
+        if !missing_services.is_empty() {
+            return self.blocked_dependency_report(
+                snapshot,
+                missing_services,
+                Vec::new(),
+                Vec::new(),
+                run_id,
+                trace_root,
+            );
+        }
+
+        let reset_refs = self.reset_refs(run_id);
+        if let Some(report) = self.reset_safety_blocked_report(
+            snapshot.clone(),
+            reset_refs.clone(),
             run_id,
             trace_root,
-        )
+        ) {
+            return report;
+        }
+
+        let seed_refs = self.seed(fixtures);
+        let event_refs = self.lifecycle_event_refs(
+            snapshot.event_refs,
+            &[
+                "reset_started",
+                "reset_completed",
+                "seed_started",
+                "seed_completed",
+                "smoke_started",
+                "smoke_completed",
+            ],
+            trace_root,
+        );
+        let (diagnostic_refs, artifacts) = self.diagnostics(
+            run_id,
+            trace_root,
+            ArtifactRetentionClass::PhaseGateEvidence,
+        );
+
+        LocalStackReport {
+            status: HarnessRunStatus::Passed,
+            reason_code: "run.passed".to_string(),
+            reason_class: "success".to_string(),
+            message:
+                "Phase 0 smoke orchestration completed through deterministic local stack hooks"
+                    .to_string(),
+            service_health: snapshot.service_health,
+            dependency_status: snapshot.dependency_status,
+            reset_refs,
+            seed_refs,
+            diagnostic_refs,
+            smoke_refs: self.smoke_refs(run_id, trace_root),
+            event_refs,
+            artifacts,
+        }
     }
 
     pub fn diagnostics(
@@ -213,11 +402,91 @@ impl LocalStackHarness {
             format!("artifact:cli_output:{run_token}"),
             format!("artifact:api_envelope:{trace_token}"),
             format!("artifact:fixture_version:{run_token}"),
+            format!("artifact:reason_codes:{trace_token}"),
+            format!("artifact:time_window:{trace_token}"),
+            format!("artifact:reproduction_command:{run_token}:redacted"),
         ];
         let artifacts =
             vec![ArtifactLocator::new(self.artifact_root.clone()).lookup(run_id, retention_class)];
 
         (diagnostic_refs, artifacts)
+    }
+
+    fn start_blocked_report(
+        &self,
+        snapshot: LocalStackSnapshot,
+        run_id: &str,
+        trace_root: &str,
+    ) -> LocalStackReport {
+        let (diagnostic_refs, artifacts) =
+            self.diagnostics(run_id, trace_root, ArtifactRetentionClass::FailureEvidence);
+
+        LocalStackReport {
+            status: HarnessRunStatus::Blocked,
+            reason_code: snapshot.reason_code,
+            reason_class: snapshot.reason_class,
+            message: snapshot.message,
+            service_health: snapshot.service_health,
+            dependency_status: snapshot.dependency_status,
+            reset_refs: Vec::new(),
+            seed_refs: Vec::new(),
+            diagnostic_refs,
+            smoke_refs: Vec::new(),
+            event_refs: snapshot.event_refs,
+            artifacts,
+        }
+    }
+
+    fn reset_safety_blocked_report(
+        &self,
+        snapshot: LocalStackSnapshot,
+        reset_refs: Vec<String>,
+        run_id: &str,
+        trace_root: &str,
+    ) -> Option<LocalStackReport> {
+        let mode = self.profile_mode();
+        let profile = sanitize_identifier(&self.profile);
+        let (reason_code, reason_class, message, reset_refs) = match mode {
+            LocalStackProfileMode::ResetIncomplete => {
+                let mut refs = reset_refs;
+                refs.push(format!("cleanup:{profile}:incomplete"));
+                (
+                    "dependency.reset_incomplete",
+                    "dependency",
+                    "Local/test cleanup incomplete; seed aborted",
+                    refs,
+                )
+            }
+            LocalStackProfileMode::UnmarkedState => (
+                "safety.unmarked_test_state",
+                "safety",
+                "Reset target is missing the required local test-state marker",
+                vec![format!("reset:{profile}:marker_missing")],
+            ),
+            _ => return None,
+        };
+        let (diagnostic_refs, artifacts) =
+            self.diagnostics(run_id, trace_root, ArtifactRetentionClass::FailureEvidence);
+        let event_refs = self.lifecycle_event_refs(
+            snapshot.event_refs,
+            &["reset_started", "failed"],
+            trace_root,
+        );
+
+        Some(LocalStackReport {
+            status: HarnessRunStatus::Blocked,
+            reason_code: reason_code.to_string(),
+            reason_class: reason_class.to_string(),
+            message: message.to_string(),
+            service_health: snapshot.service_health,
+            dependency_status: snapshot.dependency_status,
+            reset_refs,
+            seed_refs: Vec::new(),
+            diagnostic_refs,
+            smoke_refs: Vec::new(),
+            event_refs,
+            artifacts,
+        })
     }
 
     fn blocked_dependency_report(
@@ -243,6 +512,7 @@ impl LocalStackHarness {
         );
         let (diagnostic_refs, artifacts) =
             self.diagnostics(run_id, trace_root, ArtifactRetentionClass::FailureEvidence);
+        let event_refs = self.lifecycle_event_refs(snapshot.event_refs, &["failed"], trace_root);
 
         LocalStackReport {
             status: HarnessRunStatus::Blocked,
@@ -258,6 +528,7 @@ impl LocalStackHarness {
             seed_refs,
             diagnostic_refs,
             smoke_refs: Vec::new(),
+            event_refs,
             artifacts,
         }
     }
@@ -333,10 +604,32 @@ impl LocalStackHarness {
         let trace_token = stable_short_token(&[trace_root]);
         let run_token = stable_short_token(&[run_id]);
         vec![
+            format!("smoke:fixture_tenant_created:{trace_token}"),
+            format!("smoke:fixture_actor_created:{trace_token}"),
+            format!("smoke:test_key_used:{trace_token}"),
             format!("smoke:signed_noop_command:{trace_token}"),
             format!("smoke:audit_log_write_read:{trace_token}"),
             format!("smoke:invalid_schema_denial:{trace_token}"),
             format!("smoke:redacted_artifact_export:{run_token}"),
         ]
+    }
+
+    fn profile_mode(&self) -> LocalStackProfileMode {
+        LocalStackProfileMode::from_profile(&self.profile)
+    }
+
+    fn lifecycle_event_refs(
+        &self,
+        mut event_refs: Vec<String>,
+        event_names: &[&str],
+        trace_root: &str,
+    ) -> Vec<String> {
+        let event_token = stable_short_token(&[trace_root]);
+        event_refs.extend(
+            event_names
+                .iter()
+                .map(|event_name| format!("event:local_stack:{event_name}:{event_token}")),
+        );
+        event_refs
     }
 }
