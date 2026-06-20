@@ -120,6 +120,14 @@ API requirements:
 - Artifacts must redact secrets and private payload content.
 - Test helpers should not know private implementation details unless clearly marked as reset/diagnostic-only.
 
+## Phase-Gate Boundary Decisions
+
+The harness gate classes are `smoke`, `contract_spine`, `regression`, `extended`, and `release_candidate`. Phase 0 and Phase 1 mandatory gates stay limited to the current phase contract spine plus all earlier mandatory gates; later execution, policy, accounting, federation, native app, and governance flows remain planned or extended until their owning service phases exist.
+
+Missing local stack profiles, missing schemas, unavailable services, wrong phase tags, missing scenario or fixture manifests, unsafe non-local profiles, non-test fixture credentials, and not-yet-implemented later-phase contracts must produce `blocked` test runs with stable reason codes such as `dependency.local_stack_unavailable`, `dependency.schema_missing`, `dependency.service_unavailable`, `dependency.phase_tag_unsupported`, `dependency.manifest_missing`, `safety.non_local_profile`, `safety.fixture_not_test_only`, and `dependency.phase_contract_not_ready`.
+
+Every service SDS or service catalog plan that adds a public API, event, signed command envelope, schema, reason-code family, or externally visible state transition must add or update Integration Test Harness scenario coverage before claiming integration readiness.
+
 ## Event Surface
 
 The harness observes and asserts platform events; it should not write platform events directly except through normal API calls.

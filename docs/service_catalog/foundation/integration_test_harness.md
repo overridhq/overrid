@@ -46,6 +46,14 @@ Prove Overrid behavior across service boundaries instead of relying only on unit
 - It should assert behavior through public contracts and local test hooks.
 - Direct storage inspection is limited to reset/diagnostic behavior, not normal service assertions.
 
+## Phase 1 Implementation Gates
+
+- Phase 1 freezes the harness boundary as a non-production development/release gate and local test orchestrator.
+- Gate classes are `smoke`, `contract_spine`, `regression`, `extended`, and `release_candidate`; each master phase inherits earlier mandatory gates before adding its current contract spine.
+- Missing local stack profiles, missing schemas, unavailable services, wrong phase tags, missing manifests, non-local profiles, non-test fixture keys, and not-yet-implemented later-phase contracts must produce `blocked` test runs rather than partial false passes.
+- Stable blocked reason-code families include `dependency.local_stack_unavailable`, `dependency.schema_missing`, `dependency.service_unavailable`, `dependency.phase_tag_unsupported`, `dependency.manifest_missing`, `safety.non_local_profile`, `safety.fixture_not_test_only`, and `dependency.phase_contract_not_ready`.
+- A service plan may claim integration readiness only after its public APIs, events, schemas, reason codes, or state transitions have corresponding scenario manifests, fixture expectations, golden traces, and redacted artifact rules.
+
 ## Validation
 
 - Tests are deterministic.

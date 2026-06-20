@@ -73,6 +73,69 @@ The harness is a development and release gate, not a production service. It must
   - Output: Cross-document maintenance rule for service SDS files, service catalog plans, and this sub-build plan.
   - Validation: Review checklist rejects service implementation plans that add public APIs or events without harness scenario coverage.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Source | Required attachment |
+| --- | --- |
+| SDS #3 | `docs/sds/foundation/integration_test_harness.md` links to this sub-build plan, the service implementation plan, master SDS, master service catalog, build-plan crosswalk, and Phase 0. |
+| Service catalog entry | `docs/service_catalog/foundation/integration_test_harness.md` links to SDS #3 and this sub-build plan, and names Phase 0 as the first build phase. |
+| Master build plan | `docs/build_plan/master_plan.md` indexes SDS #3 and keeps the first build point in Phase 0 with later phase-gate expansion through Phases 1 through 13. |
+| Build-plan crosswalk | `docs/build_plan/service_catalog_alignment.md` maps SDS #3 to Phase 0 and records later phase-gate expansion. |
+| Tech-stack decision | `docs/overrid_tech_stack_choice.md` remains the stack authority for Rust-first harness ownership, JSON/JSON Schema contracts, and Overrid-shaped local stubs. |
+| Phase evidence | `docs/planning/integration_test_harness_phase_01_plan.md` and `docs/planning/integration_test_harness_phase_01_progress.md` record implementation scope and validation evidence. |
+
+#### Frozen Harness Boundary
+
+- The harness is a development/release gate and local test orchestrator, not a runtime service, not a policy engine, not a production event writer, not a payment actor, and not a provider-side execution service.
+- The harness may start/reset/seed the local stack, run black-box scenario workflows, validate schema-checked API/CLI/SDK envelopes, collect local diagnostics, and export redacted artifacts.
+- The harness must not call production endpoints, create real payment or payout effects, use public-provider resources by default, persist raw secrets, accept non-test fixture credentials, or weaken platform rules to make tests pass.
+- Direct storage, event-log, object, queue, or local file inspection is allowed only for reset and diagnostics; normal service behavior assertions must go through public contracts or local test hooks.
+- Any later helper path must be marked local/test-only and must fail closed outside local/test profiles.
+
+#### Gate Class Matrix
+
+| Master phase | Mandatory gate classes | Deferred or optional gates | Promotion rule |
+| --- | --- | --- | --- |
+| 0 | `smoke`, `contract_spine` | `regression`, `release_candidate` | Run repository layout, shared schema, local stack, protocol core, and harness smoke/spine only. |
+| 1 | Phase 0 gates plus `contract_spine` | `regression`, `extended`, `release_candidate` | Add signed command admission, tenant/identity/key setup, Overgate, Overwatch, and Overqueue pending-state spine. |
+| 2 | Earlier gates plus `smoke` | `contract_spine`, `extended` | Add node installer, hardware discovery, benchmark, and Overcell readiness only after owning contracts exist. |
+| 3 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add private execution loop scenarios for package, scheduler, lease, runner, usage, retry, and timeout paths. |
+| 4 | Earlier gates plus `contract_spine`, `regression` | `extended` | Add trust, policy, verification, challenge, dispute, cache, and mesh scenarios after owning service contracts exist. |
+| 5 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add Overmeter, ORU, Seal Ledger, Overbill, grant, payout, and rights scenarios using local/test accounting only. |
+| 6 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add first product integration scenarios through public Overrid contracts, not product-internal APIs. |
+| 7 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add grid-resident backbone, failover, backup, package, and system-service gates after Phase 7 contracts exist. |
+| 8 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add Overbase, Overstore, Overvault, namespace, route, storage, and entitlement gates without conventional product boundaries. |
+| 9 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add Overpack deployment, package validation, release strategy, and deployment-planner scenarios. |
+| 10 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add trusted federation, purpose tag, public-interest pool, and grant expansion gates only for known/trusted capacity. |
+| 11 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add limited public low-sensitivity pool gates with anti-fraud, anti-Sybil, and payout-hold constraints. |
+| 12 | Earlier gates plus `contract_spine`, `regression` | `extended`, `release_candidate` | Add native app client gates for search, maps, messaging, wallet, office, assistant, social, and mobile surfaces. |
+| 13 | Earlier gates plus `regression`, `release_candidate` | `extended` | Add governance, compliance, threat-model, incident, migration, reporting, and scale-hardening gates. |
+
+#### Fail-Closed Dependency Contract
+
+| Missing or unsafe requirement | Required outcome | Stable reason code | Evidence artifact |
+| --- | --- | --- | --- |
+| Local stack profile is absent or not started | `test_run_record.status = blocked` | `dependency.local_stack_unavailable` | Stack health snapshot and startup log refs. |
+| Required schema or generated contract is missing | `test_run_record.status = blocked` | `dependency.schema_missing` | Schema path, expected version, and manifest ref. |
+| Required service is unavailable | `test_run_record.status = blocked` | `dependency.service_unavailable` | Service id, phase, health state, and required scenario id. |
+| Scenario uses the wrong master phase tag | `test_run_record.status = blocked` | `dependency.phase_tag_unsupported` | Requested phase, scenario phase, and owning service phase. |
+| Scenario or fixture manifest is missing | `test_run_record.status = blocked` | `dependency.manifest_missing` | Expected manifest path and fixture set id where known. |
+| Unsafe non-local profile or production-like endpoint is selected | `test_run_record.status = blocked` | `safety.non_local_profile` | Profile id, endpoint class, and redacted command refs. |
+| Fixture credential is not visibly `test_only` | `test_run_record.status = blocked` | `safety.fixture_not_test_only` | Fixture id, key ref, and rejection reason. |
+| Later-phase service contract is not implemented | `test_run_record.status = blocked` | `dependency.phase_contract_not_ready` | Owning SDS, service catalog entry, and planned scenario refs. |
+
+Blocked outcomes are not passes. They are machine-readable stop results that prevent partial false passes while still collecting diagnostics where possible.
+
+#### Documentation Update Rule
+
+- Any service SDS or service catalog plan that adds a public API, event, signed command envelope, schema, reason-code family, or externally visible state transition must add or update the related scenario manifests and golden traces before claiming integration readiness.
+- If the owning service phase has not arrived, the service must mark the harness scenario as `planned` or `blocked` with the owning phase and must not promote it into mandatory `smoke` or `contract_spine` gates.
+- Service plans must link to the relevant harness scenario pack, fixture set, golden trace, and artifact expectations once those files exist.
+- Release-candidate evidence must include the scenario selection, required services, run status, reason-code summary, artifact bundle ref, redaction summary, and reproduction command.
+- Review must reject integration-ready claims that add public contracts without harness coverage or that rely on direct storage inspection for normal behavior assertions.
+
 ## Phase 2: Harness Schemas, Fixtures, And Compatibility Contracts
 
 ### Work Items
