@@ -17,6 +17,17 @@ impl GateClass {
             Self::ReleaseCandidate => "release_candidate",
         }
     }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "smoke" => Some(Self::Smoke),
+            "contract_spine" => Some(Self::ContractSpine),
+            "regression" => Some(Self::Regression),
+            "extended" => Some(Self::Extended),
+            "release_candidate" => Some(Self::ReleaseCandidate),
+            _ => None,
+        }
+    }
 }
 
 pub fn mandatory_gate_classes(master_phase: u8) -> &'static [GateClass] {
@@ -35,8 +46,41 @@ pub fn mandatory_gate_classes(master_phase: u8) -> &'static [GateClass] {
 
 pub fn scenario_matches_phase_filter(scenario_phase: u8, phase_filter: Option<u8>) -> bool {
     match phase_filter {
-        Some(phase) => scenario_phase == phase,
+        Some(phase) => scenario_phase <= phase,
         None => true,
+    }
+}
+
+pub fn gate_class_is_mandatory(gate_class: &str, requested_phase: u8) -> bool {
+    let Some(gate_class) = GateClass::parse(gate_class) else {
+        return false;
+    };
+    mandatory_gate_classes(requested_phase).contains(&gate_class)
+}
+
+pub fn scenario_is_selected_for_phase(
+    scenario_phase: u8,
+    gate_class: &str,
+    phase_filter: Option<u8>,
+) -> bool {
+    match phase_filter {
+        Some(phase) => {
+            scenario_phase <= phase && gate_class_is_mandatory(gate_class, phase)
+        }
+        None => true,
+    }
+}
+
+pub fn scenario_is_planned_for_phase(
+    scenario_phase: u8,
+    gate_class: &str,
+    phase_filter: Option<u8>,
+) -> bool {
+    match phase_filter {
+        Some(phase) => {
+            scenario_phase > phase || !gate_class_is_mandatory(gate_class, phase)
+        }
+        None => false,
     }
 }
 
@@ -45,10 +89,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn phase_filter_is_exact_and_optional() {
+    fn phase_filter_is_inherited_and_optional() {
         assert!(scenario_matches_phase_filter(0, None));
         assert!(scenario_matches_phase_filter(0, Some(0)));
-        assert!(!scenario_matches_phase_filter(0, Some(3)));
+        assert!(scenario_matches_phase_filter(0, Some(3)));
+        assert!(!scenario_matches_phase_filter(3, Some(0)));
+    }
+
+    #[test]
+    fn selection_requires_inherited_phase_and_mandatory_gate() {
+        assert!(scenario_is_selected_for_phase(0, "smoke", Some(1)));
+        assert!(scenario_is_selected_for_phase(
+            1,
+            "contract_spine",
+            Some(1)
+        ));
+        assert!(!scenario_is_selected_for_phase(6, "extended", Some(6)));
+        assert!(scenario_is_planned_for_phase(6, "extended", Some(6)));
+        assert!(scenario_is_planned_for_phase(13, "extended", Some(1)));
     }
 
     #[test]

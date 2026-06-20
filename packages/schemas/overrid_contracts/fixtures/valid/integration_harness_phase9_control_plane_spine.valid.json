@@ -1,0 +1,253 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase9_control_plane_spine",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase9_control_plane_spine_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:no_op"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase1_control_plane_spine",
+    "master_phase": 1,
+    "gate_class": "contract_spine",
+    "tags": [
+      "phase1",
+      "phase9",
+      "control_plane_spine",
+      "ci_smoke",
+      "service_contract_coverage"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase9_control_plane_spine"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase9_control_plane_cli",
+        "action_kind": "cli",
+        "input_refs": [
+          "command:local:phase1_control_plane"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "none",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase9:control_plane_cli"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      },
+      {
+        "step_id": "step_phase9_control_plane_coverage",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:phase9:coverage_report",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase9:coverage_report"
+        ],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ],
+    "cleanup_rules": [
+      "collect_artifacts_then_reset"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase9_control_plane_spine",
+    "scenario_ids": [
+      "scenario_phase1_control_plane_spine"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781980400000,
+    "ended_at_ms": 1781980405000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase9:control_plane_cli",
+      "assertion:phase9:coverage_report"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase9_control_plane_spine"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    }
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase9_control_plane_spine",
+    "scenario_id": "scenario_phase1_control_plane_spine",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.coverage_report.service:overgate",
+    "expected_value": "covered",
+    "actual_value": "covered",
+    "artifact_refs": [
+      "artifact:bundle:phase9_control_plane_spine"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase9_control_plane_spine",
+    "assertion_mode": "exact",
+    "required_nodes": [
+      {
+        "node_id": "event_scenario_selected",
+        "event_kind": "scenario.selected",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "scenario.selected"
+      },
+      {
+        "node_id": "event_coverage_reported",
+        "event_kind": "coverage.reported",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "coverage.reported"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_scenario_selected",
+        "to": "event_coverage_reported"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_coverage_reported",
+        "to": "event_internal_api_called"
+      }
+    ],
+    "stable_reason_codes": [
+      "scenario.selected",
+      "coverage.reported"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase9_control_plane_spine",
+    "run_id": "run_phase9_control_plane_spine",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase9_control_plane_spine:redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase9_control_plane_spine"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase9_control_plane_spine"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase9_control_plane_spine:redacted"
+    ],
+    "stack_health_refs": [
+      "artifact:health:phase9_control_plane_spine"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase9_control_plane_spine"
+    ],
+    "schema_version_refs": [
+      "artifact:schema_version:integration_harness_v0_1"
+    ],
+    "assertion_diff_refs": [
+      "artifact:assertion_diff:phase9_control_plane_spine"
+    ],
+    "redaction_report_ref": "artifact:redaction_report:phase9_control_plane_spine",
+    "reproduction_command": "overrid test scenario scenario_phase1_control_plane_spine --profile local --json",
+    "artifact_refs": [
+      "artifact:bundle:phase9_control_plane_spine"
+    ],
+    "flake_metadata": {
+      "repeated_run_count": 1,
+      "timing_variance_ms": 0,
+      "nondeterministic_assertion_markers": [],
+      "unstable_event_ordering": false,
+      "tolerance_window_used": false
+    },
+    "retention_policy": {
+      "retention_class": "phase_gate_evidence",
+      "minimum_retention_days": 30,
+      "prune_after_days": 180,
+      "compact_success_summary": false
+    },
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

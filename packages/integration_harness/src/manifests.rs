@@ -9,7 +9,7 @@ use overrid_contracts::{
 };
 
 use crate::fixtures::fixture_id_from_ref;
-use crate::phase_gate::scenario_matches_phase_filter;
+use crate::phase_gate::{scenario_is_planned_for_phase, scenario_is_selected_for_phase};
 
 pub const DEFAULT_MANIFEST_DIR: &str = "packages/schemas/overrid_contracts/fixtures/valid";
 
@@ -80,10 +80,123 @@ impl HarnessManifestCatalog {
     }
 
     pub fn scenarios_for_phase(&self, phase_filter: Option<u8>) -> Vec<ScenarioManifestRef> {
-        self.scenarios
+        self.select_scenarios(&ScenarioSelectionFilter {
+            phase: phase_filter,
+            ..ScenarioSelectionFilter::default()
+        })
+        .selected
+    }
+
+    pub fn select_scenarios(&self, filter: &ScenarioSelectionFilter) -> ScenarioSelection {
+        let mut selected = Vec::new();
+        let mut planned = Vec::new();
+
+        for scenario in &self.scenarios {
+            if !filter.matches_scenario(scenario) {
+                continue;
+            }
+            if scenario_is_selected_for_phase(
+                scenario.master_phase,
+                &scenario.gate_class,
+                filter.phase,
+            ) {
+                selected.push(scenario.clone());
+            } else if scenario_is_planned_for_phase(
+                scenario.master_phase,
+                &scenario.gate_class,
+                filter.phase,
+            ) {
+                planned.push(scenario.clone());
+            }
+        }
+
+        ScenarioSelection { selected, planned }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScenarioSelectionFilter {
+    pub phase: Option<u8>,
+    pub service: Option<String>,
+    pub tag: Option<String>,
+    pub changed_path: Option<String>,
+    pub required_dependency: Option<String>,
+    pub gate_class: Option<String>,
+    pub scenario_name: Option<String>,
+}
+
+impl ScenarioSelectionFilter {
+    pub fn for_phase(phase: Option<u8>) -> Self {
+        Self {
+            phase,
+            ..Self::default()
+        }
+    }
+
+    fn matches_scenario(&self, scenario: &ScenarioManifestRef) -> bool {
+        self.scenario_name
+            .as_ref()
+            .map_or(true, |name| scenario.scenario_id == *name)
+            && self
+                .gate_class
+                .as_ref()
+                .map_or(true, |gate_class| scenario.gate_class == *gate_class)
+            && self.tag.as_ref().map_or(true, |tag| {
+                scenario.tags.iter().any(|candidate| candidate == tag)
+            })
+            && self.service.as_ref().map_or(true, |service| {
+                scenario
+                    .required_services
+                    .iter()
+                    .any(|candidate| candidate == service)
+            })
+            && self
+                .required_dependency
+                .as_ref()
+                .map_or(true, |dependency| {
+                    scenario
+                        .required_services
+                        .iter()
+                        .chain(scenario.setup_fixture_refs.iter())
+                        .any(|candidate| candidate == dependency)
+                })
+            && self.changed_path.as_ref().map_or(true, |path| {
+                scenario.source_path.contains(path)
+                    || scenario.tags.iter().any(|tag| path.contains(tag))
+                    || scenario
+                        .required_services
+                        .iter()
+                        .any(|service| path.contains(service.trim_start_matches("service:")))
+            })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScenarioSelection {
+    pub selected: Vec<ScenarioManifestRef>,
+    pub planned: Vec<ScenarioManifestRef>,
+}
+
+impl ScenarioSelection {
+    pub fn all_scenarios(&self) -> Vec<ScenarioManifestRef> {
+        self.selected
             .iter()
-            .filter(|scenario| scenario_matches_phase_filter(scenario.master_phase, phase_filter))
             .cloned()
+            .chain(self.planned.iter().cloned())
+            .collect()
+    }
+
+    pub fn selected_scenario_ids(&self) -> Vec<String> {
+        self.selected
+            .iter()
+            .map(|scenario| scenario.scenario_id.clone())
+            .collect()
+    }
+
+    pub fn planned_scenario_ids(&self) -> Vec<String> {
+        self.planned
+            .iter()
+            .map(|scenario| scenario.scenario_id.clone())
             .collect()
     }
 }

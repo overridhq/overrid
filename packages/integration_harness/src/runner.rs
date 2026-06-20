@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -18,7 +19,7 @@ use crate::local_stack::{
 };
 use crate::manifests::{
     FixtureManifestRef, HarnessManifestCatalog, HarnessManifestLoader, ManifestLoadError,
-    ScenarioManifestRef,
+    ScenarioManifestRef, ScenarioSelection, ScenarioSelectionFilter,
 };
 use crate::step_runners::{ScenarioStepExecutionContext, ScenarioStepResult, ScenarioStepRunner};
 
@@ -300,6 +301,29 @@ pub struct ScenarioListItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScenarioSelectionReport {
+    pub requested_phase: Option<u8>,
+    pub selection_mode: String,
+    pub selected_count: usize,
+    pub planned_count: usize,
+    pub selected_gate_classes: Vec<String>,
+    pub selected_scenario_ids: Vec<String>,
+    pub planned_scenario_ids: Vec<String>,
+    pub ci_entrypoint: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceContractCoverageReport {
+    pub service_id: String,
+    pub phase: u8,
+    pub scenario_ids: Vec<String>,
+    pub schema_modules: Vec<String>,
+    pub event_types: Vec<String>,
+    pub reason_code_families: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HarnessCliOutput {
     pub command_name: String,
     pub status: HarnessRunStatus,
@@ -310,6 +334,8 @@ pub struct HarnessCliOutput {
     pub run_id: Option<String>,
     pub trace_root: Option<String>,
     pub scenarios: Vec<ScenarioListItem>,
+    pub selection_report: Option<ScenarioSelectionReport>,
+    pub coverage_report: Vec<ServiceContractCoverageReport>,
     pub lifecycle: Vec<HarnessLifecycleState>,
     pub artifacts: Vec<ArtifactSummary>,
     pub dependency_status: Vec<String>,
@@ -354,6 +380,8 @@ impl HarnessCliOutput {
                 "\"run_id\":{},",
                 "\"trace_root\":{},",
                 "\"scenarios\":{},",
+                "\"selection_report\":{},",
+                "\"coverage_report\":{},",
                 "\"lifecycle\":{},",
                 "\"artifacts\":{},",
                 "\"dependency_status\":{},",
@@ -380,6 +408,8 @@ impl HarnessCliOutput {
             json_optional_string(self.run_id.as_deref()),
             json_optional_string(self.trace_root.as_deref()),
             scenarios_json(&self.scenarios),
+            selection_report_json(self.selection_report.as_ref()),
+            coverage_report_json(&self.coverage_report),
             lifecycle_json(&self.lifecycle),
             artifacts_json(&self.artifacts),
             json_string_array(&self.dependency_status),
@@ -412,6 +442,21 @@ impl HarnessCliOutput {
                 lines.push(format!(
                     "  {} phase={} gate={}",
                     scenario.scenario_id, scenario.master_phase, scenario.gate_class
+                ));
+            }
+        }
+        if let Some(selection) = &self.selection_report {
+            lines.push(format!(
+                "selection: selected={} planned={} ci={}",
+                selection.selected_count, selection.planned_count, selection.ci_entrypoint
+            ));
+        }
+        if !self.coverage_report.is_empty() {
+            lines.push("coverage:".to_owned());
+            for coverage in &self.coverage_report {
+                lines.push(format!(
+                    "  {} phase={} {}",
+                    coverage.service_id, coverage.phase, coverage.status
                 ));
             }
         }
@@ -484,8 +529,15 @@ impl HarnessRunner {
     fn list_scenarios(&self) -> HarnessCliOutput {
         match self.load_catalog() {
             Ok(catalog) => {
-                let scenarios =
-                    scenario_items(catalog.scenarios_for_phase(self.options.requested_phase));
+                let selection =
+                    catalog.select_scenarios(&ScenarioSelectionFilter::for_phase(
+                        self.options.requested_phase,
+                    ));
+                let selection_report =
+                    build_selection_report(&selection, self.options.requested_phase, "list");
+                let coverage_report =
+                    service_contract_coverage(&selection, self.options.requested_phase);
+                let scenarios = scenario_items(selection.selected.clone());
                 HarnessCliOutput {
                     command_name: "test list".to_owned(),
                     status: HarnessRunStatus::Planned,
@@ -496,6 +548,8 @@ impl HarnessRunner {
                     run_id: None,
                     trace_root: self.options.trace_id.clone(),
                     scenarios,
+                    selection_report: Some(selection_report),
+                    coverage_report,
                     lifecycle: vec![HarnessLifecycleState::Planned],
                     artifacts: Vec::new(),
                     dependency_status: Vec::new(),
@@ -517,8 +571,11 @@ impl HarnessRunner {
     fn run_integration(&self) -> HarnessCliOutput {
         match self.load_catalog() {
             Ok(catalog) => {
-                let scenarios = catalog.scenarios_for_phase(self.options.requested_phase);
-                if scenarios.is_empty() {
+                let selection =
+                    catalog.select_scenarios(&ScenarioSelectionFilter::for_phase(
+                        self.options.requested_phase,
+                    ));
+                if selection.selected.is_empty() {
                     return self.blocked_without_scenario(
                         "test integration",
                         "dependency.phase_tag_unsupported",
@@ -526,12 +583,18 @@ impl HarnessRunner {
                         "no scenarios match the requested phase filter",
                     );
                 }
-                let scenario = scenarios
-                    .iter()
-                    .find(|scenario| scenario.scenario_id == "scenario_phase0_smoke")
-                    .unwrap_or(&scenarios[0])
-                    .clone();
-                self.run_local_stack_scenario("test integration", &catalog, scenario)
+                let selection_report =
+                    build_selection_report(&selection, self.options.requested_phase, "ci_smoke");
+                let coverage_report =
+                    service_contract_coverage(&selection, self.options.requested_phase);
+                let scenario = primary_ci_scenario(&selection.selected, self.options.requested_phase);
+                self.run_local_stack_scenario(
+                    "test integration",
+                    &catalog,
+                    scenario,
+                    Some(selection_report),
+                    coverage_report,
+                )
             }
             Err(error) => self.manifest_blocked_output("test integration", error),
         }
@@ -548,7 +611,13 @@ impl HarnessRunner {
                         "requested scenario manifest was not found",
                     );
                 };
-                self.run_local_stack_scenario("test scenario", &catalog, scenario.clone())
+                self.run_local_stack_scenario(
+                    "test scenario",
+                    &catalog,
+                    scenario.clone(),
+                    None,
+                    Vec::new(),
+                )
             }
             Err(error) => self.manifest_blocked_output("test scenario", error),
         }
@@ -583,6 +652,8 @@ impl HarnessRunner {
                 self.output_from_local_stack_report(
                     "test reset",
                     Vec::new(),
+                    None,
+                    Vec::new(),
                     context,
                     trace_root,
                     lifecycle,
@@ -615,6 +686,8 @@ impl HarnessRunner {
             run_id: Some(sanitize_identifier(run_id)),
             trace_root: self.options.trace_id.clone(),
             scenarios: Vec::new(),
+            selection_report: None,
+            coverage_report: Vec::new(),
             lifecycle: lifecycle.into_states(),
             artifacts: vec![artifact],
             dependency_status: Vec::new(),
@@ -635,6 +708,8 @@ impl HarnessRunner {
         command_name: &str,
         catalog: &HarnessManifestCatalog,
         scenario: ScenarioManifestRef,
+        selection_report: Option<ScenarioSelectionReport>,
+        coverage_report: Vec<ServiceContractCoverageReport>,
     ) -> HarnessCliOutput {
         if !self.local_profile_allowed() {
             return self.blocked_without_scenario(
@@ -727,6 +802,8 @@ impl HarnessRunner {
         self.output_from_local_stack_report(
             command_name,
             vec![scenario],
+            selection_report,
+            coverage_report,
             context,
             trace_root,
             lifecycle,
@@ -740,6 +817,8 @@ impl HarnessRunner {
         &self,
         command_name: &str,
         scenarios: Vec<ScenarioManifestRef>,
+        selection_report: Option<ScenarioSelectionReport>,
+        coverage_report: Vec<ServiceContractCoverageReport>,
         context: HarnessRunContext,
         trace_root: String,
         lifecycle: Vec<HarnessLifecycleState>,
@@ -769,6 +848,8 @@ impl HarnessRunner {
             run_id: Some(context.run_id),
             trace_root: Some(trace_root),
             scenarios: scenario_items(scenarios),
+            selection_report,
+            coverage_report,
             lifecycle,
             artifacts,
             dependency_status: report.dependency_status,
@@ -871,6 +952,8 @@ impl HarnessRunner {
             run_id: None,
             trace_root: self.options.trace_id.clone(),
             scenarios: Vec::new(),
+            selection_report: None,
+            coverage_report: Vec::new(),
             lifecycle: lifecycle.into_states(),
             artifacts: Vec::new(),
             dependency_status: Vec::new(),
@@ -1110,6 +1193,223 @@ fn local_stack_lifecycle(report: &LocalStackReport) -> Vec<HarnessLifecycleState
     lifecycle.into_states()
 }
 
+fn primary_ci_scenario(
+    scenarios: &[ScenarioManifestRef],
+    requested_phase: Option<u8>,
+) -> ScenarioManifestRef {
+    if requested_phase.is_none() {
+        return scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == "scenario_phase0_smoke")
+            .unwrap_or(&scenarios[0])
+            .clone();
+    }
+    scenarios
+        .iter()
+        .max_by_key(|scenario| {
+            (
+                scenario.master_phase,
+                gate_priority(&scenario.gate_class),
+                scenario.scenario_id.as_str(),
+            )
+        })
+        .expect("selected CI scenario set is not empty")
+        .clone()
+}
+
+fn gate_priority(gate_class: &str) -> u8 {
+    match gate_class {
+        "release_candidate" => 4,
+        "regression" => 3,
+        "contract_spine" => 2,
+        "smoke" => 1,
+        _ => 0,
+    }
+}
+
+fn build_selection_report(
+    selection: &ScenarioSelection,
+    requested_phase: Option<u8>,
+    selection_mode: &str,
+) -> ScenarioSelectionReport {
+    let selected_gate_classes = selection
+        .selected
+        .iter()
+        .map(|scenario| scenario.gate_class.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let ci_entrypoint = if selection.selected.is_empty() {
+        "none".to_owned()
+    } else {
+        primary_ci_scenario(&selection.selected, requested_phase).scenario_id
+    };
+    ScenarioSelectionReport {
+        requested_phase,
+        selection_mode: selection_mode.to_owned(),
+        selected_count: selection.selected.len(),
+        planned_count: selection.planned.len(),
+        selected_gate_classes,
+        selected_scenario_ids: selection.selected_scenario_ids(),
+        planned_scenario_ids: selection.planned_scenario_ids(),
+        ci_entrypoint,
+    }
+}
+
+#[derive(Debug)]
+struct CoverageAccumulator {
+    phase: u8,
+    scenario_ids: BTreeSet<String>,
+    schema_modules: BTreeSet<String>,
+    event_types: BTreeSet<String>,
+    reason_code_families: BTreeSet<String>,
+    status: String,
+}
+
+impl Default for CoverageAccumulator {
+    fn default() -> Self {
+        Self {
+            phase: u8::MAX,
+            scenario_ids: BTreeSet::new(),
+            schema_modules: BTreeSet::new(),
+            event_types: BTreeSet::new(),
+            reason_code_families: BTreeSet::new(),
+            status: "missing_required_contract".to_owned(),
+        }
+    }
+}
+
+fn service_contract_coverage(
+    selection: &ScenarioSelection,
+    requested_phase: Option<u8>,
+) -> Vec<ServiceContractCoverageReport> {
+    let mut reports = BTreeMap::<String, CoverageAccumulator>::new();
+    for scenario in &selection.selected {
+        record_coverage(&mut reports, scenario, "covered");
+    }
+    for scenario in &selection.planned {
+        record_coverage(&mut reports, scenario, "planned");
+    }
+
+    if let Some(phase) = requested_phase {
+        for service_id in required_public_contract_services(phase) {
+            reports
+                .entry((*service_id).to_owned())
+                .or_insert_with(|| CoverageAccumulator {
+                    phase,
+                    status: "missing_required_contract".to_owned(),
+                    ..CoverageAccumulator::default()
+                });
+        }
+    }
+
+    reports
+        .into_iter()
+        .map(|(service_id, mut report)| {
+            if report.schema_modules.is_empty() {
+                report
+                    .schema_modules
+                    .insert("integration_harness.scenario_manifest".to_owned());
+            }
+            if report.reason_code_families.is_empty() {
+                report.reason_code_families.insert("dependency".to_owned());
+            }
+            ServiceContractCoverageReport {
+                service_id,
+                phase: report.phase,
+                scenario_ids: report.scenario_ids.into_iter().collect(),
+                schema_modules: report.schema_modules.into_iter().collect(),
+                event_types: report.event_types.into_iter().collect(),
+                reason_code_families: report.reason_code_families.into_iter().collect(),
+                status: report.status,
+            }
+        })
+        .collect()
+}
+
+fn required_public_contract_services(phase: u8) -> &'static [&'static str] {
+    match phase {
+        0 => &["service:local_stack", "service:overgate", "service:overwatch"],
+        1..=13 => &[
+            "service:local_stack",
+            "service:overgate",
+            "service:overwatch",
+        ],
+        _ => &[],
+    }
+}
+
+fn record_coverage(
+    reports: &mut BTreeMap<String, CoverageAccumulator>,
+    scenario: &ScenarioManifestRef,
+    status: &str,
+) {
+    for service_id in &scenario.required_services {
+        let report = reports
+            .entry(service_id.clone())
+            .or_insert_with(CoverageAccumulator::default);
+        report.phase = if report.phase == u8::MAX {
+            scenario.master_phase
+        } else {
+            report.phase.min(scenario.master_phase)
+        };
+        report.scenario_ids.insert(scenario.scenario_id.clone());
+        report
+            .schema_modules
+            .insert("integration_harness.scenario_manifest".to_owned());
+        report
+            .schema_modules
+            .insert("integration_harness.golden_trace".to_owned());
+        report
+            .schema_modules
+            .insert("integration_harness.artifact_bundle".to_owned());
+        report.status = merge_coverage_status(&report.status, status).to_owned();
+        for step in &scenario.steps {
+            report
+                .event_types
+                .insert(format!("{}.event", step.action_kind.as_str()));
+            report
+                .reason_code_families
+                .insert(reason_family_for_step(step));
+        }
+    }
+}
+
+fn merge_coverage_status(current: &str, next: &str) -> &'static str {
+    match (current, next) {
+        ("covered", _) | (_, "covered") => "covered",
+        ("planned", _) | (_, "planned") => "planned",
+        _ => "missing_required_contract",
+    }
+}
+
+fn reason_family_for_step(step: &crate::manifests::ScenarioStepRef) -> String {
+    if step
+        .input_refs
+        .iter()
+        .any(|input| input.contains("not_available") || input.starts_with("service:"))
+    {
+        "dependency"
+    } else if step
+        .input_refs
+        .iter()
+        .any(|input| input.contains("signature"))
+    {
+        "signature"
+    } else if step
+        .input_refs
+        .iter()
+        .any(|input| input.contains("unstable") || input.contains("nondeterministic"))
+    {
+        "flake"
+    } else if step.action_kind == overrid_contracts::ScenarioActionKind::Assertion {
+        "assertion"
+    } else {
+        "run"
+    }
+    .to_owned()
+}
+
 fn scenario_items(scenarios: Vec<ScenarioManifestRef>) -> Vec<ScenarioListItem> {
     scenarios
         .into_iter()
@@ -1162,6 +1462,66 @@ fn scenarios_json(scenarios: &[ScenarioListItem]) -> String {
                 scenario.step_count,
                 json_string_array(&scenario.action_kinds),
                 json_escape(&scenario.source_path),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", values.join(","))
+}
+
+fn selection_report_json(report: Option<&ScenarioSelectionReport>) -> String {
+    let Some(report) = report else {
+        return "null".to_owned();
+    };
+    format!(
+        concat!(
+            "{{",
+            "\"requested_phase\":{},",
+            "\"selection_mode\":\"{}\",",
+            "\"selected_count\":{},",
+            "\"planned_count\":{},",
+            "\"selected_gate_classes\":{},",
+            "\"selected_scenario_ids\":{},",
+            "\"planned_scenario_ids\":{},",
+            "\"ci_entrypoint\":\"{}\"",
+            "}}"
+        ),
+        report
+            .requested_phase
+            .map(|phase| phase.to_string())
+            .unwrap_or_else(|| "null".to_owned()),
+        json_escape(&report.selection_mode),
+        report.selected_count,
+        report.planned_count,
+        json_string_array(&report.selected_gate_classes),
+        json_string_array(&report.selected_scenario_ids),
+        json_string_array(&report.planned_scenario_ids),
+        json_escape(&report.ci_entrypoint),
+    )
+}
+
+fn coverage_report_json(reports: &[ServiceContractCoverageReport]) -> String {
+    let values = reports
+        .iter()
+        .map(|report| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"phase\":{},",
+                    "\"scenario_ids\":{},",
+                    "\"schema_modules\":{},",
+                    "\"event_types\":{},",
+                    "\"reason_code_families\":{},",
+                    "\"status\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&report.service_id),
+                report.phase,
+                json_string_array(&report.scenario_ids),
+                json_string_array(&report.schema_modules),
+                json_string_array(&report.event_types),
+                json_string_array(&report.reason_code_families),
+                json_escape(&report.status),
             )
         })
         .collect::<Vec<_>>();
