@@ -1,0 +1,724 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.overrid.local/overrid_contracts/v0/integration_harness.schema.json",
+  "title": "Overrid Integration Test Harness Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #3 Phase 2 harness manifests, records, traces, assertions, and artifact bundles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_manifest",
+    "scenario_manifest",
+    "test_run_record",
+    "assertion_result",
+    "golden_trace",
+    "artifact_bundle"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schema_version"
+    },
+    "fixture_manifest": {
+      "$ref": "#/$defs/fixture_manifest"
+    },
+    "scenario_manifest": {
+      "$ref": "#/$defs/scenario_manifest"
+    },
+    "test_run_record": {
+      "$ref": "#/$defs/test_run_record"
+    },
+    "assertion_result": {
+      "$ref": "#/$defs/assertion_result"
+    },
+    "golden_trace": {
+      "$ref": "#/$defs/golden_trace"
+    },
+    "artifact_bundle": {
+      "$ref": "#/$defs/artifact_bundle"
+    }
+  },
+  "$defs": {
+    "schema_version": {
+      "type": "string",
+      "const": "integration-harness.v0.1"
+    },
+    "overrid_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_:-]*$",
+      "minLength": 3
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "phase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 13
+    },
+    "fixture_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_ref",
+        "tenant_ref",
+        "actor_ref",
+        "identity_kind",
+        "role_refs",
+        "test_only"
+      ],
+      "properties": {
+        "identity_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "tenant_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "identity_kind": {
+          "enum": [
+            "person",
+            "organization",
+            "service_account",
+            "system_service"
+          ]
+        },
+        "role_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "test_only": {
+          "const": true
+        }
+      }
+    },
+    "fixture_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_ref",
+        "key_id",
+        "credential_class",
+        "test_only",
+        "signature_ref_only",
+        "raw_key_material_present"
+      ],
+      "properties": {
+        "key_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credential_class": {
+          "const": "fixture"
+        },
+        "test_only": {
+          "const": true
+        },
+        "signature_ref_only": {
+          "const": true
+        },
+        "raw_key_material_present": {
+          "const": false
+        }
+      }
+    },
+    "resource_card_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_ref",
+        "resource_kind",
+        "capability_refs"
+      ],
+      "properties": {
+        "resource_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "resource_kind": {
+          "enum": [
+            "cpu",
+            "gpu",
+            "memory",
+            "storage",
+            "network",
+            "synthetic"
+          ]
+        },
+        "capability_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        }
+      }
+    },
+    "fixture_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "fixture_id",
+        "tenant_ref",
+        "actor_ref",
+        "deterministic_seed",
+        "identities",
+        "keys",
+        "resource_cards",
+        "workload_refs",
+        "package_refs",
+        "local_ledger_account_refs",
+        "policy_context_refs",
+        "test_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^fixture_[a-z0-9_]+$"
+        },
+        "tenant_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/overrid_ref"
+        },
+        "deterministic_seed": {
+          "type": "string",
+          "minLength": 8
+        },
+        "identities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fixture_identity"
+          }
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fixture_key"
+          }
+        },
+        "resource_cards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/resource_card_ref"
+          }
+        },
+        "workload_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "package_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "local_ledger_account_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "policy_context_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "test_only": {
+          "const": true
+        }
+      }
+    },
+    "scenario_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "action_kind",
+        "input_refs",
+        "timeout_ms",
+        "retry_expectation",
+        "expected_result_class",
+        "assertion_refs",
+        "cleanup_rule"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "pattern": "^step_[a-z0-9_]+$"
+        },
+        "action_kind": {
+          "enum": [
+            "cli",
+            "sdk",
+            "api",
+            "local_helper",
+            "assertion"
+          ]
+        },
+        "input_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "retry_expectation": {
+          "enum": [
+            "none",
+            "safe_retry",
+            "retry_after",
+            "non_retryable"
+          ]
+        },
+        "expected_result_class": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked"
+          ]
+        },
+        "assertion_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "cleanup_rule": {
+          "enum": [
+            "always_reset_local",
+            "collect_artifacts_then_reset",
+            "no_mutation"
+          ]
+        }
+      }
+    },
+    "scenario_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "master_phase",
+        "gate_class",
+        "tags",
+        "required_services",
+        "setup_fixture_refs",
+        "steps",
+        "cleanup_rules"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^scenario_[a-z0-9_]+$"
+        },
+        "master_phase": {
+          "$ref": "#/$defs/phase"
+        },
+        "gate_class": {
+          "enum": [
+            "smoke",
+            "contract_spine",
+            "regression",
+            "extended",
+            "release_candidate"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_services": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "setup_fixture_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/scenario_step"
+          }
+        },
+        "cleanup_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "always_reset_local",
+              "collect_artifacts_then_reset",
+              "no_mutation"
+            ]
+          }
+        }
+      }
+    },
+    "assertion_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "scenario_id",
+        "status",
+        "reason_code",
+        "field_path",
+        "expected_value",
+        "actual_value",
+        "artifact_refs"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^assertion_[a-z0-9_]+$"
+        },
+        "scenario_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked"
+          ]
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "field_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_value": true,
+        "actual_value": true,
+        "artifact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        }
+      }
+    },
+    "test_run_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "scenario_ids",
+        "stack_profile",
+        "workspace_fingerprint",
+        "status",
+        "started_at_ms",
+        "ended_at_ms",
+        "reason_code",
+        "reason_class",
+        "assertion_refs",
+        "artifact_policy",
+        "artifact_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_[a-z0-9_]+$"
+        },
+        "scenario_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "stack_profile": {
+          "enum": [
+            "local",
+            "ci"
+          ]
+        },
+        "workspace_fingerprint": {
+          "type": "string",
+          "minLength": 8
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked"
+          ]
+        },
+        "started_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ended_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "reason_class": {
+          "enum": [
+            "success",
+            "dependency",
+            "schema",
+            "assertion",
+            "safety",
+            "timeout"
+          ]
+        },
+        "assertion_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "artifact_policy": {
+          "enum": [
+            "smoke_compact",
+            "failure_evidence",
+            "release_candidate",
+            "phase_gate_evidence"
+          ]
+        },
+        "artifact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        }
+      }
+    },
+    "trace_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "event_kind",
+        "schema_version",
+        "reason_code"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "pattern": "^event_[a-z0-9_]+$"
+        },
+        "event_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        }
+      }
+    },
+    "trace_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      }
+    },
+    "golden_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "trace_id",
+        "assertion_mode",
+        "required_nodes",
+        "required_causal_edges",
+        "forbidden_transitions",
+        "stable_reason_codes"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "trace_id": {
+          "type": "string",
+          "pattern": "^golden_trace_[a-z0-9_]+$"
+        },
+        "assertion_mode": {
+          "enum": [
+            "exact",
+            "dag"
+          ]
+        },
+        "required_nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/trace_node"
+          }
+        },
+        "required_causal_edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trace_edge"
+          }
+        },
+        "forbidden_transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trace_edge"
+          }
+        },
+        "stable_reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        }
+      }
+    },
+    "artifact_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "bundle_id",
+        "run_id",
+        "retention_class",
+        "privacy_classifications",
+        "redaction_summary",
+        "reproduction_command",
+        "artifact_refs",
+        "contains_raw_secret",
+        "contains_private_payload"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "bundle_id": {
+          "type": "string",
+          "pattern": "^artifact_bundle_[a-z0-9_]+$"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "retention_class": {
+          "enum": [
+            "smoke_compact",
+            "failure_evidence",
+            "release_candidate",
+            "phase_gate_evidence"
+          ]
+        },
+        "privacy_classifications": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "public_test_metadata",
+              "redacted_local_log",
+              "redacted_api_envelope",
+              "stack_health",
+              "fixture_version"
+            ]
+          }
+        },
+        "redaction_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "redacted_fields",
+            "scanner_passed"
+          ],
+          "properties": {
+            "policy": {
+              "const": "secret_free_refs_only"
+            },
+            "redacted_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "scanner_passed": {
+              "const": true
+            }
+          }
+        },
+        "reproduction_command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "contains_raw_secret": {
+          "const": false
+        },
+        "contains_private_payload": {
+          "const": false
+        }
+      }
+    }
+  }
+}

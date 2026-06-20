@@ -4,8 +4,8 @@ This package contains the Phase 2 through Phase 5 CLI contract source plus
 Phase 6 hardening contracts, Phase 7 execution contracts, Phase 8
 policy/package/accounting read contracts, Phase 9 product integration and CI
 automation contracts, Phase 10 release-readiness/security/handoff validation
-contracts, and the Rust
-projection for `SUB BUILD PLAN #2 - CLI`.
+contracts, Integration Test Harness Phase 2 schema contracts, and the Rust
+projection for `SUB BUILD PLAN #2 - CLI` and shared harness contract checks.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
 slice. The Rust crate in `src/` is the initial generated/projection layer that
@@ -69,3 +69,12 @@ available/read-only/denied command availability, integration reliability,
 automation compatibility, and Phase 7/13 handoff gates. These records must keep
 SDK/Overgate-only routing and must not authorize high-risk operations before
 owning contracts exist.
+
+Integration Test Harness Phase 2 contracts define `fixture_manifest`,
+`fixture_identity`, `fixture_key`, resource card refs, workload/package/local
+ledger/policy refs, `scenario_manifest`, `scenario_step`, `test_run_record`,
+`assertion_result`, `golden_trace`, and `artifact_bundle`. These records are
+canonical JSON Schema sources for SDS #3 harness compatibility and keep
+fixtures test-only, scenarios phase-gated, run records terminal and
+reason-coded, golden traces exact or DAG-safe, and artifacts redacted with
+secret-free reproduction commands.

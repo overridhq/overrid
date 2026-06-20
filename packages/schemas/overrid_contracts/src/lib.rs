@@ -5,6 +5,8 @@ use std::fmt;
 pub const CONTRACT_SOURCE_ROOT: &str = "packages/schemas";
 pub const CLI_SCHEMA_FAMILY: &str = "cli-command";
 pub const SUPPORTED_SCHEMA_VERSION: &str = "cli-command.v0.1";
+pub const INTEGRATION_HARNESS_SCHEMA_FAMILY: &str = "integration-harness";
+pub const SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION: &str = "integration-harness.v0.1";
 pub const GENERATED_CONTRACT_STATUS: &str = "rust_projection_from_json_schema_source";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,6 +21,15 @@ pub fn cli_contract_set() -> GeneratedContractSet {
     GeneratedContractSet {
         schema_family: CLI_SCHEMA_FAMILY,
         schema_version: SUPPORTED_SCHEMA_VERSION,
+        source_root: CONTRACT_SOURCE_ROOT,
+        projection_status: GENERATED_CONTRACT_STATUS,
+    }
+}
+
+pub fn integration_harness_contract_set() -> GeneratedContractSet {
+    GeneratedContractSet {
+        schema_family: INTEGRATION_HARNESS_SCHEMA_FAMILY,
+        schema_version: SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
         source_root: CONTRACT_SOURCE_ROOT,
         projection_status: GENERATED_CONTRACT_STATUS,
     }
@@ -115,6 +126,23 @@ pub fn ensure_supported_schema_version(raw: &str) -> Result<SchemaVersion, Contr
         return Err(ContractError::UnsupportedSchemaVersion {
             provided: raw.to_owned(),
             supported: SUPPORTED_SCHEMA_VERSION,
+        });
+    }
+    Ok(parsed)
+}
+
+pub fn ensure_supported_integration_harness_schema_version(
+    raw: &str,
+) -> Result<SchemaVersion, ContractError> {
+    let parsed = SchemaVersion::parse(raw)?;
+    let supported = SchemaVersion::parse(SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION)?;
+    if parsed.family() != INTEGRATION_HARNESS_SCHEMA_FAMILY
+        || parsed.major() != supported.major()
+        || parsed.minor() > supported.minor()
+    {
+        return Err(ContractError::UnsupportedSchemaVersion {
+            provided: raw.to_owned(),
+            supported: SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
         });
     }
     Ok(parsed)
@@ -1858,6 +1886,615 @@ impl Default for CliReleaseReadinessReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HarnessRunStatus {
+    Planned,
+    Running,
+    Passed,
+    Failed,
+    Blocked,
+}
+
+impl HarnessRunStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Running => "running",
+            Self::Passed => "passed",
+            Self::Failed => "failed",
+            Self::Blocked => "blocked",
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Passed | Self::Failed | Self::Blocked)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScenarioActionKind {
+    Cli,
+    Sdk,
+    Api,
+    LocalHelper,
+    Assertion,
+}
+
+impl ScenarioActionKind {
+    pub fn parse(raw: &str) -> Result<Self, HarnessContractError> {
+        match raw {
+            "cli" => Ok(Self::Cli),
+            "sdk" => Ok(Self::Sdk),
+            "api" => Ok(Self::Api),
+            "local_helper" => Ok(Self::LocalHelper),
+            "assertion" => Ok(Self::Assertion),
+            other => Err(HarnessContractError::InvalidActionKind(other.to_owned())),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Cli => "cli",
+            Self::Sdk => "sdk",
+            Self::Api => "api",
+            Self::LocalHelper => "local_helper",
+            Self::Assertion => "assertion",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoldenTraceMode {
+    Exact,
+    Dag,
+}
+
+impl GoldenTraceMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::Dag => "dag",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtifactRetentionClass {
+    SmokeCompact,
+    FailureEvidence,
+    ReleaseCandidate,
+    PhaseGateEvidence,
+}
+
+impl ArtifactRetentionClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SmokeCompact => "smoke_compact",
+            Self::FailureEvidence => "failure_evidence",
+            Self::ReleaseCandidate => "release_candidate",
+            Self::PhaseGateEvidence => "phase_gate_evidence",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FixtureKey {
+    pub key_ref: String,
+    pub key_id: String,
+    pub test_only: bool,
+    pub signature_ref_only: bool,
+    pub raw_key_material_present: bool,
+}
+
+impl FixtureKey {
+    pub fn test_only(key_ref: impl Into<String>, key_id: impl Into<String>) -> Self {
+        Self {
+            key_ref: key_ref.into(),
+            key_id: key_id.into(),
+            test_only: true,
+            signature_ref_only: true,
+            raw_key_material_present: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.key_ref, "key ref")?;
+        harness_require_non_empty(&self.key_id, "key id")?;
+        if !self.test_only || !self.signature_ref_only || self.raw_key_material_present {
+            return Err(HarnessContractError::FixtureKeyNotTestOnly);
+        }
+        if contains_raw_secret_marker(&self.key_ref) || contains_raw_secret_marker(&self.key_id) {
+            return Err(HarnessContractError::RawSecretInArtifact);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FixtureManifest {
+    pub schema_version: SchemaVersion,
+    pub fixture_id: String,
+    pub tenant_ref: String,
+    pub actor_ref: String,
+    pub deterministic_seed: String,
+    pub keys: Vec<FixtureKey>,
+    pub resource_card_refs: Vec<String>,
+    pub workload_refs: Vec<String>,
+    pub package_refs: Vec<String>,
+    pub local_ledger_account_refs: Vec<String>,
+    pub policy_context_refs: Vec<String>,
+    pub test_only: bool,
+}
+
+impl FixtureManifest {
+    pub fn new(
+        fixture_id: impl Into<String>,
+        tenant_ref: impl Into<String>,
+        actor_ref: impl Into<String>,
+        deterministic_seed: impl Into<String>,
+        keys: Vec<FixtureKey>,
+        schema_version: &str,
+    ) -> Result<Self, HarnessContractError> {
+        let manifest = Self {
+            schema_version: ensure_supported_integration_harness_schema_version(schema_version)?,
+            fixture_id: fixture_id.into(),
+            tenant_ref: tenant_ref.into(),
+            actor_ref: actor_ref.into(),
+            deterministic_seed: deterministic_seed.into(),
+            keys,
+            resource_card_refs: vec!["resource:local:synthetic_cpu".to_owned()],
+            workload_refs: vec!["workload:local:no_op".to_owned()],
+            package_refs: vec!["package:local:no_op".to_owned()],
+            local_ledger_account_refs: vec!["ledger:local:oru_account".to_owned()],
+            policy_context_refs: vec!["policy:local:allow_smoke".to_owned()],
+            test_only: true,
+        };
+        manifest.validate()?;
+        Ok(manifest)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.fixture_id, "fixture id")?;
+        harness_require_non_empty(&self.tenant_ref, "tenant ref")?;
+        harness_require_non_empty(&self.actor_ref, "actor ref")?;
+        harness_require_non_empty(&self.deterministic_seed, "deterministic seed")?;
+        if !self.test_only {
+            return Err(HarnessContractError::FixtureNotTestOnly);
+        }
+        if self.keys.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("fixture key"));
+        }
+        for key in &self.keys {
+            key.validate()?;
+        }
+        if self.resource_card_refs.is_empty()
+            || self.workload_refs.is_empty()
+            || self.package_refs.is_empty()
+            || self.local_ledger_account_refs.is_empty()
+            || self.policy_context_refs.is_empty()
+        {
+            return Err(HarnessContractError::MissingRequiredField(
+                "fixture compatibility refs",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScenarioStep {
+    pub step_id: String,
+    pub action_kind: ScenarioActionKind,
+    pub input_refs: Vec<String>,
+    pub timeout_ms: u64,
+    pub retry_expectation: String,
+    pub expected_result_class: HarnessRunStatus,
+    pub assertion_refs: Vec<String>,
+    pub cleanup_rule: String,
+}
+
+impl ScenarioStep {
+    pub fn new(
+        step_id: impl Into<String>,
+        action_kind: ScenarioActionKind,
+        assertion_refs: Vec<String>,
+        timeout_ms: u64,
+    ) -> Result<Self, HarnessContractError> {
+        let step = Self {
+            step_id: step_id.into(),
+            action_kind,
+            input_refs: Vec::new(),
+            timeout_ms,
+            retry_expectation: "none".to_owned(),
+            expected_result_class: HarnessRunStatus::Passed,
+            assertion_refs,
+            cleanup_rule: "collect_artifacts_then_reset".to_owned(),
+        };
+        step.validate()?;
+        Ok(step)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.step_id, "step id")?;
+        if self.timeout_ms == 0 || self.timeout_ms > 600_000 {
+            return Err(HarnessContractError::UnsafeTimeoutMs(self.timeout_ms));
+        }
+        if self.assertion_refs.is_empty() {
+            return Err(HarnessContractError::MissingAssertion);
+        }
+        harness_require_non_empty(&self.retry_expectation, "retry expectation")?;
+        harness_require_non_empty(&self.cleanup_rule, "cleanup rule")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScenarioManifest {
+    pub schema_version: SchemaVersion,
+    pub scenario_id: String,
+    pub master_phase: u8,
+    pub gate_class: String,
+    pub tags: Vec<String>,
+    pub required_services: Vec<String>,
+    pub setup_fixture_refs: Vec<String>,
+    pub steps: Vec<ScenarioStep>,
+    pub cleanup_rules: Vec<String>,
+}
+
+impl ScenarioManifest {
+    pub fn new(
+        scenario_id: impl Into<String>,
+        master_phase: u8,
+        steps: Vec<ScenarioStep>,
+        schema_version: &str,
+    ) -> Result<Self, HarnessContractError> {
+        let manifest = Self {
+            schema_version: ensure_supported_integration_harness_schema_version(schema_version)?,
+            scenario_id: scenario_id.into(),
+            master_phase,
+            gate_class: "smoke".to_owned(),
+            tags: vec!["phase0".to_owned(), "smoke".to_owned()],
+            required_services: vec!["service:local_stack".to_owned()],
+            setup_fixture_refs: vec!["fixture:phase0_smoke".to_owned()],
+            steps,
+            cleanup_rules: vec!["collect_artifacts_then_reset".to_owned()],
+        };
+        manifest.validate()?;
+        Ok(manifest)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.scenario_id, "scenario id")?;
+        if self.master_phase > 13 {
+            return Err(HarnessContractError::UnsupportedPhase(self.master_phase));
+        }
+        if self.tags.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("scenario tag"));
+        }
+        if self.required_services.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField(
+                "required service",
+            ));
+        }
+        if self.setup_fixture_refs.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField(
+                "setup fixture ref",
+            ));
+        }
+        if self.steps.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("scenario step"));
+        }
+        for step in &self.steps {
+            step.validate()?;
+        }
+        if self.cleanup_rules.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("cleanup rule"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssertionResult {
+    pub assertion_id: String,
+    pub scenario_id: String,
+    pub status: HarnessRunStatus,
+    pub reason_code: String,
+    pub field_path: String,
+    pub expected_value: String,
+    pub actual_value: String,
+    pub artifact_refs: Vec<String>,
+}
+
+impl AssertionResult {
+    pub fn passed(assertion_id: impl Into<String>, scenario_id: impl Into<String>) -> Self {
+        Self {
+            assertion_id: assertion_id.into(),
+            scenario_id: scenario_id.into(),
+            status: HarnessRunStatus::Passed,
+            reason_code: "assertion.passed".to_owned(),
+            field_path: "$.events".to_owned(),
+            expected_value: "expected".to_owned(),
+            actual_value: "expected".to_owned(),
+            artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.assertion_id, "assertion id")?;
+        harness_require_non_empty(&self.scenario_id, "scenario id")?;
+        if !self.status.is_terminal() {
+            return Err(HarnessContractError::MissingRunStatus);
+        }
+        harness_require_non_empty(&self.reason_code, "reason code")?;
+        harness_require_non_empty(&self.field_path, "field path")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TestRunRecord {
+    pub schema_version: SchemaVersion,
+    pub run_id: String,
+    pub scenario_ids: Vec<String>,
+    pub stack_profile: String,
+    pub workspace_fingerprint: String,
+    pub status: HarnessRunStatus,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
+    pub reason_code: String,
+    pub reason_class: String,
+    pub assertion_refs: Vec<String>,
+    pub artifact_policy: ArtifactRetentionClass,
+    pub artifact_refs: Vec<String>,
+}
+
+impl TestRunRecord {
+    pub fn terminal(
+        run_id: impl Into<String>,
+        status: HarnessRunStatus,
+        schema_version: &str,
+    ) -> Result<Self, HarnessContractError> {
+        let record = Self {
+            schema_version: ensure_supported_integration_harness_schema_version(schema_version)?,
+            run_id: run_id.into(),
+            scenario_ids: vec!["scenario_phase0_smoke".to_owned()],
+            stack_profile: "local".to_owned(),
+            workspace_fingerprint: "workspace_local_0001".to_owned(),
+            status,
+            started_at_ms: 1,
+            ended_at_ms: 2,
+            reason_code: match status {
+                HarnessRunStatus::Passed => "run.passed".to_owned(),
+                HarnessRunStatus::Failed => "run.failed".to_owned(),
+                HarnessRunStatus::Blocked => "run.blocked".to_owned(),
+                HarnessRunStatus::Planned | HarnessRunStatus::Running => String::new(),
+            },
+            reason_class: match status {
+                HarnessRunStatus::Passed => "success".to_owned(),
+                HarnessRunStatus::Failed => "assertion".to_owned(),
+                HarnessRunStatus::Blocked => "dependency".to_owned(),
+                HarnessRunStatus::Planned | HarnessRunStatus::Running => String::new(),
+            },
+            assertion_refs: vec!["assertion:phase0:trace_order".to_owned()],
+            artifact_policy: ArtifactRetentionClass::PhaseGateEvidence,
+            artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
+        };
+        record.validate()?;
+        Ok(record)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.run_id, "run id")?;
+        if self.scenario_ids.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("scenario id"));
+        }
+        harness_require_non_empty(&self.stack_profile, "stack profile")?;
+        harness_require_non_empty(&self.workspace_fingerprint, "workspace fingerprint")?;
+        if !self.status.is_terminal() {
+            return Err(HarnessContractError::MissingRunStatus);
+        }
+        if self.started_at_ms == 0 || self.ended_at_ms == 0 || self.ended_at_ms < self.started_at_ms
+        {
+            return Err(HarnessContractError::MissingTiming);
+        }
+        harness_require_non_empty(&self.reason_code, "reason code")?;
+        harness_require_non_empty(&self.reason_class, "reason class")
+            .map_err(|_| HarnessContractError::MissingReasonClass)?;
+        if self.assertion_refs.is_empty() {
+            return Err(HarnessContractError::MissingAssertion);
+        }
+        if self.artifact_refs.is_empty() {
+            return Err(HarnessContractError::MissingArtifactPolicy);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GoldenTrace {
+    pub schema_version: SchemaVersion,
+    pub trace_id: String,
+    pub mode: GoldenTraceMode,
+    pub required_nodes: Vec<String>,
+    pub required_causal_edges: Vec<(String, String)>,
+    pub forbidden_transitions: Vec<(String, String)>,
+    pub stable_reason_codes: Vec<String>,
+}
+
+impl GoldenTrace {
+    pub fn new(
+        trace_id: impl Into<String>,
+        mode: GoldenTraceMode,
+        required_nodes: Vec<String>,
+        required_causal_edges: Vec<(String, String)>,
+        schema_version: &str,
+    ) -> Result<Self, HarnessContractError> {
+        let trace = Self {
+            schema_version: ensure_supported_integration_harness_schema_version(schema_version)?,
+            trace_id: trace_id.into(),
+            mode,
+            required_nodes,
+            required_causal_edges,
+            forbidden_transitions: Vec::new(),
+            stable_reason_codes: vec!["command.accepted".to_owned(), "audit.written".to_owned()],
+        };
+        trace.validate()?;
+        Ok(trace)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.trace_id, "trace id")?;
+        if self.required_nodes.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField("trace node"));
+        }
+        if self.mode == GoldenTraceMode::Dag && self.required_causal_edges.is_empty() {
+            return Err(HarnessContractError::GoldenTraceMissingEdge);
+        }
+        if self.mode == GoldenTraceMode::Exact && self.required_nodes.len() < 2 {
+            return Err(HarnessContractError::MissingRequiredField(
+                "exact trace order",
+            ));
+        }
+        if self.stable_reason_codes.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField(
+                "stable reason code",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactBundle {
+    pub schema_version: SchemaVersion,
+    pub bundle_id: String,
+    pub run_id: String,
+    pub retention_class: ArtifactRetentionClass,
+    pub privacy_classifications: Vec<String>,
+    pub redaction_policy: String,
+    pub reproduction_command: String,
+    pub artifact_refs: Vec<String>,
+    pub contains_raw_secret: bool,
+    pub contains_private_payload: bool,
+}
+
+impl ArtifactBundle {
+    pub fn new(
+        bundle_id: impl Into<String>,
+        run_id: impl Into<String>,
+        contains_raw_secret: bool,
+        contains_private_payload: bool,
+        schema_version: &str,
+    ) -> Result<Self, HarnessContractError> {
+        let bundle = Self {
+            schema_version: ensure_supported_integration_harness_schema_version(schema_version)?,
+            bundle_id: bundle_id.into(),
+            run_id: run_id.into(),
+            retention_class: ArtifactRetentionClass::PhaseGateEvidence,
+            privacy_classifications: vec![
+                "public_test_metadata".to_owned(),
+                "redacted_local_log".to_owned(),
+            ],
+            redaction_policy: "secret_free_refs_only".to_owned(),
+            reproduction_command:
+                "overrid test scenario scenario_phase0_smoke --profile local --json".to_owned(),
+            artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
+            contains_raw_secret,
+            contains_private_payload,
+        };
+        bundle.validate()?;
+        Ok(bundle)
+    }
+
+    pub fn validate(&self) -> Result<(), HarnessContractError> {
+        harness_require_non_empty(&self.bundle_id, "artifact bundle id")?;
+        harness_require_non_empty(&self.run_id, "run id")?;
+        if self.privacy_classifications.is_empty() {
+            return Err(HarnessContractError::MissingRequiredField(
+                "privacy classification",
+            ));
+        }
+        harness_require_non_empty(&self.redaction_policy, "redaction policy")?;
+        harness_require_non_empty(&self.reproduction_command, "reproduction command")?;
+        if self.artifact_refs.is_empty() {
+            return Err(HarnessContractError::MissingArtifactPolicy);
+        }
+        if self.contains_raw_secret || self.contains_private_payload {
+            return Err(HarnessContractError::RawSecretInArtifact);
+        }
+        if contains_raw_secret_marker(&self.reproduction_command) {
+            return Err(HarnessContractError::RawSecretInArtifact);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HarnessContractError {
+    UnsupportedSchemaVersion(ContractError),
+    MissingRequiredField(&'static str),
+    FixtureNotTestOnly,
+    FixtureKeyNotTestOnly,
+    UnsupportedPhase(u8),
+    InvalidActionKind(String),
+    MissingAssertion,
+    UnsafeTimeoutMs(u64),
+    MissingRunStatus,
+    MissingTiming,
+    MissingReasonClass,
+    MissingArtifactPolicy,
+    GoldenTraceMissingEdge,
+    RawSecretInArtifact,
+}
+
+impl From<ContractError> for HarnessContractError {
+    fn from(error: ContractError) -> Self {
+        Self::UnsupportedSchemaVersion(error)
+    }
+}
+
+impl fmt::Display for HarnessContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedSchemaVersion(error) => error.fmt(formatter),
+            Self::MissingRequiredField(field) => write!(formatter, "{field} is required"),
+            Self::FixtureNotTestOnly => formatter.write_str("fixture manifest is not test-only"),
+            Self::FixtureKeyNotTestOnly => {
+                formatter.write_str("fixture key must be test-only and signature-ref-only")
+            }
+            Self::UnsupportedPhase(phase) => write!(formatter, "unsupported master phase: {phase}"),
+            Self::InvalidActionKind(kind) => write!(formatter, "invalid action kind: {kind}"),
+            Self::MissingAssertion => formatter.write_str("at least one assertion is required"),
+            Self::UnsafeTimeoutMs(timeout_ms) => {
+                write!(formatter, "unsafe scenario timeout: {timeout_ms}ms")
+            }
+            Self::MissingRunStatus => formatter.write_str("terminal run status is required"),
+            Self::MissingTiming => formatter.write_str("started and ended timing is required"),
+            Self::MissingReasonClass => formatter.write_str("run reason class is required"),
+            Self::MissingArtifactPolicy => {
+                formatter.write_str("artifact policy and refs are required")
+            }
+            Self::GoldenTraceMissingEdge => {
+                formatter.write_str("DAG golden trace requires at least one causal edge")
+            }
+            Self::RawSecretInArtifact => {
+                formatter.write_str("artifact or fixture contains raw secret material")
+            }
+        }
+    }
+}
+
+impl std::error::Error for HarnessContractError {}
+
+fn harness_require_non_empty(value: &str, field: &'static str) -> Result<(), HarnessContractError> {
+    if value.trim().is_empty() {
+        Err(HarnessContractError::MissingRequiredField(field))
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProfileValidationError {
     MissingRequiredField(&'static str),
@@ -2376,6 +3013,311 @@ mod tests {
         let set = cli_contract_set();
         assert_eq!(set.source_root, CONTRACT_SOURCE_ROOT);
         assert_eq!(set.projection_status, GENERATED_CONTRACT_STATUS);
+    }
+
+    fn harness_fixture_key() -> FixtureKey {
+        FixtureKey::test_only("key:fixture:local_builder", "fixture_local_builder")
+    }
+
+    fn harness_step() -> ScenarioStep {
+        ScenarioStep::new(
+            "step_cli_noop",
+            ScenarioActionKind::Cli,
+            vec!["assertion:phase0:trace_order".to_owned()],
+            30_000,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn exposes_integration_harness_contract_projection_metadata() {
+        let set = integration_harness_contract_set();
+        assert_eq!(set.schema_family, INTEGRATION_HARNESS_SCHEMA_FAMILY);
+        assert_eq!(
+            set.schema_version,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION
+        );
+        assert_eq!(set.source_root, CONTRACT_SOURCE_ROOT);
+        assert_eq!(set.projection_status, GENERATED_CONTRACT_STATUS);
+    }
+
+    #[test]
+    fn accepts_supported_integration_harness_schema_version() {
+        let parsed = ensure_supported_integration_harness_schema_version(
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.family(), INTEGRATION_HARNESS_SCHEMA_FAMILY);
+        assert_eq!(parsed.major(), 0);
+        assert_eq!(parsed.minor(), 1);
+    }
+
+    #[test]
+    fn rejects_incompatible_integration_harness_schema_version() {
+        assert!(matches!(
+            ensure_supported_integration_harness_schema_version("integration-harness.v1.0"),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+        assert!(matches!(
+            ensure_supported_integration_harness_schema_version(SUPPORTED_SCHEMA_VERSION),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn validates_phase2_fixture_manifest_contracts() {
+        let manifest = FixtureManifest::new(
+            "fixture_phase0_smoke",
+            "tenant:local:alpha",
+            "actor:local:builder",
+            "seed_phase0_smoke_0001",
+            vec![harness_fixture_key()],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert!(manifest.test_only);
+        assert_eq!(manifest.schema_version.raw(), "integration-harness.v0.1");
+        assert_eq!(manifest.keys[0].key_id, "fixture_local_builder");
+        assert!(manifest
+            .resource_card_refs
+            .contains(&"resource:local:synthetic_cpu".to_owned()));
+        assert!(manifest
+            .local_ledger_account_refs
+            .contains(&"ledger:local:oru_account".to_owned()));
+    }
+
+    #[test]
+    fn rejects_invalid_phase2_fixture_manifests() {
+        assert!(matches!(
+            FixtureManifest::new(
+                "fixture_missing_seed",
+                "tenant:local:alpha",
+                "actor:local:builder",
+                "",
+                vec![harness_fixture_key()],
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::MissingRequiredField(
+                "deterministic seed"
+            ))
+        ));
+
+        assert!(matches!(
+            FixtureManifest::new(
+                "fixture_missing_tenant",
+                "",
+                "actor:local:builder",
+                "seed_phase0_smoke_0001",
+                vec![harness_fixture_key()],
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::MissingRequiredField("tenant ref"))
+        ));
+
+        let mut non_test_key = harness_fixture_key();
+        non_test_key.test_only = false;
+        assert!(matches!(
+            FixtureManifest::new(
+                "fixture_non_test_key",
+                "tenant:local:alpha",
+                "actor:local:builder",
+                "seed_phase0_smoke_0001",
+                vec![non_test_key],
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::FixtureKeyNotTestOnly)
+        ));
+    }
+
+    #[test]
+    fn validates_phase2_scenario_manifest_contracts() {
+        let manifest = ScenarioManifest::new(
+            "scenario_phase0_smoke",
+            0,
+            vec![harness_step()],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(manifest.master_phase, 0);
+        assert_eq!(manifest.steps[0].action_kind.as_str(), "cli");
+        assert!(manifest
+            .required_services
+            .contains(&"service:local_stack".to_owned()));
+        assert!(manifest
+            .cleanup_rules
+            .contains(&"collect_artifacts_then_reset".to_owned()));
+    }
+
+    #[test]
+    fn rejects_invalid_phase2_scenario_variants() {
+        assert!(matches!(
+            ScenarioActionKind::parse("direct_storage"),
+            Err(HarnessContractError::InvalidActionKind(kind)) if kind == "direct_storage"
+        ));
+
+        assert!(matches!(
+            ScenarioManifest::new(
+                "scenario_phase14",
+                14,
+                vec![harness_step()],
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::UnsupportedPhase(14))
+        ));
+
+        assert!(matches!(
+            ScenarioStep::new(
+                "step_missing_assertion",
+                ScenarioActionKind::Cli,
+                Vec::new(),
+                30_000,
+            ),
+            Err(HarnessContractError::MissingAssertion)
+        ));
+
+        assert!(matches!(
+            ScenarioStep::new(
+                "step_unsafe_timeout",
+                ScenarioActionKind::Cli,
+                vec!["assertion:timeout:bounded".to_owned()],
+                900_000,
+            ),
+            Err(HarnessContractError::UnsafeTimeoutMs(900_000))
+        ));
+    }
+
+    #[test]
+    fn validates_phase2_run_and_assertion_records() {
+        let run = TestRunRecord::terminal(
+            "run_phase0_smoke_passed",
+            HarnessRunStatus::Passed,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+        let assertion =
+            AssertionResult::passed("assertion_phase0_trace_order", "scenario_phase0_smoke");
+
+        assert_eq!(run.status.as_str(), "passed");
+        assert!(run.status.is_terminal());
+        assert_eq!(run.reason_code, "run.passed");
+        assert_eq!(run.artifact_policy.as_str(), "phase_gate_evidence");
+        assertion.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_non_terminal_or_incomplete_run_records() {
+        assert!(matches!(
+            TestRunRecord::terminal(
+                "run_still_planned",
+                HarnessRunStatus::Planned,
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::MissingRunStatus)
+        ));
+    }
+
+    #[test]
+    fn validates_phase2_golden_trace_modes() {
+        let exact = GoldenTrace::new(
+            "golden_trace_phase0_noop",
+            GoldenTraceMode::Exact,
+            vec![
+                "event_command_accepted".to_owned(),
+                "event_audit_written".to_owned(),
+            ],
+            vec![(
+                "event_command_accepted".to_owned(),
+                "event_audit_written".to_owned(),
+            )],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        let dag = GoldenTrace::new(
+            "golden_trace_phase3_execution",
+            GoldenTraceMode::Dag,
+            vec![
+                "event_queue_pending".to_owned(),
+                "event_lease_created".to_owned(),
+            ],
+            vec![(
+                "event_queue_pending".to_owned(),
+                "event_lease_created".to_owned(),
+            )],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(exact.mode.as_str(), "exact");
+        assert_eq!(dag.mode.as_str(), "dag");
+        assert!(dag
+            .stable_reason_codes
+            .contains(&"command.accepted".to_owned()));
+    }
+
+    #[test]
+    fn rejects_dag_golden_trace_without_edges() {
+        assert!(matches!(
+            GoldenTrace::new(
+                "golden_trace_missing_edge",
+                GoldenTraceMode::Dag,
+                vec![
+                    "event_queue_pending".to_owned(),
+                    "event_lease_created".to_owned()
+                ],
+                Vec::new(),
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::GoldenTraceMissingEdge)
+        ));
+    }
+
+    #[test]
+    fn validates_phase2_artifact_bundle_contracts() {
+        let bundle = ArtifactBundle::new(
+            "artifact_bundle_phase0_smoke",
+            "run_phase0_smoke_passed",
+            false,
+            false,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(bundle.retention_class.as_str(), "phase_gate_evidence");
+        assert_eq!(bundle.redaction_policy, "secret_free_refs_only");
+        assert!(bundle
+            .reproduction_command
+            .contains("overrid test scenario scenario_phase0_smoke"));
+        assert!(!bundle.contains_raw_secret);
+        assert!(!bundle.contains_private_payload);
+    }
+
+    #[test]
+    fn rejects_artifact_bundles_with_raw_or_private_material() {
+        assert!(matches!(
+            ArtifactBundle::new(
+                "artifact_bundle_raw_secret",
+                "run_raw_secret",
+                true,
+                false,
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::RawSecretInArtifact)
+        ));
+
+        assert!(matches!(
+            ArtifactBundle::new(
+                "artifact_bundle_private_payload",
+                "run_private_payload",
+                false,
+                true,
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+            ),
+            Err(HarnessContractError::RawSecretInArtifact)
+        ));
     }
 
     #[test]

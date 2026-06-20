@@ -1,0 +1,19 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_missing_tenant_actor",
+    "tenant_ref": "",
+    "actor_ref": "",
+    "deterministic_seed": "seed_missing_tenant_actor",
+    "identities": [],
+    "keys": [],
+    "resource_cards": [],
+    "workload_refs": [],
+    "package_refs": [],
+    "local_ledger_account_refs": [],
+    "policy_context_refs": [],
+    "test_only": true
+  },
+  "expected_error": "fixture.tenant_actor_missing"
+}

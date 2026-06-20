@@ -1,0 +1,28 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_non_test_key",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_non_test_key",
+    "identities": [],
+    "keys": [
+      {
+        "key_ref": "key:fixture:bad",
+        "key_id": "bad",
+        "credential_class": "fixture",
+        "test_only": false,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [],
+    "workload_refs": [],
+    "package_refs": [],
+    "local_ledger_account_refs": [],
+    "policy_context_refs": [],
+    "test_only": true
+  },
+  "expected_error": "safety.fixture_key_not_test_only"
+}

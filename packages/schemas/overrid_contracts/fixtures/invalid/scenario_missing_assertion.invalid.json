@@ -1,0 +1,36 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_missing_assertion",
+    "master_phase": 0,
+    "gate_class": "smoke",
+    "tags": [
+      "phase0"
+    ],
+    "required_services": [
+      "service:local_stack"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase0_smoke"
+    ],
+    "steps": [
+      {
+        "step_id": "step_missing_assertion",
+        "action_kind": "cli",
+        "input_refs": [
+          "command:local:no_op"
+        ],
+        "timeout_ms": 30000,
+        "retry_expectation": "none",
+        "expected_result_class": "passed",
+        "assertion_refs": [],
+        "cleanup_rule": "collect_artifacts_then_reset"
+      }
+    ],
+    "cleanup_rules": [
+      "collect_artifacts_then_reset"
+    ]
+  },
+  "expected_error": "scenario.assertion_missing"
+}

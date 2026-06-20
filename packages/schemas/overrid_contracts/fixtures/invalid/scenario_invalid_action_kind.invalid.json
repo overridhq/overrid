@@ -1,0 +1,36 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_invalid_action_kind",
+    "master_phase": 0,
+    "gate_class": "smoke",
+    "tags": [
+      "phase0"
+    ],
+    "required_services": [
+      "service:local_stack"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase0_smoke"
+    ],
+    "steps": [
+      {
+        "step_id": "step_bad_action",
+        "action_kind": "direct_storage",
+        "input_refs": [],
+        "timeout_ms": 30000,
+        "retry_expectation": "none",
+        "expected_result_class": "blocked",
+        "assertion_refs": [
+          "assertion:phase0:blocked"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "expected_error": "scenario.invalid_action_kind"
+}

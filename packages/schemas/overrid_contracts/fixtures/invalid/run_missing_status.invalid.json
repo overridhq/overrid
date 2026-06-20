@@ -1,0 +1,24 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_missing_status",
+    "scenario_ids": [
+      "scenario_phase0_smoke"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "started_at_ms": 1781966000000,
+    "ended_at_ms": 1781966005000,
+    "reason_code": "run.blocked",
+    "reason_class": "dependency",
+    "assertion_refs": [
+      "assertion:phase0:blocked"
+    ],
+    "artifact_policy": "failure_evidence",
+    "artifact_refs": [
+      "artifact:bundle:blocked"
+    ]
+  },
+  "expected_error": "run.status_missing"
+}

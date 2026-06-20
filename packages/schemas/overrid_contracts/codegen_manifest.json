@@ -27,6 +27,53 @@
       "packages/cli/fixtures/valid/phase10_release_readiness.valid.json"
     ]
   },
+  "integration_harness_phase2": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+      "non_authoritative": true
+    },
+    "contracts": [
+      "fixture_manifest",
+      "fixture_identity",
+      "fixture_key",
+      "resource_card_ref",
+      "workload_ref",
+      "package_ref",
+      "local_ledger_account_ref",
+      "policy_context_ref",
+      "scenario_manifest",
+      "scenario_step",
+      "test_run_record",
+      "assertion_result",
+      "golden_trace",
+      "artifact_bundle"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase2.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/fixture_missing_seed.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/fixture_missing_tenant_actor.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/fixture_incompatible_version.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/fixture_non_test_key.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_invalid_action_kind.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_missing_assertion.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsupported_phase.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsafe_timeout.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/run_missing_status.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_edge.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json"
+      ]
+    }
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",
@@ -108,6 +155,8 @@
     "Phase 10 release-readiness output must validate contract snapshots, help text, exit classes, reason-code families, JSON/human output, and error decoding without changing earlier command contracts.",
     "Phase 10 security validation must keep credential storage, signer handoff, diagnostics, logs, results, and handoff output secret-free with no raw keys, tokens, signatures, private payloads, decrypted content, unsafe endpoints, or cross-tenant shortcuts.",
     "Phase 10 phase-availability validation must keep unavailable later services denied with stable not_available_in_phase reason codes and no private shortcuts.",
-    "Phase 10 Phase 7/13 handoff evidence must not authorize high-risk governance, compliance, incident, break-glass, migration, or backbone operations before owning contracts exist."
+    "Phase 10 Phase 7/13 handoff evidence must not authorize high-risk governance, compliance, incident, break-glass, migration, or backbone operations before owning contracts exist.",
+    "Integration Harness Phase 2 contracts must keep fixture, scenario, run-record, assertion, golden-trace, and artifact-bundle schemas as canonical JSON Schema sources with Rust projection checks only.",
+    "Integration Harness Phase 2 fixture credentials must be visibly test_only and must reject raw key material, non-local profiles, unsafe timeouts, unsupported phases, and raw secret artifact bundles."
   ]
 }

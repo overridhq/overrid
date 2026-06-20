@@ -1,0 +1,36 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_unsupported_phase",
+    "master_phase": 14,
+    "gate_class": "smoke",
+    "tags": [
+      "phase14"
+    ],
+    "required_services": [
+      "service:local_stack"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase0_smoke"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase14",
+        "action_kind": "cli",
+        "input_refs": [],
+        "timeout_ms": 30000,
+        "retry_expectation": "none",
+        "expected_result_class": "blocked",
+        "assertion_refs": [
+          "assertion:phase:unsupported"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "expected_error": "scenario.phase_unsupported"
+}

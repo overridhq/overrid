@@ -1,0 +1,19 @@
+{
+  "schema_version": "integration-harness.v1.0",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v1.0",
+    "fixture_id": "fixture_incompatible_version",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_incompatible_version",
+    "identities": [],
+    "keys": [],
+    "resource_cards": [],
+    "workload_refs": [],
+    "package_refs": [],
+    "local_ledger_account_refs": [],
+    "policy_context_refs": [],
+    "test_only": true
+  },
+  "expected_error": "schema.incompatible_version"
+}
