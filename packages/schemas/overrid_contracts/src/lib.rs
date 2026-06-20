@@ -647,6 +647,7 @@ pub enum BootstrapCommandFamily {
     Key,
     Manifest,
     Workload,
+    Node,
 }
 
 impl BootstrapCommandFamily {
@@ -658,11 +659,15 @@ impl BootstrapCommandFamily {
             Self::Key => "key",
             Self::Manifest => "manifest",
             Self::Workload => "workload",
+            Self::Node => "node",
         }
     }
 
     pub fn phase_gate(self) -> &'static str {
-        "phase_1_control_plane_bootstrap"
+        match self {
+            Self::Node => "phase_2_seed_private_swarm",
+            _ => "phase_1_control_plane_bootstrap",
+        }
     }
 }
 
@@ -784,6 +789,278 @@ impl SyntheticWorkloadPendingState {
             workload_kind: workload_kind.into(),
             queue_state: "pending".to_owned(),
             execution_implied: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeState {
+    Live,
+    Stale,
+    Expired,
+    Draining,
+    Disabled,
+}
+
+impl NodeState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Live => "live",
+            Self::Stale => "stale",
+            Self::Expired => "expired",
+            Self::Draining => "draining",
+            Self::Disabled => "disabled",
+        }
+    }
+
+    pub fn accepts_work(self) -> bool {
+        matches!(self, Self::Live)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeStatusRecord {
+    pub node_ref: String,
+    pub state: NodeState,
+    pub profile_name: String,
+    pub credential_ref: String,
+    pub credential_checked: bool,
+    pub capability_refs: Vec<String>,
+    pub heartbeat_ref: String,
+    pub registered_via: String,
+    pub direct_node_access: bool,
+}
+
+impl NodeStatusRecord {
+    pub fn new(
+        node_ref: impl Into<String>,
+        state: NodeState,
+        profile_name: impl Into<String>,
+        credential_ref: impl Into<String>,
+    ) -> Self {
+        let node_ref = node_ref.into();
+        Self {
+            heartbeat_ref: format!("overwatch:heartbeat:{node_ref}"),
+            capability_refs: vec![
+                format!("overcell:node:{node_ref}:capabilities"),
+                format!("overregistry:node:{node_ref}:profile"),
+            ],
+            node_ref,
+            state,
+            profile_name: profile_name.into(),
+            credential_ref: credential_ref.into(),
+            credential_checked: true,
+            registered_via: "sdk_overgate_contract".to_owned(),
+            direct_node_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkloadExecutionState {
+    Scheduled,
+    Leased,
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled,
+    TimedOut,
+    DeadLettered,
+}
+
+impl WorkloadExecutionState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Scheduled => "scheduled",
+            Self::Leased => "leased",
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+            Self::TimedOut => "timed_out",
+            Self::DeadLettered => "dead_lettered",
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Succeeded
+                | Self::Failed
+                | Self::Cancelled
+                | Self::TimedOut
+                | Self::DeadLettered
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionDiagnosticEvent {
+    pub state: WorkloadExecutionState,
+    pub service_ref: String,
+    pub reason_code: String,
+    pub evidence_ref: String,
+}
+
+impl ExecutionDiagnosticEvent {
+    pub fn new(
+        state: WorkloadExecutionState,
+        service_ref: impl Into<String>,
+        reason_code: impl Into<String>,
+        evidence_ref: impl Into<String>,
+    ) -> Self {
+        Self {
+            state,
+            service_ref: service_ref.into(),
+            reason_code: reason_code.into(),
+            evidence_ref: evidence_ref.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionTimeline {
+    pub workload_ref: String,
+    pub states: Vec<WorkloadExecutionState>,
+    pub diagnostic_events: Vec<ExecutionDiagnosticEvent>,
+    pub owning_service_refs: Vec<String>,
+    pub trace_id: String,
+    pub direct_node_access: bool,
+}
+
+impl ExecutionTimeline {
+    pub fn new(
+        workload_ref: impl Into<String>,
+        states: Vec<WorkloadExecutionState>,
+        trace_id: impl Into<String>,
+    ) -> Self {
+        let workload_ref = workload_ref.into();
+        Self {
+            diagnostic_events: vec![
+                ExecutionDiagnosticEvent::new(
+                    WorkloadExecutionState::Scheduled,
+                    "oversched:scheduler",
+                    "scheduler.accepted",
+                    format!("trace:{workload_ref}:scheduler"),
+                ),
+                ExecutionDiagnosticEvent::new(
+                    WorkloadExecutionState::Leased,
+                    "overlease:lease",
+                    "lease.active",
+                    format!("trace:{workload_ref}:lease"),
+                ),
+                ExecutionDiagnosticEvent::new(
+                    WorkloadExecutionState::Running,
+                    "overrun:runner",
+                    "runner.started",
+                    format!("trace:{workload_ref}:runner"),
+                ),
+                ExecutionDiagnosticEvent::new(
+                    WorkloadExecutionState::Running,
+                    "overcell:node-heartbeat",
+                    "node.heartbeat.live",
+                    format!("trace:{workload_ref}:node_heartbeat"),
+                ),
+                ExecutionDiagnosticEvent::new(
+                    WorkloadExecutionState::Running,
+                    "overpack:package",
+                    "package.resolved",
+                    format!("trace:{workload_ref}:package"),
+                ),
+                ExecutionDiagnosticEvent::new(
+                    states.last().copied().unwrap_or(WorkloadExecutionState::Succeeded),
+                    "overstore:result-state-ref",
+                    "result.ref.available",
+                    format!("trace:{workload_ref}:result_state"),
+                ),
+            ],
+            owning_service_refs: vec![
+                "overgate:execution-command".to_owned(),
+                "overqueue:workload-state".to_owned(),
+                "oversched:scheduler".to_owned(),
+                "overlease:lease".to_owned(),
+                "overrun:runner".to_owned(),
+                "overwatch:trace".to_owned(),
+            ],
+            workload_ref,
+            states,
+            trace_id: trace_id.into(),
+            direct_node_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionLogBundle {
+    pub workload_ref: String,
+    pub log_ref: String,
+    pub redaction_policy: String,
+    pub bounded_streaming: bool,
+    pub trace_linked_ref: String,
+    pub contains_private_payload: bool,
+    pub direct_node_path_exposed: bool,
+}
+
+impl ExecutionLogBundle {
+    pub fn new(workload_ref: impl Into<String>, trace_id: impl Into<String>) -> Self {
+        let workload_ref = workload_ref.into();
+        Self {
+            log_ref: format!("overwatch:logs:{workload_ref}:redacted"),
+            trace_linked_ref: format!("trace:{}:logs", trace_id.into()),
+            workload_ref,
+            redaction_policy: "secret_free_refs_only".to_owned(),
+            bounded_streaming: true,
+            contains_private_payload: false,
+            direct_node_path_exposed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionResultRef {
+    pub workload_ref: String,
+    pub result_ref: String,
+    pub authorized_control_plane_ref: String,
+    pub trace_linked_ref: String,
+    pub contains_private_payload: bool,
+    pub direct_object_store_path_exposed: bool,
+}
+
+impl ExecutionResultRef {
+    pub fn new(workload_ref: impl Into<String>, trace_id: impl Into<String>) -> Self {
+        let workload_ref = workload_ref.into();
+        Self {
+            result_ref: format!("overstore:result:{workload_ref}:authorized_ref"),
+            authorized_control_plane_ref: format!("overgate:result:{workload_ref}"),
+            trace_linked_ref: format!("trace:{}:result", trace_id.into()),
+            workload_ref,
+            contains_private_payload: false,
+            direct_object_store_path_exposed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PollingPlan {
+    pub wait: bool,
+    pub follow: bool,
+    pub timeout_ms: u64,
+    pub poll_interval_ms: u64,
+    pub event_stream_preferred: bool,
+    pub fallback_polling: bool,
+    pub interruptible: bool,
+}
+
+impl PollingPlan {
+    pub fn bounded(wait: bool, follow: bool, timeout_ms: u64, poll_interval_ms: u64) -> Self {
+        Self {
+            wait,
+            follow,
+            timeout_ms: timeout_ms.clamp(1, 600_000),
+            poll_interval_ms: poll_interval_ms.clamp(100, 60_000),
+            event_stream_preferred: true,
+            fallback_polling: true,
+            interruptible: true,
         }
     }
 }
@@ -1479,6 +1756,66 @@ mod tests {
         assert!(!record.contains_private_payload);
         assert!(record.inspectable);
         assert!(record.resettable);
+    }
+
+    #[test]
+    fn node_status_record_is_profile_scoped_and_refs_only() {
+        let record = NodeStatusRecord::new(
+            "node_live",
+            NodeState::Live,
+            "local-dev",
+            "fixture://local-dev/key-1",
+        );
+
+        assert_eq!(record.state.as_str(), "live");
+        assert!(record.state.accepts_work());
+        assert!(record.credential_checked);
+        assert_eq!(record.registered_via, "sdk_overgate_contract");
+        assert!(!record.direct_node_access);
+        assert!(record
+            .capability_refs
+            .contains(&"overcell:node:node_live:capabilities".to_owned()));
+        assert_eq!(NodeState::Draining.as_str(), "draining");
+        assert!(!NodeState::Disabled.accepts_work());
+    }
+
+    #[test]
+    fn workload_execution_contracts_are_refs_only_and_terminal_aware() {
+        let timeline = ExecutionTimeline::new(
+            "workload_local",
+            vec![
+                WorkloadExecutionState::Scheduled,
+                WorkloadExecutionState::Leased,
+                WorkloadExecutionState::Running,
+                WorkloadExecutionState::Succeeded,
+            ],
+            "trace_cli_local",
+        );
+        let logs = ExecutionLogBundle::new("workload_local", "trace_cli_local");
+        let result = ExecutionResultRef::new("workload_local", "trace_cli_local");
+        let polling = PollingPlan::bounded(true, true, 900_000, 10);
+
+        assert!(WorkloadExecutionState::Succeeded.is_terminal());
+        assert!(WorkloadExecutionState::TimedOut.is_terminal());
+        assert!(!WorkloadExecutionState::Running.is_terminal());
+        assert_eq!(timeline.states[0].as_str(), "scheduled");
+        assert_eq!(timeline.states[3].as_str(), "succeeded");
+        assert_eq!(timeline.diagnostic_events.len(), 6);
+        assert!(timeline
+            .owning_service_refs
+            .contains(&"overwatch:trace".to_owned()));
+        assert!(!timeline.direct_node_access);
+        assert_eq!(logs.redaction_policy, "secret_free_refs_only");
+        assert!(logs.bounded_streaming);
+        assert!(!logs.contains_private_payload);
+        assert!(!logs.direct_node_path_exposed);
+        assert!(result.result_ref.starts_with("overstore:result:"));
+        assert!(!result.contains_private_payload);
+        assert!(!result.direct_object_store_path_exposed);
+        assert_eq!(polling.timeout_ms, 600_000);
+        assert_eq!(polling.poll_interval_ms, 100);
+        assert!(polling.event_stream_preferred);
+        assert!(polling.fallback_polling);
     }
 
     #[test]

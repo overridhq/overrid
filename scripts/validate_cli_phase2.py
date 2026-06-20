@@ -174,6 +174,15 @@ def validate_contracts() -> None:
         "error_decode_record",
         "local_idempotency_cache_record",
     }
+    expected_phase7_extensions = {
+        "node_status_record",
+        "workload_execution_state",
+        "execution_timeline",
+        "execution_log_bundle",
+        "execution_result_ref",
+        "polling_plan",
+        "execution_diagnostic_event",
+    }
     actual_contracts = set(schema["properties"]["contracts"]["items"]["enum"])
     missing_phase2_contracts = expected_phase2_contracts - actual_contracts
     if missing_phase2_contracts:
@@ -186,6 +195,7 @@ def validate_contracts() -> None:
         | expected_phase4_extensions
         | expected_phase5_extensions
         | expected_phase6_extensions
+        | expected_phase7_extensions
     )
     unexpected_contracts = actual_contracts - allowed_contracts
     if unexpected_contracts:

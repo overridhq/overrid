@@ -364,6 +364,17 @@ When a CLI command needs new platform behavior, update documentation in this ord
   - Output: CLI timeline renderer for execution diagnostics.
   - Validation: Fixture tests prove each state cites owning-service refs and stable reason codes.
 
+### Phase 7 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Node command gate | `packages/cli/src/parser.rs` and `packages/cli/src/runner.rs` expose `node register|inspect|health` through profile-scoped credential checks, signed registration, capability refs, and `node_status_record` output. | `scripts/validate_cli_phase7.py` checks live, stale, expired, draining, and disabled fixture states, credential checks, capability refs, and `direct_node_access:false`. |
+| Execution command gate | `workload status|timeline|logs|cancel|result|follow` expose Phase 3 execution states and refs while preserving Phase 1 synthetic pending output for submit/status/timeline compatibility. | The Phase 7 validator checks scheduled, leased, running, succeeded, cancelled, timed-out, failed, and dead-lettered state strings where surfaced by contracts and CLI fixtures. |
+| Log/result gate | `execution_log_bundle` and `execution_result_ref` outputs expose authorized control-plane refs, redaction policy, trace-linked refs, bounded streaming, and no direct node or object-store paths. | The Phase 7 validator checks `secret_free_refs_only`, `contains_private_payload:false`, `direct_node_path_exposed:false`, and `direct_object_store_path_exposed:false`. |
+| Wait/follow gate | Parser and runner support `--wait`, `--timeout`, `--poll-interval`, and `--follow` with bounded `polling_plan` output and event-stream-preferred plus fallback-polling metadata. | The Phase 7 validator checks flag parsing, timeout/poll interval propagation, follow-mode behavior, and bounded defaults. |
+| Execution diagnostics gate | `execution_timeline` renders Overgate, Overqueue, Oversched, Overlease, Overrun, Overwatch, node heartbeat, package, and result-state refs with stable reason codes. | The Phase 7 validator checks trace-linked diagnostic events, owning-service refs, and no private storage exposure. |
+| Validation gate | `scripts/validate_cli_phase7.py` is wired into `scripts/validate_overrid.py` and checks docs, schema source, manifest, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests. | `python3 scripts/validate_cli_phase7.py`, `python3 scripts/validate_overrid.py`, and `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass before Phase 7 is reported complete. |
+
 ## Phase 8: Policy, Package, Usage, Receipt, And Accounting Commands
 
 ### Work Items

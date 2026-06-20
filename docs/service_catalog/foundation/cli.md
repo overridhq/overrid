@@ -98,6 +98,15 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - Local idempotency cache gate: `idempotency-cache inspect|reset` renders owner-only, profile/environment scoped, resettable/inspectable cache records with `contains_private_payload:false`.
 - Validation gate: `scripts/validate_cli_phase6.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
 
+## Phase 7 Implementation Gates
+
+- Node command gate: `node register|inspect|health` uses profile-scoped credential checks, signed registration, capability refs, and `node_status_record` output; it must not access node-agent state directly.
+- Execution command gate: `workload status|timeline|logs|cancel|result|follow` uses SDK/Overgate-shaped execution refs and exposes scheduled, leased, running, succeeded, failed, cancelled, timed-out, and dead-lettered state contracts without direct queue or runner access.
+- Log/result gate: log and result output uses authorized control-plane refs, `secret_free_refs_only` redaction, bounded streaming, trace-linked refs, and no direct node or object-store paths.
+- Wait/follow gate: `--wait`, `--timeout`, `--poll-interval`, and `--follow` render a bounded `polling_plan` with event-stream-preferred and fallback-polling metadata.
+- Execution diagnostics gate: execution timelines cite Overgate, Overqueue, Oversched, Overlease, Overrun, Overwatch, node heartbeat, package, and result-state refs with stable reason codes.
+- Validation gate: `scripts/validate_cli_phase7.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
+
 ## Validation
 
 - CLI can complete the [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) synthetic workload path.

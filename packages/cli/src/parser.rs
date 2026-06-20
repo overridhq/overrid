@@ -50,7 +50,10 @@ pub struct GlobalOptions {
     pub workload_ref: Option<String>,
     pub workload_kind: Option<String>,
     pub timeout_ms: Option<u64>,
+    pub poll_interval_ms: Option<u64>,
     pub max_retries: Option<u8>,
+    pub wait: bool,
+    pub follow: bool,
     pub dry_run: bool,
 }
 
@@ -90,7 +93,10 @@ impl Default for GlobalOptions {
             workload_ref: None,
             workload_kind: None,
             timeout_ms: None,
+            poll_interval_ms: None,
             max_retries: None,
+            wait: false,
+            follow: false,
             dry_run: false,
         }
     }
@@ -108,6 +114,7 @@ pub enum Command {
     Identity(IdentityCommand),
     Key(KeyCommand),
     Manifest(ManifestCommand),
+    Node(NodeCommand),
     Workload(WorkloadCommand),
     IdempotencyCache(IdempotencyCacheCommand),
     Planned(PlannedCommand),
@@ -243,6 +250,10 @@ pub enum WorkloadCommand {
     Submit,
     Status,
     Timeline,
+    Logs,
+    Cancel,
+    Result,
+    Follow,
 }
 
 impl WorkloadCommand {
@@ -251,6 +262,27 @@ impl WorkloadCommand {
             Self::Submit => "workload submit",
             Self::Status => "workload status",
             Self::Timeline => "workload timeline",
+            Self::Logs => "workload logs",
+            Self::Cancel => "workload cancel",
+            Self::Result => "workload result",
+            Self::Follow => "workload follow",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeCommand {
+    Register,
+    Inspect,
+    Health,
+}
+
+impl NodeCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Register => "node register",
+            Self::Inspect => "node inspect",
+            Self::Health => "node health",
         }
     }
 }
@@ -366,6 +398,8 @@ where
             "--expired" => globals.expired = true,
             "--dry-run" => globals.dry_run = true,
             "--new-idempotency-key" => globals.new_idempotency_key = true,
+            "--wait" => globals.wait = true,
+            "--follow" => globals.follow = true,
             "--profile" => globals.profile = Some(next_value(&mut iter, "--profile")?),
             "--environment" => globals.environment = Some(next_value(&mut iter, "--environment")?),
             "--endpoint" => globals.endpoint = Some(next_value(&mut iter, "--endpoint")?),
@@ -420,6 +454,14 @@ where
             "--timeout-ms" => {
                 let value = next_value(&mut iter, "--timeout-ms")?;
                 globals.timeout_ms = Some(parse_numeric_flag("--timeout-ms", &value)?);
+            }
+            "--timeout" => {
+                let value = next_value(&mut iter, "--timeout")?;
+                globals.timeout_ms = Some(parse_numeric_flag("--timeout", &value)?);
+            }
+            "--poll-interval" => {
+                let value = next_value(&mut iter, "--poll-interval")?;
+                globals.poll_interval_ms = Some(parse_numeric_flag("--poll-interval", &value)?);
             }
             "--max-retries" => {
                 let value = next_value(&mut iter, "--max-retries")?;
@@ -491,7 +533,7 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "identity" => identity_command(tokens),
         "key" => key_command(tokens),
         "manifest" => manifest_command(tokens),
-        "node" => Ok(Command::Planned(PlannedCommand::Node)),
+        "node" => node_command(tokens),
         "workload" => workload_command(tokens),
         "idempotency" | "idempotency-cache" => idempotency_cache_command(tokens),
         "policy" => Ok(Command::Planned(PlannedCommand::Policy)),
@@ -551,14 +593,24 @@ fn manifest_command(tokens: &[String]) -> Result<Command, CliParseError> {
     }
 }
 
+fn node_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("inspect") {
+        "register" => Ok(Command::Node(NodeCommand::Register)),
+        "inspect" => Ok(Command::Node(NodeCommand::Inspect)),
+        "health" => Ok(Command::Node(NodeCommand::Health)),
+        other => Err(CliParseError::UnknownCommand(format!("node {other}"))),
+    }
+}
+
 fn workload_command(tokens: &[String]) -> Result<Command, CliParseError> {
     match tokens.get(1).map(String::as_str).unwrap_or("status") {
         "submit" => Ok(Command::Workload(WorkloadCommand::Submit)),
         "status" => Ok(Command::Workload(WorkloadCommand::Status)),
         "timeline" => Ok(Command::Workload(WorkloadCommand::Timeline)),
-        "logs" | "cancel" | "result" | "follow" => {
-            Ok(Command::Planned(PlannedCommand::WorkloadExecution))
-        }
+        "logs" => Ok(Command::Workload(WorkloadCommand::Logs)),
+        "cancel" => Ok(Command::Workload(WorkloadCommand::Cancel)),
+        "result" => Ok(Command::Workload(WorkloadCommand::Result)),
+        "follow" => Ok(Command::Workload(WorkloadCommand::Follow)),
         other => Err(CliParseError::UnknownCommand(format!("workload {other}"))),
     }
 }
@@ -636,9 +688,9 @@ mod tests {
     }
 
     #[test]
-    fn maps_later_node_command_to_phase_gate() {
+    fn maps_phase7_node_command() {
         let parsed = parse_cli(["overrid", "node", "register"]).unwrap();
-        assert_eq!(parsed.command, Command::Planned(PlannedCommand::Node));
+        assert_eq!(parsed.command, Command::Node(NodeCommand::Register));
     }
 
     #[test]
@@ -725,7 +777,7 @@ mod tests {
         );
         assert_eq!(
             parse_cli(["overrid", "workload", "logs"]).unwrap().command,
-            Command::Planned(PlannedCommand::WorkloadExecution)
+            Command::Workload(WorkloadCommand::Logs)
         );
         assert_eq!(
             parse_cli(["overrid", "idempotency-cache", "inspect"])
@@ -760,6 +812,10 @@ mod tests {
             "--new-idempotency-key",
             "--timeout-ms",
             "4500",
+            "--poll-interval",
+            "250",
+            "--wait",
+            "--follow",
             "--max-retries",
             "3",
             "--dry-run",
@@ -786,6 +842,9 @@ mod tests {
         );
         assert!(parsed.globals.new_idempotency_key);
         assert_eq!(parsed.globals.timeout_ms, Some(4500));
+        assert_eq!(parsed.globals.poll_interval_ms, Some(250));
+        assert!(parsed.globals.wait);
+        assert!(parsed.globals.follow);
         assert_eq!(parsed.globals.max_retries, Some(3));
         assert!(parsed.globals.dry_run);
     }
@@ -796,5 +855,28 @@ mod tests {
             parse_cli(["overrid", "tenant", "create", "--timeout-ms", "soon"]),
             Err(CliParseError::InvalidNumericFlag("--timeout-ms", value)) if value == "soon"
         ));
+        assert!(matches!(
+            parse_cli(["overrid", "workload", "logs", "--poll-interval", "fast"]),
+            Err(CliParseError::InvalidNumericFlag("--poll-interval", value)) if value == "fast"
+        ));
+    }
+
+    #[test]
+    fn maps_phase7_execution_commands_and_timeout_alias() {
+        let parsed = parse_cli([
+            "overrid",
+            "workload",
+            "follow",
+            "--timeout",
+            "12000",
+            "--poll-interval",
+            "500",
+            "--follow",
+        ])
+        .unwrap();
+        assert_eq!(parsed.command, Command::Workload(WorkloadCommand::Follow));
+        assert_eq!(parsed.globals.timeout_ms, Some(12000));
+        assert_eq!(parsed.globals.poll_interval_ms, Some(500));
+        assert!(parsed.globals.follow);
     }
 }

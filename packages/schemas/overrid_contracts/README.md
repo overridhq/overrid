@@ -1,7 +1,8 @@
 # Overrid Contract Schemas
 
 This package contains the Phase 2 through Phase 5 CLI contract source plus
-Phase 6 hardening contracts and the Rust projection for `SUB BUILD PLAN #2 - CLI`.
+Phase 6 hardening contracts, Phase 7 execution contracts, and the Rust
+projection for `SUB BUILD PLAN #2 - CLI`.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
 slice. The Rust crate in `src/` is the initial generated/projection layer that
@@ -31,3 +32,10 @@ Phase 6 hardening contracts define `canonical_idempotency_fingerprint`,
 `local_idempotency_cache_record`. These lock deterministic retry-safe command
 keys, bounded SDK retry/timeout metadata, stable reason-code decoding, and
 owner-only cache records that do not contain private payloads.
+
+Phase 7 seed private swarm and execution contracts define `node_status_record`,
+`workload_execution_state`, `execution_timeline`, `execution_log_bundle`,
+`execution_result_ref`, `polling_plan`, and `execution_diagnostic_event`.
+These keep node and workload execution CLI output on authorized refs with
+profile-scoped credential checks, bounded streaming/polling, trace-linked
+diagnostics, and no direct node, queue, runner, or object-store paths.

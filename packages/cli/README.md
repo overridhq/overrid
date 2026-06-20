@@ -1,7 +1,8 @@
 # Overrid CLI
 
-This package contains the Phase 5 Rust CLI bootstrap slice and Phase 6
-automation hardening for `SUB BUILD PLAN #2 - CLI`.
+This package contains the Phase 5 Rust CLI bootstrap slice, Phase 6
+automation hardening, and Phase 7 seed private swarm/execution command slice
+for `SUB BUILD PLAN #2 - CLI`.
 
 It is a Cargo workspace member and depends on the Rust contract projection in
 `packages/schemas/overrid_contracts` plus the SDK transport skeleton in
@@ -18,11 +19,19 @@ commands. Mutating bootstrap commands render signed command envelopes with
 secret-free signature refs, deterministic idempotency keys, trace ids, and
 acceptance/audit refs after SDK Overgate-only validation.
 
-Synthetic workload commands intentionally stop at pending state without implying execution.
-Real workload logs, cancellation, results, and follow-mode remain phase-gated
-until the owning execution services and contracts are ready.
+Synthetic workload submit commands intentionally stop at pending state without implying execution.
+Phase 7 adds node registration/inspection/health plus real workload status,
+timeline, logs, cancellation, result, and follow-mode output through SDK/Overgate
+contracts and authorized service refs.
 
 Phase 6 automation hardening keeps that same SDK/Overgate path and adds
 canonical idempotency fingerprints, `--new-idempotency-key` behavior, bounded retry and timeout policy,
 trace/audit propagation, stable error decode records, and a secret-free local idempotency cache
 with inspect/reset output.
+
+Phase 7 seed private swarm support keeps the CLI on the same Rust SDK/Overgate path.
+Node commands render `node_status_record` data with profile-scoped credential
+checks, capability refs, and no direct node access. Workload execution commands
+render `execution_timeline`, `execution_log_bundle`, `execution_result_ref`,
+and `polling_plan` data with redaction, bounded streaming/polling, trace-linked
+diagnostics, and no direct queue, runner, node, or object-store paths.

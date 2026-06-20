@@ -376,7 +376,7 @@ def validate_cli_phase6_behavior() -> None:
     if key_revoke["retry_class"] != "not_retryable":
         raise AssertionError("missing_reason must be non-retryable")
 
-    phase_gated = run_cli(["node", "register", "--json"], expected_exit=7)
+    phase_gated = run_cli(["package", "build", "--json"], expected_exit=7)
     if phase_gated["error"]["reason_code"] != "not_available_in_phase":
         raise AssertionError("Phase-gated command must use stable phase reason")
     if phase_gated["error"]["error_decode_record"]["source_family"] != "phase":

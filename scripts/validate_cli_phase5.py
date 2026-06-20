@@ -510,14 +510,14 @@ def validate_cli_phase5_behavior() -> None:
     if not workload_timeline_result.get("timeline_events"):
         raise AssertionError("Synthetic workload timeline must include timeline events")
 
-    workload_logs = run_cli(["workload", "logs", "--json"], expected_exit=7)
-    validate_envelope(workload_logs, ok=False, exit_class="phase", exit_code=7)
-    if workload_logs["reason_code"] != "not_available_in_phase":
-        raise AssertionError("Real workload logs must stay phase gated")
-    if workload_logs["error"]["phase_gate"] != "phase_3":
-        raise AssertionError("Real workload logs must point at Phase 3")
-    if workload_logs["capabilities"]["fail_closed"] is not True:
-        raise AssertionError("Phase-gated workload logs must fail closed")
+    package_build = run_cli(["package", "build", "--json"], expected_exit=7)
+    validate_envelope(package_build, ok=False, exit_class="phase", exit_code=7)
+    if package_build["reason_code"] != "not_available_in_phase":
+        raise AssertionError("Later package commands must stay phase gated")
+    if package_build["error"]["phase_gate"] != "phase_9":
+        raise AssertionError("Package commands must point at Phase 9")
+    if package_build["capabilities"]["fail_closed"] is not True:
+        raise AssertionError("Phase-gated package commands must fail closed")
 
     custom = run_cli(
         [

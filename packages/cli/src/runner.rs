@@ -1,9 +1,11 @@
 use overrid_contracts::{
     BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint, CliProfile,
     ConfirmationPolicy, CredentialReference, CredentialReferenceClass, EnvironmentClass,
-    ErrorDecodeRecord, ExitCodeClass, FixtureAllowance, LocalIdempotencyCacheRecord,
-    ManifestBootstrapRef, ProfileValidationError, RetryClass, RetryTimeoutPolicy,
-    SignedCommandEnvelope, SyntheticWorkloadPendingState, SUPPORTED_SCHEMA_VERSION,
+    ErrorDecodeRecord, ExecutionDiagnosticEvent, ExecutionLogBundle, ExecutionResultRef,
+    ExecutionTimeline, ExitCodeClass, FixtureAllowance, LocalIdempotencyCacheRecord,
+    ManifestBootstrapRef, NodeState, NodeStatusRecord, PollingPlan, ProfileValidationError,
+    RetryClass, RetryTimeoutPolicy, SignedCommandEnvelope, SyntheticWorkloadPendingState,
+    WorkloadExecutionState, SUPPORTED_SCHEMA_VERSION,
 };
 use overrid_sdk::{
     decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
@@ -13,8 +15,8 @@ use overrid_sdk::{
 use crate::build_metadata::{human_version_lines, version_info};
 use crate::parser::{
     parse_cli, AuthCommand, Command, CredentialCommand, GlobalOptions, IdempotencyCacheCommand,
-    IdentityCommand, KeyCommand, ManifestCommand, OutputMode, PlannedCommand, ProfileCommand,
-    TenantCommand, WorkloadCommand,
+    IdentityCommand, KeyCommand, ManifestCommand, NodeCommand, OutputMode, PlannedCommand,
+    ProfileCommand, TenantCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
@@ -69,6 +71,7 @@ where
             Command::Identity(command) => identity_command_result(command, &parsed.globals),
             Command::Key(command) => key_command_result(command, &parsed.globals),
             Command::Manifest(command) => manifest_command_result(command, &parsed.globals),
+            Command::Node(command) => node_command_result(command, &parsed.globals),
             Command::Workload(command) => workload_command_result(command, &parsed.globals),
             Command::Planned(command) => planned_command_result(command, &parsed.globals),
         },
@@ -314,26 +317,75 @@ fn manifest_command_result(command: ManifestCommand, globals: &GlobalOptions) ->
     )
 }
 
+fn node_command_result(command: NodeCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "node_local");
+    let payload_type = match command {
+        NodeCommand::Register => "node_registration_command",
+        NodeCommand::Inspect => "node_inspection_query",
+        NodeCommand::Health => "node_health_query",
+    };
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Node,
+        command.as_str(),
+        payload_type,
+        target_ref,
+        matches!(command, NodeCommand::Register),
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_node_result(command, globals, &context))
+}
+
 fn workload_command_result(command: WorkloadCommand, globals: &GlobalOptions) -> CliRunResult {
     let target_ref = default_target_ref(
         globals,
         globals.workload_ref.as_deref().unwrap_or("workload_local"),
     );
-    let result_kind = match command {
-        WorkloadCommand::Submit => BootstrapResultKind::WorkloadSubmit,
-        WorkloadCommand::Status => BootstrapResultKind::WorkloadStatus,
-        WorkloadCommand::Timeline => BootstrapResultKind::WorkloadTimeline,
-    };
-    bootstrap_command_result(
-        BootstrapCommandFamily::Workload,
-        command.as_str(),
-        "synthetic_workload_command",
-        target_ref,
-        matches!(command, WorkloadCommand::Submit),
-        false,
-        result_kind,
-        globals,
-    )
+    match command {
+        WorkloadCommand::Submit | WorkloadCommand::Status | WorkloadCommand::Timeline => {
+            let result_kind = match command {
+                WorkloadCommand::Submit => BootstrapResultKind::WorkloadSubmit,
+                WorkloadCommand::Status => BootstrapResultKind::WorkloadStatus,
+                WorkloadCommand::Timeline => BootstrapResultKind::WorkloadTimeline,
+                WorkloadCommand::Logs
+                | WorkloadCommand::Cancel
+                | WorkloadCommand::Result
+                | WorkloadCommand::Follow => unreachable!("execution commands are handled below"),
+            };
+            bootstrap_command_result(
+                BootstrapCommandFamily::Workload,
+                command.as_str(),
+                "synthetic_workload_command",
+                target_ref,
+                matches!(command, WorkloadCommand::Submit),
+                false,
+                result_kind,
+                globals,
+            )
+        }
+        WorkloadCommand::Logs
+        | WorkloadCommand::Cancel
+        | WorkloadCommand::Result
+        | WorkloadCommand::Follow => {
+            let context = match prepare_bootstrap_context(
+                BootstrapCommandFamily::Workload,
+                command.as_str(),
+                "workload_execution_command",
+                target_ref,
+                matches!(command, WorkloadCommand::Cancel),
+                false,
+                globals,
+            ) {
+                Ok(context) => context,
+                Err(result) => return result,
+            };
+            success(render_workload_execution_result(command, globals, &context))
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -884,7 +936,8 @@ fn render_help(all_phases: bool) -> String {
         "  identity create|list|inspect|disable".to_owned(),
         "  key enroll|list|rotate|revoke".to_owned(),
         "  manifest validate|submit|inspect".to_owned(),
-        "  workload submit|status|timeline".to_owned(),
+        "  node register|inspect|health".to_owned(),
+        "  workload submit|status|timeline|logs|cancel|result|follow".to_owned(),
         "  help                            print command help".to_owned(),
         "".to_owned(),
         "global flags:".to_owned(),
@@ -904,6 +957,10 @@ fn render_help(all_phases: bool) -> String {
         "  --idempotency-key KEY           override deterministic idempotency key".to_owned(),
         "  --new-idempotency-key           create a new key for the same canonical fingerprint".to_owned(),
         "  --timeout-ms MS                 bounded SDK wait timeout".to_owned(),
+        "  --timeout MS                    bounded wait timeout alias".to_owned(),
+        "  --poll-interval MS              bounded execution poll interval".to_owned(),
+        "  --wait                          wait for execution state refs".to_owned(),
+        "  --follow                        follow execution state/log refs".to_owned(),
         "  --max-retries COUNT             bounded SDK retry count".to_owned(),
         "  --expected-state STATE          expected current state for mutation".to_owned(),
         "  --target-ref REF                command target reference".to_owned(),
@@ -919,8 +976,6 @@ fn render_help(all_phases: bool) -> String {
         lines.extend([
             "".to_owned(),
             "phase-gated commands:".to_owned(),
-            "  node register|inspect|health             phase_2".to_owned(),
-            "  workload logs|cancel|result|follow       phase_3".to_owned(),
             "  policy dry-run                           phase_4".to_owned(),
             "  usage|receipt|dispute                    phase_5_or_phase_6".to_owned(),
             "  package validate and deployment helpers  phase_9".to_owned(),
@@ -1608,6 +1663,422 @@ fn render_bootstrap_result(
     }
 }
 
+fn render_node_result(
+    command: NodeCommand,
+    globals: &GlobalOptions,
+    context: &BootstrapContext,
+) -> String {
+    let state = node_state_for_ref(&context.target_ref, command);
+    let status = NodeStatusRecord::new(
+        context.target_ref.clone(),
+        state,
+        context.profile.name.clone(),
+        context.credential.reference_id.clone(),
+    );
+
+    match globals.output {
+        OutputMode::Human => format!(
+            "node_status: {} {} trace_id={}",
+            status.node_ref,
+            status.state.as_str(),
+            context.trace_id
+        ),
+        OutputMode::Json => {
+            let signed = context.signed_envelope.is_some();
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"node\",",
+                    "\"phase_gate\":\"phase_2_seed_private_swarm\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"target_ref\":\"{}\",",
+                    "\"credential_ref\":\"{}\",",
+                    "\"profile_scoped_credential_check\":true,",
+                    "\"signed\":{},",
+                    "\"signature_ref\":{},",
+                    "\"submitted_via\":\"sdk_overgate_contract\",",
+                    "\"node_status\":{},",
+                    "\"capability_refs\":{},",
+                    "\"signed_command_envelope\":{},",
+                    "\"acceptance\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                json_escape(&context.target_ref),
+                json_escape(&context.credential.reference_id),
+                signed,
+                json_optional_string(
+                    context
+                        .signed_envelope
+                        .as_ref()
+                        .map(|envelope| envelope.signature_ref.as_str()),
+                ),
+                render_node_status_json(&status),
+                json_owned_string_array(&status.capability_refs),
+                render_signed_command_envelope_json(context.signed_envelope.as_ref()),
+                render_phase_acceptance_json(
+                    command.as_str(),
+                    &format!("accepted:node:{}", context.target_ref),
+                    "phase_2_seed_private_swarm",
+                    status.state.as_str(),
+                    &context.audit_refs,
+                    signed,
+                ),
+            );
+            let lifecycle = if signed {
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "signed",
+                    "submitted",
+                    "accepted",
+                    "completed",
+                ][..]
+            } else {
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ][..]
+            };
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                lifecycle,
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "phase2_node_contracts_available",
+                    "sdk_overgate_contract_available",
+                    "profile_scoped_credential_check",
+                    "node_capability_refs_only",
+                ],
+                &[CapabilityRoute {
+                    route: "node",
+                    phase_gate: "phase_2_seed_private_swarm",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &context.audit_refs,
+            )
+        }
+    }
+}
+
+fn render_workload_execution_result(
+    command: WorkloadCommand,
+    globals: &GlobalOptions,
+    context: &BootstrapContext,
+) -> String {
+    let execution_state = workload_execution_state_for_command(command);
+    let states = workload_execution_states(execution_state);
+    let timeline = ExecutionTimeline::new(
+        context.target_ref.clone(),
+        states,
+        context.trace_id.clone(),
+    );
+    let log_bundle = matches!(command, WorkloadCommand::Logs | WorkloadCommand::Follow)
+        .then(|| ExecutionLogBundle::new(context.target_ref.clone(), context.trace_id.clone()));
+    let result_ref = matches!(command, WorkloadCommand::Result | WorkloadCommand::Follow)
+        .then(|| ExecutionResultRef::new(context.target_ref.clone(), context.trace_id.clone()));
+    let polling = polling_plan_for(command, globals);
+
+    match globals.output {
+        OutputMode::Human => format!(
+            "workload_execution: {} {} trace_id={}",
+            command.as_str(),
+            execution_state.as_str(),
+            context.trace_id
+        ),
+        OutputMode::Json => {
+            let signed = context.signed_envelope.is_some();
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"workload_execution\",",
+                    "\"phase_gate\":\"phase_3_private_execution_loop\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"workload_ref\":\"{}\",",
+                    "\"execution_state\":\"{}\",",
+                    "\"signed\":{},",
+                    "\"signature_ref\":{},",
+                    "\"submitted_via\":\"sdk_overgate_contract\",",
+                    "\"polling_plan\":{},",
+                    "\"execution_timeline\":{},",
+                    "\"execution_logs\":{},",
+                    "\"execution_result\":{},",
+                    "\"signed_command_envelope\":{},",
+                    "\"acceptance\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                json_escape(&context.target_ref),
+                json_escape(execution_state.as_str()),
+                signed,
+                json_optional_string(
+                    context
+                        .signed_envelope
+                        .as_ref()
+                        .map(|envelope| envelope.signature_ref.as_str()),
+                ),
+                render_polling_plan_json(&polling),
+                render_execution_timeline_json(&timeline),
+                log_bundle
+                    .as_ref()
+                    .map(render_execution_log_bundle_json)
+                    .unwrap_or_else(|| "null".to_owned()),
+                result_ref
+                    .as_ref()
+                    .map(render_execution_result_ref_json)
+                    .unwrap_or_else(|| "null".to_owned()),
+                render_signed_command_envelope_json(context.signed_envelope.as_ref()),
+                render_phase_acceptance_json(
+                    command.as_str(),
+                    &format!("accepted:workload_execution:{}", context.target_ref),
+                    "phase_3_private_execution_loop",
+                    execution_state.as_str(),
+                    &context.audit_refs,
+                    signed,
+                ),
+            );
+            let lifecycle = if signed {
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "signed",
+                    "submitted",
+                    "accepted",
+                    "completed",
+                ][..]
+            } else if polling.wait || polling.follow {
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "submitted",
+                    "waiting",
+                    "completed",
+                ][..]
+            } else {
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ][..]
+            };
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                lifecycle,
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "overgate_execution_contract_available",
+                    "overqueue_state_ref",
+                    "oversched_scheduler_ref",
+                    "overlease_lease_ref",
+                    "overrun_runner_ref",
+                    "overwatch_trace_ref",
+                ],
+                &[CapabilityRoute {
+                    route: "workload_execution",
+                    phase_gate: "phase_3_private_execution_loop",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &context.audit_refs,
+            )
+        }
+    }
+}
+
+fn render_phase_acceptance_json(
+    command_type: &str,
+    accepted_ref: &str,
+    phase_gate: &str,
+    pending_state: &str,
+    audit_refs: &[String],
+    present: bool,
+) -> String {
+    if !present {
+        return "null".to_owned();
+    }
+    format!(
+        concat!(
+            "{{",
+            "\"command_type\":\"{}\",",
+            "\"accepted_ref\":\"{}\",",
+            "\"phase_gate\":\"{}\",",
+            "\"pending_state\":\"{}\",",
+            "\"audit_refs\":{}",
+            "}}"
+        ),
+        json_escape(command_type),
+        json_escape(accepted_ref),
+        json_escape(phase_gate),
+        json_escape(pending_state),
+        json_owned_string_array(audit_refs),
+    )
+}
+
+fn render_node_status_json(record: &NodeStatusRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"node_ref\":\"{}\",",
+            "\"state\":\"{}\",",
+            "\"profile_name\":\"{}\",",
+            "\"credential_ref\":\"{}\",",
+            "\"credential_checked\":{},",
+            "\"capability_refs\":{},",
+            "\"heartbeat_ref\":\"{}\",",
+            "\"registered_via\":\"{}\",",
+            "\"direct_node_access\":{}",
+            "}}"
+        ),
+        json_escape(&record.node_ref),
+        json_escape(record.state.as_str()),
+        json_escape(&record.profile_name),
+        json_escape(&record.credential_ref),
+        record.credential_checked,
+        json_owned_string_array(&record.capability_refs),
+        json_escape(&record.heartbeat_ref),
+        json_escape(&record.registered_via),
+        record.direct_node_access,
+    )
+}
+
+fn render_execution_timeline_json(timeline: &ExecutionTimeline) -> String {
+    let states = timeline
+        .states
+        .iter()
+        .map(|state| state.as_str().to_owned())
+        .collect::<Vec<_>>();
+    let diagnostics = timeline
+        .diagnostic_events
+        .iter()
+        .map(render_execution_diagnostic_event_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        concat!(
+            "{{",
+            "\"workload_ref\":\"{}\",",
+            "\"states\":{},",
+            "\"diagnostic_events\":[{}],",
+            "\"owning_service_refs\":{},",
+            "\"trace_id\":\"{}\",",
+            "\"direct_node_access\":{}",
+            "}}"
+        ),
+        json_escape(&timeline.workload_ref),
+        json_owned_string_array(&states),
+        diagnostics,
+        json_owned_string_array(&timeline.owning_service_refs),
+        json_escape(&timeline.trace_id),
+        timeline.direct_node_access,
+    )
+}
+
+fn render_execution_diagnostic_event_json(event: &ExecutionDiagnosticEvent) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"state\":\"{}\",",
+            "\"service_ref\":\"{}\",",
+            "\"reason_code\":\"{}\",",
+            "\"evidence_ref\":\"{}\"",
+            "}}"
+        ),
+        json_escape(event.state.as_str()),
+        json_escape(&event.service_ref),
+        json_escape(&event.reason_code),
+        json_escape(&event.evidence_ref),
+    )
+}
+
+fn render_execution_log_bundle_json(bundle: &ExecutionLogBundle) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"workload_ref\":\"{}\",",
+            "\"log_ref\":\"{}\",",
+            "\"redaction_policy\":\"{}\",",
+            "\"bounded_streaming\":{},",
+            "\"trace_linked_ref\":\"{}\",",
+            "\"contains_private_payload\":{},",
+            "\"direct_node_path_exposed\":{}",
+            "}}"
+        ),
+        json_escape(&bundle.workload_ref),
+        json_escape(&bundle.log_ref),
+        json_escape(&bundle.redaction_policy),
+        bundle.bounded_streaming,
+        json_escape(&bundle.trace_linked_ref),
+        bundle.contains_private_payload,
+        bundle.direct_node_path_exposed,
+    )
+}
+
+fn render_execution_result_ref_json(result: &ExecutionResultRef) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"workload_ref\":\"{}\",",
+            "\"result_ref\":\"{}\",",
+            "\"authorized_control_plane_ref\":\"{}\",",
+            "\"trace_linked_ref\":\"{}\",",
+            "\"contains_private_payload\":{},",
+            "\"direct_object_store_path_exposed\":{}",
+            "}}"
+        ),
+        json_escape(&result.workload_ref),
+        json_escape(&result.result_ref),
+        json_escape(&result.authorized_control_plane_ref),
+        json_escape(&result.trace_linked_ref),
+        result.contains_private_payload,
+        result.direct_object_store_path_exposed,
+    )
+}
+
+fn render_polling_plan_json(plan: &PollingPlan) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"wait\":{},",
+            "\"follow\":{},",
+            "\"timeout_ms\":{},",
+            "\"poll_interval_ms\":{},",
+            "\"event_stream_preferred\":{},",
+            "\"fallback_polling\":{},",
+            "\"interruptible\":{}",
+            "}}"
+        ),
+        plan.wait,
+        plan.follow,
+        plan.timeout_ms,
+        plan.poll_interval_ms,
+        plan.event_stream_preferred,
+        plan.fallback_polling,
+        plan.interruptible,
+    )
+}
+
 fn render_signed_command_envelope_json(envelope: Option<&SignedCommandEnvelope>) -> String {
     let Some(envelope) = envelope else {
         return "null".to_owned();
@@ -1860,10 +2331,36 @@ fn render_bootstrap_extra_json(
             } else {
                 ""
             };
+            let execution_suffix = if matches!(
+                result_kind,
+                BootstrapResultKind::WorkloadStatus | BootstrapResultKind::WorkloadTimeline
+            ) {
+                let command = if matches!(result_kind, BootstrapResultKind::WorkloadStatus) {
+                    WorkloadCommand::Status
+                } else {
+                    WorkloadCommand::Timeline
+                };
+                let execution_state = workload_execution_state_for_command(command);
+                let timeline = ExecutionTimeline::new(
+                    context.target_ref.clone(),
+                    workload_execution_states(execution_state),
+                    context.trace_id.clone(),
+                );
+                let polling = polling_plan_for(command, globals);
+                format!(
+                    ",\"execution_state\":\"{}\",\"polling_plan\":{},\"execution_timeline\":{}",
+                    json_escape(execution_state.as_str()),
+                    render_polling_plan_json(&polling),
+                    render_execution_timeline_json(&timeline),
+                )
+            } else {
+                String::new()
+            };
             format!(
-                ",\"synthetic_workload_pending_state\":{}{}",
+                ",\"synthetic_workload_pending_state\":{}{}{}",
                 render_workload_pending_json(&workload),
-                event_suffix
+                event_suffix,
+                execution_suffix
             )
         }
     }
@@ -2063,6 +2560,58 @@ fn workload_pending_state(globals: &GlobalOptions) -> SyntheticWorkloadPendingSt
     )
 }
 
+fn node_state_for_ref(target_ref: &str, command: NodeCommand) -> NodeState {
+    if matches!(command, NodeCommand::Register) {
+        return NodeState::Live;
+    }
+    let normalized = target_ref.to_ascii_lowercase();
+    if normalized.contains("disabled") {
+        NodeState::Disabled
+    } else if normalized.contains("draining") {
+        NodeState::Draining
+    } else if normalized.contains("expired") {
+        NodeState::Expired
+    } else if normalized.contains("stale") {
+        NodeState::Stale
+    } else {
+        NodeState::Live
+    }
+}
+
+fn workload_execution_state_for_command(command: WorkloadCommand) -> WorkloadExecutionState {
+    match command {
+        WorkloadCommand::Cancel => WorkloadExecutionState::Cancelled,
+        WorkloadCommand::Status => WorkloadExecutionState::Running,
+        WorkloadCommand::Logs | WorkloadCommand::Timeline | WorkloadCommand::Result | WorkloadCommand::Follow => {
+            WorkloadExecutionState::Succeeded
+        }
+        WorkloadCommand::Submit => WorkloadExecutionState::Scheduled,
+    }
+}
+
+fn workload_execution_states(terminal_state: WorkloadExecutionState) -> Vec<WorkloadExecutionState> {
+    let mut states = vec![
+        WorkloadExecutionState::Scheduled,
+        WorkloadExecutionState::Leased,
+        WorkloadExecutionState::Running,
+    ];
+    if !matches!(terminal_state, WorkloadExecutionState::Running) {
+        states.push(terminal_state);
+    }
+    states
+}
+
+fn polling_plan_for(command: WorkloadCommand, globals: &GlobalOptions) -> PollingPlan {
+    let follow = globals.follow || matches!(command, WorkloadCommand::Follow);
+    let wait = globals.wait || follow;
+    PollingPlan::bounded(
+        wait,
+        follow,
+        globals.timeout_ms.unwrap_or(10_000),
+        globals.poll_interval_ms.unwrap_or(1_000),
+    )
+}
+
 fn json_optional_string(value: Option<&str>) -> String {
     value
         .map(|value| format!("\"{}\"", json_escape(value)))
@@ -2167,10 +2716,13 @@ mod tests {
     }
 
     #[test]
-    fn normal_help_hides_phase_gated_commands() {
+    fn normal_help_shows_phase7_commands() {
         let result = run_args(["overrid", "help"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
-        assert!(!result.stdout.contains("node register"));
+        assert!(result.stdout.contains("node register|inspect|health"));
+        assert!(result
+            .stdout
+            .contains("workload submit|status|timeline|logs|cancel|result|follow"));
     }
 
     #[test]
@@ -2178,6 +2730,7 @@ mod tests {
         let result = run_args(["overrid", "help", "--all-phases"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
         assert!(result.stdout.contains("node register|inspect|health"));
+        assert!(result.stdout.contains("policy dry-run"));
         assert!(result
             .stdout
             .contains("governance|incident|compliance|migration"));
@@ -2185,12 +2738,12 @@ mod tests {
 
     #[test]
     fn planned_command_fails_with_stable_phase_reason() {
-        let result = run_args(["overrid", "node", "register", "--json"]);
+        let result = run_args(["overrid", "policy", "dry-run", "--json"]);
         assert_eq!(result.exit_code, EXIT_NOT_AVAILABLE_IN_PHASE);
         assert!(result
             .stdout
             .contains("\"reason_code\":\"not_available_in_phase\""));
-        assert!(result.stdout.contains("\"phase_gate\":\"phase_2\""));
+        assert!(result.stdout.contains("\"phase_gate\":\"phase_4\""));
         assert!(result.stdout.contains("\"exit_class\":\"phase\""));
         assert!(result.stdout.contains("\"fail_closed\":true"));
     }
@@ -2454,16 +3007,115 @@ mod tests {
         assert_eq!(timeline.exit_code, EXIT_SUCCESS);
         assert!(timeline.stdout.contains("\"timeline_events\""));
         assert!(timeline.stdout.contains("\"queue_state\":\"pending\""));
+        assert!(timeline.stdout.contains("\"execution_timeline\""));
     }
 
     #[test]
-    fn real_workload_logs_remain_phase_gated() {
-        let result = run_args(["overrid", "workload", "logs", "--json"]);
-        assert_eq!(result.exit_code, EXIT_NOT_AVAILABLE_IN_PHASE);
+    fn node_commands_emit_profile_scoped_status_refs() {
+        let register_args = args_with(&["node", "register", "--json"], LOCAL_PROFILE_ARGS);
+        let register = run_args(register_args);
+        assert_eq!(register.exit_code, EXIT_SUCCESS);
+        assert!(register.stdout.contains("\"command\":\"node register\""));
+        assert!(register
+            .stdout
+            .contains("\"phase_gate\":\"phase_2_seed_private_swarm\""));
+        assert!(register.stdout.contains("\"state\":\"live\""));
+        assert!(register.stdout.contains("\"credential_checked\":true"));
+        assert!(register.stdout.contains("\"direct_node_access\":false"));
+        assert!(register.stdout.contains("\"signed\":true"));
+        assert!(register
+            .stdout
+            .contains("\"submitted_via\":\"sdk_overgate_contract\""));
+
+        let inspect_args = args_with(
+            &["node", "inspect", "--json", "--target-ref", "node_draining"],
+            LOCAL_PROFILE_ARGS,
+        );
+        let inspect = run_args(inspect_args);
+        assert_eq!(inspect.exit_code, EXIT_SUCCESS);
+        assert!(inspect.stdout.contains("\"state\":\"draining\""));
+        assert!(inspect.stdout.contains("\"signed\":false"));
+    }
+
+    #[test]
+    fn real_workload_execution_commands_emit_refs_only() {
+        let logs_args = args_with(
+            &[
+                "workload",
+                "logs",
+                "--json",
+                "--workload-ref",
+                "workload_local",
+                "--wait",
+                "--timeout",
+                "12000",
+                "--poll-interval",
+                "500",
+            ],
+            LOCAL_PROFILE_ARGS,
+        );
+        let logs = run_args(logs_args);
+        assert_eq!(logs.exit_code, EXIT_SUCCESS);
+        assert!(logs.stdout.contains("\"command\":\"workload logs\""));
+        assert!(logs
+            .stdout
+            .contains("\"phase_gate\":\"phase_3_private_execution_loop\""));
+        assert!(logs.stdout.contains("\"execution_logs\""));
+        assert!(logs.stdout.contains("\"redaction_policy\":\"secret_free_refs_only\""));
+        assert!(logs.stdout.contains("\"bounded_streaming\":true"));
+        assert!(logs.stdout.contains("\"direct_node_path_exposed\":false"));
+        assert!(logs.stdout.contains("\"wait\":true"));
+        assert!(logs.stdout.contains("\"timeout_ms\":12000"));
+        assert!(logs.stdout.contains("\"poll_interval_ms\":500"));
+
+        let follow_args = args_with(
+            &["workload", "follow", "--json", "--workload-ref", "workload_local"],
+            LOCAL_PROFILE_ARGS,
+        );
+        let follow = run_args(follow_args);
+        assert_eq!(follow.exit_code, EXIT_SUCCESS);
+        assert!(follow.stdout.contains("\"follow\":true"));
+        assert!(follow.stdout.contains("\"scheduled\""));
+        assert!(follow.stdout.contains("\"leased\""));
+        assert!(follow.stdout.contains("\"running\""));
+        assert!(follow.stdout.contains("\"succeeded\""));
+        assert!(follow.stdout.contains("\"oversched:scheduler\""));
+        assert!(follow.stdout.contains("\"overlease:lease\""));
+        assert!(follow.stdout.contains("\"overrun:runner\""));
+        assert!(follow.stdout.contains("\"overwatch:trace\""));
+
+        let result_args = args_with(
+            &["workload", "result", "--json", "--workload-ref", "workload_local"],
+            LOCAL_PROFILE_ARGS,
+        );
+        let result = run_args(result_args);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"execution_result\""));
         assert!(result
             .stdout
-            .contains("\"reason_code\":\"not_available_in_phase\""));
-        assert!(result.stdout.contains("\"phase_gate\":\"phase_3\""));
+            .contains("\"direct_object_store_path_exposed\":false"));
+        assert!(result
+            .stdout
+            .contains("\"authorized_control_plane_ref\":\"overgate:result:workload_local\""));
+
+        let cancel_args = args_with(
+            &[
+                "workload",
+                "cancel",
+                "--json",
+                "--workload-ref",
+                "workload_local",
+                "--reason",
+                "operator requested",
+            ],
+            LOCAL_PROFILE_ARGS,
+        );
+        let cancel = run_args(cancel_args);
+        assert_eq!(cancel.exit_code, EXIT_SUCCESS);
+        assert!(cancel.stdout.contains("\"execution_state\":\"cancelled\""));
+        assert!(cancel.stdout.contains("\"signed\":true"));
+        assert!(cancel.stdout.contains("\"signature_ref\":\"sigref:"));
+        assert!(cancel.stdout.contains("\"audit_cli_bootstrap_workload_cancel\""));
     }
 
     #[test]

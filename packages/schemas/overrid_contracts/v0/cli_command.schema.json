@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/cli_command.schema.json",
   "title": "Overrid CLI Command Contracts",
-  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, and Phase 1 bootstrap command shapes defined by SUB BUILD PLAN #2 Phases 2 through 6.",
+  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, Phase 1 bootstrap, seed private swarm node, and real workload execution command shapes defined by SUB BUILD PLAN #2 Phases 2 through 7.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     },
     "contracts": {
       "type": "array",
-      "minItems": 25,
+      "minItems": 32,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -47,7 +47,14 @@
           "canonical_idempotency_fingerprint",
           "retry_timeout_policy",
           "error_decode_record",
-          "local_idempotency_cache_record"
+          "local_idempotency_cache_record",
+          "node_status_record",
+          "workload_execution_state",
+          "execution_timeline",
+          "execution_log_bundle",
+          "execution_result_ref",
+          "polling_plan",
+          "execution_diagnostic_event"
         ]
       }
     }
@@ -287,6 +294,251 @@
         },
         "inspectable": {
           "type": "boolean"
+        }
+      }
+    },
+    "node_state": {
+      "enum": [
+        "live",
+        "stale",
+        "expired",
+        "draining",
+        "disabled"
+      ]
+    },
+    "node_status_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_ref",
+        "state",
+        "profile_name",
+        "credential_ref",
+        "credential_checked",
+        "capability_refs",
+        "heartbeat_ref",
+        "registered_via",
+        "direct_node_access"
+      ],
+      "properties": {
+        "node_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "state": {
+          "$ref": "#/$defs/node_state"
+        },
+        "profile_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "credential_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "credential_checked": {
+          "const": true
+        },
+        "capability_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "heartbeat_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "registered_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "direct_node_access": {
+          "const": false
+        }
+      }
+    },
+    "workload_execution_state": {
+      "enum": [
+        "scheduled",
+        "leased",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "timed_out",
+        "dead_lettered"
+      ]
+    },
+    "execution_diagnostic_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "service_ref",
+        "reason_code",
+        "evidence_ref"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/workload_execution_state"
+        },
+        "service_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "evidence_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "execution_timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_ref",
+        "states",
+        "diagnostic_events",
+        "owning_service_refs",
+        "trace_id",
+        "direct_node_access"
+      ],
+      "properties": {
+        "workload_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/workload_execution_state"
+          }
+        },
+        "diagnostic_events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/execution_diagnostic_event"
+          }
+        },
+        "owning_service_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "direct_node_access": {
+          "const": false
+        }
+      }
+    },
+    "execution_log_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_ref",
+        "log_ref",
+        "redaction_policy",
+        "bounded_streaming",
+        "trace_linked_ref",
+        "contains_private_payload",
+        "direct_node_path_exposed"
+      ],
+      "properties": {
+        "workload_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "log_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "redaction_policy": {
+          "const": "secret_free_refs_only"
+        },
+        "bounded_streaming": {
+          "const": true
+        },
+        "trace_linked_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "contains_private_payload": {
+          "const": false
+        },
+        "direct_node_path_exposed": {
+          "const": false
+        }
+      }
+    },
+    "execution_result_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_ref",
+        "result_ref",
+        "authorized_control_plane_ref",
+        "trace_linked_ref",
+        "contains_private_payload",
+        "direct_object_store_path_exposed"
+      ],
+      "properties": {
+        "workload_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "result_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "authorized_control_plane_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "trace_linked_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "contains_private_payload": {
+          "const": false
+        },
+        "direct_object_store_path_exposed": {
+          "const": false
+        }
+      }
+    },
+    "polling_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wait",
+        "follow",
+        "timeout_ms",
+        "poll_interval_ms",
+        "event_stream_preferred",
+        "fallback_polling",
+        "interruptible"
+      ],
+      "properties": {
+        "wait": {
+          "type": "boolean"
+        },
+        "follow": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "poll_interval_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 60000
+        },
+        "event_stream_preferred": {
+          "const": true
+        },
+        "fallback_polling": {
+          "const": true
+        },
+        "interruptible": {
+          "const": true
         }
       }
     },
@@ -1028,7 +1280,14 @@
         "canonical_idempotency_fingerprint",
         "retry_timeout_policy",
         "error_decode_record",
-        "local_idempotency_cache_record"
+        "local_idempotency_cache_record",
+        "node_status_record",
+        "workload_execution_state",
+        "execution_timeline",
+        "execution_log_bundle",
+        "execution_result_ref",
+        "polling_plan",
+        "execution_diagnostic_event"
       ]
     }
   ]
