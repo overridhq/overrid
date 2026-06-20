@@ -1831,7 +1831,7 @@ fn render_node_result(
                     "\"node_status\":{},",
                     "\"capability_refs\":{},",
                     "\"signed_command_envelope\":{},",
-                    "\"acceptance\":{}{}{}",
+                    "\"acceptance\":{}",
                     "}}"
                 ),
                 json_escape(command.as_str()),
@@ -1943,7 +1943,7 @@ fn render_workload_execution_result(
                     "\"execution_logs\":{},",
                     "\"execution_result\":{},",
                     "\"signed_command_envelope\":{},",
-                    "\"acceptance\":{}",
+                    "\"acceptance\":{}{}{}",
                     "}}"
                 ),
                 json_escape(command.as_str()),

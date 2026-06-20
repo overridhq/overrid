@@ -19,6 +19,7 @@ VALIDATORS = [
     Path("scripts/validate_cli_phase6.py"),
     Path("scripts/validate_cli_phase7.py"),
     Path("scripts/validate_cli_phase8.py"),
+    Path("scripts/validate_cli_phase9.py"),
 ]
 
 
