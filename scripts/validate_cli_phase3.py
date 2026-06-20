@@ -65,7 +65,7 @@ SECRET_MARKERS = [
     "secret=",
     "token=",
     "decrypted_payload",
-    "private_payload",
+    "private_payload=",
 ]
 
 LOCAL_PROFILE_ARGS = [

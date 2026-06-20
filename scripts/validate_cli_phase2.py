@@ -168,6 +168,12 @@ def validate_contracts() -> None:
         "manifest_bootstrap_ref",
         "synthetic_workload_pending_state",
     }
+    expected_phase6_extensions = {
+        "canonical_idempotency_fingerprint",
+        "retry_timeout_policy",
+        "error_decode_record",
+        "local_idempotency_cache_record",
+    }
     actual_contracts = set(schema["properties"]["contracts"]["items"]["enum"])
     missing_phase2_contracts = expected_phase2_contracts - actual_contracts
     if missing_phase2_contracts:
@@ -179,6 +185,7 @@ def validate_contracts() -> None:
         | expected_phase3_extensions
         | expected_phase4_extensions
         | expected_phase5_extensions
+        | expected_phase6_extensions
     )
     unexpected_contracts = actual_contracts - allowed_contracts
     if unexpected_contracts:

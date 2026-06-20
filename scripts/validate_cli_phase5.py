@@ -72,7 +72,7 @@ SECRET_MARKERS = [
     "secret=",
     "token=",
     "decrypted_payload",
-    "private_payload",
+    "private_payload=",
     "raw prompt",
     "private file",
 ]

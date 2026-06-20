@@ -1,6 +1,7 @@
 # Overrid CLI
 
-This package is the Phase 5 Rust CLI bootstrap slice for `SUB BUILD PLAN #2 - CLI`.
+This package contains the Phase 5 Rust CLI bootstrap slice and Phase 6
+automation hardening for `SUB BUILD PLAN #2 - CLI`.
 
 It is a Cargo workspace member and depends on the Rust contract projection in
 `packages/schemas/overrid_contracts` plus the SDK transport skeleton in
@@ -20,3 +21,8 @@ acceptance/audit refs after SDK Overgate-only validation.
 Synthetic workload commands intentionally stop at pending state without implying execution.
 Real workload logs, cancellation, results, and follow-mode remain phase-gated
 until the owning execution services and contracts are ready.
+
+Phase 6 automation hardening keeps that same SDK/Overgate path and adds
+canonical idempotency fingerprints, `--new-idempotency-key` behavior, bounded retry and timeout policy,
+trace/audit propagation, stable error decode records, and a secret-free local idempotency cache
+with inspect/reset output.

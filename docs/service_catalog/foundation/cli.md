@@ -89,6 +89,15 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - Synthetic workload gate: `workload submit|status|timeline` exposes pending-only synthetic workload state with `execution_implied:false`; real logs, cancel, result, and follow remain fail-closed phase-gated commands.
 - Validation gate: `scripts/validate_cli_phase5.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
 
+## Phase 6 Implementation Gates
+
+- Canonical idempotency gate: default mutating command keys are derived from environment class, endpoint identity, tenant, actor, command type, target ref, canonical payload hash, expected state, reason, and schema version; safe retries reuse the same key while `--new-idempotency-key` creates a new operation key.
+- Retry and timeout gate: CLI commands reuse SDK bounded retry/timeout policy, exposing retryable transport/platform classes while schema, auth, policy, phase, credential, and idempotency denials remain non-retryable.
+- Trace and audit gate: trace ids flow into signed envelopes and JSON output, and mutating commands render acceptance/audit refs without direct Overwatch access.
+- Error decoding gate: Overgate, policy, schema, idempotency, credential, dependency, timeout, and platform failures decode into stable reason codes, retry classes, exit classes, source families, and remediation hints without raw internal errors.
+- Local idempotency cache gate: `idempotency-cache inspect|reset` renders owner-only, profile/environment scoped, resettable/inspectable cache records with `contains_private_payload:false`.
+- Validation gate: `scripts/validate_cli_phase6.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
+
 ## Validation
 
 - CLI can complete the [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) synthetic workload path.

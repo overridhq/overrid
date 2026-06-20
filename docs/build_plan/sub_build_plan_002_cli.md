@@ -324,6 +324,17 @@ When a CLI command needs new platform behavior, update documentation in this ord
   - Output: Owner-only local cache with reset/inspect behavior.
   - Validation: Tests prove profile switches and tenant switches cannot reuse cached keys across unsafe boundaries.
 
+### Phase 6 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Canonical idempotency gate | `packages/schemas/overrid_contracts` exposes `canonical_idempotency_fingerprint`, and `packages/cli/src/runner.rs` derives default idempotency keys from environment class, endpoint identity, tenant, actor, command type, target ref, canonical payload hash, expected state, reason, and schema version. | Rust tests and `scripts/validate_cli_phase6.py` prove identical safe retries reuse the same key, `--new-idempotency-key` creates a new operation key, and explicit `--idempotency-key` values flow through the signed envelope. |
+| Retry and timeout gate | `packages/sdk/src/lib.rs` owns bounded retry/timeout policy with retryable transport/platform classes and non-retryable schema, auth, policy, phase, credential, and idempotency denial families. | The Phase 6 validator checks `--timeout-ms` and `--max-retries` output, retry caps, stable retry classes, and fail-closed non-retryable families. |
+| Trace and audit gate | CLI bootstrap commands generate or accept trace ids, propagate them into signed envelopes, and render acceptance/audit refs for mutating commands. | The Phase 6 validator checks trace id propagation, signed-envelope trace parity, non-empty audit refs, and redacted diagnostics. |
+| Error decoding gate | `packages/sdk` decodes terminal errors into stable reason codes, retry classes, exit classes, source families, and remediation hints without raw internal errors. | The Phase 6 validator checks admin-impacting `missing_reason` and phase-gated `not_available_in_phase` errors for stable `error_decode_record` output and non-retryable behavior. |
+| Local idempotency cache gate | `idempotency-cache inspect|reset` renders profile/environment scoped cache records that are owner-only, resettable/inspectable, and free of private payloads. | The Phase 6 validator checks cache JSON output, key/fingerprint scope, `contains_private_payload:false`, and owner-only/resettable state. |
+| Validation gate | `scripts/validate_cli_phase6.py` is wired into `scripts/validate_overrid.py` and checks docs, schema source, manifest, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests. | `python3 scripts/validate_cli_phase6.py`, `python3 scripts/validate_overrid.py`, and `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass before Phase 6 is reported complete. |
+
 ## Phase 7: Seed Private Swarm And Real Execution Commands
 
 ### Work Items
