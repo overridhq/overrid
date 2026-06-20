@@ -7,6 +7,7 @@ description = "Initial Rust CLI skeleton for Overrid."
 
 [dependencies]
 overrid-contracts = { path = "../schemas/overrid_contracts" }
+overrid-integration-harness = { path = "../integration_harness" }
 overrid-sdk = { path = "../sdk" }
 
 [[bin]]

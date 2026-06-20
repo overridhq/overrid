@@ -21,6 +21,7 @@ pub struct GlobalOptions {
     pub no_color: bool,
     pub verbose: bool,
     pub all_phases: bool,
+    pub phase: Option<u8>,
     pub profile: Option<String>,
     pub environment: Option<String>,
     pub endpoint: Option<String>,
@@ -64,6 +65,7 @@ impl Default for GlobalOptions {
             no_color: false,
             verbose: false,
             all_phases: false,
+            phase: None,
             profile: None,
             environment: None,
             endpoint: None,
@@ -123,6 +125,7 @@ pub enum Command {
     Ledger(LedgerCommand),
     Dispute(DisputeCommand),
     IdempotencyCache(IdempotencyCacheCommand),
+    Test(TestCommand),
     Planned(PlannedCommand),
 }
 
@@ -388,6 +391,27 @@ impl IdempotencyCacheCommand {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TestCommand {
+    Integration,
+    Scenario { name: String },
+    List,
+    Reset,
+    Artifacts { run_id: String },
+}
+
+impl TestCommand {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Integration => "test integration",
+            Self::Scenario { .. } => "test scenario",
+            Self::List => "test list",
+            Self::Reset => "test reset",
+            Self::Artifacts { .. } => "test artifacts",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlannedCommand {
     Package,
@@ -481,6 +505,10 @@ where
             "--wait" => globals.wait = true,
             "--follow" => globals.follow = true,
             "--profile" => globals.profile = Some(next_value(&mut iter, "--profile")?),
+            "--phase" => {
+                let value = next_value(&mut iter, "--phase")?;
+                globals.phase = Some(parse_numeric_flag("--phase", &value)?);
+            }
             "--environment" => globals.environment = Some(next_value(&mut iter, "--environment")?),
             "--endpoint" => globals.endpoint = Some(next_value(&mut iter, "--endpoint")?),
             "--endpoint-fingerprint" => {
@@ -622,6 +650,7 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "receipt" => receipt_command(tokens),
         "ledger" => ledger_command(tokens),
         "dispute" => dispute_command(tokens),
+        "test" => test_command(tokens),
         "release-readiness" | "readiness" | "phase10" | "phase-10" => {
             Ok(Command::Planned(PlannedCommand::ReleaseReadiness))
         }
@@ -638,6 +667,25 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
             Ok(Command::Planned(PlannedCommand::Governance))
         }
         other => Err(CliParseError::UnknownCommand(other.to_owned())),
+    }
+}
+
+fn test_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("list") {
+        "integration" => Ok(Command::Test(TestCommand::Integration)),
+        "scenario" => match tokens.get(2) {
+            Some(name) => Ok(Command::Test(TestCommand::Scenario { name: name.clone() })),
+            None => Err(CliParseError::UnknownCommand("test scenario".to_owned())),
+        },
+        "list" => Ok(Command::Test(TestCommand::List)),
+        "reset" => Ok(Command::Test(TestCommand::Reset)),
+        "artifacts" => match tokens.get(2) {
+            Some(run_id) => Ok(Command::Test(TestCommand::Artifacts {
+                run_id: run_id.clone(),
+            })),
+            None => Err(CliParseError::UnknownCommand("test artifacts".to_owned())),
+        },
+        other => Err(CliParseError::UnknownCommand(format!("test {other}"))),
     }
 }
 
@@ -1075,5 +1123,41 @@ mod tests {
             parse_cli(["overrid", "release-readiness"]).unwrap().command,
             Command::Planned(PlannedCommand::ReleaseReadiness)
         );
+    }
+
+    #[test]
+    fn maps_integration_harness_test_commands() {
+        assert_eq!(
+            parse_cli(["overrid", "test", "integration"]).unwrap().command,
+            Command::Test(TestCommand::Integration)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "test", "scenario", "scenario_phase0_smoke"])
+                .unwrap()
+                .command,
+            Command::Test(TestCommand::Scenario {
+                name: "scenario_phase0_smoke".to_owned()
+            })
+        );
+        assert_eq!(
+            parse_cli(["overrid", "test", "list", "--phase", "0"])
+                .unwrap()
+                .command,
+            Command::Test(TestCommand::List)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "test", "reset"]).unwrap().command,
+            Command::Test(TestCommand::Reset)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "test", "artifacts", "run_phase0_smoke"])
+                .unwrap()
+                .command,
+            Command::Test(TestCommand::Artifacts {
+                run_id: "run_phase0_smoke".to_owned()
+            })
+        );
+        let parsed = parse_cli(["overrid", "test", "list", "--phase", "0"]).unwrap();
+        assert_eq!(parsed.globals.phase, Some(0));
     }
 }

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use overrid_contracts::{
     BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint,
     CiAutomationProfile, CliPhaseAvailabilityRecord, CliProfile, CliReleaseReadinessReport,
@@ -10,6 +12,9 @@ use overrid_contracts::{
     RetryTimeoutPolicy, SignedCommandEnvelope, SyntheticWorkloadPendingState, UsageOruRollup,
     WorkloadExecutionState, SUPPORTED_SCHEMA_VERSION,
 };
+use overrid_integration_harness::{
+    HarnessCliCommand, HarnessCliOutput, HarnessRunner, RunnerOptions,
+};
 use overrid_sdk::{
     decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
     SdkError,
@@ -20,7 +25,7 @@ use crate::parser::{
     parse_cli, AuthCommand, Command, CredentialCommand, DisputeCommand, GlobalOptions,
     IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand, ManifestCommand,
     NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand, ProfileCommand,
-    ReceiptCommand, TenantCommand, UsageCommand, WorkloadCommand,
+    ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
@@ -83,6 +88,7 @@ where
             Command::Receipt(command) => receipt_command_result(command, &parsed.globals),
             Command::Ledger(command) => ledger_command_result(command, &parsed.globals),
             Command::Dispute(command) => dispute_command_result(command, &parsed.globals),
+            Command::Test(command) => test_command_result(command, &parsed.globals),
             Command::Planned(command) => planned_command_result(command, &parsed.globals),
         },
         Err(error) => parse_error_result(&args, &error.to_string()),
@@ -231,6 +237,71 @@ fn idempotency_cache_command_result(
         &cache_record,
         globals.output,
     ))
+}
+
+fn test_command_result(command: TestCommand, globals: &GlobalOptions) -> CliRunResult {
+    let repo_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut options = RunnerOptions::new(repo_root);
+    options.profile = globals
+        .profile
+        .clone()
+        .unwrap_or_else(|| "local".to_owned());
+    options.requested_phase = globals.phase;
+    options.trace_id = globals.trace_id.clone();
+    options.test_harness_profile = globals.test_harness_profile;
+
+    let harness_command = match command {
+        TestCommand::Integration => HarnessCliCommand::Integration,
+        TestCommand::Scenario { name } => HarnessCliCommand::Scenario { name },
+        TestCommand::List => HarnessCliCommand::List,
+        TestCommand::Reset => HarnessCliCommand::Reset,
+        TestCommand::Artifacts { run_id } => HarnessCliCommand::Artifacts { run_id },
+    };
+    let output = HarnessRunner::new(options).run(harness_command);
+    let ok = output.is_ok();
+    let exit_class = if ok {
+        ExitCodeClass::Success
+    } else {
+        match output.status {
+            overrid_contracts::HarnessRunStatus::Failed => ExitCodeClass::Platform,
+            _ => ExitCodeClass::Config,
+        }
+    };
+    let stdout = match globals.output {
+        OutputMode::Human => output.human_summary(),
+        OutputMode::Json => {
+            let lifecycle = output.lifecycle_strs();
+            let dependency_status = output.dependency_status_strs();
+            let result_json = output.result_json();
+            let error_json = if ok {
+                "null".to_owned()
+            } else {
+                render_harness_error_json(&output, exit_class)
+            };
+            render_envelope_json(
+                &output.command_name,
+                ok,
+                &result_json,
+                &error_json,
+                output.trace_root.as_deref().or(globals.trace_id.as_deref()),
+                (!ok).then_some(output.reason_code.as_str()),
+                exit_class,
+                RetryClass::NotRetryable,
+                &lifecycle,
+                Some(output.profile.as_str()),
+                None,
+                &dependency_status,
+                &[],
+                &[],
+            )
+        }
+    };
+
+    CliRunResult {
+        exit_code: exit_class.code(),
+        stdout,
+        stderr: String::new(),
+    }
 }
 
 fn auth_command_result(command: AuthCommand, globals: &GlobalOptions) -> CliRunResult {
@@ -1116,6 +1187,7 @@ fn render_help(all_phases: bool) -> String {
         "  receipt show".to_owned(),
         "  ledger inspect".to_owned(),
         "  dispute list|inspect".to_owned(),
+        "  test integration|scenario|list|reset|artifacts".to_owned(),
         "  release-readiness               run Phase 10 release, security, and handoff validation evidence".to_owned(),
         "  help                            print command help".to_owned(),
         "".to_owned(),
@@ -1125,6 +1197,7 @@ fn render_help(all_phases: bool) -> String {
         "  --no-color                      disable color".to_owned(),
         "  --verbose                       include local diagnostic detail".to_owned(),
         "  --profile NAME                  select a local profile".to_owned(),
+        "  --phase N                       filter integration harness scenarios by master phase".to_owned(),
         "  --environment CLASS             local, seed, staging, production_like, or ci".to_owned(),
         "  --endpoint URL                  Overgate endpoint".to_owned(),
         "  --endpoint-fingerprint VALUE    pinned endpoint identity".to_owned(),
@@ -1220,6 +1293,37 @@ fn render_success_json_with_trace(
         dependency_status,
         capabilities,
         audit_refs,
+    )
+}
+
+fn render_harness_error_json(output: &HarnessCliOutput, exit_class: ExitCodeClass) -> String {
+    let phase_gate = output
+        .phase_filter
+        .map(|phase| format!("phase_{phase}"))
+        .unwrap_or_else(|| "phase_0".to_owned());
+    let error_decode_record = decode_phase6_error(
+        &output.reason_code,
+        &output.message,
+        exit_class,
+        RetryClass::NotRetryable,
+    );
+    format!(
+        concat!(
+            "{{",
+            "\"reason_code\":\"{}\",",
+            "\"message\":\"{}\",",
+            "\"phase_gate\":\"{}\",",
+            "\"retry_class\":\"{}\",",
+            "\"remediation_hint\":\"{}\",",
+            "\"error_decode_record\":{}",
+            "}}"
+        ),
+        json_escape(&output.reason_code),
+        json_escape(&output.message),
+        json_escape(&phase_gate),
+        json_escape(RetryClass::NotRetryable.as_str()),
+        json_escape(&error_decode_record.remediation_hint),
+        render_error_decode_record_json(&error_decode_record),
     )
 }
 
@@ -1358,7 +1462,12 @@ fn render_lifecycle_json(states: &[&str]) -> String {
         .iter()
         .rev()
         .copied()
-        .find(|state| matches!(*state, "completed" | "denied" | "failed"));
+        .find(|state| {
+            matches!(
+                *state,
+                "completed" | "denied" | "failed" | "passed" | "blocked"
+            )
+        });
     format!(
         concat!("{{", "\"states\":{},", "\"terminal_state\":{}", "}}"),
         json_string_array(states),
@@ -3732,7 +3841,70 @@ mod tests {
         assert!(result.stdout.contains("receipt show"));
         assert!(result.stdout.contains("ledger inspect"));
         assert!(result.stdout.contains("dispute list|inspect"));
+        assert!(result
+            .stdout
+            .contains("test integration|scenario|list|reset|artifacts"));
         assert!(result.stdout.contains("release-readiness"));
+    }
+
+    #[test]
+    fn test_list_renders_stable_json_with_phase_filter() {
+        let result = run_args(["overrid", "test", "list", "--phase", "0", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"command_name\":\"test list\""));
+        assert!(result.stdout.contains("\"phase_filter\":0"));
+        assert!(result.stdout.contains("\"scenario_id\":\"scenario_phase0_smoke\""));
+        assert!(result
+            .stdout
+            .contains("\"scenario_id\":\"scenario_blocked_dependency\""));
+        assert!(result.stdout.contains("\"schema_version\":\"integration-harness.v0.1\""));
+    }
+
+    #[test]
+    fn test_scenario_reports_blocked_dependency_with_artifacts() {
+        let result = run_args([
+            "overrid",
+            "test",
+            "scenario",
+            "scenario_blocked_dependency",
+            "--json",
+        ]);
+        assert_eq!(result.exit_code, EXIT_CONFIG);
+        assert!(result.stdout.contains("\"ok\":false"));
+        assert!(result
+            .stdout
+            .contains("\"reason_code\":\"dependency.service_unavailable\""));
+        assert!(result.stdout.contains("\"status\":\"blocked\""));
+        assert!(result.stdout.contains("\"collecting_artifacts\""));
+        assert!(result.stdout.contains("artifact:bundle:"));
+    }
+
+    #[test]
+    fn test_integration_reports_local_stack_blocked_shell() {
+        let result = run_args(["overrid", "test", "integration", "--json"]);
+        assert_eq!(result.exit_code, EXIT_CONFIG);
+        assert!(result
+            .stdout
+            .contains("\"reason_code\":\"dependency.local_stack_unavailable\""));
+        assert!(result.stdout.contains("\"command\":\"test integration\""));
+        assert!(result.stdout.contains("\"status\":\"blocked\""));
+    }
+
+    #[test]
+    fn test_artifacts_lookup_succeeds_with_stable_ref() {
+        let result = run_args([
+            "overrid",
+            "test",
+            "artifacts",
+            "run_phase0_smoke",
+            "--json",
+        ]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result
+            .stdout
+            .contains("\"reason_code\":\"artifact.lookup_ready\""));
+        assert!(result.stdout.contains("artifact:bundle:run_phase0_smoke"));
+        assert!(result.stdout.contains("\"terminal_state\":\"passed\""));
     }
 
     #[test]

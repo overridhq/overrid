@@ -1,0 +1,15 @@
+[package]
+name = "overrid-integration-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rust integration test harness shell for Overrid phase gates."
+
+[dependencies]
+overrid-contracts = { path = "../schemas/overrid_contracts" }
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true
