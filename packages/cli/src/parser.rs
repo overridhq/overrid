@@ -713,7 +713,7 @@ fn policy_command(tokens: &[String]) -> Result<Command, CliParseError> {
 fn package_command(tokens: &[String]) -> Result<Command, CliParseError> {
     match tokens.get(1).map(String::as_str).unwrap_or("validate") {
         "validate" => Ok(Command::Package(PackageCommand::Validate)),
-        "deploy" | "release" => Ok(Command::Planned(PlannedCommand::Package)),
+        "build" | "deploy" | "release" => Ok(Command::Planned(PlannedCommand::Package)),
         other => Err(CliParseError::UnknownCommand(format!("package {other}"))),
     }
 }
