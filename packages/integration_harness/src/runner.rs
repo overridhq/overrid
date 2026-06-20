@@ -8,8 +8,10 @@ use overrid_contracts::{
 
 use crate::artifacts::{ArtifactLocator, ArtifactSummary};
 use crate::fixtures::{sanitize_identifier, stable_short_token, DEFAULT_FIXTURE_SEED};
+use crate::local_stack::{LocalStackHarness, LocalStackReport, ServiceHealthSummary};
 use crate::manifests::{
-    HarnessManifestCatalog, HarnessManifestLoader, ManifestLoadError, ScenarioManifestRef,
+    FixtureManifestRef, HarnessManifestCatalog, HarnessManifestLoader, ManifestLoadError,
+    ScenarioManifestRef,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -298,6 +300,11 @@ pub struct HarnessCliOutput {
     pub lifecycle: Vec<HarnessLifecycleState>,
     pub artifacts: Vec<ArtifactSummary>,
     pub dependency_status: Vec<String>,
+    pub service_health: Vec<ServiceHealthSummary>,
+    pub reset_refs: Vec<String>,
+    pub seed_refs: Vec<String>,
+    pub diagnostic_refs: Vec<String>,
+    pub smoke_refs: Vec<String>,
     pub message: String,
 }
 
@@ -334,6 +341,11 @@ impl HarnessCliOutput {
                 "\"lifecycle\":{},",
                 "\"artifacts\":{},",
                 "\"dependency_status\":{},",
+                "\"service_health\":{},",
+                "\"reset_refs\":{},",
+                "\"seed_refs\":{},",
+                "\"diagnostic_refs\":{},",
+                "\"smoke_refs\":{},",
                 "\"message\":\"{}\"",
                 "}}"
             ),
@@ -352,6 +364,11 @@ impl HarnessCliOutput {
             lifecycle_json(&self.lifecycle),
             artifacts_json(&self.artifacts),
             json_string_array(&self.dependency_status),
+            service_health_json(&self.service_health),
+            json_string_array(&self.reset_refs),
+            json_string_array(&self.seed_refs),
+            json_string_array(&self.diagnostic_refs),
+            json_string_array(&self.smoke_refs),
             json_escape(&self.message),
         )
     }
@@ -380,6 +397,12 @@ impl HarnessCliOutput {
             lines.push("artifacts:".to_owned());
             for artifact in &self.artifacts {
                 lines.push(format!("  {} {}", artifact.bundle_ref, artifact.path));
+            }
+        }
+        if !self.service_health.is_empty() {
+            lines.push("service health:".to_owned());
+            for health in &self.service_health {
+                lines.push(format!("  {} {}", health.service_id, health.state));
             }
         }
         lines.push(format!(
@@ -436,6 +459,11 @@ impl HarnessRunner {
                     lifecycle: vec![HarnessLifecycleState::Planned],
                     artifacts: Vec::new(),
                     dependency_status: Vec::new(),
+                    service_health: Vec::new(),
+                    reset_refs: Vec::new(),
+                    seed_refs: Vec::new(),
+                    diagnostic_refs: Vec::new(),
+                    smoke_refs: Vec::new(),
                     message: "scenario manifest catalog loaded".to_owned(),
                 }
             }
@@ -455,14 +483,12 @@ impl HarnessRunner {
                         "no scenarios match the requested phase filter",
                     );
                 }
-                let context = self.context_for_scenario(&catalog, &scenarios[0]);
-                self.blocked_run_output(
-                    "test integration",
-                    scenarios,
-                    context,
-                    "dependency.local_stack_unavailable",
-                    "Phase 4 local stack hooks are not available in the Phase 3 runner shell",
-                )
+                let scenario = scenarios
+                    .iter()
+                    .find(|scenario| scenario.scenario_id == "scenario_phase0_smoke")
+                    .unwrap_or(&scenarios[0])
+                    .clone();
+                self.run_local_stack_scenario("test integration", &catalog, scenario)
             }
             Err(error) => self.manifest_blocked_output("test integration", error),
         }
@@ -479,24 +505,7 @@ impl HarnessRunner {
                         "requested scenario manifest was not found",
                     );
                 };
-                let reason_code = if scenario.scenario_id == "scenario_blocked_dependency" {
-                    "dependency.service_unavailable"
-                } else {
-                    "dependency.local_stack_unavailable"
-                };
-                let message = if reason_code == "dependency.service_unavailable" {
-                    "required service is unavailable; blocked result keeps artifact refs"
-                } else {
-                    "Phase 4 local stack hooks are not available in the Phase 3 runner shell"
-                };
-                let context = self.context_for_scenario(&catalog, scenario);
-                self.blocked_run_output(
-                    "test scenario",
-                    vec![scenario.clone()],
-                    context,
-                    reason_code,
-                    message,
-                )
+                self.run_local_stack_scenario("test scenario", &catalog, scenario.clone())
             }
             Err(error) => self.manifest_blocked_output("test scenario", error),
         }
@@ -512,37 +521,31 @@ impl HarnessRunner {
             );
         }
 
-        let context = HarnessRunContext::deterministic(
-            "scenario_reset_shell",
-            DEFAULT_FIXTURE_SEED,
-            &self.options.artifact_root,
-        );
-        let mut lifecycle = HarnessLifecycleRecorder::new();
-        lifecycle
-            .transition(HarnessLifecycleState::Resetting)
-            .expect("planned to resetting is valid");
-        lifecycle
-            .transition(HarnessLifecycleState::CollectingArtifacts)
-            .expect("resetting to collecting_artifacts is valid");
-        lifecycle
-            .transition(HarnessLifecycleState::Blocked)
-            .expect("collecting_artifacts to blocked is valid");
-        let artifact = ArtifactLocator::new(&self.options.artifact_root)
-            .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence);
-        HarnessCliOutput {
-            command_name: "test reset".to_owned(),
-            status: HarnessRunStatus::Blocked,
-            reason_code: "dependency.local_stack_unavailable".to_owned(),
-            reason_class: "dependency".to_owned(),
-            profile: self.options.profile.clone(),
-            phase_filter: self.options.requested_phase,
-            run_id: Some(context.run_id),
-            trace_root: Some(self.options.trace_id.clone().unwrap_or(context.trace_root)),
-            scenarios: Vec::new(),
-            lifecycle: lifecycle.into_states(),
-            artifacts: vec![artifact],
-            dependency_status: vec!["local_stack:unavailable".to_owned()],
-            message: "Phase 4 reset hook is not available in the Phase 3 shell".to_owned(),
+        match self.load_catalog() {
+            Ok(catalog) => {
+                let context = HarnessRunContext::deterministic(
+                    "scenario_reset_shell",
+                    DEFAULT_FIXTURE_SEED,
+                    &self.options.artifact_root,
+                );
+                let trace_root = self.trace_root_for(&context);
+                let report = LocalStackHarness::new(
+                    self.options.profile.clone(),
+                    self.options.artifact_root.clone(),
+                )
+                .reset_stack(&catalog.fixtures, &context.run_id, &trace_root);
+                let _ = context.test_run_record(report.status.clone());
+
+                self.output_from_local_stack_report(
+                    "test reset",
+                    Vec::new(),
+                    context,
+                    trace_root,
+                    local_stack_lifecycle(&report.status),
+                    report,
+                )
+            }
+            Err(error) => self.manifest_blocked_output("test reset", error),
         }
     }
 
@@ -569,17 +572,20 @@ impl HarnessRunner {
             lifecycle: lifecycle.into_states(),
             artifacts: vec![artifact],
             dependency_status: Vec::new(),
+            service_health: Vec::new(),
+            reset_refs: Vec::new(),
+            seed_refs: Vec::new(),
+            diagnostic_refs: Vec::new(),
+            smoke_refs: Vec::new(),
             message: "artifact lookup returned deterministic bundle path".to_owned(),
         }
     }
 
-    fn blocked_run_output(
+    fn run_local_stack_scenario(
         &self,
         command_name: &str,
-        scenarios: Vec<ScenarioManifestRef>,
-        context: HarnessRunContext,
-        reason_code: &str,
-        message: &str,
+        catalog: &HarnessManifestCatalog,
+        scenario: ScenarioManifestRef,
     ) -> HarnessCliOutput {
         if !self.local_profile_allowed() {
             return self.blocked_without_scenario(
@@ -590,38 +596,54 @@ impl HarnessRunner {
             );
         }
 
-        let mut lifecycle = HarnessLifecycleRecorder::new();
-        lifecycle
-            .transition(HarnessLifecycleState::StackStarting)
-            .expect("planned to stack_starting is valid");
-        lifecycle
-            .transition(HarnessLifecycleState::CollectingArtifacts)
-            .expect("stack_starting to collecting_artifacts is valid");
-        lifecycle
-            .transition(HarnessLifecycleState::Blocked)
-            .expect("collecting_artifacts to blocked is valid");
-        let artifact = ArtifactLocator::new(&self.options.artifact_root)
-            .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence);
-        let _ = context.test_run_record(HarnessRunStatus::Blocked);
+        let context = self.context_for_scenario(catalog, &scenario);
+        let trace_root = self.trace_root_for(&context);
+        let fixtures = self.fixtures_for_scenario(catalog, &scenario);
+        let report = LocalStackHarness::new(
+            self.options.profile.clone(),
+            self.options.artifact_root.clone(),
+        )
+        .run_phase0_smoke(&scenario, &fixtures, &context.run_id, &trace_root);
+        let _ = context.test_run_record(report.status.clone());
 
+        self.output_from_local_stack_report(
+            command_name,
+            vec![scenario],
+            context,
+            trace_root,
+            local_stack_lifecycle(&report.status),
+            report,
+        )
+    }
+
+    fn output_from_local_stack_report(
+        &self,
+        command_name: &str,
+        scenarios: Vec<ScenarioManifestRef>,
+        context: HarnessRunContext,
+        trace_root: String,
+        lifecycle: Vec<HarnessLifecycleState>,
+        report: LocalStackReport,
+    ) -> HarnessCliOutput {
         HarnessCliOutput {
             command_name: command_name.to_owned(),
-            status: HarnessRunStatus::Blocked,
-            reason_code: reason_code.to_owned(),
-            reason_class: reason_code
-                .split_once('.')
-                .map(|(class, _)| class)
-                .unwrap_or("dependency")
-                .to_owned(),
+            status: report.status,
+            reason_code: report.reason_code,
+            reason_class: report.reason_class,
             profile: self.options.profile.clone(),
             phase_filter: self.options.requested_phase,
             run_id: Some(context.run_id),
-            trace_root: Some(self.options.trace_id.clone().unwrap_or(context.trace_root)),
+            trace_root: Some(trace_root),
             scenarios: scenario_items(scenarios),
-            lifecycle: lifecycle.into_states(),
-            artifacts: vec![artifact],
-            dependency_status: vec!["local_stack:unavailable".to_owned()],
-            message: message.to_owned(),
+            lifecycle,
+            artifacts: report.artifacts,
+            dependency_status: report.dependency_status,
+            service_health: report.service_health,
+            reset_refs: report.reset_refs,
+            seed_refs: report.seed_refs,
+            diagnostic_refs: report.diagnostic_refs,
+            smoke_refs: report.smoke_refs,
+            message: report.message,
         }
     }
 
@@ -670,6 +692,11 @@ impl HarnessRunner {
             lifecycle: lifecycle.into_states(),
             artifacts: Vec::new(),
             dependency_status: Vec::new(),
+            service_health: Vec::new(),
+            reset_refs: Vec::new(),
+            seed_refs: Vec::new(),
+            diagnostic_refs: Vec::new(),
+            smoke_refs: Vec::new(),
             message: message.to_owned(),
         }
     }
@@ -698,6 +725,32 @@ impl HarnessRunner {
         )
     }
 
+    fn fixtures_for_scenario(
+        &self,
+        catalog: &HarnessManifestCatalog,
+        scenario: &ScenarioManifestRef,
+    ) -> Vec<FixtureManifestRef> {
+        scenario
+            .setup_fixture_refs
+            .iter()
+            .filter_map(|fixture_ref| {
+                let fixture_id = crate::fixtures::fixture_id_from_ref(fixture_ref);
+                catalog
+                    .fixtures
+                    .iter()
+                    .find(|fixture| fixture.fixture_id == fixture_id)
+                    .cloned()
+            })
+            .collect()
+    }
+
+    fn trace_root_for(&self, context: &HarnessRunContext) -> String {
+        self.options
+            .trace_id
+            .clone()
+            .unwrap_or_else(|| context.trace_root.clone())
+    }
+
     fn local_profile_allowed(&self) -> bool {
         self.options.test_harness_profile
             || matches!(
@@ -705,6 +758,68 @@ impl HarnessRunner {
                 "local" | "local-dev" | "test" | "ci"
             )
     }
+}
+
+fn local_stack_lifecycle(status: &HarnessRunStatus) -> Vec<HarnessLifecycleState> {
+    let mut lifecycle = HarnessLifecycleRecorder::new();
+    lifecycle
+        .transition(HarnessLifecycleState::StackStarting)
+        .expect("planned to stack_starting is valid");
+    lifecycle
+        .transition(HarnessLifecycleState::StackReady)
+        .expect("stack_starting to stack_ready is valid");
+    lifecycle
+        .transition(HarnessLifecycleState::Resetting)
+        .expect("stack_ready to resetting is valid");
+    lifecycle
+        .transition(HarnessLifecycleState::Seeding)
+        .expect("resetting to seeding is valid");
+
+    match status {
+        HarnessRunStatus::Passed => {
+            lifecycle
+                .transition(HarnessLifecycleState::Running)
+                .expect("seeding to running is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::Asserting)
+                .expect("running to asserting is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::CollectingArtifacts)
+                .expect("asserting to collecting_artifacts is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::Passed)
+                .expect("collecting_artifacts to passed is valid");
+        }
+        HarnessRunStatus::Failed => {
+            lifecycle
+                .transition(HarnessLifecycleState::Running)
+                .expect("seeding to running is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::CollectingArtifacts)
+                .expect("running to collecting_artifacts is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::Failed)
+                .expect("collecting_artifacts to failed is valid");
+        }
+        HarnessRunStatus::Blocked => {
+            lifecycle
+                .transition(HarnessLifecycleState::CollectingArtifacts)
+                .expect("seeding to collecting_artifacts is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::Blocked)
+                .expect("collecting_artifacts to blocked is valid");
+        }
+        HarnessRunStatus::Planned | HarnessRunStatus::Running => {
+            lifecycle
+                .transition(HarnessLifecycleState::CollectingArtifacts)
+                .expect("seeding to collecting_artifacts is valid");
+            lifecycle
+                .transition(HarnessLifecycleState::Blocked)
+                .expect("collecting_artifacts to blocked is valid");
+        }
+    }
+
+    lifecycle.into_states()
 }
 
 fn scenario_items(scenarios: Vec<ScenarioManifestRef>) -> Vec<ScenarioListItem> {
@@ -778,6 +893,31 @@ fn artifacts_json(artifacts: &[ArtifactSummary]) -> String {
                 json_escape(&artifact.path),
                 json_escape(artifact.retention_class.as_str()),
                 json_escape(&artifact.redaction_policy),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", values.join(","))
+}
+
+fn service_health_json(service_health: &[ServiceHealthSummary]) -> String {
+    let values = service_health
+        .iter()
+        .map(|health| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"state\":\"{}\",",
+                    "\"required\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"evidence_ref\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&health.service_id),
+                json_escape(&health.state),
+                health.required,
+                json_escape(&health.reason_code),
+                json_escape(&health.evidence_ref),
             )
         })
         .collect::<Vec<_>>();
@@ -862,15 +1002,48 @@ mod tests {
     }
 
     #[test]
-    fn blocked_lifecycle_collects_artifacts_before_terminal_state() {
+    fn phase0_smoke_lifecycle_reaches_passed_after_artifacts() {
         let output = runner().run(HarnessCliCommand::Scenario {
             name: "scenario_phase0_smoke".to_owned(),
         });
-        assert_eq!(output.status, HarnessRunStatus::Blocked);
+        assert_eq!(output.status, HarnessRunStatus::Passed);
+        assert_eq!(output.reason_code, "run.passed");
         assert!(output
             .lifecycle
             .contains(&HarnessLifecycleState::CollectingArtifacts));
+        assert_eq!(
+            output.lifecycle.last(),
+            Some(&HarnessLifecycleState::Passed)
+        );
         assert!(!output.artifacts.is_empty());
+        assert!(output
+            .service_health
+            .iter()
+            .any(|health| health.service_id == "service:local_stack" && health.state == "ready"));
+        assert!(!output.seed_refs.is_empty());
+        assert!(!output.smoke_refs.is_empty());
+    }
+
+    #[test]
+    fn integration_command_runs_phase0_smoke_by_default() {
+        let output = runner().run(HarnessCliCommand::Integration);
+        assert_eq!(output.status, HarnessRunStatus::Passed);
+        assert_eq!(output.scenarios.len(), 1);
+        assert_eq!(output.scenarios[0].scenario_id, "scenario_phase0_smoke");
+        assert!(output.result_json().contains("\"diagnostic_refs\""));
+    }
+
+    #[test]
+    fn reset_runs_start_reset_seed_and_artifact_collection() {
+        let output = runner().run(HarnessCliCommand::Reset);
+        assert_eq!(output.status, HarnessRunStatus::Passed);
+        assert!(output
+            .lifecycle
+            .contains(&HarnessLifecycleState::StackReady));
+        assert!(output.lifecycle.contains(&HarnessLifecycleState::Resetting));
+        assert!(output.lifecycle.contains(&HarnessLifecycleState::Seeding));
+        assert!(!output.reset_refs.is_empty());
+        assert!(!output.seed_refs.is_empty());
     }
 
     #[test]
@@ -890,6 +1063,9 @@ mod tests {
         });
         assert_eq!(output.status, HarnessRunStatus::Blocked);
         assert_eq!(output.reason_code, "dependency.service_unavailable");
+        assert!(output
+            .dependency_status
+            .contains(&"service:overqueue:unavailable".to_owned()));
         assert!(output.result_json().contains("\"status\":\"blocked\""));
     }
 

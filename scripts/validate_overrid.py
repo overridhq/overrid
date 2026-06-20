@@ -14,6 +14,7 @@ VALIDATORS = [
     Path("scripts/validate_integration_harness_phase1.py"),
     Path("scripts/validate_integration_harness_phase2.py"),
     Path("scripts/validate_integration_harness_phase3.py"),
+    Path("scripts/validate_integration_harness_phase4.py"),
     Path("scripts/validate_cli_phase1.py"),
     Path("scripts/validate_cli_phase2.py"),
     Path("scripts/validate_cli_phase3.py"),

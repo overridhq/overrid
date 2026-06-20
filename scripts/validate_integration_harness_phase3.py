@@ -198,7 +198,7 @@ def validate_harness_crate() -> None:
 
     for expected in [
         "HarnessManifestLoader::canonical",
-        "dependency.local_stack_unavailable",
+        "LocalStackHarness",
         "safety.non_local_profile",
         "ArtifactLocator",
         "result_json",
@@ -277,10 +277,11 @@ def validate_cli_behavior() -> None:
     assert_true("collecting_artifacts" in blocked["result"]["lifecycle"], "blocked path must collect artifacts")
     assert_true(blocked["result"]["artifacts"], "blocked scenario must include artifact refs")
 
-    integration = run_cli(["test", "integration", "--json"], expected_exit=3)
-    assert_true(integration["reason_code"] == "dependency.local_stack_unavailable", "wrong integration reason")
+    integration = run_cli(["test", "integration", "--json"])
+    assert_true(integration["ok"] is True, "integration should be ok after Phase 4 local-stack hooks")
     assert_true(integration["result"]["command"] == "test integration", "wrong integration command")
-    assert_true(integration["result"]["status"] == "blocked", "integration should fail closed")
+    assert_true(integration["result"]["status"] == "passed", "integration should run the Phase 0 smoke path")
+    assert_true("collecting_artifacts" in integration["result"]["lifecycle"], "integration must collect artifacts")
 
     artifacts = run_cli(["test", "artifacts", "run_phase0_smoke", "--json"])
     assert_true(artifacts["ok"] is True, "artifact lookup should be ok")

@@ -3895,17 +3895,53 @@ mod tests {
             .contains("\"reason_code\":\"dependency.service_unavailable\""));
         assert!(result.stdout.contains("\"status\":\"blocked\""));
         assert!(result.stdout.contains("\"collecting_artifacts\""));
+        assert!(result.stdout.contains("service:overqueue:unavailable"));
         assert!(result.stdout.contains("artifact:bundle:"));
     }
 
     #[test]
-    fn test_integration_reports_local_stack_blocked_shell() {
+    fn test_integration_runs_phase0_smoke_with_local_stack_health() {
         let result = run_args(["overrid", "test", "integration", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"reason_code\":\"run.passed\""));
+        assert!(result.stdout.contains("\"command\":\"test integration\""));
+        assert!(result.stdout.contains("\"status\":\"passed\""));
+        assert!(result.stdout.contains("\"stack_ready\""));
+        assert!(result.stdout.contains("\"reset_refs\""));
+        assert!(result.stdout.contains("\"seed_refs\""));
+        assert!(result.stdout.contains("\"diagnostic_refs\""));
+        assert!(result.stdout.contains("\"smoke_refs\""));
+        assert!(result
+            .stdout
+            .contains("\"service_id\":\"service:local_stack\""));
+    }
+
+    #[test]
+    fn test_reset_runs_local_stack_reset_and_seed() {
+        let result = run_args(["overrid", "test", "reset", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"command\":\"test reset\""));
+        assert!(result.stdout.contains("\"status\":\"passed\""));
+        assert!(result.stdout.contains("\"resetting\""));
+        assert!(result.stdout.contains("\"seeding\""));
+        assert!(result.stdout.contains("\"reset_refs\""));
+        assert!(result.stdout.contains("\"seed_refs\""));
+    }
+
+    #[test]
+    fn test_reset_rejects_non_local_profile() {
+        let result = run_args([
+            "overrid",
+            "test",
+            "reset",
+            "--profile",
+            "production_like",
+            "--json",
+        ]);
         assert_eq!(result.exit_code, EXIT_CONFIG);
         assert!(result
             .stdout
-            .contains("\"reason_code\":\"dependency.local_stack_unavailable\""));
-        assert!(result.stdout.contains("\"command\":\"test integration\""));
+            .contains("\"reason_code\":\"safety.non_local_profile\""));
         assert!(result.stdout.contains("\"status\":\"blocked\""));
     }
 
