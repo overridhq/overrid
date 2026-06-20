@@ -18,12 +18,15 @@ pub const LOCAL_STACK_PHASE5_BACKING_GATE: &str = "phase_5_embedded_state_queue_
 pub const LOCAL_STACK_PHASE6_LIFECYCLE_GATE: &str = "phase_6_lifecycle_orchestration";
 pub const LOCAL_STACK_PHASE7_FIXTURE_GATE: &str = "phase_7_reset_seed_fixtures";
 pub const LOCAL_STACK_PHASE8_SMOKE_GATE: &str = "phase_8_node_simulator_smoke_harness";
+pub const LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE: &str = "phase_9_diagnostics_artifacts_ci_flake";
 pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
 pub const DEFAULT_LIFECYCLE_TIMEOUT_MS: u64 = 60_000;
 pub const DEFAULT_LIFECYCLE_POLL_INTERVAL_MS: u64 = 250;
 pub const LOCAL_STACK_PHASE7_FIXTURE_VERSION: &str = "fixture:phase7_control_plane_seed.v1";
 pub const LOCAL_STACK_PHASE7_DETERMINISTIC_SEED: &str = "seed:local_stack:phase7:0001";
 pub const LOCAL_STACK_PHASE8_SMOKE_FIXTURE_VERSION: &str = "fixture:phase8_node_smoke.v1";
+pub const LOCAL_STACK_PHASE9_CI_RUNNER_REF: &str =
+    "ci://local_stack/linux_x86_64/ubuntu_24_04_equivalent";
 
 const RESERVED_PORT_BINDINGS: [ReservedPortBinding; 6] = [
     ReservedPortBinding {
@@ -588,6 +591,9 @@ impl LocalStackRunner {
             "artifact://local_stack/smoke/{}/redacted_bundle",
             id_component(&self.options.trace_id)
         ));
+        if let Some(bundle) = output.diagnostic_artifact_bundles.first() {
+            output.artifact_refs.push(bundle.bundle_ref.clone());
+        }
         output.complete(
             LocalStackStatus::Completed,
             "local_stack.smoke_passed",
@@ -610,6 +616,12 @@ impl LocalStackRunner {
             "log://local_stack/{}",
             id_component(&self.options.trace_id)
         ));
+        output.artifact_refs.extend(
+            output
+                .redacted_log_exports
+                .iter()
+                .map(|record| record.log_ref.clone()),
+        );
         output.complete(
             LocalStackStatus::Completed,
             "local_stack.logs_collected",
@@ -1337,6 +1349,102 @@ pub struct LocalSimulatorExpansionRule {
     pub test_only: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalRedactedLogExportRecord {
+    pub stream_id: String,
+    pub service_id: String,
+    pub log_ref: String,
+    pub bundle_section_ref: String,
+    pub redacts_secrets: bool,
+    pub redacts_tokens: bool,
+    pub redacts_signatures: bool,
+    pub redacts_private_payloads: bool,
+    pub redacts_encrypted_content: bool,
+    pub export_blocked_until_secret_free: bool,
+    pub scanner_passed: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalDiagnosticArtifactBundleRecord {
+    pub bundle_id: String,
+    pub bundle_ref: String,
+    pub manifest_ref: String,
+    pub health_snapshot_refs: Vec<String>,
+    pub stack_profile: String,
+    pub schema_version: String,
+    pub fixture_version: String,
+    pub command_lifecycle_ref: String,
+    pub trace_id: String,
+    pub reason_code_ref: String,
+    pub local_event_refs: Vec<String>,
+    pub queue_state_refs: Vec<String>,
+    pub object_refs: Vec<String>,
+    pub reproduction_command: String,
+    pub retention_class: String,
+    pub contains_raw_secret: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalCleanCheckoutCiEntrypointRecord {
+    pub entrypoint_id: String,
+    pub runner_ref: String,
+    pub os_family: String,
+    pub arch: String,
+    pub ubuntu_24_04_equivalent: bool,
+    pub repo_pinned_rust_toolchain: bool,
+    pub loopback_networking: bool,
+    pub cloud_credentials_allowed: bool,
+    pub external_database_allowed: bool,
+    pub external_queue_allowed: bool,
+    pub external_object_store_allowed: bool,
+    pub commands: Vec<String>,
+    pub allowed_outcomes: Vec<String>,
+    pub machine_readable_output: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalFlakeEvidenceRecord {
+    pub evidence_id: String,
+    pub trace_id: String,
+    pub repeated_run_count: u16,
+    pub startup_timing_variance_ms: u64,
+    pub nondeterministic_fixture_ids: bool,
+    pub unstable_event_ordering: bool,
+    pub retry_count: u16,
+    pub health_timeout_class: String,
+    pub tolerance_window_used: bool,
+    pub flake_detected: bool,
+    pub reason_code: String,
+    pub artifact_ref: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalArtifactRetentionPolicyRecord {
+    pub policy_id: String,
+    pub retention_class: String,
+    pub compact_success_summary: bool,
+    pub retain_failure_bundle: bool,
+    pub failure_retention_days: u16,
+    pub prune_command_ref: String,
+    pub requires_test_state_marker: bool,
+    pub deletes_unmarked_user_dirs: bool,
+    pub deletes_production_like_state: bool,
+    pub deletes_non_local_artifacts: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LifecycleMode {
     CleanStart,
@@ -1683,6 +1791,11 @@ pub struct LocalStackCommandOutput {
     pub harness_hook_records: Vec<LocalHarnessHookRecord>,
     pub cli_sdk_smoke_support_records: Vec<LocalSdkSmokeSupportRecord>,
     pub simulator_expansion_rules: Vec<LocalSimulatorExpansionRule>,
+    pub redacted_log_exports: Vec<LocalRedactedLogExportRecord>,
+    pub diagnostic_artifact_bundles: Vec<LocalDiagnosticArtifactBundleRecord>,
+    pub clean_checkout_ci_entries: Vec<LocalCleanCheckoutCiEntrypointRecord>,
+    pub flake_evidence_records: Vec<LocalFlakeEvidenceRecord>,
+    pub artifact_retention_policies: Vec<LocalArtifactRetentionPolicyRecord>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -1756,6 +1869,17 @@ impl LocalStackCommandOutput {
             harness_hook_records: harness_hook_records(),
             cli_sdk_smoke_support_records: cli_sdk_smoke_support_records(),
             simulator_expansion_rules: simulator_expansion_rules(),
+            redacted_log_exports: redacted_log_export_records(&options.trace_id),
+            diagnostic_artifact_bundles: diagnostic_artifact_bundle_records(
+                &options.profile,
+                &options.trace_id,
+            ),
+            clean_checkout_ci_entries: clean_checkout_ci_entries(),
+            flake_evidence_records: flake_evidence_records_for_profile(
+                &options.profile,
+                &options.trace_id,
+            ),
+            artifact_retention_policies: artifact_retention_policies(),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -1809,6 +1933,11 @@ impl LocalStackCommandOutput {
                 "integration_harness_hooks_ready",
                 "cli_sdk_smoke_support_public_api_only",
                 "simulator_expansion_rules_enforced",
+                "redacted_log_exports_ready",
+                "diagnostic_artifact_bundle_ready",
+                "clean_checkout_ci_entrypoint_ready",
+                "flake_metadata_recorded",
+                "artifact_retention_policy_enforced",
                 "redacted_diagnostics_only",
             ]
         } else {
@@ -1822,6 +1951,10 @@ impl LocalStackCommandOutput {
                 "fixture_drift_report_collected",
                 "phase0_smoke_path_collected",
                 "simulator_expansion_rules_enforced",
+                "redacted_log_exports_collected",
+                "diagnostic_artifact_bundle_collected",
+                "flake_metadata_recorded",
+                "artifact_retention_policy_enforced",
                 "local_stack_fail_closed",
                 "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
@@ -1866,6 +1999,7 @@ impl LocalStackCommandOutput {
                 "\"lifecycle_phase_gate\":\"{}\",",
                 "\"fixture_phase_gate\":\"{}\",",
                 "\"smoke_phase_gate\":\"{}\",",
+                "\"diagnostics_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
@@ -1895,6 +2029,11 @@ impl LocalStackCommandOutput {
                 "\"harness_hook_records\":{},",
                 "\"cli_sdk_smoke_support_records\":{},",
                 "\"simulator_expansion_rules\":{},",
+                "\"redacted_log_exports\":{},",
+                "\"diagnostic_artifact_bundles\":{},",
+                "\"clean_checkout_ci_entries\":{},",
+                "\"flake_evidence_records\":{},",
+                "\"artifact_retention_policies\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -1918,6 +2057,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
+            json_escape(LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
@@ -1944,6 +2084,11 @@ impl LocalStackCommandOutput {
             render_harness_hook_records_json(&self.harness_hook_records),
             render_cli_sdk_smoke_support_records_json(&self.cli_sdk_smoke_support_records),
             render_simulator_expansion_rules_json(&self.simulator_expansion_rules),
+            render_redacted_log_exports_json(&self.redacted_log_exports),
+            render_diagnostic_artifact_bundles_json(&self.diagnostic_artifact_bundles),
+            render_clean_checkout_ci_entries_json(&self.clean_checkout_ci_entries),
+            render_flake_evidence_records_json(&self.flake_evidence_records),
+            render_artifact_retention_policies_json(&self.artifact_retention_policies),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -1970,6 +2115,7 @@ impl LocalStackCommandOutput {
                 "\"lifecycle_phase_gate\":\"{}\",",
                 "\"fixture_phase_gate\":\"{}\",",
                 "\"smoke_phase_gate\":\"{}\",",
+                "\"diagnostics_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
                 "\"port_conflicts\":{},",
                 "\"schema_compatibility_gates\":{},",
@@ -1984,6 +2130,11 @@ impl LocalStackCommandOutput {
                 "\"node_simulator_records\":{},",
                 "\"phase0_smoke_records\":{},",
                 "\"simulator_expansion_rules\":{},",
+                "\"redacted_log_exports\":{},",
+                "\"diagnostic_artifact_bundles\":{},",
+                "\"clean_checkout_ci_entries\":{},",
+                "\"flake_evidence_records\":{},",
+                "\"artifact_retention_policies\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -1998,6 +2149,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
+            json_escape(LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
@@ -2012,6 +2164,11 @@ impl LocalStackCommandOutput {
             render_node_simulator_records_json(&self.node_simulator_records),
             render_phase0_smoke_records_json(&self.phase0_smoke_records),
             render_simulator_expansion_rules_json(&self.simulator_expansion_rules),
+            render_redacted_log_exports_json(&self.redacted_log_exports),
+            render_diagnostic_artifact_bundles_json(&self.diagnostic_artifact_bundles),
+            render_clean_checkout_ci_entries_json(&self.clean_checkout_ci_entries),
+            render_flake_evidence_records_json(&self.flake_evidence_records),
+            render_artifact_retention_policies_json(&self.artifact_retention_policies),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -3627,6 +3784,204 @@ fn simulator_expansion_rules() -> Vec<LocalSimulatorExpansionRule> {
     .collect()
 }
 
+fn redacted_log_export_records(trace_id: &str) -> Vec<LocalRedactedLogExportRecord> {
+    let trace_component = id_component(trace_id);
+    [
+        ("api", "service:api"),
+        ("worker", "service:worker"),
+        ("embedded_state", "service:embedded_state"),
+        ("overqueue_jobs", "service:overqueue_jobs"),
+        ("overstore_stub", "service:overstore_stub"),
+        ("event_audit", "service:event_audit"),
+        ("node_agent_simulator", "service:node_agent_simulator"),
+    ]
+    .into_iter()
+    .map(|(surface, service_id)| LocalRedactedLogExportRecord {
+        stream_id: format!("redacted_log_stream:{surface}:{trace_component}"),
+        service_id: service_id.to_owned(),
+        log_ref: format!("log://local_stack/{surface}/{trace_component}/redacted"),
+        bundle_section_ref: format!(
+            "artifact://local_stack/diagnostics/{trace_component}/logs/{surface}"
+        ),
+        redacts_secrets: true,
+        redacts_tokens: true,
+        redacts_signatures: true,
+        redacts_private_payloads: true,
+        redacts_encrypted_content: true,
+        export_blocked_until_secret_free: true,
+        scanner_passed: true,
+        reason_code: "local_stack.redacted_log_export_ready".to_owned(),
+        local_only: true,
+        test_only: true,
+    })
+    .collect()
+}
+
+fn diagnostic_artifact_bundle_records(
+    profile: &str,
+    trace_id: &str,
+) -> Vec<LocalDiagnosticArtifactBundleRecord> {
+    let trace_component = id_component(trace_id);
+    vec![LocalDiagnosticArtifactBundleRecord {
+        bundle_id: format!("diagnostic_bundle:local_stack:{trace_component}"),
+        bundle_ref: format!("artifact://local_stack/diagnostics/{trace_component}/bundle.json"),
+        manifest_ref: format!("manifest://local_stack/diagnostics/{trace_component}"),
+        health_snapshot_refs: vec![
+            "health://local_stack/service/api".to_owned(),
+            "health://local_stack/service/worker".to_owned(),
+            "health://local_stack/service/node_agent_simulator".to_owned(),
+            "health://local_stack/service/overstore_stub".to_owned(),
+            "health://local_stack/service/event_audit".to_owned(),
+        ],
+        stack_profile: profile.to_owned(),
+        schema_version: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION.to_owned(),
+        fixture_version: LOCAL_STACK_PHASE8_SMOKE_FIXTURE_VERSION.to_owned(),
+        command_lifecycle_ref: format!("lifecycle://local_stack/{trace_component}"),
+        trace_id: trace_id.to_owned(),
+        reason_code_ref: format!("reason://local_stack/{trace_component}"),
+        local_event_refs: vec![
+            format!("event://local_stack/{trace_component}/command_requested"),
+            format!("event://local_stack/{trace_component}/collecting_artifacts"),
+        ],
+        queue_state_refs: vec![
+            "queue://local_stack/overqueue/job/job-local-0001".to_owned(),
+            "queue://local_stack/overqueue/job/job-local-0002".to_owned(),
+        ],
+        object_refs: vec![
+            "overstore://local_stub/blake3/phase5_noop_payload".to_owned(),
+            format!("artifact://local_stack/smoke/{trace_component}/redacted_bundle"),
+        ],
+        reproduction_command: format!("overrid dev smoke --json --trace-id {trace_id}"),
+        retention_class: "failure_evidence".to_owned(),
+        contains_raw_secret: false,
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn clean_checkout_ci_entries() -> Vec<LocalCleanCheckoutCiEntrypointRecord> {
+    vec![LocalCleanCheckoutCiEntrypointRecord {
+        entrypoint_id: "ci_entrypoint:local_stack:clean_checkout".to_owned(),
+        runner_ref: LOCAL_STACK_PHASE9_CI_RUNNER_REF.to_owned(),
+        os_family: "linux".to_owned(),
+        arch: "x86_64".to_owned(),
+        ubuntu_24_04_equivalent: true,
+        repo_pinned_rust_toolchain: true,
+        loopback_networking: true,
+        cloud_credentials_allowed: false,
+        external_database_allowed: false,
+        external_queue_allowed: false,
+        external_object_store_allowed: false,
+        commands: [
+            "dev:start",
+            "dev:reset",
+            "dev:seed",
+            "dev:smoke",
+            "schema:check",
+            "layout:check",
+            "docs:check",
+            "harness:smoke",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        allowed_outcomes: ["success", "blocked", "failed"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        machine_readable_output: true,
+        reason_code: "local_stack.clean_checkout_ci_entrypoint_ready".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn flake_evidence_records_for_profile(
+    profile: &str,
+    trace_id: &str,
+) -> Vec<LocalFlakeEvidenceRecord> {
+    let normalized = profile.to_ascii_lowercase();
+    let trace_component = id_component(trace_id);
+    let nondeterministic_fixture_ids = normalized.contains("nondeterministic-fixture-ids");
+    let unstable_event_ordering = normalized.contains("unstable-event-ordering");
+    let health_timeout = normalized.contains("health-timeout");
+    let tolerance_window_used = normalized.contains("tolerance-window");
+    let flake_detected = nondeterministic_fixture_ids
+        || unstable_event_ordering
+        || health_timeout
+        || tolerance_window_used;
+
+    vec![LocalFlakeEvidenceRecord {
+        evidence_id: format!("flake_evidence:local_stack:{trace_component}"),
+        trace_id: trace_id.to_owned(),
+        repeated_run_count: 5,
+        startup_timing_variance_ms: if health_timeout { 1_250 } else { 12 },
+        nondeterministic_fixture_ids,
+        unstable_event_ordering,
+        retry_count: if flake_detected { 2 } else { 0 },
+        health_timeout_class: if health_timeout {
+            "required_service_timeout".to_owned()
+        } else {
+            "none".to_owned()
+        },
+        tolerance_window_used,
+        flake_detected,
+        reason_code: if flake_detected {
+            "local_stack.flake_signal_recorded".to_owned()
+        } else {
+            "local_stack.flake_metadata_stable".to_owned()
+        },
+        artifact_ref: format!("artifact://local_stack/flake/{trace_component}/evidence.json"),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn artifact_retention_policies() -> Vec<LocalArtifactRetentionPolicyRecord> {
+    [
+        (
+            "success_summary",
+            true,
+            false,
+            7,
+            "local_stack.success_summary_compacted",
+        ),
+        (
+            "failure_evidence",
+            false,
+            true,
+            30,
+            "local_stack.failure_bundle_retained",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(
+            retention_class,
+            compact_success_summary,
+            retain_failure_bundle,
+            failure_retention_days,
+            reason_code,
+        )| LocalArtifactRetentionPolicyRecord {
+            policy_id: format!("retention_policy:local_stack:{retention_class}"),
+            retention_class: retention_class.to_owned(),
+            compact_success_summary,
+            retain_failure_bundle,
+            failure_retention_days,
+            prune_command_ref: "command://local_stack/prune --test-state-marker-required"
+                .to_owned(),
+            requires_test_state_marker: true,
+            deletes_unmarked_user_dirs: false,
+            deletes_production_like_state: false,
+            deletes_non_local_artifacts: false,
+            reason_code: reason_code.to_owned(),
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
+}
+
 fn schema_compatibility_gates_for_profile(profile: &str) -> Vec<SchemaCompatibilityGate> {
     let normalized = profile.to_ascii_lowercase();
     [
@@ -5081,6 +5436,239 @@ fn render_simulator_expansion_rules_json(records: &[LocalSimulatorExpansionRule]
     format!("[{}]", rendered.join(","))
 }
 
+fn render_redacted_log_exports_json(records: &[LocalRedactedLogExportRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"stream_id\":\"{}\",",
+                    "\"service_id\":\"{}\",",
+                    "\"log_ref\":\"{}\",",
+                    "\"bundle_section_ref\":\"{}\",",
+                    "\"redacts_secrets\":{},",
+                    "\"redacts_tokens\":{},",
+                    "\"redacts_signatures\":{},",
+                    "\"redacts_private_payloads\":{},",
+                    "\"redacts_encrypted_content\":{},",
+                    "\"export_blocked_until_secret_free\":{},",
+                    "\"scanner_passed\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.stream_id),
+                json_escape(&record.service_id),
+                json_escape(&record.log_ref),
+                json_escape(&record.bundle_section_ref),
+                record.redacts_secrets,
+                record.redacts_tokens,
+                record.redacts_signatures,
+                record.redacts_private_payloads,
+                record.redacts_encrypted_content,
+                record.export_blocked_until_secret_free,
+                record.scanner_passed,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_diagnostic_artifact_bundles_json(
+    records: &[LocalDiagnosticArtifactBundleRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"bundle_id\":\"{}\",",
+                    "\"bundle_ref\":\"{}\",",
+                    "\"manifest_ref\":\"{}\",",
+                    "\"health_snapshot_refs\":{},",
+                    "\"stack_profile\":\"{}\",",
+                    "\"schema_version\":\"{}\",",
+                    "\"fixture_version\":\"{}\",",
+                    "\"command_lifecycle_ref\":\"{}\",",
+                    "\"trace_id\":\"{}\",",
+                    "\"reason_code_ref\":\"{}\",",
+                    "\"local_event_refs\":{},",
+                    "\"queue_state_refs\":{},",
+                    "\"object_refs\":{},",
+                    "\"reproduction_command\":\"{}\",",
+                    "\"retention_class\":\"{}\",",
+                    "\"contains_raw_secret\":{},",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.bundle_id),
+                json_escape(&record.bundle_ref),
+                json_escape(&record.manifest_ref),
+                json_owned_string_array(&record.health_snapshot_refs),
+                json_escape(&record.stack_profile),
+                json_escape(&record.schema_version),
+                json_escape(&record.fixture_version),
+                json_escape(&record.command_lifecycle_ref),
+                json_escape(&record.trace_id),
+                json_escape(&record.reason_code_ref),
+                json_owned_string_array(&record.local_event_refs),
+                json_owned_string_array(&record.queue_state_refs),
+                json_owned_string_array(&record.object_refs),
+                json_escape(&record.reproduction_command),
+                json_escape(&record.retention_class),
+                record.contains_raw_secret,
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_clean_checkout_ci_entries_json(
+    records: &[LocalCleanCheckoutCiEntrypointRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"entrypoint_id\":\"{}\",",
+                    "\"runner_ref\":\"{}\",",
+                    "\"os_family\":\"{}\",",
+                    "\"arch\":\"{}\",",
+                    "\"ubuntu_24_04_equivalent\":{},",
+                    "\"repo_pinned_rust_toolchain\":{},",
+                    "\"loopback_networking\":{},",
+                    "\"cloud_credentials_allowed\":{},",
+                    "\"external_database_allowed\":{},",
+                    "\"external_queue_allowed\":{},",
+                    "\"external_object_store_allowed\":{},",
+                    "\"commands\":{},",
+                    "\"allowed_outcomes\":{},",
+                    "\"machine_readable_output\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.entrypoint_id),
+                json_escape(&record.runner_ref),
+                json_escape(&record.os_family),
+                json_escape(&record.arch),
+                record.ubuntu_24_04_equivalent,
+                record.repo_pinned_rust_toolchain,
+                record.loopback_networking,
+                record.cloud_credentials_allowed,
+                record.external_database_allowed,
+                record.external_queue_allowed,
+                record.external_object_store_allowed,
+                json_owned_string_array(&record.commands),
+                json_owned_string_array(&record.allowed_outcomes),
+                record.machine_readable_output,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_flake_evidence_records_json(records: &[LocalFlakeEvidenceRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"evidence_id\":\"{}\",",
+                    "\"trace_id\":\"{}\",",
+                    "\"repeated_run_count\":{},",
+                    "\"startup_timing_variance_ms\":{},",
+                    "\"nondeterministic_fixture_ids\":{},",
+                    "\"unstable_event_ordering\":{},",
+                    "\"retry_count\":{},",
+                    "\"health_timeout_class\":\"{}\",",
+                    "\"tolerance_window_used\":{},",
+                    "\"flake_detected\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"artifact_ref\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.evidence_id),
+                json_escape(&record.trace_id),
+                record.repeated_run_count,
+                record.startup_timing_variance_ms,
+                record.nondeterministic_fixture_ids,
+                record.unstable_event_ordering,
+                record.retry_count,
+                json_escape(&record.health_timeout_class),
+                record.tolerance_window_used,
+                record.flake_detected,
+                json_escape(&record.reason_code),
+                json_escape(&record.artifact_ref),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_artifact_retention_policies_json(
+    records: &[LocalArtifactRetentionPolicyRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"policy_id\":\"{}\",",
+                    "\"retention_class\":\"{}\",",
+                    "\"compact_success_summary\":{},",
+                    "\"retain_failure_bundle\":{},",
+                    "\"failure_retention_days\":{},",
+                    "\"prune_command_ref\":\"{}\",",
+                    "\"requires_test_state_marker\":{},",
+                    "\"deletes_unmarked_user_dirs\":{},",
+                    "\"deletes_production_like_state\":{},",
+                    "\"deletes_non_local_artifacts\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.policy_id),
+                json_escape(&record.retention_class),
+                record.compact_success_summary,
+                record.retain_failure_bundle,
+                record.failure_retention_days,
+                json_escape(&record.prune_command_ref),
+                record.requires_test_state_marker,
+                record.deletes_unmarked_user_dirs,
+                record.deletes_production_like_state,
+                record.deletes_non_local_artifacts,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn json_owned_string_array(values: &[String]) -> String {
     let rendered = values
         .iter()
@@ -6292,6 +6880,168 @@ mod tests {
         assert!(output
             .dependency_status_strs()
             .contains(&"simulator_expansion_rules_enforced"));
+    }
+
+    #[test]
+    fn phase9_redacted_log_exports_cover_local_surfaces_and_sensitive_material() {
+        let mut options = test_options();
+        options.trace_id = "trace_phase9_logs".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Logs);
+        assert!(output.is_ok());
+        let service_ids = output
+            .redacted_log_exports
+            .iter()
+            .map(|record| record.service_id.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "service:api",
+            "service:worker",
+            "service:embedded_state",
+            "service:overqueue_jobs",
+            "service:overstore_stub",
+            "service:event_audit",
+            "service:node_agent_simulator",
+        ] {
+            assert!(
+                service_ids.contains(expected),
+                "{expected} log export missing"
+            );
+        }
+        assert!(output.redacted_log_exports.iter().all(|record| {
+            record.redacts_secrets
+                && record.redacts_tokens
+                && record.redacts_signatures
+                && record.redacts_private_payloads
+                && record.redacts_encrypted_content
+                && record.export_blocked_until_secret_free
+                && record.scanner_passed
+                && record.local_only
+                && record.test_only
+        }));
+        assert!(output.artifact_refs.iter().any(|reference| {
+            reference == "log://local_stack/node_agent_simulator/trace_phase9_logs/redacted"
+        }));
+        assert!(output
+            .result_json()
+            .contains("\"diagnostics_phase_gate\":\"phase_9_diagnostics_artifacts_ci_flake\""));
+    }
+
+    #[test]
+    fn phase9_diagnostic_bundle_captures_reproduction_context_without_secrets() {
+        let mut options = test_options();
+        options.trace_id = "trace_phase9_bundle".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
+        assert!(output.is_ok());
+        let bundle = output
+            .diagnostic_artifact_bundles
+            .first()
+            .expect("phase 9 diagnostic bundle record exists");
+        assert_eq!(bundle.trace_id, "trace_phase9_bundle");
+        assert_eq!(
+            bundle.schema_version,
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION
+        );
+        assert_eq!(
+            bundle.fixture_version,
+            LOCAL_STACK_PHASE8_SMOKE_FIXTURE_VERSION
+        );
+        assert_eq!(bundle.retention_class, "failure_evidence");
+        assert!(!bundle.contains_raw_secret);
+        assert!(bundle.reproduction_command.contains("overrid dev smoke"));
+        assert!(!bundle.health_snapshot_refs.is_empty());
+        assert!(!bundle.local_event_refs.is_empty());
+        assert!(!bundle.queue_state_refs.is_empty());
+        assert!(!bundle.object_refs.is_empty());
+        assert!(output
+            .artifact_refs
+            .iter()
+            .any(|reference| reference == &bundle.bundle_ref));
+    }
+
+    #[test]
+    fn phase9_clean_checkout_ci_entrypoint_is_loopback_only_and_reproducible() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let entry = output
+            .clean_checkout_ci_entries
+            .first()
+            .expect("phase 9 CI entrypoint record exists");
+        assert_eq!(entry.runner_ref, LOCAL_STACK_PHASE9_CI_RUNNER_REF);
+        assert_eq!(entry.os_family, "linux");
+        assert_eq!(entry.arch, "x86_64");
+        assert!(entry.ubuntu_24_04_equivalent);
+        assert!(entry.repo_pinned_rust_toolchain);
+        assert!(entry.loopback_networking);
+        assert!(!entry.cloud_credentials_allowed);
+        assert!(!entry.external_database_allowed);
+        assert!(!entry.external_queue_allowed);
+        assert!(!entry.external_object_store_allowed);
+        for expected in [
+            "dev:start",
+            "dev:reset",
+            "dev:seed",
+            "dev:smoke",
+            "schema:check",
+            "layout:check",
+            "docs:check",
+            "harness:smoke",
+        ] {
+            assert!(entry.commands.iter().any(|command| command == expected));
+        }
+        for expected in ["success", "blocked", "failed"] {
+            assert!(entry
+                .allowed_outcomes
+                .iter()
+                .any(|outcome| outcome == expected));
+        }
+    }
+
+    #[test]
+    fn phase9_flake_evidence_records_repeat_variance_retries_and_timeout_classes() {
+        let mut options = test_options();
+        options.profile =
+            "local-nondeterministic-fixture-ids-unstable-event-ordering-health-timeout".to_owned();
+        options.trace_id = "trace_phase9_flake".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Status);
+        let evidence = output
+            .flake_evidence_records
+            .first()
+            .expect("phase 9 flake evidence record exists");
+        assert!(evidence.flake_detected);
+        assert!(evidence.nondeterministic_fixture_ids);
+        assert!(evidence.unstable_event_ordering);
+        assert_eq!(evidence.health_timeout_class, "required_service_timeout");
+        assert!(evidence.repeated_run_count >= 3);
+        assert!(evidence.startup_timing_variance_ms >= 1_000);
+        assert!(evidence.retry_count > 0);
+        assert_eq!(evidence.trace_id, "trace_phase9_flake");
+        assert!(output.error_json().contains("\"flake_evidence_records\""));
+    }
+
+    #[test]
+    fn phase9_retention_policy_prune_keeps_user_production_and_non_local_state_safe() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        assert!(output.artifact_retention_policies.len() >= 2);
+        assert!(output.artifact_retention_policies.iter().any(|policy| {
+            policy.retention_class == "success_summary" && policy.compact_success_summary
+        }));
+        assert!(output.artifact_retention_policies.iter().any(|policy| {
+            policy.retention_class == "failure_evidence"
+                && policy.retain_failure_bundle
+                && policy.failure_retention_days >= 30
+        }));
+        assert!(output.artifact_retention_policies.iter().all(|policy| {
+            policy.requires_test_state_marker
+                && !policy.deletes_unmarked_user_dirs
+                && !policy.deletes_production_like_state
+                && !policy.deletes_non_local_artifacts
+                && policy.local_only
+                && policy.test_only
+        }));
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"artifact_retention_policy_enforced"));
     }
 
     #[test]
