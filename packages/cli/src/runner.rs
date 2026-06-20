@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use overrid_contracts::{
     BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint,
@@ -240,7 +240,8 @@ fn idempotency_cache_command_result(
 }
 
 fn test_command_result(command: TestCommand, globals: &GlobalOptions) -> CliRunResult {
-    let repo_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let repo_root =
+        resolve_repo_root(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     let mut options = RunnerOptions::new(repo_root);
     options.profile = globals
         .profile
@@ -301,6 +302,24 @@ fn test_command_result(command: TestCommand, globals: &GlobalOptions) -> CliRunR
         exit_code: exit_class.code(),
         stdout,
         stderr: String::new(),
+    }
+}
+
+fn resolve_repo_root(start: impl AsRef<Path>) -> PathBuf {
+    let start = start.as_ref();
+    let mut cursor = start;
+    loop {
+        if cursor.join("Cargo.toml").is_file()
+            && cursor
+                .join("packages/schemas/overrid_contracts/fixtures/valid")
+                .is_dir()
+        {
+            return cursor.to_path_buf();
+        }
+        match cursor.parent() {
+            Some(parent) => cursor = parent,
+            None => return start.to_path_buf(),
+        }
     }
 }
 
@@ -1458,16 +1477,12 @@ fn render_error_decode_record_json(record: &ErrorDecodeRecord) -> String {
 }
 
 fn render_lifecycle_json(states: &[&str]) -> String {
-    let terminal_state = states
-        .iter()
-        .rev()
-        .copied()
-        .find(|state| {
-            matches!(
-                *state,
-                "completed" | "denied" | "failed" | "passed" | "blocked"
-            )
-        });
+    let terminal_state = states.iter().rev().copied().find(|state| {
+        matches!(
+            *state,
+            "completed" | "denied" | "failed" | "passed" | "blocked"
+        )
+    });
     format!(
         concat!("{{", "\"states\":{},", "\"terminal_state\":{}", "}}"),
         json_string_array(states),
@@ -3853,11 +3868,15 @@ mod tests {
         assert_eq!(result.exit_code, EXIT_SUCCESS);
         assert!(result.stdout.contains("\"command_name\":\"test list\""));
         assert!(result.stdout.contains("\"phase_filter\":0"));
-        assert!(result.stdout.contains("\"scenario_id\":\"scenario_phase0_smoke\""));
+        assert!(result
+            .stdout
+            .contains("\"scenario_id\":\"scenario_phase0_smoke\""));
         assert!(result
             .stdout
             .contains("\"scenario_id\":\"scenario_blocked_dependency\""));
-        assert!(result.stdout.contains("\"schema_version\":\"integration-harness.v0.1\""));
+        assert!(result
+            .stdout
+            .contains("\"schema_version\":\"integration-harness.v0.1\""));
     }
 
     #[test]
@@ -3892,13 +3911,7 @@ mod tests {
 
     #[test]
     fn test_artifacts_lookup_succeeds_with_stable_ref() {
-        let result = run_args([
-            "overrid",
-            "test",
-            "artifacts",
-            "run_phase0_smoke",
-            "--json",
-        ]);
+        let result = run_args(["overrid", "test", "artifacts", "run_phase0_smoke", "--json"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
         assert!(result
             .stdout

@@ -1128,7 +1128,9 @@ mod tests {
     #[test]
     fn maps_integration_harness_test_commands() {
         assert_eq!(
-            parse_cli(["overrid", "test", "integration"]).unwrap().command,
+            parse_cli(["overrid", "test", "integration"])
+                .unwrap()
+                .command,
             Command::Test(TestCommand::Integration)
         );
         assert_eq!(

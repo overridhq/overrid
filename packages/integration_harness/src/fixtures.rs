@@ -86,6 +86,9 @@ mod tests {
             fixture_id_from_ref("fixture:phase0_smoke"),
             "fixture_phase0_smoke"
         );
-        assert_eq!(fixture_id_from_ref("fixture_phase0_smoke"), "fixture_phase0_smoke");
+        assert_eq!(
+            fixture_id_from_ref("fixture_phase0_smoke"),
+            "fixture_phase0_smoke"
+        );
     }
 }

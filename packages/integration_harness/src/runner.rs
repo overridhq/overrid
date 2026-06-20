@@ -120,55 +120,55 @@ fn can_transition(from: HarnessLifecycleState, to: HarnessLifecycleState) -> boo
 
     matches!(
         (from, to),
-        (HarnessLifecycleState::Planned, HarnessLifecycleState::StackStarting)
-            | (HarnessLifecycleState::Planned, HarnessLifecycleState::Resetting)
-            | (HarnessLifecycleState::Planned, HarnessLifecycleState::CollectingArtifacts)
-            | (
-                HarnessLifecycleState::StackStarting,
-                HarnessLifecycleState::StackReady
-            )
-            | (
-                HarnessLifecycleState::StackStarting,
-                HarnessLifecycleState::CollectingArtifacts
-            )
-            | (
-                HarnessLifecycleState::StackReady,
-                HarnessLifecycleState::Resetting
-            )
-            | (
-                HarnessLifecycleState::Resetting,
-                HarnessLifecycleState::Seeding
-            )
-            | (
-                HarnessLifecycleState::Resetting,
-                HarnessLifecycleState::CollectingArtifacts
-            )
-            | (HarnessLifecycleState::Seeding, HarnessLifecycleState::Running)
-            | (
-                HarnessLifecycleState::Seeding,
-                HarnessLifecycleState::CollectingArtifacts
-            )
-            | (HarnessLifecycleState::Running, HarnessLifecycleState::Asserting)
-            | (
-                HarnessLifecycleState::Running,
-                HarnessLifecycleState::CollectingArtifacts
-            )
-            | (
-                HarnessLifecycleState::Asserting,
-                HarnessLifecycleState::CollectingArtifacts
-            )
-            | (
-                HarnessLifecycleState::CollectingArtifacts,
-                HarnessLifecycleState::Passed
-            )
-            | (
-                HarnessLifecycleState::CollectingArtifacts,
-                HarnessLifecycleState::Failed
-            )
-            | (
-                HarnessLifecycleState::CollectingArtifacts,
-                HarnessLifecycleState::Blocked
-            )
+        (
+            HarnessLifecycleState::Planned,
+            HarnessLifecycleState::StackStarting
+        ) | (
+            HarnessLifecycleState::Planned,
+            HarnessLifecycleState::Resetting
+        ) | (
+            HarnessLifecycleState::Planned,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::StackStarting,
+            HarnessLifecycleState::StackReady
+        ) | (
+            HarnessLifecycleState::StackStarting,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::StackReady,
+            HarnessLifecycleState::Resetting
+        ) | (
+            HarnessLifecycleState::Resetting,
+            HarnessLifecycleState::Seeding
+        ) | (
+            HarnessLifecycleState::Resetting,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::Seeding,
+            HarnessLifecycleState::Running
+        ) | (
+            HarnessLifecycleState::Seeding,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::Running,
+            HarnessLifecycleState::Asserting
+        ) | (
+            HarnessLifecycleState::Running,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::Asserting,
+            HarnessLifecycleState::CollectingArtifacts
+        ) | (
+            HarnessLifecycleState::CollectingArtifacts,
+            HarnessLifecycleState::Passed
+        ) | (
+            HarnessLifecycleState::CollectingArtifacts,
+            HarnessLifecycleState::Failed
+        ) | (
+            HarnessLifecycleState::CollectingArtifacts,
+            HarnessLifecycleState::Blocked
+        )
     )
 }
 
@@ -195,8 +195,10 @@ impl HarnessRunContext {
         let short = stable_short_token(&[&scenario_id, &fixture_seed]);
         let run_id = format!("run_{scenario_token}_{short}");
         let trace_root = format!("trace_{scenario_token}_{short}");
-        let workspace_fingerprint =
-            format!("workspace_{}", stable_short_token(&["overrid", &fixture_seed]));
+        let workspace_fingerprint = format!(
+            "workspace_{}",
+            stable_short_token(&["overrid", &fixture_seed])
+        );
         let artifact_dir = artifact_root
             .as_ref()
             .join(&run_id)
@@ -301,7 +303,10 @@ pub struct HarnessCliOutput {
 
 impl HarnessCliOutput {
     pub fn is_ok(&self) -> bool {
-        !matches!(self.status, HarnessRunStatus::Failed | HarnessRunStatus::Blocked)
+        !matches!(
+            self.status,
+            HarnessRunStatus::Failed | HarnessRunStatus::Blocked
+        )
     }
 
     pub fn lifecycle_strs(&self) -> Vec<&'static str> {
@@ -309,10 +314,7 @@ impl HarnessCliOutput {
     }
 
     pub fn dependency_status_strs(&self) -> Vec<&str> {
-        self.dependency_status
-            .iter()
-            .map(String::as_str)
-            .collect()
+        self.dependency_status.iter().map(String::as_str).collect()
     }
 
     pub fn result_json(&self) -> String {
@@ -419,7 +421,8 @@ impl HarnessRunner {
     fn list_scenarios(&self) -> HarnessCliOutput {
         match self.load_catalog() {
             Ok(catalog) => {
-                let scenarios = scenario_items(catalog.scenarios_for_phase(self.options.requested_phase));
+                let scenarios =
+                    scenario_items(catalog.scenarios_for_phase(self.options.requested_phase));
                 HarnessCliOutput {
                     command_name: "test list".to_owned(),
                     status: HarnessRunStatus::Planned,
@@ -622,7 +625,11 @@ impl HarnessRunner {
         }
     }
 
-    fn manifest_blocked_output(&self, command_name: &str, error: ManifestLoadError) -> HarnessCliOutput {
+    fn manifest_blocked_output(
+        &self,
+        command_name: &str,
+        error: ManifestLoadError,
+    ) -> HarnessCliOutput {
         let (reason_code, reason_class) = match error {
             ManifestLoadError::IncompatibleVersion { .. } => {
                 ("dependency.schema_incompatible", "dependency")
@@ -873,9 +880,7 @@ mod tests {
         let output = HarnessRunner::new(options).run(HarnessCliCommand::List);
         assert_eq!(output.status, HarnessRunStatus::Planned);
         assert_eq!(output.scenarios.len(), 2);
-        assert!(output
-            .result_json()
-            .contains("\"phase_filter\":0"));
+        assert!(output.result_json().contains("\"phase_filter\":0"));
     }
 
     #[test]
@@ -885,9 +890,7 @@ mod tests {
         });
         assert_eq!(output.status, HarnessRunStatus::Blocked);
         assert_eq!(output.reason_code, "dependency.service_unavailable");
-        assert!(output
-            .result_json()
-            .contains("\"status\":\"blocked\""));
+        assert!(output.result_json().contains("\"status\":\"blocked\""));
     }
 
     #[test]
@@ -897,6 +900,8 @@ mod tests {
         });
         assert_eq!(output.status, HarnessRunStatus::Passed);
         assert_eq!(output.reason_code, "artifact.lookup_ready");
-        assert!(output.result_json().contains("artifact:bundle:run_phase0_smoke"));
+        assert!(output
+            .result_json()
+            .contains("artifact:bundle:run_phase0_smoke"));
     }
 }

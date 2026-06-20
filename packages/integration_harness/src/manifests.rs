@@ -216,11 +216,12 @@ fn validate_manifest_document(
 
     reject_unsafe_fields(path, text)?;
 
-    let schema_version =
-        extract_string_field(text, "schema_version").ok_or_else(|| ManifestLoadError::MissingField {
+    let schema_version = extract_string_field(text, "schema_version").ok_or_else(|| {
+        ManifestLoadError::MissingField {
             path: path.to_owned(),
             field: "schema_version",
-        })?;
+        }
+    })?;
     if schema_version != SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION {
         return Err(ManifestLoadError::IncompatibleVersion {
             path: path.to_owned(),
@@ -228,16 +229,18 @@ fn validate_manifest_document(
         });
     }
 
-    let fixture_id =
-        extract_string_field(text, "fixture_id").ok_or_else(|| ManifestLoadError::MissingField {
+    let fixture_id = extract_string_field(text, "fixture_id").ok_or_else(|| {
+        ManifestLoadError::MissingField {
             path: path.to_owned(),
             field: "fixture_id",
-        })?;
-    let tenant_ref =
-        extract_string_field(text, "tenant_ref").ok_or_else(|| ManifestLoadError::MissingField {
+        }
+    })?;
+    let tenant_ref = extract_string_field(text, "tenant_ref").ok_or_else(|| {
+        ManifestLoadError::MissingField {
             path: path.to_owned(),
             field: "tenant_ref",
-        })?;
+        }
+    })?;
     let actor_ref =
         extract_string_field(text, "actor_ref").ok_or_else(|| ManifestLoadError::MissingField {
             path: path.to_owned(),
@@ -544,7 +547,10 @@ mod tests {
         let error =
             HarnessManifestLoader::load_catalog_from_documents(&[("bad_version.json", &invalid)])
                 .unwrap_err();
-        assert!(matches!(error, ManifestLoadError::IncompatibleVersion { .. }));
+        assert!(matches!(
+            error,
+            ManifestLoadError::IncompatibleVersion { .. }
+        ));
     }
 
     #[test]
@@ -562,17 +568,21 @@ mod tests {
     #[test]
     fn rejects_missing_fixture_refs() {
         let invalid = VALID.replace("fixture:phase0_smoke", "fixture:missing");
-        let error =
-            HarnessManifestLoader::load_catalog_from_documents(&[("missing_fixture.json", &invalid)])
-                .unwrap_err();
+        let error = HarnessManifestLoader::load_catalog_from_documents(&[(
+            "missing_fixture.json",
+            &invalid,
+        )])
+        .unwrap_err();
         assert!(matches!(error, ManifestLoadError::MissingFixture { .. }));
     }
 
     #[test]
     fn rejects_duplicate_scenario_ids() {
-        let error =
-            HarnessManifestLoader::load_catalog_from_documents(&[("a.json", VALID), ("b.json", VALID)])
-                .unwrap_err();
+        let error = HarnessManifestLoader::load_catalog_from_documents(&[
+            ("a.json", VALID),
+            ("b.json", VALID),
+        ])
+        .unwrap_err();
         assert!(matches!(
             error,
             ManifestLoadError::DuplicateScenarioId { .. }

@@ -7,12 +7,20 @@ name = "overrid-cli"
 version = "0.1.0"
 dependencies = [
  "overrid-contracts",
+ "overrid-integration-harness",
  "overrid-sdk",
 ]
 
 [[package]]
 name = "overrid-contracts"
 version = "0.1.0"
+
+[[package]]
+name = "overrid-integration-harness"
+version = "0.1.0"
+dependencies = [
+ "overrid-contracts",
+]
 
 [[package]]
 name = "overrid-sdk"

@@ -2401,10 +2401,9 @@ impl GoldenTrace {
         }
 
         for (from, to) in &self.forbidden_transitions {
-            if observed_nodes
-                .windows(2)
-                .any(|window| window[0].as_str() == from.as_str() && window[1].as_str() == to.as_str())
-            {
+            if observed_nodes.windows(2).any(|window| {
+                window[0].as_str() == from.as_str() && window[1].as_str() == to.as_str()
+            }) {
                 return Err(HarnessContractError::GoldenTraceForbiddenTransition);
             }
         }
