@@ -1,0 +1,237 @@
+{
+  "schema_version": "operator-accounting-usage.v0.1",
+  "routes": [
+    "/admin/usage",
+    "/admin/ledger",
+    "/admin/receipts",
+    "/admin/capabilities"
+  ],
+  "read_only": true,
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_overwatch_connection": false,
+  "direct_ledger_mutation": false,
+  "no_pricing_assumptions": true,
+  "blockchain_ownership_model": false,
+  "nft_ownership_model": false,
+  "required_usage_dimensions": [
+    "CPU-ORU",
+    "GPU-ORU",
+    "STOR-ORU",
+    "NET-ORU",
+    "MEM-ORU",
+    "DATA-ORU"
+  ],
+  "required_usage_groupings": [
+    "tenant",
+    "actor",
+    "workload",
+    "app",
+    "provider",
+    "resource_class",
+    "time_window",
+    "trace_id"
+  ],
+  "required_ledger_states": [
+    "available",
+    "reserved",
+    "held",
+    "spent",
+    "earned",
+    "sponsored",
+    "refunded_corrected",
+    "expired_revoked",
+    "disputed"
+  ],
+  "usage_rollups": [
+    {
+      "rollup_ref": "usage:cpu_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_cpu",
+      "dimension": "CPU-ORU",
+      "groupings": ["tenant", "actor", "workload", "app", "provider", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:cpu_observed"],
+      "settled_accounting_refs": ["ledger:cpu_settled"],
+      "settlement_state": "settled",
+      "timeline_refs": ["trace:usage_cpu"],
+      "reason_codes": ["usage.dimension.cpu_oru", "usage.by_tenant", "usage.by_actor"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:cpu_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:cpu_observed", "source_service": "overmeter" },
+        { "kind": "settled_accounting", "ref": "ledger:cpu_settled", "source_service": "seal_ledger" },
+        { "kind": "audit", "ref": "audit:usage_cpu", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "rollup_ref": "usage:gpu_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_gpu",
+      "dimension": "GPU-ORU",
+      "groupings": ["tenant", "provider", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:gpu_observed"],
+      "settled_accounting_refs": ["ledger:gpu_hold"],
+      "settlement_state": "held",
+      "timeline_refs": ["trace:usage_gpu"],
+      "reason_codes": ["usage.dimension.gpu_oru", "usage.settlement_hold"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:gpu_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:gpu_observed", "source_service": "overmeter" },
+        { "kind": "settled_accounting", "ref": "ledger:gpu_hold", "source_service": "seal_ledger" },
+        { "kind": "audit", "ref": "audit:usage_gpu", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "rollup_ref": "usage:stor_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_stor",
+      "dimension": "STOR-ORU",
+      "groupings": ["tenant", "app", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:stor_observed"],
+      "settled_accounting_refs": ["ledger:stor_settled"],
+      "settlement_state": "settled",
+      "timeline_refs": ["trace:usage_stor"],
+      "reason_codes": ["usage.dimension.stor_oru", "usage.by_app"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:stor_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:stor_observed", "source_service": "overmeter" },
+        { "kind": "settled_accounting", "ref": "ledger:stor_settled", "source_service": "seal_ledger" },
+        { "kind": "audit", "ref": "audit:usage_stor", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "rollup_ref": "usage:net_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_net",
+      "dimension": "NET-ORU",
+      "groupings": ["tenant", "provider", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:net_observed"],
+      "settled_accounting_refs": ["ledger:net_settled"],
+      "settlement_state": "settled",
+      "timeline_refs": ["trace:usage_net"],
+      "reason_codes": ["usage.dimension.net_oru", "usage.by_provider"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:net_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:net_observed", "source_service": "overmeter" },
+        { "kind": "settled_accounting", "ref": "ledger:net_settled", "source_service": "seal_ledger" },
+        { "kind": "audit", "ref": "audit:usage_net", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "rollup_ref": "usage:mem_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_mem",
+      "dimension": "MEM-ORU",
+      "groupings": ["tenant", "workload", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:mem_observed"],
+      "settled_accounting_refs": [],
+      "settlement_state": "observed_only",
+      "timeline_refs": ["trace:usage_mem"],
+      "reason_codes": ["usage.dimension.mem_oru", "usage.observed_not_settled"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:mem_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:mem_observed", "source_service": "overmeter" },
+        { "kind": "audit", "ref": "audit:usage_mem", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "rollup_ref": "usage:data_seed_rollup",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_usage_data",
+      "dimension": "DATA-ORU",
+      "groupings": ["tenant", "actor", "app", "resource_class", "time_window", "trace_id"],
+      "observed_usage_refs": ["overmeter:data_observed"],
+      "settled_accounting_refs": ["ledger:data_disputed"],
+      "settlement_state": "disputed",
+      "timeline_refs": ["trace:usage_data"],
+      "reason_codes": ["usage.dimension.data_oru", "usage.disputed"],
+      "evidence_links": [
+        { "kind": "usage_rollup", "ref": "usage:data_seed_rollup", "source_service": "overmeter" },
+        { "kind": "observed_usage", "ref": "overmeter:data_observed", "source_service": "overmeter" },
+        { "kind": "settled_accounting", "ref": "ledger:data_disputed", "source_service": "seal_ledger" },
+        { "kind": "audit", "ref": "audit:usage_data", "source_service": "overwatch" }
+      ]
+    }
+  ],
+  "ledger_entries": [
+    { "state": "available", "account_ref": "oru:available_seed", "ledger_refs": ["ledger:available_seed"], "immutable_ledger_refs": ["ledger:available_seed"], "editable_by_ui": false },
+    { "state": "reserved", "account_ref": "oru:reserved_seed", "ledger_refs": ["ledger:reserved_seed"], "immutable_ledger_refs": ["ledger:reserved_seed"], "editable_by_ui": false },
+    { "state": "held", "account_ref": "oru:held_seed", "ledger_refs": ["ledger:held_seed"], "immutable_ledger_refs": ["ledger:held_seed"], "editable_by_ui": false },
+    { "state": "spent", "account_ref": "oru:spent_seed", "ledger_refs": ["ledger:spent_seed"], "immutable_ledger_refs": ["ledger:spent_seed"], "editable_by_ui": false },
+    { "state": "earned", "account_ref": "oru:earned_seed", "ledger_refs": ["ledger:earned_seed"], "immutable_ledger_refs": ["ledger:earned_seed"], "editable_by_ui": false },
+    { "state": "sponsored", "account_ref": "oru:sponsored_seed", "ledger_refs": ["ledger:sponsored_seed"], "immutable_ledger_refs": ["ledger:sponsored_seed"], "editable_by_ui": false },
+    { "state": "refunded_corrected", "account_ref": "oru:refunded_seed", "ledger_refs": ["ledger:refunded_seed", "correction:ledger_refund"], "immutable_ledger_refs": ["ledger:refunded_seed"], "editable_by_ui": false },
+    { "state": "expired_revoked", "account_ref": "oru:expired_seed", "ledger_refs": ["ledger:expired_seed"], "immutable_ledger_refs": ["ledger:expired_seed"], "editable_by_ui": false },
+    { "state": "disputed", "account_ref": "oru:disputed_seed", "ledger_refs": ["ledger:disputed_seed", "settlement:dispute_hold"], "immutable_ledger_refs": ["ledger:disputed_seed"], "editable_by_ui": false }
+  ],
+  "billing_documents": [
+    {
+      "state": "receipt_recorded",
+      "document_ref": "receipt:workload_cpu",
+      "receipt_refs": ["receipt:workload_cpu"],
+      "invoice_refs": [],
+      "payment_provider_refs": [],
+      "refund_refs": [],
+      "correction_refs": [],
+      "payout_hold_refs": [],
+      "encodes_pricing_assumption": false
+    },
+    {
+      "state": "invoice_open",
+      "document_ref": "invoice:tenant_seed_open",
+      "receipt_refs": ["receipt:invoice_open_supporting"],
+      "invoice_refs": ["invoice:tenant_seed_open"],
+      "payment_provider_refs": ["payment_provider:processor_ref_redacted"],
+      "refund_refs": [],
+      "correction_refs": [],
+      "payout_hold_refs": [],
+      "encodes_pricing_assumption": false
+    },
+    {
+      "state": "refund_visible",
+      "document_ref": "receipt:refund_case",
+      "receipt_refs": ["receipt:refund_case"],
+      "invoice_refs": ["invoice:refund_case"],
+      "payment_provider_refs": ["payment_provider:processor_ref_redacted"],
+      "refund_refs": ["refund:usage_partial"],
+      "correction_refs": ["correction:usage_partial"],
+      "payout_hold_refs": ["payout_hold:provider_review"],
+      "encodes_pricing_assumption": false
+    }
+  ],
+  "grant_cases": [
+    {
+      "grant_ref": "grant:public_interest_seed",
+      "state": "sponsored",
+      "grant_scope_refs": ["grant:public_interest_seed"],
+      "sponsored_allocation_refs": ["ledger:grant_sponsored_allocation"],
+      "purpose_scope_refs": ["purpose:public_interest_research"],
+      "expiration_refs": ["time_window:grant_2026_q3"],
+      "correction_refs": ["correction:grant_scope_adjusted"],
+      "read_only": true
+    }
+  ],
+  "rights_cases": [
+    {
+      "asset_ref": "asset:dataset_seed",
+      "state": "purpose_scoped",
+      "resource_rights_refs": ["rights:dataset_seed_use"],
+      "storage_binding_refs": ["storage:overstore_dataset_seed"],
+      "namespace_binding_refs": ["namespace:dataset_seed"],
+      "route_binding_refs": ["route:dataset_seed_public_ref"],
+      "entitlement_refs": ["entitlement:tenant_seed_dataset_use"],
+      "expiration_refs": ["time_window:dataset_access_q3"],
+      "correction_refs": ["correction:rights_scope_adjusted"],
+      "blockchain_ownership_model": false,
+      "nft_ownership_model": false
+    }
+  ],
+  "accounting_access_matrix": [
+    { "role": "platform_owner", "allowed_panels": ["usage", "ledger", "billing", "grants", "rights", "access"], "cross_tenant_access": true, "redacted_fields": [] },
+    { "role": "tenant_owner", "allowed_panels": ["usage", "ledger", "billing", "grants", "rights", "access"], "cross_tenant_access": false, "redacted_fields": [] },
+    { "role": "tenant_admin", "allowed_panels": ["usage", "ledger", "rights"], "cross_tenant_access": false, "redacted_fields": ["payment_provider_refs"] },
+    { "role": "support_viewer", "allowed_panels": ["usage"], "cross_tenant_access": false, "redacted_fields": ["payment_provider_refs", "payout_hold_refs", "tenant_private_refs"] },
+    { "role": "product_integrator", "allowed_panels": ["usage", "rights"], "cross_tenant_access": false, "redacted_fields": ["payment_provider_refs", "payout_hold_refs", "tenant_private_refs"] },
+    { "role": "incident_responder", "allowed_panels": ["usage", "rights"], "cross_tenant_access": false, "redacted_fields": ["payment_provider_refs", "payout_hold_refs", "tenant_private_refs"] },
+    { "role": "accounting_viewer", "allowed_panels": ["usage", "ledger", "billing", "grants", "rights"], "cross_tenant_access": false, "redacted_fields": [] }
+  ]
+}

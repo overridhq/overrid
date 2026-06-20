@@ -1,0 +1,22 @@
+{
+  "schema_version": "operator-admin-actions.v0.1",
+  "uses_overgate_only": false,
+  "direct_storage_access": true,
+  "direct_service_access": true,
+  "generated_contracts_projection_only": false,
+  "action_route": "/admin/actions/break-glass",
+  "action_method": "POST",
+  "enabled_actions": [
+    "break_glass_activation",
+    "ledger_correction_execution",
+    "provider_payout_override",
+    "direct_data_repair"
+  ],
+  "disabled_high_risk_actions": [],
+  "security_review": {
+    "route_feature_flag_blocked": false,
+    "direct_component_invocation_blocked": false,
+    "denylist_enforced": false,
+    "incident_annotation_contract_missing": false
+  }
+}

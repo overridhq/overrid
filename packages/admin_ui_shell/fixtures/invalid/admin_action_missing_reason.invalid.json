@@ -1,0 +1,42 @@
+{
+  "schema_version": "operator-admin-actions.v0.1",
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_service_access": false,
+  "generated_contracts_projection_only": true,
+  "action_route": "/admin/actions",
+  "action_method": "POST",
+  "capability_flags": [
+    "admin.actions.submit"
+  ],
+  "drafts": [
+    {
+      "action_type": "cancel_workload",
+      "target": {
+        "target_id": "workload:phase9_invalid_reason",
+        "target_kind": "workload",
+        "owning_service": "overqueue"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "",
+      "expected_current_state": "",
+      "observed_current_state": "queued",
+      "trace_id": "trace_phase9_invalid_reason",
+      "command_id": "command:phase9_invalid_reason",
+      "idempotency_key": "idem_phase9_invalid_reason",
+      "signature_refs": [
+        "signature:phase9_invalid_reason"
+      ],
+      "policy_refs": [],
+      "audit_refs": [],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    }
+  ]
+}

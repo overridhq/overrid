@@ -1,0 +1,16 @@
+{
+  "schema_version": "operator-accounting-usage.v0.1",
+  "read_only": true,
+  "uses_overgate_only": true,
+  "no_pricing_assumptions": false,
+  "billing_documents": [
+    {
+      "document_ref": "invoice:bad_projection",
+      "state": "invoice_open",
+      "price_per_oru": "0.02",
+      "customer_count": "100000",
+      "market_volume": "global projection",
+      "revenue_projection": "speculative"
+    }
+  ]
+}

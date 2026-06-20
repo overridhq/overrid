@@ -34,5 +34,195 @@
       },
       "validator": "scripts/validate_admin_ui_phase3.py"
     }
+  ],
+  "phase_artifacts": [
+    {
+      "phase": "admin_ui_phase4",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/contracts.ts",
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/overgate_client.ts",
+        "packages/admin_ui_shell/src/session_context.ts",
+        "packages/admin_ui_shell/src/operator_shell.ts",
+        "packages/admin_ui_shell/src/redaction_primitives.ts",
+        "packages/admin_ui_shell/src/view_presets.ts"
+      ],
+      "fixtures": {
+        "valid": "packages/admin_ui_shell/fixtures/valid",
+        "invalid": "packages/admin_ui_shell/fixtures/invalid"
+      },
+      "validator": "scripts/validate_admin_ui_phase4.py",
+      "guardrails": [
+        "The shell is a TypeScript client surface only; Overgate-admin contracts remain the API boundary.",
+        "Generated TypeScript declarations are consumed as projections and must not become contract authority.",
+        "Local view presets are scoped by actor, tenant, and view id and must not store secrets, credentials, private payloads, prompts, or private file paths.",
+        "The shell must not call core services, storage engines, queues, ledgers, vaults, private RAG data, or node agents directly."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase5",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/operator_shell.ts",
+        "packages/admin_ui_shell/src/overgate_client.ts",
+        "packages/admin_ui_shell/src/operational_summary_panels.ts",
+        "packages/admin_ui_shell/src/index.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/operational_summary_panels.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/operational_summary_cross_tenant.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/operational_summary_key_material.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/operational_summary_unbounded_query.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase5.py",
+      "guardrails": [
+        "Phase 5 panels are read-only summaries backed by Overgate-admin list APIs.",
+        "Tenant, identity, and key panels must be tenant-scoped and must not expose key material.",
+        "Panel metadata must name the Phase 5 detail fields needed for tenant roles, identity service/system status, key rotation/revocation, node capability and readiness, package refs, workload state, and queue state.",
+        "Dependency health can disable only panels that depend on the unavailable service.",
+        "Query controllers must clamp limits, bound filters, use manual refresh, and show stale-age state instead of unbounded polling."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase6",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/workload_timeline.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/workload_timeline_phase6.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/workload_timeline_direct_overwatch.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/workload_timeline_missing_gap_reason.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/workload_timeline_private_payload.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase6.py",
+      "guardrails": [
+        "Phase 6 timeline helpers are read-only detail views backed by Overgate-admin timeline responses.",
+        "Timeline gaps must name owning service, retry class, stale age, diagnostic reason, and stable refs instead of hiding partial data.",
+        "Policy, usage, accounting, and dispute overlays must cite immutable refs and Overwatch audit refs without private payloads.",
+        "Diagnostic bundles must include only trace ids, command refs, reason codes, schema versions, dependency status, audit refs, and safe refs.",
+        "Follow mode must use Overgate-filtered event streams or bounded polling and must not connect directly to Overwatch or service event stores."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase7",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/policy_evidence_views.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/policy_evidence_phase7.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/policy_evidence_private_payload.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/policy_evidence_missing_ref.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/policy_evidence_break_glass_enabled.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase7.py",
+      "guardrails": [
+        "Phase 7 evidence helpers are read-only views backed by Overgate-admin policy, verification, dispute, incident, and capability read models.",
+        "Policy evidence must cite policy versions, matched rules, input fact refs, placement classes, correction options, and Overwatch audit refs.",
+        "Verification evidence must cite provider verification, challenge, benchmark, trust-class, stale-state, and redaction refs without private challenge payloads.",
+        "Dispute and correction views may show settlement holds and correction/refund refs but must not mutate ledger state.",
+        "Incident readiness must keep break-glass execution disabled until dedicated signed command, Overkey expiry, Overguard policy, and Overwatch receipt contracts exist.",
+        "Evidence cards must use stable trace, audit, policy, owning-service, or service refs and reject private payloads, mutable refs, and missing refs."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase8",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/accounting_usage_views.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/accounting_usage_phase8.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/accounting_private_payload.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/accounting_pricing_assumption.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/accounting_mutation_blockchain.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase8.py",
+      "guardrails": [
+        "Phase 8 accounting helpers are read-only views backed by Overgate-admin usage, ledger, receipt, capability, grant, and rights read models.",
+        "Usage rollups must distinguish observed Overmeter usage from settled accounting and cover CPU-ORU, GPU-ORU, STOR-ORU, NET-ORU, MEM-ORU, and DATA-ORU dimensions.",
+        "ORU and Seal Ledger views must cite immutable ledger refs and keep direct ledger mutation disabled.",
+        "Overbill receipt and invoice views may show receipt, invoice, refund, correction, payment-provider, and payout-hold refs but must not encode pricing, customer-count, revenue, or market-volume assumptions.",
+        "Overgrant and Overasset visibility must show purpose scopes, sponsored allocations, rights refs, storage bindings, namespace bindings, route bindings, and entitlement refs without blockchain or NFT ownership framing.",
+        "Accounting role access must cover platform owner, tenant owner, tenant admin, support viewer, product integrator, incident responder, and accounting viewer states without leaking unrelated tenant, private payload, or secret-bearing records."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase9",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/admin_actions.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/admin_actions_phase9.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/admin_action_missing_reason.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/admin_action_unsigned_malformed.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/admin_action_high_risk_reachable.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/admin_action_tenant_mismatch.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase9.py",
+      "guardrails": [
+        "Phase 9 action helpers consume generated AdminActionRequest and AdminActionReceipt projections without making TypeScript the source of truth.",
+        "Supported signed actions are limited to cancel workload, retry workload, pause node, drain node, annotate dispute, request credential rotation, and acknowledge receipt.",
+        "Action drafts require target, reason, expected current state, trace id, idempotency key, policy refs, audit refs, visible active tenant, matching target tenant, fresh state, and admin.actions.submit capability before signing.",
+        "Local signing handoff blocks unsigned or malformed signatures before building the Overgate POST /admin/actions submission envelope.",
+        "Receipt panels must show Overgate outcome, owning-service state-change signal, affected refs, reason codes, retry class, timeline insertion data, and Overwatch audit refs.",
+        "Stale-state protection must invalidate changed target state and block silent retries for operator-review or high-risk actions.",
+        "Backbone maintenance, forced rollback, break-glass activation, ledger correction execution, provider payout override, direct data repair, raw key recovery, and incident annotation remain disabled until owning Phase 7 or Phase 13 contracts exist."
+      ]
+    },
+    {
+      "phase": "admin_ui_phase10",
+      "package": "packages/admin_ui_shell",
+      "source_files": [
+        "packages/admin_ui_shell/src/index.ts",
+        "packages/admin_ui_shell/src/phase10_reliability.ts"
+      ],
+      "fixtures": {
+        "valid": [
+          "packages/admin_ui_shell/fixtures/valid/phase10_reliability.valid.json"
+        ],
+        "invalid": [
+          "packages/admin_ui_shell/fixtures/invalid/phase10_security_leak.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/phase10_missing_reliability_case.invalid.json",
+          "packages/admin_ui_shell/fixtures/invalid/phase10_handoff_high_risk_enabled.invalid.json"
+        ]
+      },
+      "validator": "scripts/validate_admin_ui_phase10.py",
+      "guardrails": [
+        "Phase 10 reliability helpers are client-surface validation artifacts backed by Overgate-admin read models and generated TypeScript projections only.",
+        "Product reliability coverage must include Docdex, Mcoda, Codali, SDK, and CLI, plus successful, retryable failure, final failure, cancellation, timeout, policy denial, budget exhaustion, node disconnect, and disputed usage outcomes.",
+        "Security probes must prove cross-tenant access, role limits, redaction profiles, encrypted Docdex/RAG metadata, secret-bearing fields, key metadata, diagnostic bundles, raw prompts, decrypted snippets, file paths, query text, credentials, private payloads, and unredacted result contents do not render.",
+        "Accessibility evidence must cover keyboard navigation, focus order, screen-reader labels, long reason-code wrapping, stable table dimensions, loading states, empty states, and responsive behavior.",
+        "Contract checks must keep generated bindings, schema compatibility, Overgate admin routes, read-only mode, action submission, idempotency, stale-state blocking, and timeline assembly tied to Overgate routes without privileged backdoors.",
+        "Phase 7 and Phase 13 handoff surfaces remain disabled or readiness-only for system-service operations, incident readiness, break-glass execution, governance reporting, and compliance views."
+      ]
+    }
   ]
 }

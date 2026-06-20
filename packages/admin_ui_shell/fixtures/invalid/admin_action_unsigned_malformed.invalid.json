@@ -1,0 +1,65 @@
+{
+  "schema_version": "operator-admin-actions.v0.1",
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_service_access": false,
+  "generated_contracts_projection_only": true,
+  "action_route": "/admin/actions",
+  "action_method": "POST",
+  "capability_flags": [
+    "admin.actions.submit"
+  ],
+  "drafts": [
+    {
+      "action_type": "retry_workload",
+      "target": {
+        "target_id": "workload:phase9_unsigned",
+        "target_kind": "workload",
+        "owning_service": "overqueue"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Retry requested after a retryable failure.",
+      "expected_current_state": "retryable",
+      "observed_current_state": "retryable",
+      "trace_id": "trace_phase9_unsigned",
+      "command_id": "command:phase9_unsigned",
+      "idempotency_key": "idem_phase9_unsigned",
+      "signature_refs": [],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_unsigned_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_unsigned_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_unsigned"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    }
+  ],
+  "signing_handoff": {
+    "provider_ref": "signing_provider:overkey_local",
+    "signing_flow_ref": "signing_flow:admin_actions_v0",
+    "approved": true,
+    "signature_refs": [
+      "signature"
+    ],
+    "idempotency_key": "idem_phase9_unsigned",
+    "submit_to_overgate": true,
+    "unsigned_blocked": false,
+    "malformed_signature_blocked": false,
+    "malformed_signature": true
+  }
+}

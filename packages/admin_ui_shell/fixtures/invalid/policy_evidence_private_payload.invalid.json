@@ -1,0 +1,11 @@
+{
+  "schema_version": "operator-policy-evidence.v0.1",
+  "evidence_link_cases": [
+    {
+      "name": "private_payload_ref",
+      "refs": ["evidence:private_payload_dump", "audit:policy_egress"],
+      "expected_ok": false
+    }
+  ],
+  "diagnostic_text": "private_payload"
+}

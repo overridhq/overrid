@@ -1,0 +1,12 @@
+[package]
+name = "overrid-contracts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rust projection of initial Overrid CLI contract shapes."
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

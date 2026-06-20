@@ -1,0 +1,30 @@
+{
+  "schema_version": "operator-phase10-validation.v0.1",
+  "product_cases": [
+    {
+      "product": "docdex",
+      "outcome": "successful",
+      "workload_id": "workload:phase10_incomplete",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_incomplete",
+      "audit_refs": [],
+      "usage_refs": [
+        "usage:phase10_incomplete"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_incomplete"
+      ],
+      "reason_codes": [
+        "phase10.incomplete"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_incomplete"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_incomplete",
+      "readable_audit_trail": false,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    }
+  ]
+}

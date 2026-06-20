@@ -1,0 +1,50 @@
+{
+  "schema_family": "cli-command",
+  "schema_version": "cli-command.v0.1",
+  "canonical_schema": "packages/schemas/overrid_contracts/v0/cli_command.schema.json",
+  "source_of_truth": "json_schema",
+  "rust_first_validation": true,
+  "rust_projection": {
+    "status": "rust_projection_from_json_schema_source",
+    "path": "packages/schemas/overrid_contracts/src/lib.rs",
+    "source_schema": "packages/schemas/overrid_contracts/v0/cli_command.schema.json",
+    "non_authoritative": true
+  },
+  "fixtures": {
+    "valid": "packages/cli/fixtures/valid/version_output.valid.json",
+    "invalid": "packages/cli/fixtures/invalid/private_service_endpoint.invalid.json"
+  },
+  "phase3_contracts": [
+    "environment_class",
+    "cli_profile",
+    "credential_reference",
+    "confirmation_policy",
+    "profile_storage_policy",
+    "signer_handoff"
+  ],
+  "phase4_contracts": [
+    "command_lifecycle",
+    "exit_code_registry",
+    "diagnostic_bundle",
+    "capability_snapshot",
+    "command_context",
+    "output_envelope"
+  ],
+  "phase5_contracts": [
+    "phase1_bootstrap_command",
+    "signed_command_envelope",
+    "bootstrap_acceptance_record",
+    "manifest_bootstrap_ref",
+    "synthetic_workload_pending_state"
+  ],
+  "guardrails": [
+    "JSON Schema is the docs-facing and fixture-facing source of truth.",
+    "The Rust projection is consumed by the CLI and SDK but must not become contract authority.",
+    "CLI runtime remains Rust-first and targets Overgate through SDK contracts.",
+    "Fixtures must preserve final output-envelope and Overgate-only validation shapes.",
+    "Profiles and credential references must be secret-free and environment-scoped before request construction.",
+    "Signer handoff returns signature refs only and never exposes raw key material.",
+    "Command lifecycle, exit classes, diagnostics, and capability snapshots must be rendered from the canonical output envelope.",
+    "Phase 1 bootstrap commands must construct signed SDK/Overgate envelopes and must not call Overtenant, Overpass, Overkey, Overregistry, Overqueue, or Overwatch directly."
+  ]
+}

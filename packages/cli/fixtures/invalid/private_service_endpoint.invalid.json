@@ -1,0 +1,8 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "endpoint": "http://127.0.0.1:18080/overqueue",
+  "expected_reason_code": "private_service_target",
+  "rejected_by": "overrid-sdk::validate_overgate_target",
+  "direct_storage_access": false,
+  "overgate_only": false
+}

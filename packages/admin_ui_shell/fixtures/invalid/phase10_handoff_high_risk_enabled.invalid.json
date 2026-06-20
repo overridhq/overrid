@@ -1,0 +1,18 @@
+{
+  "schema_version": "operator-phase10-validation.v0.1",
+  "handoff_surfaces": [
+    {
+      "surface": "break_glass_execution",
+      "phase_gate": "phase7",
+      "disabled": false,
+      "readiness_only": false,
+      "high_risk_operation_enabled": true,
+      "evidence_refs": [
+        "handoff:phase10_break_glass_invalid"
+      ],
+      "reason_codes": [
+        "phase10.break_glass_enabled_invalid"
+      ]
+    }
+  ]
+}

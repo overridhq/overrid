@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the Admin and Developer UI validation suite."""
+"""Run the Overrid validation suite configured for local repo checks."""
 
 from __future__ import annotations
 
@@ -10,16 +10,11 @@ import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDATORS = [
-    Path("scripts/validate_admin_ui_phase1.py"),
-    Path("scripts/validate_admin_ui_phase2.py"),
-    Path("scripts/validate_admin_ui_phase3.py"),
-    Path("scripts/validate_admin_ui_phase4.py"),
-    Path("scripts/validate_admin_ui_phase5.py"),
-    Path("scripts/validate_admin_ui_phase6.py"),
-    Path("scripts/validate_admin_ui_phase7.py"),
-    Path("scripts/validate_admin_ui_phase8.py"),
-    Path("scripts/validate_admin_ui_phase9.py"),
-    Path("scripts/validate_admin_ui_phase10.py"),
+    Path("scripts/validate_admin_ui.py"),
+    Path("scripts/validate_cli_phase1.py"),
+    Path("scripts/validate_cli_phase2.py"),
+    Path("scripts/validate_cli_phase3.py"),
+    Path("scripts/validate_cli_phase4.py"),
 ]
 
 
@@ -32,7 +27,7 @@ def main() -> int:
         result = subprocess.run([sys.executable, str(path)], cwd=REPO_ROOT)
         if result.returncode != 0:
             return result.returncode
-    print("Admin UI validation suite passed.")
+    print("Overrid validation suite passed.")
     return 0
 
 

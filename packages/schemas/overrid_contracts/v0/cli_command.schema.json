@@ -1,0 +1,844 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.overrid.local/overrid_contracts/v0/cli_command.schema.json",
+  "title": "Overrid CLI Command Contracts",
+  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, and Phase 1 bootstrap command shapes defined by SUB BUILD PLAN #2 Phases 2 through 5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_family",
+    "schema_version",
+    "contracts"
+  ],
+  "properties": {
+    "schema_family": {
+      "const": "cli-command"
+    },
+    "schema_version": {
+      "$ref": "#/$defs/schema_version"
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 21,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "output_envelope",
+          "api_error",
+          "trace_context",
+          "idempotency_record",
+          "diagnostic_bundle",
+          "overgate_request_metadata",
+          "environment_class",
+          "cli_profile",
+          "credential_reference",
+          "confirmation_policy",
+          "profile_storage_policy",
+          "signer_handoff",
+          "command_lifecycle",
+          "exit_code_registry",
+          "capability_snapshot",
+          "command_context",
+          "phase1_bootstrap_command",
+          "signed_command_envelope",
+          "bootstrap_acceptance_record",
+          "manifest_bootstrap_ref",
+          "synthetic_workload_pending_state"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^cli-command\\.v0\\.\\d+$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment_class": {
+      "enum": [
+        "local",
+        "seed",
+        "staging",
+        "production_like",
+        "ci"
+      ]
+    },
+    "credential_reference_class": {
+      "enum": [
+        "keychain",
+        "secret_service",
+        "encrypted_store",
+        "signing_agent",
+        "hardware_token",
+        "fixture",
+        "ci_reference"
+      ]
+    },
+    "fixture_allowance": {
+      "enum": [
+        "denied",
+        "local_only",
+        "test_harness_only"
+      ]
+    },
+    "confirmation_policy": {
+      "enum": [
+        "standard",
+        "confirm_sensitive",
+        "always_confirm"
+      ]
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^trace_[A-Za-z0-9._:-]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^idem_[A-Za-z0-9._:-]+$"
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+|_[a-z0-9_]+)*$"
+    },
+    "retry_class": {
+      "enum": [
+        "not_retryable",
+        "safe_retry",
+        "retry_after",
+        "operator_review"
+      ]
+    },
+    "command_lifecycle_state": {
+      "enum": [
+        "parsed",
+        "profile_loaded",
+        "credential_ready",
+        "payload_validated",
+        "signed",
+        "submitted",
+        "accepted",
+        "waiting",
+        "completed",
+        "denied",
+        "failed"
+      ]
+    },
+    "command_lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states",
+        "terminal_state"
+      ],
+      "properties": {
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/command_lifecycle_state"
+          }
+        },
+        "terminal_state": {
+          "enum": [
+            "completed",
+            "denied",
+            "failed"
+          ]
+        }
+      }
+    },
+    "exit_code_class": {
+      "enum": [
+        "success",
+        "usage",
+        "config",
+        "credential",
+        "schema",
+        "policy",
+        "phase",
+        "idempotency",
+        "transport",
+        "timeout",
+        "platform",
+        "local_io"
+      ]
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    "diagnostic_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_name",
+        "profile_name",
+        "endpoint_fingerprint",
+        "schema_versions",
+        "trace_ids",
+        "reason_codes",
+        "retry_count",
+        "dependency_status",
+        "redaction_policy"
+      ],
+      "properties": {
+        "command_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "profile_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "endpoint_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/schema_version"
+          }
+        },
+        "trace_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trace_id"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dependency_status": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "redaction_policy": {
+          "const": "secret_free_refs_only"
+        }
+      }
+    },
+    "capability_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "stale_age_ms",
+        "fail_closed",
+        "routes"
+      ],
+      "properties": {
+        "source": {
+          "const": "local_capability_cache"
+        },
+        "stale_age_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail_closed": {
+          "type": "boolean"
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route",
+              "available",
+              "phase_gate",
+              "schema_versions"
+            ],
+            "properties": {
+              "route": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "phase_gate": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "schema_versions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/schema_version"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "cli_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_name",
+        "endpoint",
+        "endpoint_fingerprint",
+        "environment_class",
+        "tenant_id",
+        "actor_id",
+        "credential_namespace",
+        "allowed_credential_classes",
+        "fixture_allowance",
+        "default_output_mode",
+        "confirmation_policy",
+        "schema_pins"
+      ],
+      "properties": {
+        "profile_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "endpoint_fingerprint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "environment_class": {
+          "$ref": "#/$defs/environment_class"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "credential_namespace": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "allowed_credential_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/credential_reference_class"
+          }
+        },
+        "fixture_allowance": {
+          "$ref": "#/$defs/fixture_allowance"
+        },
+        "default_output_mode": {
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        "confirmation_policy": {
+          "$ref": "#/$defs/confirmation_policy"
+        },
+        "schema_pins": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/schema_version"
+          }
+        },
+        "test_harness_profile": {
+          "type": "boolean"
+        },
+        "storage_policy": {
+          "const": "owner_only_file_backed_config"
+        }
+      }
+    },
+    "credential_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential_reference_id",
+        "credential_class",
+        "credential_namespace",
+        "key_id",
+        "revoked",
+        "expired",
+        "exposes_key_material"
+      ],
+      "properties": {
+        "credential_reference_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "credential_class": {
+          "$ref": "#/$defs/credential_reference_class"
+        },
+        "credential_namespace": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "key_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "expired": {
+          "type": "boolean"
+        },
+        "exposes_key_material": {
+          "const": false
+        }
+      }
+    },
+    "signer_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential_reference_id",
+        "key_id",
+        "tenant_id",
+        "actor_id",
+        "signature_ref",
+        "exposes_key_material"
+      ],
+      "properties": {
+        "credential_reference_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "key_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "signature_ref": {
+          "type": "string",
+          "pattern": "^sigref:[A-Za-z0-9._:-]+$"
+        },
+        "exposes_key_material": {
+          "const": false
+        }
+      }
+    },
+    "exit_code_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entries"
+      ],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "minItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "exit_code",
+              "exit_class"
+            ],
+            "properties": {
+              "exit_code": {
+                "$ref": "#/$defs/exit_code"
+              },
+              "exit_class": {
+                "$ref": "#/$defs/exit_code_class"
+              }
+            }
+          }
+        }
+      }
+    },
+    "command_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_name",
+        "trace_id",
+        "schema_version",
+        "lifecycle",
+        "capability_snapshot"
+      ],
+      "properties": {
+        "command_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/command_lifecycle"
+        },
+        "capability_snapshot": {
+          "$ref": "#/$defs/capability_snapshot"
+        }
+      }
+    },
+    "bootstrap_command_family": {
+      "enum": [
+        "auth",
+        "tenant",
+        "identity",
+        "key",
+        "manifest",
+        "workload"
+      ]
+    },
+    "phase1_bootstrap_command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "command",
+        "phase_gate",
+        "sdk_target"
+      ],
+      "properties": {
+        "family": {
+          "$ref": "#/$defs/bootstrap_command_family"
+        },
+        "command": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "phase_gate": {
+          "const": "phase_1_control_plane_bootstrap"
+        },
+        "sdk_target": {
+          "const": "overgate_only"
+        }
+      }
+    },
+    "signed_command_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "command_type",
+        "tenant_id",
+        "actor_id",
+        "target_ref",
+        "payload_type",
+        "idempotency_key",
+        "trace_id",
+        "signature_ref",
+        "exposes_key_material"
+      ],
+      "properties": {
+        "family": {
+          "$ref": "#/$defs/bootstrap_command_family"
+        },
+        "command_type": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "target_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "payload_type": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "expected_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/idempotency_key"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "signature_ref": {
+          "type": "string",
+          "pattern": "^sigref:[A-Za-z0-9._:-]+$"
+        },
+        "exposes_key_material": {
+          "const": false
+        }
+      }
+    },
+    "bootstrap_acceptance_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_type",
+        "accepted_ref",
+        "phase_gate",
+        "pending_state",
+        "audit_refs"
+      ],
+      "properties": {
+        "command_type": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "accepted_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "phase_gate": {
+          "const": "phase_1_control_plane_bootstrap"
+        },
+        "pending_state": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    },
+    "manifest_bootstrap_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_ref",
+        "manifest_kind",
+        "immutable_ref",
+        "submitted_via"
+      ],
+      "properties": {
+        "manifest_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "manifest_kind": {
+          "enum": [
+            "resource",
+            "workload",
+            "package",
+            "provider",
+            "native_app"
+          ]
+        },
+        "immutable_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "submitted_via": {
+          "const": "sdk_overgate_contract"
+        }
+      }
+    },
+    "synthetic_workload_pending_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_ref",
+        "workload_kind",
+        "queue_state",
+        "execution_implied",
+        "timeline_refs"
+      ],
+      "properties": {
+        "workload_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workload_kind": {
+          "const": "synthetic"
+        },
+        "queue_state": {
+          "const": "pending"
+        },
+        "execution_implied": {
+          "const": false
+        },
+        "timeline_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    },
+    "output_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "ok",
+        "result",
+        "error",
+        "trace_id",
+        "reason_code",
+        "retry_class",
+        "exit_code",
+        "exit_class",
+        "timing_ms",
+        "lifecycle",
+        "diagnostic_bundle",
+        "capabilities",
+        "audit_refs",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "error": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/api_error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trace_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/trace_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_code": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/reason_code"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retry_class": {
+          "$ref": "#/$defs/retry_class"
+        },
+        "exit_code": {
+          "$ref": "#/$defs/exit_code"
+        },
+        "exit_class": {
+          "$ref": "#/$defs/exit_code_class"
+        },
+        "timing_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/command_lifecycle"
+        },
+        "diagnostic_bundle": {
+          "$ref": "#/$defs/diagnostic_bundle"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capability_snapshot"
+        },
+        "audit_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    },
+    "api_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason_code",
+        "message",
+        "phase_gate",
+        "retry_class"
+      ],
+      "properties": {
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "phase_gate": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "retry_class": {
+          "$ref": "#/$defs/retry_class"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_family": "cli-command",
+      "schema_version": "cli-command.v0.1",
+      "contracts": [
+        "output_envelope",
+        "api_error",
+        "trace_context",
+        "idempotency_record",
+        "diagnostic_bundle",
+        "overgate_request_metadata",
+        "environment_class",
+        "cli_profile",
+        "credential_reference",
+        "confirmation_policy",
+        "profile_storage_policy",
+        "signer_handoff",
+        "command_lifecycle",
+        "exit_code_registry",
+        "capability_snapshot",
+        "command_context",
+        "phase1_bootstrap_command",
+        "signed_command_envelope",
+        "bootstrap_acceptance_record",
+        "manifest_bootstrap_ref",
+        "synthetic_workload_pending_state"
+      ]
+    }
+  ]
+}

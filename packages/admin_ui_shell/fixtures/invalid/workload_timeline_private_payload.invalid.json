@@ -1,0 +1,9 @@
+{
+  "schema_version": "operator-workload-timeline.v0.1",
+  "diagnostic_bundle": {
+    "workload_id": "workload:phase6_bad",
+    "trace_id": "trace_phase6_bad",
+    "safe_refs": ["payload:private_payload"],
+    "reason_codes": ["admin.timeline.private_payload_exposed"]
+  }
+}

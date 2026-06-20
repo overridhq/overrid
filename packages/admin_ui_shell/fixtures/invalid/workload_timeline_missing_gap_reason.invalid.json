@@ -1,0 +1,10 @@
+{
+  "schema_version": "operator-workload-timeline.v0.1",
+  "gap_cases": [
+    {
+      "case": "missing_overmeter",
+      "owning_service": "overmeter",
+      "refs": ["dependency:overmeter"]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "operator-policy-evidence.v0.1",
+  "read_only": false,
+  "direct_ledger_mutation": true,
+  "incident_cases": [
+    {
+      "incident_ref": "incident:policy_readiness",
+      "state": "ready",
+      "policy_state": "available",
+      "break_glass_execution_disabled": false,
+      "missing_contracts": [],
+      "disabled_action_reason_codes": [],
+      "evidence_links": [
+        { "kind": "incident", "ref": "incident:policy_readiness", "source_service": "overwatch" }
+      ]
+    }
+  ]
+}

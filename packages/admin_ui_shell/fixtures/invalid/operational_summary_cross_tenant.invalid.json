@@ -1,0 +1,32 @@
+{
+  "schema_version": "operator-summary-panels.v0.1",
+  "active_tenant_id": "tenant:seed",
+  "route_max_limit": 75,
+  "filter_max_count": 4,
+  "panels": ["tenants", "identities", "keys", "nodes", "packages", "workloads", "queue"],
+  "dependency_health": [
+    { "service": "overgate", "status": "available", "reason_code": "admin.dependency.available" }
+  ],
+  "queries": [
+    {
+      "panel": "identities",
+      "limit": 50,
+      "filters": { "state": "active" },
+      "refresh_mode": "manual_refresh",
+      "refresh_window_ms": 30000,
+      "stale_after_ms": 120000
+    }
+  ],
+  "rows": [
+    {
+      "panel": "identities",
+      "resource_id": "identity:other_tenant_admin",
+      "tenant_id": "tenant:other",
+      "kind": "identity",
+      "state": "active",
+      "trace_id": "trace_cross_tenant",
+      "reason_codes": ["admin.summary.visible"],
+      "audit_refs": ["audit:cross_tenant"]
+    }
+  ]
+}

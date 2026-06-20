@@ -1,0 +1,40 @@
+{
+  "schema_version": "operator-summary-panels.v0.1",
+  "active_tenant_id": "tenant:seed",
+  "route_max_limit": 75,
+  "filter_max_count": 4,
+  "panels": ["workloads"],
+  "dependency_health": [
+    { "service": "overgate", "status": "available", "reason_code": "admin.dependency.available" },
+    { "service": "overqueue", "status": "available", "reason_code": "admin.dependency.available" }
+  ],
+  "queries": [
+    {
+      "panel": "workloads",
+      "limit": 5000,
+      "filters": {
+        "state": "running",
+        "trace_id": "trace_seed_docdex",
+        "stale": "false",
+        "product_family": "docdex",
+        "extra": "not_allowed"
+      },
+      "refresh_mode": "scheduled_refresh",
+      "refresh_window_ms": 100,
+      "stale_after_ms": 120000
+    }
+  ],
+  "rows": [
+    {
+      "panel": "workloads",
+      "resource_id": "workload:docdex_seed",
+      "tenant_id": "tenant:seed",
+      "kind": "workload",
+      "state": "running",
+      "product_family": "docdex",
+      "trace_id": "trace_seed_docdex",
+      "reason_codes": ["admin.product.docdex"],
+      "audit_refs": ["audit:workload_docdex"]
+    }
+  ]
+}

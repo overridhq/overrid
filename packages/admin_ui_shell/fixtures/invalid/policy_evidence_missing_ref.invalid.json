@@ -1,0 +1,16 @@
+{
+  "schema_version": "operator-policy-evidence.v0.1",
+  "policy_cases": [
+    {
+      "case": "denied_egress",
+      "decision_id": "decision:egress_blocked",
+      "trace_id": "trace_policy_egress",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": [],
+      "matched_rule_refs": [],
+      "input_fact_refs": [],
+      "reason_codes": ["policy.denied_egress"],
+      "evidence_links": []
+    }
+  ]
+}

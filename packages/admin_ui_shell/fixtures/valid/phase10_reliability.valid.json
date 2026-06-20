@@ -1,0 +1,1058 @@
+{
+  "schema_version": "operator-phase10-validation.v0.1",
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_service_access": false,
+  "direct_overwatch_connection": false,
+  "rust_services_authoritative": true,
+  "typescript_client_surface_only": true,
+  "required_products": [
+    "docdex",
+    "mcoda",
+    "codali",
+    "sdk",
+    "cli"
+  ],
+  "required_outcomes": [
+    "successful",
+    "retryable_failure",
+    "final_failure",
+    "cancelled",
+    "timed_out",
+    "policy_denied",
+    "budget_exhausted",
+    "node_disconnected",
+    "disputed_usage"
+  ],
+  "required_security_probes": [
+    "cross_tenant_access",
+    "role_limits",
+    "redaction_profiles",
+    "encrypted_docdex_rag_metadata",
+    "secret_bearing_fields",
+    "key_metadata",
+    "diagnostic_bundles",
+    "raw_prompts",
+    "decrypted_snippets",
+    "file_paths",
+    "query_text",
+    "credentials",
+    "private_payloads",
+    "unredacted_result_contents"
+  ],
+  "required_accessibility_checks": [
+    "keyboard_navigation",
+    "focus_order",
+    "screen_reader_labels",
+    "long_reason_code_wrapping",
+    "stable_table_dimensions",
+    "loading_state",
+    "empty_state",
+    "responsive_behavior"
+  ],
+  "required_contract_checks": [
+    "generated_bindings",
+    "schema_compatibility",
+    "overgate_admin_routes",
+    "read_only_mode",
+    "action_submission",
+    "idempotency",
+    "stale_state_blocking",
+    "timeline_assembly"
+  ],
+  "required_handoff_surfaces": [
+    "system_service_operations",
+    "incident_readiness",
+    "break_glass_execution",
+    "governance_reporting",
+    "compliance_views"
+  ],
+  "product_cases": [
+    {
+      "product": "docdex",
+      "outcome": "successful",
+      "workload_id": "workload:phase10_docdex_success",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_docdex_success",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_docdex_success",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_docdex_success"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_docdex_success"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_docdex_success"
+      ],
+      "reason_codes": [
+        "phase10.successful"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_docdex_success"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_docdex_success",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "mcoda",
+      "outcome": "retryable_failure",
+      "workload_id": "workload:phase10_mcoda_retry",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_mcoda_retry",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_mcoda_retry",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_mcoda_retry"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_mcoda_retry"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_mcoda_retry"
+      ],
+      "reason_codes": [
+        "phase10.retryable_failure"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_mcoda_retry"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_mcoda_retry",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "codali",
+      "outcome": "final_failure",
+      "workload_id": "workload:phase10_codali_failed",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_codali_failed",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_codali_failed",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_codali_failed"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_codali_failed"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_codali_failed"
+      ],
+      "reason_codes": [
+        "phase10.final_failure"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_codali_failed"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_codali_failed",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "sdk",
+      "outcome": "cancelled",
+      "workload_id": "workload:phase10_sdk_cancelled",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_sdk_cancelled",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_sdk_cancelled",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_sdk_cancelled"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_sdk_cancelled"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_sdk_cancelled"
+      ],
+      "reason_codes": [
+        "phase10.cancelled"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_sdk_cancelled"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_sdk_cancelled",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "cli",
+      "outcome": "timed_out",
+      "workload_id": "workload:phase10_cli_timeout",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_cli_timeout",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_cli_timeout",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_cli_timeout"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_cli_timeout"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_cli_timeout"
+      ],
+      "reason_codes": [
+        "phase10.timed_out"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_cli_timeout"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_cli_timeout",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "docdex",
+      "outcome": "policy_denied",
+      "workload_id": "workload:phase10_docdex_denied",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_docdex_denied",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_docdex_denied",
+          "source_service": "overguard",
+          "trace_id": "trace_phase10_docdex_denied"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_docdex_denied"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_docdex_denied"
+      ],
+      "reason_codes": [
+        "phase10.policy_denied"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_docdex_denied"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_docdex_denied",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "mcoda",
+      "outcome": "budget_exhausted",
+      "workload_id": "workload:phase10_mcoda_budget",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_mcoda_budget",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_mcoda_budget",
+          "source_service": "overmeter",
+          "trace_id": "trace_phase10_mcoda_budget"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_mcoda_budget"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_mcoda_budget"
+      ],
+      "reason_codes": [
+        "phase10.budget_exhausted"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_mcoda_budget"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_mcoda_budget",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "codali",
+      "outcome": "node_disconnected",
+      "workload_id": "workload:phase10_codali_disconnect",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_codali_disconnect",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_codali_disconnect",
+          "source_service": "overcell",
+          "trace_id": "trace_phase10_codali_disconnect"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_codali_disconnect"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_codali_disconnect"
+      ],
+      "reason_codes": [
+        "phase10.node_disconnected"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_codali_disconnect"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_codali_disconnect",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    },
+    {
+      "product": "sdk",
+      "outcome": "disputed_usage",
+      "workload_id": "workload:phase10_sdk_dispute",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_phase10_sdk_dispute",
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_sdk_dispute",
+          "source_service": "overclaim",
+          "trace_id": "trace_phase10_sdk_dispute"
+        }
+      ],
+      "usage_refs": [
+        "usage:phase10_sdk_dispute"
+      ],
+      "receipt_refs": [
+        "receipt:phase10_sdk_dispute"
+      ],
+      "reason_codes": [
+        "phase10.disputed_usage"
+      ],
+      "evidence_refs": [
+        "evidence:phase10_sdk_dispute"
+      ],
+      "diagnostic_bundle_ref": "diagnostic:phase10_sdk_dispute",
+      "readable_audit_trail": true,
+      "readable_usage_trail": true,
+      "readable_receipt_trail": true,
+      "readable_reason_trail": true
+    }
+  ],
+  "security_probes": [
+    {
+      "probe": "cross_tenant_access",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_cross_tenant",
+      "safe_refs": [
+        "tenant:seed"
+      ],
+      "reason_codes": [
+        "phase10.cross_tenant_denied"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_cross_tenant",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_cross_tenant"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "role_limits",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_role_limits",
+      "safe_refs": [
+        "actor:support_viewer"
+      ],
+      "reason_codes": [
+        "phase10.role_limited"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_role_limits",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_role_limits"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "redaction_profiles",
+      "owning_service_authorized": true,
+      "redaction_profile_ref": "redaction:phase10_profiles",
+      "safe_refs": [
+        "diagnostic:phase10_profiles"
+      ],
+      "reason_codes": [
+        "phase10.profile_applied"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_profiles",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_profiles"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "encrypted_docdex_rag_metadata",
+      "owning_service_authorized": true,
+      "redaction_profile_ref": "redaction:phase10_docdex_metadata",
+      "safe_refs": [
+        "metadata:phase10_docdex_rag_ref"
+      ],
+      "reason_codes": [
+        "phase10.encrypted_metadata_ref"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_docdex_metadata",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_docdex_metadata"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "secret_bearing_fields",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_hidden_fields",
+      "safe_refs": [
+        "field_ref:phase10_hidden"
+      ],
+      "reason_codes": [
+        "phase10.hidden_field_ref"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_hidden_fields",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_hidden_fields"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "key_metadata",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_key_metadata",
+      "safe_refs": [
+        "key:phase10_metadata_ref"
+      ],
+      "reason_codes": [
+        "phase10.key_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_key_metadata",
+          "source_service": "overvault",
+          "trace_id": "trace_phase10_security_key_metadata"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "diagnostic_bundles",
+      "owning_service_authorized": true,
+      "redaction_profile_ref": "redaction:phase10_diagnostics",
+      "safe_refs": [
+        "diagnostic:phase10_redacted_bundle"
+      ],
+      "reason_codes": [
+        "phase10.diagnostic_safe_refs"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_diagnostics",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_diagnostics"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "raw_prompts",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_prompt_refs",
+      "safe_refs": [
+        "prompt_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.prompt_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_prompt_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_prompt_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "decrypted_snippets",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_snippet_refs",
+      "safe_refs": [
+        "snippet_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.snippet_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_snippet_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_snippet_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "file_paths",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_path_refs",
+      "safe_refs": [
+        "path_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.path_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_path_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_path_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "query_text",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_query_refs",
+      "safe_refs": [
+        "query_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.query_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_query_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_query_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "credentials",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_auth_refs",
+      "safe_refs": [
+        "auth_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.auth_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_auth_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_auth_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "private_payloads",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_payload_refs",
+      "safe_refs": [
+        "payload_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.payload_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_payload_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_payload_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    },
+    {
+      "probe": "unredacted_result_contents",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_result_refs",
+      "safe_refs": [
+        "result_ref:phase10_redacted"
+      ],
+      "reason_codes": [
+        "phase10.result_ref_only"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_result_refs",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_result_refs"
+        }
+      ],
+      "raw_prompts_rendered": false,
+      "decrypted_snippets_rendered": false,
+      "private_file_paths_rendered": false,
+      "query_text_rendered": false,
+      "key_material_rendered": false,
+      "credentials_rendered": false,
+      "secrets_rendered": false,
+      "private_payloads_rendered": false,
+      "unredacted_result_contents_rendered": false
+    }
+  ],
+  "accessibility_checks": [
+    {
+      "check": "keyboard_navigation",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_keyboard"
+      ],
+      "reason_codes": [
+        "phase10.keyboard_navigation"
+      ]
+    },
+    {
+      "check": "focus_order",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_focus"
+      ],
+      "reason_codes": [
+        "phase10.focus_order"
+      ]
+    },
+    {
+      "check": "screen_reader_labels",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_screen_reader"
+      ],
+      "reason_codes": [
+        "phase10.screen_reader_labels"
+      ]
+    },
+    {
+      "check": "long_reason_code_wrapping",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_reason_wrapping"
+      ],
+      "reason_codes": [
+        "phase10.reason_wrapping"
+      ]
+    },
+    {
+      "check": "stable_table_dimensions",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_stable_tables"
+      ],
+      "reason_codes": [
+        "phase10.stable_dimensions"
+      ]
+    },
+    {
+      "check": "loading_state",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_loading"
+      ],
+      "reason_codes": [
+        "phase10.loading_state"
+      ]
+    },
+    {
+      "check": "empty_state",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_empty"
+      ],
+      "reason_codes": [
+        "phase10.empty_state"
+      ]
+    },
+    {
+      "check": "responsive_behavior",
+      "automated": true,
+      "manual_review": true,
+      "stable_dimensions": true,
+      "evidence_refs": [
+        "a11y:phase10_responsive"
+      ],
+      "reason_codes": [
+        "phase10.responsive_behavior"
+      ]
+    }
+  ],
+  "contract_checks": [
+    {
+      "check": "generated_bindings",
+      "method": "GET",
+      "route": "/admin/capabilities",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "evidence_refs": [
+        "contract:phase10_generated_bindings"
+      ],
+      "reason_codes": [
+        "phase10.generated_bindings"
+      ]
+    },
+    {
+      "check": "schema_compatibility",
+      "method": "GET",
+      "route": "/admin/capabilities",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "evidence_refs": [
+        "contract:phase10_schema_compatibility"
+      ],
+      "reason_codes": [
+        "phase10.schema_compatibility"
+      ]
+    },
+    {
+      "check": "overgate_admin_routes",
+      "method": "GET",
+      "route": "/admin/workloads",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "evidence_refs": [
+        "contract:phase10_overgate_routes"
+      ],
+      "reason_codes": [
+        "phase10.overgate_routes"
+      ]
+    },
+    {
+      "check": "read_only_mode",
+      "method": "GET",
+      "route": "/admin/ledger",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "read_only_mode": true,
+      "evidence_refs": [
+        "contract:phase10_read_only"
+      ],
+      "reason_codes": [
+        "phase10.read_only_mode"
+      ]
+    },
+    {
+      "check": "action_submission",
+      "method": "POST",
+      "route": "/admin/actions",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "idempotency_protected": true,
+      "stale_state_protected": true,
+      "evidence_refs": [
+        "contract:phase10_action_submission"
+      ],
+      "reason_codes": [
+        "phase10.action_submission"
+      ]
+    },
+    {
+      "check": "idempotency",
+      "method": "POST",
+      "route": "/admin/actions",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "idempotency_protected": true,
+      "evidence_refs": [
+        "contract:phase10_idempotency"
+      ],
+      "reason_codes": [
+        "phase10.idempotency"
+      ]
+    },
+    {
+      "check": "stale_state_blocking",
+      "method": "POST",
+      "route": "/admin/actions",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "stale_state_protected": true,
+      "evidence_refs": [
+        "contract:phase10_stale_state"
+      ],
+      "reason_codes": [
+        "phase10.stale_state_blocking"
+      ]
+    },
+    {
+      "check": "timeline_assembly",
+      "method": "GET",
+      "route": "/admin/workloads/{id}/timeline",
+      "pass": true,
+      "uses_generated_bindings": true,
+      "uses_overgate_route": true,
+      "no_privileged_backdoor": true,
+      "evidence_refs": [
+        "contract:phase10_timeline_assembly"
+      ],
+      "reason_codes": [
+        "phase10.timeline_assembly"
+      ]
+    }
+  ],
+  "handoff_surfaces": [
+    {
+      "surface": "system_service_operations",
+      "phase_gate": "phase13",
+      "disabled": true,
+      "readiness_only": true,
+      "high_risk_operation_enabled": false,
+      "evidence_refs": [
+        "handoff:phase10_system_service_ops"
+      ],
+      "reason_codes": [
+        "phase10.system_ops_readiness_only"
+      ]
+    },
+    {
+      "surface": "incident_readiness",
+      "phase_gate": "phase7",
+      "disabled": true,
+      "readiness_only": true,
+      "high_risk_operation_enabled": false,
+      "evidence_refs": [
+        "handoff:phase10_incident_readiness"
+      ],
+      "reason_codes": [
+        "phase10.incident_readiness_only"
+      ]
+    },
+    {
+      "surface": "break_glass_execution",
+      "phase_gate": "phase7",
+      "disabled": true,
+      "readiness_only": true,
+      "high_risk_operation_enabled": false,
+      "evidence_refs": [
+        "handoff:phase10_break_glass"
+      ],
+      "reason_codes": [
+        "phase10.break_glass_disabled"
+      ]
+    },
+    {
+      "surface": "governance_reporting",
+      "phase_gate": "phase13",
+      "disabled": true,
+      "readiness_only": true,
+      "high_risk_operation_enabled": false,
+      "evidence_refs": [
+        "handoff:phase10_governance"
+      ],
+      "reason_codes": [
+        "phase10.governance_readiness_only"
+      ]
+    },
+    {
+      "surface": "compliance_views",
+      "phase_gate": "phase13",
+      "disabled": true,
+      "readiness_only": true,
+      "high_risk_operation_enabled": false,
+      "evidence_refs": [
+        "handoff:phase10_compliance"
+      ],
+      "reason_codes": [
+        "phase10.compliance_readiness_only"
+      ]
+    }
+  ],
+  "diagnostic_events": [
+    {
+      "schema_version": "admin-ui.v0.1",
+      "event_id": "diagnostic:phase10_retryable_event",
+      "occurred_at": "2026-06-20T10:00:00Z",
+      "trace_id": "trace_phase10_mcoda_retry",
+      "severity": "warning",
+      "reason_code": "phase10.retryable_failure",
+      "message": "Retryable failure captured with redacted bundle references.",
+      "redaction_profile": {
+        "profile_id": "redaction:phase10_diagnostics",
+        "classification": "redacted_diagnostic_ref",
+        "ruleset_version": "redaction.v0.1",
+        "hidden_fields": [
+          "raw_prompts",
+          "decrypted_snippets",
+          "file_paths",
+          "query_text",
+          "key_material",
+          "credentials",
+          "private_payloads",
+          "unredacted_result_contents"
+        ]
+      },
+      "safe_refs": [
+        "diagnostic:phase10_mcoda_retry"
+      ]
+    }
+  ],
+  "validation_commands": [
+    "PYTHONDONTWRITEBYTECODE=1 python3 scripts/validate_admin_ui_phase10.py",
+    "PYTHONDONTWRITEBYTECODE=1 python3 scripts/validate_admin_ui.py",
+    "npx --yes -p typescript@5.5.4 tsc -p packages/admin_ui_shell/tsconfig.json",
+    "docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid"
+  ]
+}

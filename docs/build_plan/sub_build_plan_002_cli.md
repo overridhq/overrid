@@ -73,6 +73,70 @@ The CLI is a Rust developer/operator client over the SDK and Overgate. It must m
   - Output: Cross-document maintenance rule for CLI command expansion.
   - Validation: Review checklist rejects CLI-only command behavior that is not backed by SDK/Overgate contracts.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Document | Required attachment | Phase 1 validation |
+| --- | --- | --- |
+| `docs/sds/foundation/cli.md` | Links to this sub-build plan, the CLI service plan, master SDS, master service catalog, crosswalk, and Phase 1/Phase 6 build docs. | Local Markdown link check and Docdex search must return the CLI SDS and this sub-build plan for SDS #2 queries. |
+| `docs/service_catalog/foundation/cli.md` | Links to the CLI SDS and this sub-build plan while preserving Phase 1 as the first build point and Phase 6 as hardening. | Service-catalog review confirms the CLI remains a terminal client over SDK/Overgate, not an owning service. |
+| `docs/build_plan/master_plan.md` | Keeps SDS #2 indexed under per-SDS sub-build plans with Phase 1 as the first build point. | Master-plan row must reference `SUB BUILD PLAN #2 - CLI` and must not move CLI first build work later than Phase 1. |
+| `docs/build_plan/service_catalog_alignment.md` | Keeps the CLI row and Phase 1 crosswalk entry linked to the service plan and this sub-build plan. | Crosswalk validation confirms CLI appears in Phase 1 and Phase 6 only for hardening/product integration. |
+| `docs/overrid_tech_stack_choice.md` | Keeps Rust-first CLI, generated contracts, SDK behavior, signing, idempotency, trace propagation, and stable JSON output as accepted stack constraints. | Stack review rejects Node.js/TypeScript as the CLI runtime and rejects direct database, queue, object-store, vault, ledger, or node-agent access. |
+
+#### Frozen CLI Boundary
+
+| Boundary area | Allowed in CLI | Rejected in CLI | Enforcement note |
+| --- | --- | --- | --- |
+| Runtime | Rust binary crate using generated contracts and shared SDK behavior. | Node.js/TypeScript core CLI runtime or shell-only protocol implementation. | Phase 2 crate work must enter the Cargo workspace and share SDK transport/signing helpers. |
+| Platform access | SDK/Overgate request construction, capability discovery, signed command envelopes, stable response decoding. | Direct reads or writes against Overbase, Overstore, Overvault, Overqueue, Overwatch, Seal Ledger, node-agent state, or service-local files. | Any command requiring state must cite the owning SDK/Overgate contract before implementation. |
+| Secrets | Credential references, signer handoff, platform-native secret storage, owner-only local encrypted stores where needed. | Raw private keys, ambient CI keychains, world-readable config secrets, printed signatures, or decrypted payload output. | Profile and credential commands must fail closed before request construction when references are unsafe. |
+| Local development | Loopback-only helpers with explicit fixture markers and final Overrid contract shapes. | Hidden production bypasses, private service URLs, or local mocks that drift from command envelope/output schemas. | `dev` commands are local/profile-gated and cannot be reused for seed or production-like profiles. |
+| Product automation | Phase 6 hardening over the same CLI/SDK path used by humans. | Product-specific private API clients, hardcoded model/provider routing, or direct adapter internals. | Docdex, Mcoda, Codali, and later products must use documented CLI/SDK/Overgate contracts. |
+
+#### Command Availability Matrix
+
+| Command family | Phase 1 state | Backing contract | Help and run behavior |
+| --- | --- | --- | --- |
+| `overrid version` | `available` | Local CLI build, SDK compatibility, schema pins. | Visible in normal help and runnable without platform mutation. |
+| `overrid doctor` | `available` | Profile, endpoint, credential-reference, schema, clock, and local config checks. | Visible in normal help; diagnostics are redacted and secret-free. |
+| `overrid profile create|list|select|inspect|reset` | `available` | Local profile schema and owner-only config rules. | Visible in normal help; unsafe permissions or ambiguous profile state fail closed. |
+| `overrid auth login|whoami` | `available` | Overgate plus Overkey/Overpass/Overtenant through SDK contracts. | Visible once Phase 1 capabilities exist; failures include trace id and stable reason codes where available. |
+| `overrid credential enroll|inspect` | `available` | Credential-reference resolver and Overkey-lite enrollment metadata. | Visible for Phase 1; raw key material is never printed or persisted in CLI config. |
+| `overrid tenant create|list|inspect` | `available` | Overtenant Phase 1 command/read contracts. | Visible for Phase 1; mutating commands require signed envelopes, expected state where relevant, reason where required, and idempotency. |
+| `overrid identity create|list|inspect|disable` | `available` | Overpass-lite identity contracts. | Visible for Phase 1; tenant/actor scope is required before payload construction. |
+| `overrid key enroll|list|rotate|revoke` | `available` | Overkey-lite lifecycle contracts. | Visible for Phase 1; revocation/rotation require signed command envelopes and audit refs. |
+| `overrid manifest validate|submit|inspect` | `available` | Shared schema package plus Overregistry Phase 1 manifest contracts. | Visible for Phase 1; validation can run locally, submit/inspect use SDK/Overgate. |
+| `overrid workload submit|status|timeline` | `available` | Overqueue pending-state and Overwatch audit contracts. | Visible for Phase 1 only as synthetic pending-state workflow; no real execution is implied. |
+| `overrid dev start|stop|reset|seed|smoke` | `available` for local profiles only | Phase 0/1 local-stack helper contracts and fixture markers. | Hidden outside local/test profiles and rejected for seed, staging, production-like, and CI unless explicitly test-harness marked. |
+| `overrid node register|inspect|health` | `hidden` until Phase 2 | Overcell, node credential enrollment, and Overregistry capability records. | Hidden in normal Phase 1 help; `--all-phases` may document the command and run attempts return `not_available_in_phase`. |
+| `overrid workload logs|cancel|result|follow` and real execution states | `hidden` until Phase 3 | Overpack, Oversched, Overlease, Overrun, Overmeter, Overqueue, Overwatch. | Hidden in normal Phase 1 help; status/timeline must not pretend real execution exists. |
+| `overrid policy dry-run` | `documented_planned` for Phase 4 | Overguard and Policy Dry-Run API contracts. | Documented in planned command refs; run attempts before capability readiness return `not_available_in_phase`. |
+| `overrid usage show`, `overrid receipt show`, `overrid dispute list|inspect` | `documented_planned` for Phase 5/6 | Overmeter, ORU Account Service, Seal Ledger, Overbill, Overclaim read models. | Documented as read-only planned commands; no pricing, revenue, blockchain, or direct ledger assumptions. |
+| `overrid package validate` and deployment-adjacent commands | `not_available_in_phase` until Phase 9 | Package Validator, Overpack, Deployment Planner, Release Strategy Service. | May appear only through `--all-phases` or docs; invocation before owning contracts fails with stable `not_available_in_phase`. |
+| Governance, incident, compliance, migration, and backbone commands | `not_available_in_phase` until Phase 7/13 owning contracts exist | Grid-resident backbone, incident, compliance, migration, and governance service contracts. | Not visible in normal Phase 1 help and never implemented as CLI-only privileged shortcuts. |
+
+#### Resolved SDS Decision Checklist
+
+| SDS decision | Phase 1 implementation checklist | Validation |
+| --- | --- | --- |
+| Platform-native credential storage by default. | macOS uses Keychain, Linux desktop uses Secret Service/libsecret where available, headless Linux uses an Overrid-owned encrypted local store or signer socket with owner-only permissions, and CI uses explicit short-lived references. | Credential tests must prove no raw key material appears in profile config, output, debug logs, diagnostics, or fixtures. |
+| Phase 1 command limits. | Expose only version, doctor, profile, auth, credential, tenant, identity, key, manifest, synthetic workload pending-state, and local-only dev helpers. | Help tests and `--all-phases` tests must prove later commands are hidden, documented planned, or fail with `not_available_in_phase`. |
+| Deterministic idempotency fingerprints. | Generate default keys after local schema validation from environment class, endpoint identity, tenant id, actor id, command type, target ref, canonical payload hash, expected current state, reason, and schema version. | Idempotency tests must prove safe retries reuse the same key and intentional new operations require changed payload or explicit new-key behavior. |
+| Small numeric exit-code registry. | Preserve `0`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, and `12` with named exit classes in every JSON envelope. | Exit-code tests lock the registry and reject accidental renumbering before external automation depends on it. |
+| Profile environment separation. | Profiles carry `local`, `seed`, `staging`, `production_like`, or `ci`, endpoint fingerprint, tenant id, actor id, credential namespace, allowed credential classes, fixture allowance, confirmation policy, and schema pins. | Profile tests prove fixture credentials cannot cross into seed/staging/production-like/CI and endpoint overrides cannot silently affect seed or production-like profiles. |
+
+#### Documentation Update Rule
+
+When a CLI command needs new platform behavior, update documentation in this order before implementation:
+
+1. Update the owning SDS and service-catalog file for the backend contract or read model.
+2. Update the master phase document or crosswalk if the command's owning phase or service alignment changes.
+3. Update this sub-build plan's command availability matrix and the future command reference.
+4. Add or update schema/fixture/SDK contract validation before wiring CLI parser behavior.
+5. Reject any CLI-only command behavior that is not backed by SDK/Overgate contracts and an owning service document.
+
 ## Phase 2: Rust CLI Crate, Generated Contracts, And SDK Integration
 
 ### Work Items
@@ -101,6 +165,16 @@ The CLI is a Rust developer/operator client over the SDK and Overgate. It must m
   - Design: Use local-stack and contract fixtures that preserve final Overrid envelopes rather than CLI-only mock payloads.
   - Output: Valid/invalid fixture set for profile, command, manifest, output, error, and diagnostic bundles.
   - Validation: Fixture tests prove the CLI and SDK agree on request and response shapes.
+
+### Phase 2 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Rust workspace boundary | `Cargo.toml`, `packages/cli`, `packages/sdk`, and `packages/schemas/overrid_contracts` are Cargo workspace members. | `cargo check -p overrid-cli` succeeds and no Node.js/TypeScript CLI runtime artifact exists under `packages/cli`. |
+| Generated contract projection | `packages/schemas/overrid_contracts/v0/cli_command.schema.json` and `packages/schemas/overrid_contracts/codegen_manifest.json` are the canonical schema source, and `packages/schemas/overrid_contracts/src/lib.rs` exposes CLI schema-version compatibility, output envelope, API error, trace context, idempotency, and diagnostic bundle shapes as the Rust projection. | Contract tests reject missing, malformed, unknown-family, or future CLI schema versions before request submission, and validation proves the Rust projection remains non-authoritative relative to the JSON Schema source. |
+| SDK/Overgate wrapper | `packages/sdk` exposes `OvergateEndpoint`, `ClientConfig`, `OverridSdkClient`, and Overgate request metadata with private service target rejection. | SDK tests prove direct targets such as Overqueue, Overvault, Overwatch, node-agent, or service-local URLs cannot bypass Overgate. |
+| Parser conventions | `packages/cli` supports `version`, `help`, `--json`, `--output`, `--no-color`, `--verbose`, `--profile`, and `--all-phases`, with stable `not_available_in_phase` output for phase-gated command families. | CLI tests cover JSON output, hidden normal help, all-phase help for every gated family, invalid and conflicting output modes in either flag order, missing profile values, and phase-gated node command behavior. |
+| Fixture strategy | `packages/cli/fixtures` contains valid version output and invalid private-service endpoint fixtures that preserve final Overrid envelope fields. | `scripts/validate_cli_phase2.py` verifies fixture shape, Cargo workspace membership, Rust-first guardrails, Overgate-only behavior, no forbidden runtime terms, and exact parity between `overrid version --json` and the valid fixture. |
 
 ## Phase 3: Profiles, Credential References, And Environment Separation
 
@@ -131,6 +205,17 @@ The CLI is a Rust developer/operator client over the SDK and Overgate. It must m
   - Output: Confirmation and reason enforcement shared across command groups.
   - Validation: Usage tests prove high-risk operations cannot proceed through defaults, aliases, or environment variables.
 
+### Phase 3 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Profile contract gate | `packages/schemas/overrid_contracts` exposes `EnvironmentClass`, `CliProfile`, `FixtureAllowance`, `ConfirmationPolicy`, owner-only file mode policy, and schema-pinned profile validation. | Contract tests reject missing tenant/actor data, unsupported schema pins, fixture credentials outside allowed environments, and unsafe group/world file permission bits. |
+| Credential-reference gate | `CredentialReference` supports `keychain`, `secret_service`, `encrypted_store`, `signing_agent`, `hardware_token`, `fixture`, and `ci_reference` classes without raw key material. | Contract and CLI tests reject revoked/expired credentials, namespace mismatch, raw private-key markers, and fixture credentials outside local or explicitly marked test-harness profiles. |
+| Environment guard gate | `packages/sdk` validates profile and credential references before request construction and rejects seed/production-like endpoint overrides. | SDK tests prove local fixture profiles pass, seed endpoint override fails, seed mutating commands require explicit profile confirmation, and admin-impacting mutations require `--reason`. |
+| Signer handoff gate | `packages/sdk` and `packages/cli` produce signer handoff refs for mutating credential commands without exposing private key material. | Rust tests and `scripts/validate_cli_phase3.py` prove `credential enroll --json` emits `signature_ref`, `exposes_key_material:false`, and no private-key/token markers. |
+| CLI command gate | `packages/cli` supports Phase 3 `profile create|list|select|inspect|reset`, `credential enroll|inspect`, `--environment`, `--endpoint`, `--endpoint-fingerprint`, `--credential-*`, `--confirm-profile`, `--reason`, and `--test-harness-profile` parser/runtime paths. | CLI tests and validator runs cover sanitized `profile inspect`, profile storage policy output, credential signer handoff, missing seed confirmation, and stable Phase 3 JSON error output. |
+| Validation gate | `scripts/validate_cli_phase3.py` is wired into `scripts/validate_overrid.py` and checks docs, schema source, Rust symbols/strings, CLI command output, Cargo tests, and secret-redaction guardrails. | `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass through the full validation wrapper before Phase 3 is reported complete. |
+
 ## Phase 4: Command Lifecycle, Output Envelope, Exit Codes, And Diagnostics
 
 ### Work Items
@@ -159,6 +244,17 @@ The CLI is a Rust developer/operator client over the SDK and Overgate. It must m
   - Design: Let commands query Overgate or local capability data for route availability, schema versions, and phase support before presenting or running phase-dependent command groups.
   - Output: Capability cache with visible stale age and fail-closed behavior.
   - Validation: Tests prove absent dependencies produce `not_available_in_phase` or capability errors instead of private shortcuts.
+
+### Phase 4 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Lifecycle gate | `packages/schemas/overrid_contracts` exposes `CommandLifecycleState`, `CommandLifecycle`, and `CommandContext`, and `packages/cli` renders lifecycle states for success, validation failure, and phase-gated failure paths. | Rust tests and `scripts/validate_cli_phase4.py` prove terminal paths include `completed`, `denied`, or `failed` lifecycle state and never omit lifecycle metadata from JSON output. |
+| Output-envelope gate | `packages/cli` renders `schema_version`, `ok`, `result`, `error`, `trace_id`, `reason_code`, `retry_class`, `exit_code`, `exit_class`, `timing_ms`, `lifecycle`, `diagnostic_bundle`, `capabilities`, `audit_refs`, and `warnings` from one canonical envelope helper. | Version, doctor, profile, credential, and phase-gated command JSON checks prove the shared envelope shape is stable and schema-compatible. |
+| Exit-registry gate | `packages/schemas/overrid_contracts` locks the numeric exit classes for success, usage, config, credential, schema, policy, phase, idempotency, transport, timeout, platform, and local I/O. | Contract tests and the Phase 4 validator reject missing classes, renumbered classes, or CLI JSON output that omits the named exit class. |
+| Diagnostic-bundle gate | `overrid doctor --json` and all JSON envelopes include redacted diagnostic metadata with command name, schema versions, trace ids, reason codes, retry count, dependency status, and `secret_free_refs_only` redaction policy. | Redaction scans prove diagnostic output excludes raw keys, tokens, signatures, decrypted payloads, raw prompts, private payloads, and private file contents. |
+| Capability-discovery gate | CLI capability metadata reports local cache source, stale age, schema versions, route availability, phase gate, and fail-closed behavior for unavailable routes. | `policy dry-run --json` and other unavailable routes return `not_available_in_phase`, `exit_class:"phase"`, `fail_closed:true`, and no private-service shortcut output. |
+| Validation gate | `scripts/validate_cli_phase4.py` is wired into `scripts/validate_overrid.py` and checks docs, schema source, manifest, Rust symbols, emitted CLI JSON, fixtures, redaction, and Cargo tests. | `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass through the full validation wrapper before Phase 4 is reported complete. |
 
 ## Phase 5: Phase 1 Control-Plane Bootstrap Commands
 

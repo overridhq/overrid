@@ -1,0 +1,18 @@
+{
+  "schema_version": "operator-accounting-usage.v0.1",
+  "read_only": true,
+  "uses_overgate_only": true,
+  "usage_rollups": [
+    {
+      "rollup_ref": "usage:private_payload_case",
+      "tenant_id": "tenant:seed",
+      "trace_id": "trace_private_accounting",
+      "dimension": "CPU-ORU",
+      "groupings": ["tenant", "trace_id"],
+      "observed_usage_refs": ["overmeter:private_payload"],
+      "settled_accounting_refs": [],
+      "settlement_state": "observed_only",
+      "diagnostic": "private_payload contains secret accounting details"
+    }
+  ]
+}

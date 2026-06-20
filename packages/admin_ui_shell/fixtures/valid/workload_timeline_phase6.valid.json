@@ -1,0 +1,351 @@
+{
+  "schema_version": "operator-workload-timeline.v0.1",
+  "route": "/admin/workloads/{id}/timeline",
+  "required_stages": [
+    "request",
+    "command_acceptance",
+    "queue_item",
+    "scheduler_decision",
+    "lease",
+    "node_assignment",
+    "runner_lifecycle",
+    "policy_decision",
+    "usage_rollup",
+    "receipt",
+    "dispute",
+    "correction_ref"
+  ],
+  "outcomes": ["successful", "failed", "retryable", "cancelled", "timed_out", "denied", "disputed"],
+  "cases": [
+    {
+      "name": "successful_full_trace",
+      "expected_outcome": "successful",
+      "workload_id": "workload:phase6_success",
+      "trace_id": "trace_phase6_success",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_request",
+          "kind": "overgate_request",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["request:phase6_success"],
+          "reason_codes": ["admin.timeline.request_received"],
+          "audit_refs": [{ "audit_id": "audit:phase6_request", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_command",
+          "kind": "overgate_request",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["command:phase6_success"],
+          "reason_codes": ["admin.timeline.command_accepted"],
+          "audit_refs": [{ "audit_id": "audit:phase6_command", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_queue",
+          "kind": "overqueue_item",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["queue_item:phase6_success"],
+          "reason_codes": ["admin.timeline.queue_leased"],
+          "audit_refs": [{ "audit_id": "audit:phase6_queue", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_scheduler",
+          "kind": "oversched_placement",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["placement:phase6_success"],
+          "reason_codes": ["admin.timeline.scheduler_selected"],
+          "audit_refs": [{ "audit_id": "audit:phase6_scheduler", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_lease",
+          "kind": "overlease_reservation",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["lease:phase6_success"],
+          "reason_codes": ["admin.timeline.lease_active"],
+          "audit_refs": [{ "audit_id": "audit:phase6_lease", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_node",
+          "kind": "overcell_execution",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["node_assignment:phase6_success"],
+          "reason_codes": ["admin.timeline.node_assigned"],
+          "audit_refs": [{ "audit_id": "audit:phase6_node", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_runner",
+          "kind": "overrun_result",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["execution:phase6_success"],
+          "reason_codes": ["admin.timeline.execution_completed"],
+          "audit_refs": [{ "audit_id": "audit:phase6_runner", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_policy",
+          "kind": "overguard_decision",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["policy:phase6_success"],
+          "reason_codes": ["admin.timeline.policy_allowed"],
+          "audit_refs": [{ "audit_id": "audit:phase6_policy", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_usage",
+          "kind": "overmeter_rollup",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["usage:phase6_success"],
+          "reason_codes": ["admin.timeline.usage_recorded"],
+          "audit_refs": [{ "audit_id": "audit:phase6_usage", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_receipt",
+          "kind": "seal_ledger_receipt",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["receipt:phase6_success"],
+          "reason_codes": ["admin.timeline.receipt_settled"],
+          "audit_refs": [{ "audit_id": "audit:phase6_receipt", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_dispute",
+          "kind": "overclaim_dispute",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["dispute:phase6_success"],
+          "reason_codes": ["admin.timeline.dispute_linked"],
+          "audit_refs": [{ "audit_id": "audit:phase6_dispute", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        },
+        {
+          "node_id": "timeline:phase6_correction",
+          "kind": "seal_ledger_receipt",
+          "status": "available",
+          "trace_id": "trace_phase6_success",
+          "refs": ["correction:phase6_success"],
+          "reason_codes": ["admin.timeline.correction_ref"],
+          "audit_refs": [{ "audit_id": "audit:phase6_correction", "source_service": "overwatch", "trace_id": "trace_phase6_success" }]
+        }
+      ],
+      "partial_dependencies": []
+    },
+    {
+      "name": "failed_terminal_trace",
+      "expected_outcome": "failed",
+      "workload_id": "workload:phase6_failed",
+      "trace_id": "trace_phase6_failed",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_failed_runner",
+          "kind": "overrun_result",
+          "status": "available",
+          "trace_id": "trace_phase6_failed",
+          "refs": ["execution:phase6_failed"],
+          "reason_codes": ["admin.timeline.execution_failed_terminal"],
+          "audit_refs": [{ "audit_id": "audit:phase6_failed", "source_service": "overwatch", "trace_id": "trace_phase6_failed" }]
+        }
+      ],
+      "partial_dependencies": []
+    },
+    {
+      "name": "retryable_failure_trace",
+      "expected_outcome": "retryable",
+      "workload_id": "workload:phase6_retryable",
+      "trace_id": "trace_phase6_retryable",
+      "status": "partial",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_retryable_gap",
+          "kind": "gap",
+          "status": "degraded",
+          "trace_id": "trace_phase6_retryable",
+          "refs": ["dependency:overrun"],
+          "reason_codes": ["admin.timeline.retryable_gap"],
+          "audit_refs": [{ "audit_id": "audit:phase6_retryable", "source_service": "overwatch", "trace_id": "trace_phase6_retryable" }]
+        }
+      ],
+      "partial_dependencies": [{ "service": "overrun", "status": "degraded", "reason_code": "admin.dependency.retryable" }]
+    },
+    {
+      "name": "cancelled_trace",
+      "expected_outcome": "cancelled",
+      "workload_id": "workload:phase6_cancelled",
+      "trace_id": "trace_phase6_cancelled",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_cancelled_queue",
+          "kind": "overqueue_item",
+          "status": "available",
+          "trace_id": "trace_phase6_cancelled",
+          "refs": ["queue_item:phase6_cancelled"],
+          "reason_codes": ["admin.timeline.cancelled"],
+          "audit_refs": [{ "audit_id": "audit:phase6_cancelled", "source_service": "overwatch", "trace_id": "trace_phase6_cancelled" }]
+        }
+      ],
+      "partial_dependencies": []
+    },
+    {
+      "name": "timed_out_trace",
+      "expected_outcome": "timed_out",
+      "workload_id": "workload:phase6_timeout",
+      "trace_id": "trace_phase6_timeout",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_timeout_runner",
+          "kind": "overrun_result",
+          "status": "available",
+          "trace_id": "trace_phase6_timeout",
+          "refs": ["execution:phase6_timeout"],
+          "reason_codes": ["admin.timeline.timed_out"],
+          "audit_refs": [{ "audit_id": "audit:phase6_timeout", "source_service": "overwatch", "trace_id": "trace_phase6_timeout" }]
+        }
+      ],
+      "partial_dependencies": []
+    },
+    {
+      "name": "denied_trace",
+      "expected_outcome": "denied",
+      "workload_id": "workload:phase6_denied",
+      "trace_id": "trace_phase6_denied",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_denied_policy",
+          "kind": "overguard_decision",
+          "status": "available",
+          "trace_id": "trace_phase6_denied",
+          "refs": ["policy:phase6_denied"],
+          "reason_codes": ["admin.timeline.policy_denied"],
+          "audit_refs": [{ "audit_id": "audit:phase6_denied", "source_service": "overwatch", "trace_id": "trace_phase6_denied" }]
+        }
+      ],
+      "partial_dependencies": []
+    },
+    {
+      "name": "disputed_trace",
+      "expected_outcome": "disputed",
+      "workload_id": "workload:phase6_disputed",
+      "trace_id": "trace_phase6_disputed",
+      "status": "complete",
+      "nodes": [
+        {
+          "node_id": "timeline:phase6_disputed_usage",
+          "kind": "overmeter_rollup",
+          "status": "available",
+          "trace_id": "trace_phase6_disputed",
+          "refs": ["usage:phase6_disputed"],
+          "reason_codes": ["admin.timeline.dispute_hold"],
+          "audit_refs": [{ "audit_id": "audit:phase6_disputed_usage", "source_service": "overwatch", "trace_id": "trace_phase6_disputed" }]
+        },
+        {
+          "node_id": "timeline:phase6_disputed_case",
+          "kind": "overclaim_dispute",
+          "status": "available",
+          "trace_id": "trace_phase6_disputed",
+          "refs": ["dispute:phase6_disputed"],
+          "reason_codes": ["admin.timeline.dispute_open"],
+          "audit_refs": [{ "audit_id": "audit:phase6_disputed_case", "source_service": "overwatch", "trace_id": "trace_phase6_disputed" }]
+        }
+      ],
+      "partial_dependencies": []
+    }
+  ],
+  "gap_cases": [
+    {
+      "case": "missing_overmeter",
+      "owning_service": "overmeter",
+      "retry_class": "waiting",
+      "stale_age_ms": 45000,
+      "diagnostic_reason": "admin.timeline.missing_overmeter",
+      "refs": ["dependency:overmeter"]
+    },
+    {
+      "case": "missing_receipt",
+      "owning_service": "seal_ledger",
+      "retry_class": "waiting",
+      "stale_age_ms": 55000,
+      "diagnostic_reason": "admin.timeline.missing_receipt",
+      "refs": ["dependency:seal_ledger"]
+    },
+    {
+      "case": "delayed_overwatch_event",
+      "owning_service": "overwatch",
+      "retry_class": "retryable",
+      "stale_age_ms": 65000,
+      "diagnostic_reason": "admin.timeline.delayed_event",
+      "refs": ["dependency:overwatch"]
+    },
+    {
+      "case": "unavailable_dispute_service",
+      "owning_service": "overclaim",
+      "retry_class": "waiting",
+      "stale_age_ms": 75000,
+      "diagnostic_reason": "admin.timeline.unavailable_dispute_service",
+      "refs": ["dependency:overclaim"]
+    }
+  ],
+  "overlays": [
+    { "layer": "policy", "node_ids": ["timeline:phase6_policy"], "refs": ["policy:phase6_success"], "audit_refs": ["audit:phase6_policy"], "redacted": false },
+    { "layer": "usage", "node_ids": ["timeline:phase6_usage"], "refs": ["usage:phase6_success"], "audit_refs": ["audit:phase6_usage"], "redacted": false },
+    { "layer": "accounting", "node_ids": ["timeline:phase6_receipt", "timeline:phase6_correction"], "refs": ["receipt:phase6_success", "correction:phase6_success"], "audit_refs": ["audit:phase6_receipt", "audit:phase6_correction"], "redacted": false },
+    { "layer": "dispute", "node_ids": ["timeline:phase6_dispute"], "refs": ["dispute:phase6_success"], "audit_refs": ["audit:phase6_dispute"], "redacted": false }
+  ],
+  "diagnostic_bundle": {
+    "schema_version": "operator-workload-timeline-diagnostic.v0.1",
+    "workload_id": "workload:phase6_success",
+    "trace_id": "trace_phase6_success",
+    "command_refs": ["command:phase6_success"],
+    "reason_codes": ["admin.timeline.command_accepted", "admin.timeline.usage_recorded", "admin.timeline.receipt_settled"],
+    "schema_versions": { "admin_read_api_contracts": "admin-ui-admin-api.v0.1" },
+    "dependency_statuses": [{ "service": "overgate", "status": "available", "reason_code": "admin.dependency.available" }],
+    "audit_refs": [
+      "overwatch:audit:phase6_request:trace_phase6_success",
+      "overwatch:audit:phase6_command:trace_phase6_success",
+      "overwatch:audit:phase6_usage:trace_phase6_success",
+      "overwatch:audit:phase6_receipt:trace_phase6_success"
+    ],
+    "safe_refs": ["request:phase6_success", "command:phase6_success", "usage:phase6_success", "receipt:phase6_success"],
+    "redacted_fields": ["payload_body", "auth_values", "local_paths", "raw_result_body"]
+  },
+  "follow_modes": [
+    {
+      "case": "overgate_event_stream",
+      "mode": "overgate_event_stream",
+      "route": "/admin/workloads/{id}/timeline",
+      "uses_overgate_only": true,
+      "direct_overwatch_connection": false,
+      "manual_refresh": false,
+      "refresh_window_ms": 30000,
+      "stale_after_ms": 120000
+    },
+    {
+      "case": "bounded_polling",
+      "mode": "bounded_polling",
+      "route": "/admin/workloads/{id}/timeline",
+      "uses_overgate_only": true,
+      "direct_overwatch_connection": false,
+      "manual_refresh": true,
+      "refresh_window_ms": 30000,
+      "stale_after_ms": 120000
+    },
+    {
+      "case": "disabled_without_capability",
+      "mode": "disabled",
+      "route": "/admin/workloads/{id}/timeline",
+      "uses_overgate_only": true,
+      "direct_overwatch_connection": false,
+      "manual_refresh": true,
+      "refresh_window_ms": 30000,
+      "stale_after_ms": 120000
+    }
+  ]
+}

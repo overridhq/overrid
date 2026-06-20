@@ -1,0 +1,12 @@
+{
+  "schema_version": "operator-workload-timeline.v0.1",
+  "follow_modes": [
+    {
+      "case": "direct_overwatch_event_store",
+      "mode": "browser_event_stream",
+      "source_url": "https://overwatch.local/events",
+      "uses_overgate_only": false,
+      "direct_overwatch_connection": true
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "operator-view-preset.v0.1",
+  "actor_id": "actor:founder",
+  "tenant_id": "tenant:seed",
+  "view_id": "operations-default",
+  "panel_order": ["overview", "tenants", "raw_storage"],
+  "columns_by_panel": {
+    "raw_storage": ["state", "trace_id"]
+  },
+  "filters_by_panel": {
+    "workloads": {
+      "state": "running"
+    }
+  },
+  "sort_by_panel": {
+    "workloads": {
+      "field": "state",
+      "direction": "asc"
+    }
+  },
+  "density": "compact",
+  "updated_at": "2026-06-20T00:00:00Z"
+}

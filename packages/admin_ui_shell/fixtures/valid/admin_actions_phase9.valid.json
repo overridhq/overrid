@@ -1,0 +1,544 @@
+{
+  "schema_version": "operator-admin-actions.v0.1",
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_service_access": false,
+  "generated_contracts_projection_only": true,
+  "action_route": "/admin/actions",
+  "action_method": "POST",
+  "capability_flags": [
+    "admin.session.read",
+    "admin.actions.submit"
+  ],
+  "supported_actions": [
+    "cancel_workload",
+    "retry_workload",
+    "pause_node",
+    "drain_node",
+    "annotate_dispute",
+    "request_credential_rotation",
+    "acknowledge_receipt"
+  ],
+  "disabled_high_risk_actions": [
+    "backbone_maintenance",
+    "forced_rollback",
+    "break_glass_activation",
+    "ledger_correction_execution",
+    "provider_payout_override",
+    "direct_data_repair",
+    "raw_key_recovery",
+    "annotate_incident"
+  ],
+  "active_tenant_id": "tenant:seed",
+  "drafts": [
+    {
+      "action_type": "cancel_workload",
+      "target": {
+        "target_id": "workload:phase9_cancel_001",
+        "target_kind": "workload",
+        "owning_service": "overqueue"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Duplicate workload should be cancelled before execution starts.",
+      "expected_current_state": "queued",
+      "observed_current_state": "queued",
+      "trace_id": "trace_phase9_cancel_001",
+      "command_id": "command:phase9_cancel_001",
+      "idempotency_key": "idem_phase9_cancel_001",
+      "signature_refs": [
+        "signature:phase9_cancel_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_cancel_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_cancel_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_cancel_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "retry_workload",
+      "target": {
+        "target_id": "workload:phase9_retry_001",
+        "target_kind": "workload",
+        "owning_service": "overqueue"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Retry after retryable runner timeout.",
+      "expected_current_state": "retryable",
+      "observed_current_state": "retryable",
+      "trace_id": "trace_phase9_retry_001",
+      "command_id": "command:phase9_retry_001",
+      "idempotency_key": "idem_phase9_retry_001",
+      "signature_refs": [
+        "signature:phase9_retry_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_retry_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_retry_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_retry_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "pause_node",
+      "target": {
+        "target_id": "node:phase9_pause_001",
+        "target_kind": "node",
+        "owning_service": "overcell"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Pause node for operator-reviewed maintenance window.",
+      "expected_current_state": "available",
+      "observed_current_state": "available",
+      "trace_id": "trace_phase9_pause_001",
+      "command_id": "command:phase9_pause_001",
+      "idempotency_key": "idem_phase9_pause_001",
+      "signature_refs": [
+        "signature:phase9_pause_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_pause_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_pause_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_pause_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "drain_node",
+      "target": {
+        "target_id": "node:phase9_drain_001",
+        "target_kind": "node",
+        "owning_service": "overcell"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Drain private-swarm node before planned shutdown.",
+      "expected_current_state": "available",
+      "observed_current_state": "available",
+      "trace_id": "trace_phase9_drain_001",
+      "command_id": "command:phase9_drain_001",
+      "idempotency_key": "idem_phase9_drain_001",
+      "signature_refs": [
+        "signature:phase9_drain_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_drain_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_drain_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_drain_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "annotate_dispute",
+      "target": {
+        "target_id": "dispute:phase9_annotation_001",
+        "target_kind": "dispute",
+        "owning_service": "overclaim"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Add operator note linking the duplicate workload trace.",
+      "expected_current_state": "open",
+      "observed_current_state": "open",
+      "trace_id": "trace_phase9_dispute_001",
+      "command_id": "command:phase9_dispute_001",
+      "idempotency_key": "idem_phase9_dispute_001",
+      "signature_refs": [
+        "signature:phase9_dispute_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_dispute_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_dispute_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_dispute_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "request_credential_rotation",
+      "target": {
+        "target_id": "credential:phase9_rotation_001",
+        "target_kind": "credential",
+        "owning_service": "overkey"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Rotate delegated credential after scheduled operator review.",
+      "expected_current_state": "active",
+      "observed_current_state": "active",
+      "trace_id": "trace_phase9_rotation_001",
+      "command_id": "command:phase9_rotation_001",
+      "idempotency_key": "idem_phase9_rotation_001",
+      "signature_refs": [
+        "signature:phase9_rotation_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_rotation_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_rotation_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_rotation_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    },
+    {
+      "action_type": "acknowledge_receipt",
+      "target": {
+        "target_id": "receipt:phase9_ack_001",
+        "target_kind": "receipt",
+        "owning_service": "overbill"
+      },
+      "tenant_id": "tenant:seed",
+      "target_tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "visible_active_tenant_id": "tenant:seed",
+      "reason": "Acknowledge reviewed receipt after matching ledger refs.",
+      "expected_current_state": "available",
+      "observed_current_state": "available",
+      "trace_id": "trace_phase9_ack_001",
+      "command_id": "command:phase9_ack_001",
+      "idempotency_key": "idem_phase9_ack_001",
+      "signature_refs": [
+        "signature:phase9_ack_001"
+      ],
+      "policy_refs": [
+        {
+          "policy_id": "policy:admin_actions",
+          "policy_version": "policy.v0.1",
+          "decision_ref": "policy_decision:phase9_ack_allowed"
+        }
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_ack_draft",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_ack_001"
+        }
+      ],
+      "refreshed_at_epoch_ms": 1781945000000,
+      "now_epoch_ms": 1781945005000,
+      "stale_after_seconds": 60,
+      "status": "ready_for_signing",
+      "blockers": []
+    }
+  ],
+  "signing_handoff": {
+    "provider_ref": "signing_provider:overkey_local",
+    "signing_flow_ref": "signing_flow:admin_actions_v0",
+    "approved": true,
+    "signature_refs": [
+      "signature:phase9_cancel_001"
+    ],
+    "idempotency_key": "idem_phase9_cancel_001",
+    "submit_to_overgate": true,
+    "unsigned_blocked": true,
+    "malformed_signature_blocked": true
+  },
+  "receipts": [
+    {
+      "receipt_id": "admin_receipt:phase9_accepted",
+      "command_id": "command:phase9_accepted",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_accepted",
+      "outcome": "accepted",
+      "overgate_status": "accepted",
+      "owning_service_state_change": false,
+      "retry_class": "no_retry",
+      "affected_refs": [
+        "workload:phase9_cancel_001"
+      ],
+      "reason_codes": [
+        "admin_action.accepted"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_accepted_overgate",
+          "source_service": "overgate",
+          "trace_id": "trace_phase9_receipt_accepted"
+        },
+        {
+          "audit_id": "audit:phase9_accepted_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_accepted"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_denied",
+      "command_id": "command:phase9_denied",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_denied",
+      "outcome": "denied",
+      "overgate_status": "denied",
+      "owning_service_state_change": false,
+      "retry_class": "no_retry",
+      "affected_refs": [
+        "workload:phase9_denied_001"
+      ],
+      "reason_codes": [
+        "admin_action.denied"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_denied_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_denied"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_duplicate",
+      "command_id": "command:phase9_duplicate",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_duplicate",
+      "outcome": "duplicate",
+      "overgate_status": "duplicate",
+      "owning_service_state_change": false,
+      "retry_class": "retry_idempotent_duplicate",
+      "affected_refs": [
+        "workload:phase9_duplicate_001"
+      ],
+      "reason_codes": [
+        "admin_action.duplicate_idempotency_key"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_duplicate_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_duplicate"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_stale",
+      "command_id": "command:phase9_stale",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_stale",
+      "outcome": "stale_expected_state",
+      "overgate_status": "stale_expected_state",
+      "owning_service_state_change": false,
+      "retry_class": "safe_retry_after_refresh",
+      "affected_refs": [
+        "node:phase9_stale_001"
+      ],
+      "reason_codes": [
+        "admin_action.stale_expected_state"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_stale_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_stale"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_downstream_failed",
+      "command_id": "command:phase9_downstream_failed",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_downstream_failed",
+      "outcome": "downstream_failed",
+      "overgate_status": "downstream_failed",
+      "owning_service_state_change": false,
+      "retry_class": "downstream_retry_after_receipt",
+      "affected_refs": [
+        "node:phase9_downstream_failed_001"
+      ],
+      "reason_codes": [
+        "admin_action.downstream_failed"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_downstream_failed_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_downstream_failed"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_applied",
+      "command_id": "command:phase9_applied",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_applied",
+      "outcome": "applied",
+      "overgate_status": "applied",
+      "owning_service_state_change": true,
+      "retry_class": "no_retry",
+      "affected_refs": [
+        "node:phase9_applied_001"
+      ],
+      "reason_codes": [
+        "admin_action.applied"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_applied_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_applied"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_completed",
+      "command_id": "command:phase9_completed",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_completed",
+      "outcome": "completed",
+      "overgate_status": "completed",
+      "owning_service_state_change": true,
+      "retry_class": "no_retry",
+      "affected_refs": [
+        "receipt:phase9_completed_001"
+      ],
+      "reason_codes": [
+        "admin_action.completed"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_completed_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_completed"
+        }
+      ]
+    },
+    {
+      "receipt_id": "admin_receipt:phase9_failed",
+      "command_id": "command:phase9_failed",
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "trace_id": "trace_phase9_receipt_failed",
+      "outcome": "failed",
+      "overgate_status": "failed",
+      "owning_service_state_change": false,
+      "retry_class": "operator_review_required",
+      "affected_refs": [
+        "credential:phase9_failed_001"
+      ],
+      "reason_codes": [
+        "admin_action.failed"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase9_failed_overwatch",
+          "source_service": "overwatch",
+          "trace_id": "trace_phase9_receipt_failed"
+        }
+      ]
+    }
+  ],
+  "stale_state_cases": [
+    {
+      "action_type": "drain_node",
+      "target_id": "node:phase9_stale_001",
+      "expected_current_state": "available",
+      "observed_current_state": "draining",
+      "blocks_submission": true,
+      "requires_refresh": true,
+      "silent_retry_allowed": false,
+      "operator_review_required": true
+    }
+  ],
+  "security_review": {
+    "route_feature_flag_blocked": true,
+    "direct_component_invocation_blocked": true,
+    "denylist_enforced": true,
+    "incident_annotation_contract_missing": true
+  }
+}

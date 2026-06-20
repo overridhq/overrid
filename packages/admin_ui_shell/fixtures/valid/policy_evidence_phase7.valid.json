@@ -1,0 +1,289 @@
+{
+  "schema_version": "operator-policy-evidence.v0.1",
+  "routes": [
+    "/admin/policy-decisions",
+    "/admin/nodes",
+    "/admin/workloads",
+    "/admin/disputes",
+    "/admin/capabilities"
+  ],
+  "read_only": true,
+  "uses_overgate_only": true,
+  "direct_storage_access": false,
+  "direct_overwatch_connection": false,
+  "direct_ledger_mutation": false,
+  "required_policy_denial_cases": [
+    "denied_egress",
+    "insufficient_trust",
+    "quota_exhaustion",
+    "package_trust_failure",
+    "wrong_tenant",
+    "budget_precheck_failure"
+  ],
+  "required_verification_states": [
+    "verified",
+    "degraded",
+    "challenged",
+    "expired",
+    "disputed",
+    "untrusted"
+  ],
+  "policy_cases": [
+    {
+      "case": "denied_egress",
+      "decision_id": "decision:egress_blocked",
+      "trace_id": "trace_policy_egress",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:overguard_egress_v12"],
+      "matched_rule_refs": ["rule:deny_external_egress"],
+      "input_fact_refs": ["fact:workload_network_scope"],
+      "denied_class": "egress.external",
+      "allowed_class": null,
+      "expected_placement_class": "placement:local_private_only",
+      "correction_options": ["policy.correction.request_route_scope"],
+      "reason_codes": ["policy.denied_egress", "policy.correction.request_route_scope"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:overguard_egress_v12", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:deny_external_egress", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:workload_network_scope", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_egress", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "case": "insufficient_trust",
+      "decision_id": "decision:trust_low",
+      "trace_id": "trace_policy_trust",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:overguard_trust_v7"],
+      "matched_rule_refs": ["rule:requires_verified_seed_node"],
+      "input_fact_refs": ["fact:node_trust_class"],
+      "denied_class": "trust.insufficient",
+      "allowed_class": null,
+      "expected_placement_class": "placement:verified_seed",
+      "correction_options": ["policy.correction.verify_provider"],
+      "reason_codes": ["policy.insufficient_trust", "policy.correction.verify_provider"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:overguard_trust_v7", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:requires_verified_seed_node", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:node_trust_class", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_trust", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "case": "quota_exhaustion",
+      "decision_id": "decision:quota_exhausted",
+      "trace_id": "trace_policy_quota",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:quota_v4"],
+      "matched_rule_refs": ["rule:tenant_oru_quota"],
+      "input_fact_refs": ["fact:tenant_oru_balance"],
+      "denied_class": "quota.exhausted",
+      "allowed_class": null,
+      "expected_placement_class": "placement:any_private",
+      "correction_options": ["policy.correction.request_grant"],
+      "reason_codes": ["policy.quota_exhaustion", "policy.correction.request_grant"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:quota_v4", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:tenant_oru_quota", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:tenant_oru_balance", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_quota", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "case": "package_trust_failure",
+      "decision_id": "decision:package_trust_failed",
+      "trace_id": "trace_policy_package",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:package_trust_v5"],
+      "matched_rule_refs": ["rule:package_signature_required"],
+      "input_fact_refs": ["fact:package_verification_state"],
+      "denied_class": "package.trust_failed",
+      "allowed_class": null,
+      "expected_placement_class": "placement:verified_package_only",
+      "correction_options": ["policy.correction.resubmit_verified_package"],
+      "reason_codes": ["policy.package_trust_failure", "policy.correction.resubmit_verified_package"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:package_trust_v5", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:package_signature_required", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:package_verification_state", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_package", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "case": "wrong_tenant",
+      "decision_id": "decision:tenant_mismatch",
+      "trace_id": "trace_policy_tenant",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:tenant_scope_v3"],
+      "matched_rule_refs": ["rule:deny_cross_tenant"],
+      "input_fact_refs": ["fact:actor_tenant_scope"],
+      "denied_class": "tenant.cross_scope",
+      "allowed_class": null,
+      "expected_placement_class": "placement:tenant_owned_only",
+      "correction_options": ["policy.correction.switch_active_tenant"],
+      "reason_codes": ["policy.wrong_tenant", "policy.correction.switch_active_tenant"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:tenant_scope_v3", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:deny_cross_tenant", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:actor_tenant_scope", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_tenant", "source_service": "overwatch" }
+      ]
+    },
+    {
+      "case": "budget_precheck_failure",
+      "decision_id": "decision:budget_precheck_failed",
+      "trace_id": "trace_policy_budget",
+      "tenant_id": "tenant:seed",
+      "policy_version_refs": ["policy:budget_precheck_v6"],
+      "matched_rule_refs": ["rule:budget_precheck_required"],
+      "input_fact_refs": ["fact:project_budget_window"],
+      "denied_class": "budget.precheck_failed",
+      "allowed_class": null,
+      "expected_placement_class": "placement:grant_backed",
+      "correction_options": ["policy.correction.adjust_budget_window"],
+      "reason_codes": ["policy.budget_precheck_failure", "policy.correction.adjust_budget_window"],
+      "evidence_links": [
+        { "kind": "policy", "ref": "policy:budget_precheck_v6", "source_service": "overguard" },
+        { "kind": "matched_rule", "ref": "rule:budget_precheck_required", "source_service": "overguard" },
+        { "kind": "input_fact", "ref": "fact:project_budget_window", "source_service": "overguard" },
+        { "kind": "audit", "ref": "audit:policy_budget", "source_service": "overwatch" }
+      ]
+    }
+  ],
+  "verification_cases": [
+    {
+      "state": "verified",
+      "subject_ref": "node:verified_seed",
+      "subject_kind": "node",
+      "provider_verification_refs": ["provider:verified_seed"],
+      "challenge_refs": ["challenge:verified_seed_baseline"],
+      "benchmark_refs": ["benchmark:verified_seed_cpu"],
+      "trust_class_refs": ["trust:seed_private_verified"],
+      "reason_codes": ["verification.verified"],
+      "redacted": false
+    },
+    {
+      "state": "degraded",
+      "subject_ref": "node:degraded_seed",
+      "subject_kind": "node",
+      "provider_verification_refs": ["provider:degraded_seed"],
+      "challenge_refs": ["challenge:degraded_seed_review"],
+      "benchmark_refs": ["benchmark:degraded_seed_gpu"],
+      "trust_class_refs": ["trust:seed_private_degraded"],
+      "reason_codes": ["verification.degraded"],
+      "redacted": false
+    },
+    {
+      "state": "challenged",
+      "subject_ref": "provider:challenged_seed",
+      "subject_kind": "provider",
+      "provider_verification_refs": ["provider:challenged_seed"],
+      "challenge_refs": ["challenge:seed_pending"],
+      "benchmark_refs": ["benchmark:seed_pending"],
+      "trust_class_refs": ["trust:challenge_pending"],
+      "reason_codes": ["verification.challenged"],
+      "redacted": true
+    },
+    {
+      "state": "expired",
+      "subject_ref": "node:expired_seed",
+      "subject_kind": "node",
+      "provider_verification_refs": ["provider:expired_seed"],
+      "challenge_refs": ["challenge:expired_seed"],
+      "benchmark_refs": ["benchmark:expired_seed"],
+      "trust_class_refs": ["trust:expired_seed"],
+      "reason_codes": ["verification.expired"],
+      "redacted": false
+    },
+    {
+      "state": "disputed",
+      "subject_ref": "provider:disputed_seed",
+      "subject_kind": "provider",
+      "provider_verification_refs": ["provider:disputed_seed"],
+      "challenge_refs": ["challenge:disputed_seed"],
+      "benchmark_refs": ["benchmark:disputed_seed"],
+      "trust_class_refs": ["trust:disputed_seed"],
+      "reason_codes": ["verification.disputed"],
+      "redacted": true
+    },
+    {
+      "state": "untrusted",
+      "subject_ref": "node:untrusted_seed",
+      "subject_kind": "node",
+      "provider_verification_refs": ["provider:untrusted_seed"],
+      "challenge_refs": ["challenge:untrusted_seed"],
+      "benchmark_refs": ["benchmark:untrusted_seed"],
+      "trust_class_refs": ["trust:untrusted_seed"],
+      "reason_codes": ["verification.untrusted"],
+      "redacted": true
+    },
+    {
+      "state": "degraded",
+      "subject_ref": "workload:decision_review_seed",
+      "subject_kind": "workload",
+      "provider_verification_refs": ["provider:decision_review_seed"],
+      "challenge_refs": ["challenge:decision_review_seed"],
+      "benchmark_refs": ["benchmark:decision_review_seed"],
+      "trust_class_refs": ["trust:decision_review_seed"],
+      "reason_codes": ["verification.degraded", "verification.workload_decision_review"],
+      "redacted": true
+    }
+  ],
+  "dispute_cases": [
+    {
+      "case_ref": "dispute:usage_hold",
+      "state": "hold",
+      "evidence_refs": ["evidence:usage_meter_ref"],
+      "hold_settlement_visibility": true,
+      "challenge_window_open": true,
+      "correction_outcome_refs": ["correction:usage_review_pending"],
+      "refund_refs": [],
+      "settlement_impact_refs": ["settlement:visibility_hold"],
+      "direct_ledger_mutation": false,
+      "reason_codes": ["dispute.settlement_hold", "dispute.challenge_window_open"]
+    },
+    {
+      "case_ref": "dispute:corrected_receipt",
+      "state": "corrected",
+      "evidence_refs": ["evidence:receipt_mismatch"],
+      "hold_settlement_visibility": false,
+      "challenge_window_open": false,
+      "correction_outcome_refs": ["correction:receipt_adjusted"],
+      "refund_refs": ["refund:receipt_partial"],
+      "settlement_impact_refs": ["settlement:receipt_corrected"],
+      "direct_ledger_mutation": false,
+      "reason_codes": ["dispute.corrected", "dispute.refund_visible"]
+    }
+  ],
+  "incident_cases": [
+    {
+      "incident_ref": "incident:policy_readiness",
+      "state": "disabled",
+      "policy_state": "available",
+      "break_glass_execution_disabled": true,
+      "missing_contracts": [
+        "overgate.signed_break_glass_command",
+        "overkey.break_glass_expiry",
+        "overguard.break_glass_policy",
+        "overwatch.break_glass_receipt"
+      ],
+      "disabled_action_reason_codes": ["admin.incident.break_glass_contract_missing"],
+      "evidence_links": [
+        { "kind": "incident", "ref": "incident:policy_readiness", "source_service": "overwatch" },
+        { "kind": "audit", "ref": "audit:incident_readiness", "source_service": "overwatch" }
+      ]
+    }
+  ],
+  "evidence_link_cases": [
+    {
+      "name": "stable_policy_links",
+      "refs": ["policy:overguard_egress_v12", "rule:deny_external_egress", "fact:workload_network_scope", "audit:policy_egress"],
+      "expected_ok": true
+    },
+    {
+      "name": "stable_dispute_links",
+      "refs": ["dispute:usage_hold", "evidence:usage_meter_ref", "correction:usage_review_pending", "settlement:visibility_hold"],
+      "expected_ok": true
+    }
+  ]
+}

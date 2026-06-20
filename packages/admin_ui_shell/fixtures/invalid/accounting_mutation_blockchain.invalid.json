@@ -1,0 +1,26 @@
+{
+  "schema_version": "operator-accounting-usage.v0.1",
+  "read_only": false,
+  "uses_overgate_only": false,
+  "direct_storage_access": true,
+  "direct_ledger_mutation": true,
+  "blockchain_ownership_model": true,
+  "nft_ownership_model": true,
+  "ledger_entries": [
+    {
+      "state": "available",
+      "account_ref": "oru:editable_seed",
+      "ledger_refs": ["ledger:mutable_seed"],
+      "immutable_ledger_refs": [],
+      "editable_by_ui": true
+    }
+  ],
+  "rights_cases": [
+    {
+      "asset_ref": "asset:nft_bad",
+      "blockchain_ownership_model": true,
+      "nft_ownership_model": true,
+      "resource_rights_refs": ["rights:tokenized_ownership"]
+    }
+  ]
+}

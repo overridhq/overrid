@@ -1,0 +1,59 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "ok": true,
+  "result": {
+    "cli_name": "overrid",
+    "cli_package": "overrid-cli",
+    "cli_version": "0.1.0",
+    "contract_source_root": "packages/schemas",
+    "contract_status": "rust_projection_from_json_schema_source",
+    "sdk_target": "overgate_only"
+  },
+  "error": null,
+  "trace_id": null,
+  "reason_code": null,
+  "retry_class": "not_retryable",
+  "exit_code": 0,
+  "exit_class": "success",
+  "timing_ms": 0,
+  "lifecycle": {
+    "states": [
+      "parsed",
+      "completed"
+    ],
+    "terminal_state": "completed"
+  },
+  "diagnostic_bundle": {
+    "command_name": "version",
+    "profile_name": null,
+    "endpoint_fingerprint": null,
+    "schema_versions": [
+      "cli-command.v0.1"
+    ],
+    "trace_ids": [],
+    "reason_codes": [],
+    "retry_count": 0,
+    "dependency_status": [
+      "local_contracts_available",
+      "sdk_metadata_available"
+    ],
+    "redaction_policy": "secret_free_refs_only"
+  },
+  "capabilities": {
+    "source": "local_capability_cache",
+    "stale_age_ms": 0,
+    "fail_closed": false,
+    "routes": [
+      {
+        "route": "version",
+        "available": true,
+        "phase_gate": "phase_4",
+        "schema_versions": [
+          "cli-command.v0.1"
+        ]
+      }
+    ]
+  },
+  "audit_refs": [],
+  "warnings": []
+}

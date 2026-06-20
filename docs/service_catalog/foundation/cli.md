@@ -25,12 +25,12 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 
 ## Development Order
 
-1. Add login or credential enrollment.
-2. Add tenant, identity, key, and manifest commands.
-3. Add workload submit, inspect, cancel, result, and logs commands.
-4. Add node registration and node health commands.
-5. Add usage, receipt, policy dry-run, and package validation commands.
-6. Add admin-safe JSON output for automation.
+1. Freeze Phase 1 command availability, profile and credential boundaries, output envelopes, exit classes, idempotency rules, and phase-gate validation before runtime parser work.
+2. Build the Phase 2 Rust CLI crate skeleton with generated contract imports, SDK/Overgate wrapper, parser conventions, and fixtures.
+3. Implement Phase 1 runtime command groups: version, doctor, profile, auth, credential, tenant, identity, key, manifest, synthetic workload submit/status/timeline, and local-only dev helpers.
+4. Add signing, idempotency, retry, trace propagation, and error-decoding hardening for Phase 1 automation and Phase 6 product paths.
+5. Add later command families only when owning services are ready: Phase 2 node commands; Phase 3 real workload logs, cancellation, result, and follow; Phase 4 policy dry-run; Phase 5/6 usage, receipt, and dispute reads; Phase 9 package and deployment-adjacent commands.
+6. Harden product integration, stable JSON output, diagnostics, security/redaction, and release readiness.
 
 ## Contracts And Interfaces
 
@@ -47,6 +47,39 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - The CLI is a terminal client, not a private service interface.
 - Every platform call must go through the SDK and Overgate path.
 - Local/test fixture credentials must be isolated from seed or production-like endpoints.
+
+## Phase 1 Implementation Gates
+
+- Boundary gate: CLI Phase 1 work freezes the CLI as a Rust SDK/Overgate client. It may define command scope, profile shape, credential references, output envelopes, exit classes, capability checks, and diagnostics, but it may not introduce direct storage, queue, ledger, vault, object-store, node-agent, or service-local state access.
+- Command gate: Phase 1 exposes only `version`, `doctor`, profile, auth, credential, tenant, identity, key, manifest, synthetic workload pending-state, and local-only `dev` helpers. Later node, real execution, policy, usage, receipt, package, deployment, governance, incident, compliance, migration, and backbone commands remain hidden, documented planned, or `not_available_in_phase` until owning-service contracts exist.
+- Decision gate: implementation must carry forward SDS decisions for platform-native credential storage, deterministic idempotency fingerprints, the small numeric exit-code registry, and profile environment separation before command payload construction.
+- Documentation gate: new CLI command behavior must first update the owning SDS and service-catalog contract, then the master phase or crosswalk if phase alignment changes, then the CLI sub-build plan and command docs before parser behavior is implemented.
+- Validation gate: `scripts/validate_cli_phase1.py` verifies the Phase 1 gate outputs, cross-document links, command availability states, and Rust-first tech-stack constraints before later CLI phases build runtime code.
+
+## Phase 2 Implementation Gates
+
+- Workspace gate: `packages/cli`, `packages/sdk`, and `packages/schemas/overrid_contracts` are Cargo workspace members and keep the CLI runtime Rust-first.
+- Contract gate: the CLI consumes the Rust projection from `packages/schemas/overrid_contracts`, while `packages/schemas/overrid_contracts/v0/cli_command.schema.json` and `packages/schemas/overrid_contracts/codegen_manifest.json` remain the canonical source; schema-version compatibility checks reject unknown or incompatible versions before request construction.
+- SDK gate: the CLI uses `packages/sdk` for Overgate-only endpoint validation and must reject private service targets instead of calling Overbase, Overstore, Overvault, Overqueue, Overwatch, Seal Ledger, node-agent, or service-local state directly.
+- Parser gate: `version`, `help`, `--json`, `--output`, `--no-color`, `--verbose`, `--profile`, and `--all-phases` are stable Phase 2 parser conventions; phase-gated command families are visible only through all-phase help and fail with `not_available_in_phase`.
+- Fixture gate: CLI fixtures preserve final Overrid output-envelope and endpoint-validation shapes rather than CLI-only mock payloads; `scripts/validate_cli_phase2.py` compares actual `overrid version --json` output with the valid fixture and Cargo tests validate the gate.
+
+## Phase 3 Implementation Gates
+
+- Profile gate: `packages/schemas/overrid_contracts` now defines `cli_profile` fields for endpoint, endpoint fingerprint, environment class, tenant id, actor id, credential namespace, schema pins, default output mode, confirmation policy, fixture allowance, and owner-only file-backed storage policy.
+- Credential gate: `credential_reference` validation supports keychain, secret service, encrypted local store, signing agent, hardware token, fixture, and CI reference classes while rejecting raw private-key material, revoked credentials, expired credentials, namespace mismatch, and disallowed fixture use.
+- Environment gate: `packages/sdk` enforces profile and credential safety before request construction, rejects silent endpoint overrides for seed and production-like profiles, requires explicit profile confirmation for sensitive mutations, and requires `--reason` for admin-impacting mutations.
+- Signer handoff gate: mutating credential commands return signature refs through SDK signer handoff and never print raw private keys, tokens, signatures, decrypted payloads, or private payload material.
+- Validation gate: `scripts/validate_cli_phase3.py` exercises Rust tests, sanitized `profile inspect --json`, signer handoff output, missing seed confirmation, schema/manifest/docs alignment, and secret-redaction checks.
+
+## Phase 4 Implementation Gates
+
+- Lifecycle gate: the CLI records parsed, profile-loaded, credential-ready, payload-validated, signed, submitted, accepted, waiting, completed, denied, and failed lifecycle states in the contract layer and emits terminal lifecycle metadata in JSON output.
+- Output-envelope gate: version, doctor, profile, credential, and phase-gated command paths render through one stable envelope containing result/error data, trace id, reason code, retry class, exit code, named exit class, timing, lifecycle, diagnostic bundle, capability metadata, audit refs, and warnings.
+- Exit-registry gate: the contract layer locks the small numeric exit-code registry for success, usage, config, credential, schema, policy, phase, idempotency, transport, timeout, platform, and local I/O classes.
+- Diagnostic gate: `overrid doctor` and all JSON envelopes expose only redacted diagnostic refs, schema versions, reason codes, retry counts, dependency status, and capability status; raw keys, tokens, signatures, private payloads, raw prompts, and private file contents are rejected.
+- Capability gate: local capability discovery reports stale age, route availability, schema versions, phase support, and fail-closed behavior, with unavailable routes returning `not_available_in_phase` instead of private shortcuts.
+- Validation gate: `scripts/validate_cli_phase4.py` exercises schema/manifest alignment, Rust surfaces, real CLI JSON output, fixture parity, fail-closed capability output, redaction checks, and Cargo tests.
 
 ## Validation
 

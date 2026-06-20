@@ -1,0 +1,43 @@
+{
+  "schema_version": "operator-phase10-validation.v0.1",
+  "security_probes": [
+    {
+      "probe": "diagnostic_bundles",
+      "owning_service_authorized": false,
+      "redaction_profile_ref": "redaction:phase10_invalid",
+      "safe_refs": [
+        "diagnostic:phase10_invalid"
+      ],
+      "reason_codes": [
+        "phase10.security_leak_invalid"
+      ],
+      "audit_refs": [
+        {
+          "audit_id": "audit:phase10_invalid",
+          "source_service": "overgate",
+          "trace_id": "trace_phase10_security_invalid"
+        }
+      ],
+      "raw_prompts_rendered": true,
+      "decrypted_snippets_rendered": true,
+      "private_file_paths_rendered": true,
+      "query_text_rendered": true,
+      "key_material_rendered": true,
+      "credentials_rendered": true,
+      "secrets_rendered": true,
+      "private_payloads_rendered": true,
+      "unredacted_result_contents_rendered": true,
+      "unsafe_rendered_examples": [
+        "raw prompt text: summarize the tenant bundle",
+        "decrypted snippet: hidden body",
+        "/Users/example/private/file.txt",
+        "query text: select private records",
+        "key material: abc",
+        "credential value exposed",
+        "secret value exposed",
+        "private payload body",
+        "unredacted result contents"
+      ]
+    }
+  ]
+}

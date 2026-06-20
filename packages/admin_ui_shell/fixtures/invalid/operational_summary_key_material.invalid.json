@@ -1,0 +1,34 @@
+{
+  "schema_version": "operator-summary-panels.v0.1",
+  "active_tenant_id": "tenant:seed",
+  "route_max_limit": 75,
+  "filter_max_count": 4,
+  "panels": ["keys"],
+  "dependency_health": [
+    { "service": "overgate", "status": "available", "reason_code": "admin.dependency.available" },
+    { "service": "overkey", "status": "available", "reason_code": "admin.dependency.available" }
+  ],
+  "queries": [
+    {
+      "panel": "keys",
+      "limit": 50,
+      "filters": { "state": "rotation_current" },
+      "refresh_mode": "manual_refresh",
+      "refresh_window_ms": 30000,
+      "stale_after_ms": 120000
+    }
+  ],
+  "rows": [
+    {
+      "panel": "keys",
+      "resource_id": "key:founder_raw",
+      "tenant_id": "tenant:seed",
+      "kind": "key",
+      "state": "rotation_current",
+      "trace_id": "trace_key_material",
+      "reason_codes": ["admin.key.raw_material_present"],
+      "audit_refs": ["audit:key_material"],
+      "key_material": "raw-private-key-material"
+    }
+  ]
+}
