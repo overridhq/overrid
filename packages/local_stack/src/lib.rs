@@ -15,7 +15,10 @@ pub const DEFAULT_LOCAL_STACK_MANIFEST_PATH: &str = "packages/schemas/overrid_co
 pub const LOCAL_STACK_PHASE_GATE: &str = "phase_3_local_development_stack";
 pub const LOCAL_STACK_PHASE4_TOPOLOGY_GATE: &str = "phase_4_loopback_topology";
 pub const LOCAL_STACK_PHASE5_BACKING_GATE: &str = "phase_5_embedded_state_queue_store";
+pub const LOCAL_STACK_PHASE6_LIFECYCLE_GATE: &str = "phase_6_lifecycle_orchestration";
 pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
+pub const DEFAULT_LIFECYCLE_TIMEOUT_MS: u64 = 60_000;
+pub const DEFAULT_LIFECYCLE_POLL_INTERVAL_MS: u64 = 250;
 
 const RESERVED_PORT_BINDINGS: [ReservedPortBinding; 6] = [
     ReservedPortBinding {
@@ -310,12 +313,39 @@ impl LocalStackRunner {
     }
 
     fn start(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        let mode = lifecycle_mode(&self.options.profile);
+        output.apply_lifecycle_mode(mode, DevCommand::Start);
         output
             .push_state(LocalCommandState::Starting)
             .expect("local-stack start transition is valid");
+        if matches!(
+            mode,
+            LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure
+        ) {
+            return output.fail_lifecycle(
+                "local_stack.backing_services_unavailable",
+                "local stack required service readiness failed before startup completed",
+                ExitCodeClass::Platform,
+                RetryClass::SafeRetry,
+            );
+        }
         output
             .push_state(LocalCommandState::Ready)
             .expect("local-stack ready transition is valid");
+        if mode == LifecycleMode::OptionalDegraded {
+            return output.complete(
+                LocalStackStatus::Degraded,
+                "local_stack.degraded",
+                "local stack required services are ready with an optional service degraded",
+            );
+        }
+        if mode == LifecycleMode::AlreadyRunning {
+            return output.complete(
+                LocalStackStatus::Ready,
+                "local_stack.already_running",
+                "local stack services were already running and readiness was verified",
+            );
+        }
         output.complete(
             LocalStackStatus::Ready,
             "local_stack.ready",
@@ -324,6 +354,7 @@ impl LocalStackRunner {
     }
 
     fn stop(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.apply_shutdown_reports(DevCommand::Stop);
         output
             .push_state(LocalCommandState::Stopped)
             .expect("local-stack stop transition is valid");
@@ -335,15 +366,36 @@ impl LocalStackRunner {
     }
 
     fn restart(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        let mode = lifecycle_mode(&self.options.profile);
+        output.apply_lifecycle_mode(mode, DevCommand::Restart);
+        output.apply_shutdown_reports(DevCommand::Restart);
         output
             .push_state(LocalCommandState::Stopped)
             .expect("local-stack restart stop transition is valid");
         output
             .push_state(LocalCommandState::Starting)
             .expect("local-stack restart start transition is valid");
+        if matches!(
+            mode,
+            LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure
+        ) {
+            return output.fail_lifecycle(
+                "local_stack.backing_services_unavailable",
+                "local stack restart failed while waiting for required service readiness",
+                ExitCodeClass::Platform,
+                RetryClass::SafeRetry,
+            );
+        }
         output
             .push_state(LocalCommandState::Ready)
             .expect("local-stack restart ready transition is valid");
+        if mode == LifecycleMode::OptionalDegraded {
+            return output.complete(
+                LocalStackStatus::Degraded,
+                "local_stack.degraded",
+                "local stack restarted with required services ready and an optional service degraded",
+            );
+        }
         output.complete(
             LocalStackStatus::Ready,
             "local_stack.ready",
@@ -352,6 +404,7 @@ impl LocalStackRunner {
     }
 
     fn status(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.apply_lifecycle_mode(lifecycle_mode(&self.options.profile), DevCommand::Status);
         output
             .push_state(LocalCommandState::Ready)
             .expect("local-stack status transition is valid");
@@ -363,6 +416,13 @@ impl LocalStackRunner {
     }
 
     fn reset(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.reset_started",
+            "stack",
+            "reset",
+        ));
         output
             .push_state(LocalCommandState::Resetting)
             .expect("local-stack reset transition is valid");
@@ -373,6 +433,13 @@ impl LocalStackRunner {
             "artifact://local_stack/reset/{}",
             id_component(&self.options.trace_id)
         ));
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.reset_completed",
+            "stack",
+            "reset",
+        ));
         output.complete(
             LocalStackStatus::Completed,
             "local_stack.reset_completed",
@@ -381,9 +448,23 @@ impl LocalStackRunner {
     }
 
     fn seed(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.seed_started",
+            "stack",
+            "seed",
+        ));
         output
             .push_state(LocalCommandState::Seeding)
             .expect("local-stack seed transition is valid");
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.seed_completed",
+            "stack",
+            "seed",
+        ));
         output.complete(
             LocalStackStatus::Completed,
             "local_stack.seed_completed",
@@ -392,6 +473,8 @@ impl LocalStackRunner {
     }
 
     fn smoke(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        let mode = lifecycle_mode(&self.options.profile);
+        output.apply_lifecycle_mode(mode, DevCommand::Smoke);
         for state in [
             LocalCommandState::Starting,
             LocalCommandState::Ready,
@@ -403,6 +486,34 @@ impl LocalStackRunner {
             output
                 .push_state(state)
                 .expect("local-stack smoke transition is valid");
+            if state == LocalCommandState::Starting
+                && matches!(
+                    mode,
+                    LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure
+                )
+            {
+                return output.fail_lifecycle(
+                    "local_stack.backing_services_unavailable",
+                    "local stack smoke failed while waiting for required service readiness",
+                    ExitCodeClass::Platform,
+                    RetryClass::SafeRetry,
+                );
+            }
+        }
+        for (event_type, discriminator) in [
+            ("local_stack.reset_started", "smoke_reset"),
+            ("local_stack.seed_started", "smoke_seed"),
+            ("local_stack.seed_completed", "smoke_seed"),
+            ("local_stack.smoke_started", "smoke"),
+            ("local_stack.smoke_completed", "smoke"),
+        ] {
+            output.lifecycle_events.push(lifecycle_event(
+                &self.options.profile,
+                &self.options.trace_id,
+                event_type,
+                "stack",
+                discriminator,
+            ));
         }
         output.artifact_refs.push(format!(
             "artifact://local_stack/smoke/{}",
@@ -416,6 +527,13 @@ impl LocalStackRunner {
     }
 
     fn logs(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.logs_requested",
+            "stack",
+            "logs",
+        ));
         output
             .push_state(LocalCommandState::CollectingArtifacts)
             .expect("local-stack logs transition is valid");
@@ -435,6 +553,13 @@ impl LocalStackRunner {
         mut output: LocalStackCommandOutput,
         manifest: &LocalStackManifest,
     ) -> LocalStackCommandOutput {
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.doctor_requested",
+            "stack",
+            "doctor",
+        ));
         output
             .push_state(LocalCommandState::CollectingArtifacts)
             .expect("local-stack doctor artifact transition is valid");
@@ -743,6 +868,7 @@ impl std::error::Error for StateTransitionError {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocalStackStatus {
     Ready,
+    Degraded,
     Stopped,
     Blocked,
     Failed,
@@ -753,6 +879,7 @@ impl LocalStackStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ready => "ready",
+            Self::Degraded => "degraded",
             Self::Stopped => "stopped",
             Self::Blocked => "blocked",
             Self::Failed => "failed",
@@ -904,6 +1031,94 @@ pub struct SchemaCompatibilityGate {
     pub blocks_seed: bool,
     pub blocks_smoke: bool,
     pub evidence_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalServiceLifecycleStep {
+    pub service_id: String,
+    pub dependency_order: u8,
+    pub required: bool,
+    pub dependencies: Vec<String>,
+    pub startup_state: String,
+    pub health_state: String,
+    pub readiness_state: String,
+    pub liveness_state: String,
+    pub start_after_ms: u64,
+    pub ready_after_ms: u64,
+    pub timeout_ms: u64,
+    pub reason_code: String,
+    pub rollback_on_failure: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalServiceShutdownReport {
+    pub service_id: String,
+    pub shutdown_order: u8,
+    pub graceful: bool,
+    pub state_preserved: bool,
+    pub reason_code: String,
+    pub diagnostic_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalReadinessCheck {
+    pub service_id: String,
+    pub endpoint_ref: String,
+    pub health_state: String,
+    pub readiness_state: String,
+    pub liveness_state: String,
+    pub dependency_state: String,
+    pub elapsed_ms: u64,
+    pub timeout_ms: u64,
+    pub reason_code: String,
+    pub stale_schema: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalWaitPolicy {
+    pub timeout_ms: u64,
+    pub poll_interval_ms: u64,
+    pub bounded: bool,
+    pub no_unbounded_sleep: bool,
+    pub timeout_class: String,
+    pub reason_code: String,
+    pub dependency_wait_diagnostics_ref: String,
+    pub logs_exported_on_timeout: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalRollbackReport {
+    pub service_id: String,
+    pub rollback_order: u8,
+    pub action: String,
+    pub state_preserved: bool,
+    pub reason_code: String,
+    pub artifact_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalLifecycleEventRecord {
+    pub event_id: String,
+    pub event_type: String,
+    pub service_id: String,
+    pub trace_id: String,
+    pub stack_profile: String,
+    pub fixture_version: String,
+    pub schema_version: String,
+    pub artifact_ref: String,
+    pub redaction_summary: String,
+    pub contains_raw_secret: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LifecycleMode {
+    CleanStart,
+    AlreadyRunning,
+    HealthTimeout,
+    RequiredFailure,
+    OptionalDegraded,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1227,6 +1442,12 @@ pub struct LocalStackCommandOutput {
     pub artifact_manifests: Vec<LocalArtifactManifest>,
     pub audit_query_records: Vec<LocalAuditQueryRecord>,
     pub schema_compatibility_gates: Vec<SchemaCompatibilityGate>,
+    pub startup_graph: Vec<LocalServiceLifecycleStep>,
+    pub shutdown_reports: Vec<LocalServiceShutdownReport>,
+    pub readiness_checks: Vec<LocalReadinessCheck>,
+    pub wait_policy: LocalWaitPolicy,
+    pub rollback_reports: Vec<LocalRollbackReport>,
+    pub lifecycle_events: Vec<LocalLifecycleEventRecord>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -1266,6 +1487,30 @@ impl LocalStackCommandOutput {
             schema_compatibility_gates: SchemaCompatibilityReport::for_profile(&options.profile)
                 .gates()
                 .to_vec(),
+            startup_graph: lifecycle_startup_steps(
+                &options.profile,
+                &options.trace_id,
+                options.timeout_ms,
+            ),
+            shutdown_reports: Vec::new(),
+            readiness_checks: readiness_checks_for_profile(
+                &options.profile,
+                &options.trace_id,
+                options.timeout_ms,
+            ),
+            wait_policy: wait_policy_for_options(
+                &options.profile,
+                options.timeout_ms,
+                options.poll_interval_ms,
+            ),
+            rollback_reports: Vec::new(),
+            lifecycle_events: vec![lifecycle_event(
+                &options.profile,
+                &options.trace_id,
+                "local_stack.command_requested",
+                "stack",
+                command.action(),
+            )],
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -1304,12 +1549,20 @@ impl LocalStackCommandOutput {
                 "overstore_artifact_stub_ready",
                 "local_diagnostic_events_not_authoritative_overwatch",
                 "schema_compatibility_gates_passed",
+                "dependency_ordered_startup_verified",
+                "reverse_shutdown_order_verified",
+                "readiness_liveness_checks_ready",
+                "bounded_wait_policy_ready",
+                "lifecycle_events_secret_free",
                 "redacted_diagnostics_only",
             ]
         } else {
             vec![
                 "local_stack_manifest_checked",
                 "schema_compatibility_checked",
+                "lifecycle_orchestration_attempted",
+                "bounded_wait_policy_applied",
+                "redacted_lifecycle_events_collected",
                 "local_stack_fail_closed",
                 "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
@@ -1351,6 +1604,7 @@ impl LocalStackCommandOutput {
                 "\"manifest_path\":\"{}\",",
                 "\"topology_phase_gate\":\"{}\",",
                 "\"backing_phase_gate\":\"{}\",",
+                "\"lifecycle_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
@@ -1364,6 +1618,12 @@ impl LocalStackCommandOutput {
                 "\"artifact_manifests\":{},",
                 "\"audit_query_records\":{},",
                 "\"schema_compatibility_gates\":{},",
+                "\"startup_graph\":{},",
+                "\"shutdown_reports\":{},",
+                "\"readiness_checks\":{},",
+                "\"wait_policy\":{},",
+                "\"rollback_reports\":{},",
+                "\"lifecycle_events\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -1384,6 +1644,7 @@ impl LocalStackCommandOutput {
             json_escape(&self.manifest_path),
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
+            json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
@@ -1394,6 +1655,12 @@ impl LocalStackCommandOutput {
             render_artifact_manifests_json(&self.artifact_manifests),
             render_audit_query_records_json(&self.audit_query_records),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
+            render_startup_graph_json(&self.startup_graph),
+            render_shutdown_reports_json(&self.shutdown_reports),
+            render_readiness_checks_json(&self.readiness_checks),
+            render_wait_policy_json(&self.wait_policy),
+            render_rollback_reports_json(&self.rollback_reports),
+            render_lifecycle_events_json(&self.lifecycle_events),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -1417,9 +1684,15 @@ impl LocalStackCommandOutput {
                 "\"remediation_hint\":\"{}\",",
                 "\"topology_phase_gate\":\"{}\",",
                 "\"backing_phase_gate\":\"{}\",",
+                "\"lifecycle_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
                 "\"port_conflicts\":{},",
                 "\"schema_compatibility_gates\":{},",
+                "\"startup_graph\":{},",
+                "\"readiness_checks\":{},",
+                "\"wait_policy\":{},",
+                "\"rollback_reports\":{},",
+                "\"lifecycle_events\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -1431,9 +1704,15 @@ impl LocalStackCommandOutput {
             json_escape(remediation_hint(&self.reason_code)),
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
+            json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
+            render_startup_graph_json(&self.startup_graph),
+            render_readiness_checks_json(&self.readiness_checks),
+            render_wait_policy_json(&self.wait_policy),
+            render_rollback_reports_json(&self.rollback_reports),
+            render_lifecycle_events_json(&self.lifecycle_events),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -1486,10 +1765,77 @@ impl LocalStackCommandOutput {
 
     fn apply_schema_compatibility_gates(&mut self, gates: Vec<SchemaCompatibilityGate>) {
         self.schema_compatibility_gates = gates;
+        self.readiness_checks = stale_schema_readiness_checks(&self.profile, &self.trace_id);
+        self.lifecycle_events.push(lifecycle_event(
+            &self.profile,
+            &self.trace_id,
+            "local_stack.failed",
+            "schema_compatibility",
+            "schema_incompatible",
+        ));
         self.diagnostic_refs.push(format!(
             "diagnostic://local_stack/schema_compatibility/{}",
             id_component(&self.trace_id)
         ));
+    }
+
+    fn apply_lifecycle_mode(&mut self, mode: LifecycleMode, command: DevCommand) {
+        self.startup_graph =
+            lifecycle_startup_steps_for_mode(mode, &self.profile, &self.trace_id, self.timeout_ms);
+        self.readiness_checks =
+            readiness_checks_for_mode(mode, &self.profile, &self.trace_id, self.timeout_ms);
+        self.wait_policy =
+            wait_policy_for_mode(mode, &self.profile, self.timeout_ms, self.poll_interval_ms);
+        self.service_health = service_health_from_readiness(&self.readiness_checks);
+        self.lifecycle_events = lifecycle_events_for_mode(
+            mode,
+            command,
+            &self.profile,
+            &self.trace_id,
+            &self.startup_graph,
+        );
+        self.rollback_reports =
+            rollback_reports_for_mode(mode, &self.trace_id, &self.startup_graph);
+        if matches!(
+            mode,
+            LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure
+        ) {
+            self.artifact_refs.push(format!(
+                "log://local_stack/startup_failure/{}",
+                id_component(&self.trace_id)
+            ));
+        }
+    }
+
+    fn apply_shutdown_reports(&mut self, command: DevCommand) {
+        self.shutdown_reports = shutdown_reports(&self.trace_id);
+        self.lifecycle_events.extend(shutdown_lifecycle_events(
+            command,
+            &self.profile,
+            &self.trace_id,
+            &self.shutdown_reports,
+        ));
+    }
+
+    fn fail_lifecycle(
+        mut self,
+        reason_code: &'static str,
+        message: &'static str,
+        exit_class: ExitCodeClass,
+        retry_class: RetryClass,
+    ) -> Self {
+        self.push_state(LocalCommandState::CollectingArtifacts)
+            .expect("local-stack failure artifact transition is valid");
+        self.push_state(LocalCommandState::Failed)
+            .expect("local-stack failed transition is valid");
+        self.doctor_checks = doctor_checks_for_reason(reason_code);
+        self.ok = false;
+        self.status = LocalStackStatus::Failed;
+        self.reason_code = reason_code.to_owned();
+        self.message = message.to_owned();
+        self.exit_class = exit_class;
+        self.retry_class = retry_class;
+        self
     }
 
     fn block(&mut self, failure: LocalStackFailure) {
@@ -1621,6 +1967,556 @@ fn binding_for_service(service_id: &str) -> Option<ReservedPortBinding> {
     RESERVED_PORT_BINDINGS
         .into_iter()
         .find(|binding| binding.service_id == service_id)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LifecycleServiceTemplate {
+    service_id: &'static str,
+    dependency_order: u8,
+    required: bool,
+    dependencies: &'static [&'static str],
+    timeout_ms: u64,
+}
+
+const NO_SERVICE_DEPS: &[&str] = &[];
+const EMBEDDED_STATE_DEPS: &[&str] = &["service:embedded_state"];
+const API_DEPS: &[&str] = &[
+    "service:embedded_state",
+    "service:overqueue_jobs",
+    "service:overstore_stub",
+];
+const WORKER_DEPS: &[&str] = &["service:overqueue_jobs", "service:event_audit"];
+const EVENT_AUDIT_DEPS: &[&str] = &["service:embedded_state", "service:overqueue_jobs"];
+const NODE_AGENT_DEPS: &[&str] = &[
+    "service:api",
+    "service:worker",
+    "service:overqueue_jobs",
+    "service:event_audit",
+];
+
+fn lifecycle_mode(profile: &str) -> LifecycleMode {
+    let normalized = profile.to_ascii_lowercase();
+    if normalized.contains("already-running") {
+        LifecycleMode::AlreadyRunning
+    } else if normalized.contains("health-timeout") {
+        LifecycleMode::HealthTimeout
+    } else if normalized.contains("required-failure") {
+        LifecycleMode::RequiredFailure
+    } else if normalized.contains("degraded-optional") || normalized.contains("optional-degraded") {
+        LifecycleMode::OptionalDegraded
+    } else {
+        LifecycleMode::CleanStart
+    }
+}
+
+fn lifecycle_templates(include_optional_developer_ui: bool) -> Vec<LifecycleServiceTemplate> {
+    let mut templates = vec![
+        LifecycleServiceTemplate {
+            service_id: "service:embedded_state",
+            dependency_order: 1,
+            required: true,
+            dependencies: NO_SERVICE_DEPS,
+            timeout_ms: 10_000,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:overqueue_jobs",
+            dependency_order: 2,
+            required: true,
+            dependencies: EMBEDDED_STATE_DEPS,
+            timeout_ms: 10_000,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:overstore_stub",
+            dependency_order: 3,
+            required: true,
+            dependencies: EMBEDDED_STATE_DEPS,
+            timeout_ms: 10_000,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:event_audit",
+            dependency_order: 4,
+            required: true,
+            dependencies: EVENT_AUDIT_DEPS,
+            timeout_ms: 10_000,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:api",
+            dependency_order: 5,
+            required: true,
+            dependencies: API_DEPS,
+            timeout_ms: DEFAULT_LIFECYCLE_TIMEOUT_MS,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:worker",
+            dependency_order: 6,
+            required: true,
+            dependencies: WORKER_DEPS,
+            timeout_ms: DEFAULT_LIFECYCLE_TIMEOUT_MS,
+        },
+        LifecycleServiceTemplate {
+            service_id: "service:node_agent_simulator",
+            dependency_order: 7,
+            required: true,
+            dependencies: NODE_AGENT_DEPS,
+            timeout_ms: DEFAULT_LIFECYCLE_TIMEOUT_MS,
+        },
+    ];
+    if include_optional_developer_ui {
+        templates.push(LifecycleServiceTemplate {
+            service_id: "service:developer_ui",
+            dependency_order: 8,
+            required: false,
+            dependencies: &["service:api"],
+            timeout_ms: 15_000,
+        });
+    }
+    templates
+}
+
+fn lifecycle_startup_steps(
+    profile: &str,
+    trace_id: &str,
+    timeout_ms: Option<u64>,
+) -> Vec<LocalServiceLifecycleStep> {
+    lifecycle_startup_steps_for_mode(lifecycle_mode(profile), profile, trace_id, timeout_ms)
+}
+
+fn lifecycle_startup_steps_for_mode(
+    mode: LifecycleMode,
+    _profile: &str,
+    _trace_id: &str,
+    timeout_ms: Option<u64>,
+) -> Vec<LocalServiceLifecycleStep> {
+    let failure_service = lifecycle_failure_service(mode);
+    let failure_order = failure_service.and_then(|service_id| {
+        lifecycle_templates(mode == LifecycleMode::OptionalDegraded)
+            .into_iter()
+            .find(|template| template.service_id == service_id)
+            .map(|template| template.dependency_order)
+    });
+    lifecycle_templates(mode == LifecycleMode::OptionalDegraded)
+        .into_iter()
+        .map(|template| {
+            let service_timeout = timeout_ms.unwrap_or(template.timeout_ms);
+            let dependency_blocked = failure_order
+                .map(|order| template.dependency_order > order)
+                .unwrap_or(false);
+            let (startup_state, health_state, readiness_state, liveness_state, reason_code) =
+                if Some(template.service_id) == failure_service {
+                    match mode {
+                        LifecycleMode::HealthTimeout => (
+                            "timeout",
+                            "timeout",
+                            "timeout",
+                            "failed",
+                            "local_stack.health_timeout",
+                        ),
+                        LifecycleMode::RequiredFailure => (
+                            "failed",
+                            "failed",
+                            "failed",
+                            "failed",
+                            "local_stack.required_service_failed",
+                        ),
+                        _ => (
+                            "ready",
+                            "ready",
+                            "ready",
+                            "ready",
+                            "local_stack.service_ready",
+                        ),
+                    }
+                } else if dependency_blocked {
+                    (
+                        "not_started",
+                        "blocked",
+                        "blocked",
+                        "not_started",
+                        "local_stack.dependency_wait_blocked",
+                    )
+                } else if mode == LifecycleMode::AlreadyRunning {
+                    (
+                        "already_running",
+                        "ready",
+                        "ready",
+                        "ready",
+                        "local_stack.service_already_running",
+                    )
+                } else if mode == LifecycleMode::OptionalDegraded
+                    && template.service_id == "service:developer_ui"
+                {
+                    (
+                        "degraded",
+                        "degraded",
+                        "degraded",
+                        "degraded",
+                        "local_stack.optional_service_degraded",
+                    )
+                } else {
+                    (
+                        "ready",
+                        "ready",
+                        "ready",
+                        "ready",
+                        "local_stack.service_ready",
+                    )
+                };
+
+            let start_after_ms = u64::from(template.dependency_order.saturating_sub(1)) * 25;
+            let ready_after_ms = if startup_state == "timeout" {
+                service_timeout
+            } else if startup_state == "not_started" {
+                start_after_ms
+            } else {
+                start_after_ms + 25
+            };
+
+            LocalServiceLifecycleStep {
+                service_id: template.service_id.to_owned(),
+                dependency_order: template.dependency_order,
+                required: template.required,
+                dependencies: template
+                    .dependencies
+                    .iter()
+                    .map(|dependency| (*dependency).to_owned())
+                    .collect(),
+                startup_state: startup_state.to_owned(),
+                health_state: health_state.to_owned(),
+                readiness_state: readiness_state.to_owned(),
+                liveness_state: liveness_state.to_owned(),
+                start_after_ms,
+                ready_after_ms,
+                timeout_ms: service_timeout,
+                reason_code: reason_code.to_owned(),
+                rollback_on_failure: failure_order
+                    .map(|order| template.required && template.dependency_order < order)
+                    .unwrap_or(false),
+            }
+        })
+        .collect()
+}
+
+fn lifecycle_failure_service(mode: LifecycleMode) -> Option<&'static str> {
+    match mode {
+        LifecycleMode::HealthTimeout => Some("service:api"),
+        LifecycleMode::RequiredFailure => Some("service:worker"),
+        _ => None,
+    }
+}
+
+fn readiness_checks_for_profile(
+    profile: &str,
+    trace_id: &str,
+    timeout_ms: Option<u64>,
+) -> Vec<LocalReadinessCheck> {
+    readiness_checks_for_mode(lifecycle_mode(profile), profile, trace_id, timeout_ms)
+}
+
+fn readiness_checks_for_mode(
+    mode: LifecycleMode,
+    profile: &str,
+    trace_id: &str,
+    timeout_ms: Option<u64>,
+) -> Vec<LocalReadinessCheck> {
+    lifecycle_startup_steps_for_mode(mode, profile, trace_id, timeout_ms)
+        .into_iter()
+        .map(|step| readiness_check_from_step(&step, false))
+        .collect()
+}
+
+fn stale_schema_readiness_checks(profile: &str, trace_id: &str) -> Vec<LocalReadinessCheck> {
+    lifecycle_startup_steps_for_mode(LifecycleMode::CleanStart, profile, trace_id, None)
+        .into_iter()
+        .map(|mut step| {
+            step.startup_state = "failed".to_owned();
+            step.health_state = "failed".to_owned();
+            step.readiness_state = "stale_schema".to_owned();
+            step.liveness_state = "not_started".to_owned();
+            step.reason_code = "local_stack.schema_version_incompatible".to_owned();
+            readiness_check_from_step(&step, true)
+        })
+        .collect()
+}
+
+fn readiness_check_from_step(
+    step: &LocalServiceLifecycleStep,
+    stale_schema: bool,
+) -> LocalReadinessCheck {
+    LocalReadinessCheck {
+        service_id: step.service_id.clone(),
+        endpoint_ref: binding_for_service(&step.service_id)
+            .map(|binding| binding.endpoint_ref.to_owned())
+            .unwrap_or_else(|| local_service_endpoint_ref(&step.service_id).to_owned()),
+        health_state: step.health_state.clone(),
+        readiness_state: step.readiness_state.clone(),
+        liveness_state: step.liveness_state.clone(),
+        dependency_state: if step.startup_state == "not_started" {
+            "blocked".to_owned()
+        } else if step
+            .dependencies
+            .iter()
+            .all(|dependency| !dependency.is_empty())
+        {
+            "satisfied".to_owned()
+        } else {
+            "unknown".to_owned()
+        },
+        elapsed_ms: step.ready_after_ms,
+        timeout_ms: step.timeout_ms,
+        reason_code: step.reason_code.clone(),
+        stale_schema,
+    }
+}
+
+fn service_health_from_readiness(
+    readiness_checks: &[LocalReadinessCheck],
+) -> Vec<LocalServiceHealth> {
+    readiness_checks
+        .iter()
+        .map(|check| {
+            let binding = binding_for_service(&check.service_id);
+            LocalServiceHealth {
+                service_id: check.service_id.clone(),
+                state: check.health_state.clone(),
+                endpoint_ref: check.endpoint_ref.clone(),
+                bind_host: binding
+                    .map(|binding| binding.bind_host.to_owned())
+                    .unwrap_or_else(|| "local".to_owned()),
+                port: binding.map(|binding| binding.port),
+                loopback_only: binding
+                    .map(|binding| is_loopback_host(binding.bind_host))
+                    .unwrap_or(true),
+                reason_code: check.reason_code.clone(),
+            }
+        })
+        .collect()
+}
+
+fn wait_policy_for_options(
+    profile: &str,
+    timeout_ms: Option<u64>,
+    poll_interval_ms: Option<u64>,
+) -> LocalWaitPolicy {
+    wait_policy_for_mode(
+        lifecycle_mode(profile),
+        profile,
+        timeout_ms,
+        poll_interval_ms,
+    )
+}
+
+fn wait_policy_for_mode(
+    mode: LifecycleMode,
+    profile: &str,
+    timeout_ms: Option<u64>,
+    poll_interval_ms: Option<u64>,
+) -> LocalWaitPolicy {
+    let timeout = timeout_ms.unwrap_or(DEFAULT_LIFECYCLE_TIMEOUT_MS);
+    let poll_interval = poll_interval_ms.unwrap_or(DEFAULT_LIFECYCLE_POLL_INTERVAL_MS);
+    let (timeout_class, reason_code, logs_exported_on_timeout) = match mode {
+        LifecycleMode::HealthTimeout => (
+            "required_service_readiness_timeout",
+            "local_stack.health_timeout",
+            true,
+        ),
+        LifecycleMode::RequiredFailure => (
+            "required_service_failed",
+            "local_stack.required_service_failed",
+            true,
+        ),
+        _ => (
+            "bounded_startup_window",
+            "local_stack.bounded_wait_configured",
+            false,
+        ),
+    };
+    LocalWaitPolicy {
+        timeout_ms: timeout,
+        poll_interval_ms: poll_interval,
+        bounded: true,
+        no_unbounded_sleep: true,
+        timeout_class: timeout_class.to_owned(),
+        reason_code: reason_code.to_owned(),
+        dependency_wait_diagnostics_ref: format!(
+            "diagnostic://local_stack/wait/{}/{}",
+            id_component(profile),
+            timeout
+        ),
+        logs_exported_on_timeout,
+    }
+}
+
+fn shutdown_reports(trace_id: &str) -> Vec<LocalServiceShutdownReport> {
+    let mut templates = lifecycle_templates(false);
+    templates.sort_by_key(|template| std::cmp::Reverse(template.dependency_order));
+    templates
+        .into_iter()
+        .enumerate()
+        .map(|(index, template)| LocalServiceShutdownReport {
+            service_id: template.service_id.to_owned(),
+            shutdown_order: (index + 1) as u8,
+            graceful: true,
+            state_preserved: true,
+            reason_code: "local_stack.service_stopped".to_owned(),
+            diagnostic_ref: format!(
+                "diagnostic://local_stack/shutdown/{}/{}",
+                id_component(template.service_id),
+                id_component(trace_id)
+            ),
+        })
+        .collect()
+}
+
+fn rollback_reports_for_mode(
+    mode: LifecycleMode,
+    trace_id: &str,
+    startup_graph: &[LocalServiceLifecycleStep],
+) -> Vec<LocalRollbackReport> {
+    if !matches!(
+        mode,
+        LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure
+    ) {
+        return Vec::new();
+    }
+    startup_graph
+        .iter()
+        .filter(|step| step.rollback_on_failure)
+        .rev()
+        .enumerate()
+        .map(|(index, step)| LocalRollbackReport {
+            service_id: step.service_id.clone(),
+            rollback_order: (index + 1) as u8,
+            action: "stop_started_service".to_owned(),
+            state_preserved: true,
+            reason_code: "local_stack.partial_start_rollback".to_owned(),
+            artifact_ref: format!(
+                "artifact://local_stack/rollback/{}/{}",
+                id_component(&step.service_id),
+                id_component(trace_id)
+            ),
+        })
+        .collect()
+}
+
+fn lifecycle_event(
+    profile: &str,
+    trace_id: &str,
+    event_type: &str,
+    service_id: &str,
+    discriminator: &str,
+) -> LocalLifecycleEventRecord {
+    LocalLifecycleEventRecord {
+        event_id: format!(
+            "event://local_stack/{}/{}/{}",
+            id_component(event_type),
+            id_component(service_id),
+            id_component(discriminator)
+        ),
+        event_type: event_type.to_owned(),
+        service_id: service_id.to_owned(),
+        trace_id: trace_id.to_owned(),
+        stack_profile: profile.to_owned(),
+        fixture_version: "fixture:phase2_default_local".to_owned(),
+        schema_version: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION.to_owned(),
+        artifact_ref: format!(
+            "diagnostic://local_stack/lifecycle/{}/{}",
+            id_component(event_type),
+            id_component(trace_id)
+        ),
+        redaction_summary: "secret_free".to_owned(),
+        contains_raw_secret: false,
+        local_only: true,
+        test_only: true,
+    }
+}
+
+fn lifecycle_events_for_mode(
+    mode: LifecycleMode,
+    command: DevCommand,
+    profile: &str,
+    trace_id: &str,
+    startup_graph: &[LocalServiceLifecycleStep],
+) -> Vec<LocalLifecycleEventRecord> {
+    let mut events = vec![lifecycle_event(
+        profile,
+        trace_id,
+        "local_stack.start_requested",
+        "stack",
+        command.action(),
+    )];
+    for step in startup_graph {
+        events.push(lifecycle_event(
+            profile,
+            trace_id,
+            "local_stack.service_starting",
+            &step.service_id,
+            &step.dependency_order.to_string(),
+        ));
+        let event_type = match step.startup_state.as_str() {
+            "ready" => "local_stack.service_ready",
+            "already_running" => "local_stack.service_ready",
+            "degraded" => "local_stack.service_degraded",
+            "timeout" => "local_stack.failed",
+            "failed" => "local_stack.failed",
+            "not_started" => "local_stack.service_blocked",
+            _ => "local_stack.service_starting",
+        };
+        events.push(lifecycle_event(
+            profile,
+            trace_id,
+            event_type,
+            &step.service_id,
+            &step.startup_state,
+        ));
+    }
+    match mode {
+        LifecycleMode::HealthTimeout | LifecycleMode::RequiredFailure => {
+            events.push(lifecycle_event(
+                profile,
+                trace_id,
+                "local_stack.failed",
+                "stack",
+                command.action(),
+            ))
+        }
+        LifecycleMode::OptionalDegraded => events.push(lifecycle_event(
+            profile,
+            trace_id,
+            "local_stack.service_degraded",
+            "service:developer_ui",
+            command.action(),
+        )),
+        _ => {}
+    }
+    events
+}
+
+fn shutdown_lifecycle_events(
+    command: DevCommand,
+    profile: &str,
+    trace_id: &str,
+    reports: &[LocalServiceShutdownReport],
+) -> Vec<LocalLifecycleEventRecord> {
+    let mut events = vec![lifecycle_event(
+        profile,
+        trace_id,
+        match command {
+            DevCommand::Restart => "local_stack.restart_requested",
+            _ => "local_stack.stop_requested",
+        },
+        "stack",
+        command.action(),
+    )];
+    for report in reports {
+        events.push(lifecycle_event(
+            profile,
+            trace_id,
+            "local_stack.service_stopped",
+            &report.service_id,
+            &report.shutdown_order.to_string(),
+        ));
+    }
+    events
 }
 
 fn reserved_port_bindings() -> Vec<ReservedPortBinding> {
@@ -2070,18 +2966,6 @@ fn profile_backing_failure(profile: &str) -> Option<LocalStackFailure> {
             status: LocalStackStatus::Blocked,
         });
     }
-    if normalized.contains("health-timeout")
-        || normalized.contains("backing-services-unavailable")
-        || normalized.contains("unavailable")
-    {
-        return Some(LocalStackFailure {
-            reason_code: "local_stack.backing_services_unavailable",
-            message: "local backing service prerequisites are unavailable",
-            exit_class: ExitCodeClass::Platform,
-            retry_class: RetryClass::SafeRetry,
-            status: LocalStackStatus::Blocked,
-        });
-    }
     if normalized.contains("port-conflict") {
         return Some(LocalStackFailure {
             reason_code: "local_stack.port_conflict",
@@ -2113,7 +2997,7 @@ fn transition_allowed(previous: LocalCommandState, next: LocalCommandState) -> b
                 | Blocked
                 | Failed
         ),
-        Starting => matches!(next, Ready | Blocked | Failed),
+        Starting => matches!(next, Ready | CollectingArtifacts | Blocked | Failed),
         Ready => matches!(
             next,
             Resetting
@@ -2742,6 +3626,200 @@ fn render_schema_compatibility_gates_json(gates: &[SchemaCompatibilityGate]) -> 
     format!("[{}]", rendered.join(","))
 }
 
+fn render_startup_graph_json(steps: &[LocalServiceLifecycleStep]) -> String {
+    let rendered = steps
+        .iter()
+        .map(|step| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"dependency_order\":{},",
+                    "\"required\":{},",
+                    "\"dependencies\":{},",
+                    "\"startup_state\":\"{}\",",
+                    "\"health_state\":\"{}\",",
+                    "\"readiness_state\":\"{}\",",
+                    "\"liveness_state\":\"{}\",",
+                    "\"start_after_ms\":{},",
+                    "\"ready_after_ms\":{},",
+                    "\"timeout_ms\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"rollback_on_failure\":{}",
+                    "}}"
+                ),
+                json_escape(&step.service_id),
+                step.dependency_order,
+                step.required,
+                json_owned_string_array(&step.dependencies),
+                json_escape(&step.startup_state),
+                json_escape(&step.health_state),
+                json_escape(&step.readiness_state),
+                json_escape(&step.liveness_state),
+                step.start_after_ms,
+                step.ready_after_ms,
+                step.timeout_ms,
+                json_escape(&step.reason_code),
+                step.rollback_on_failure,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_shutdown_reports_json(reports: &[LocalServiceShutdownReport]) -> String {
+    let rendered = reports
+        .iter()
+        .map(|report| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"shutdown_order\":{},",
+                    "\"graceful\":{},",
+                    "\"state_preserved\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"diagnostic_ref\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&report.service_id),
+                report.shutdown_order,
+                report.graceful,
+                report.state_preserved,
+                json_escape(&report.reason_code),
+                json_escape(&report.diagnostic_ref),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_readiness_checks_json(checks: &[LocalReadinessCheck]) -> String {
+    let rendered = checks
+        .iter()
+        .map(|check| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"endpoint_ref\":\"{}\",",
+                    "\"health_state\":\"{}\",",
+                    "\"readiness_state\":\"{}\",",
+                    "\"liveness_state\":\"{}\",",
+                    "\"dependency_state\":\"{}\",",
+                    "\"elapsed_ms\":{},",
+                    "\"timeout_ms\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"stale_schema\":{}",
+                    "}}"
+                ),
+                json_escape(&check.service_id),
+                json_escape(&check.endpoint_ref),
+                json_escape(&check.health_state),
+                json_escape(&check.readiness_state),
+                json_escape(&check.liveness_state),
+                json_escape(&check.dependency_state),
+                check.elapsed_ms,
+                check.timeout_ms,
+                json_escape(&check.reason_code),
+                check.stale_schema,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_wait_policy_json(policy: &LocalWaitPolicy) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"timeout_ms\":{},",
+            "\"poll_interval_ms\":{},",
+            "\"bounded\":{},",
+            "\"no_unbounded_sleep\":{},",
+            "\"timeout_class\":\"{}\",",
+            "\"reason_code\":\"{}\",",
+            "\"dependency_wait_diagnostics_ref\":\"{}\",",
+            "\"logs_exported_on_timeout\":{}",
+            "}}"
+        ),
+        policy.timeout_ms,
+        policy.poll_interval_ms,
+        policy.bounded,
+        policy.no_unbounded_sleep,
+        json_escape(&policy.timeout_class),
+        json_escape(&policy.reason_code),
+        json_escape(&policy.dependency_wait_diagnostics_ref),
+        policy.logs_exported_on_timeout,
+    )
+}
+
+fn render_rollback_reports_json(reports: &[LocalRollbackReport]) -> String {
+    let rendered = reports
+        .iter()
+        .map(|report| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"rollback_order\":{},",
+                    "\"action\":\"{}\",",
+                    "\"state_preserved\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"artifact_ref\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&report.service_id),
+                report.rollback_order,
+                json_escape(&report.action),
+                report.state_preserved,
+                json_escape(&report.reason_code),
+                json_escape(&report.artifact_ref),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_lifecycle_events_json(events: &[LocalLifecycleEventRecord]) -> String {
+    let rendered = events
+        .iter()
+        .map(|event| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"event_id\":\"{}\",",
+                    "\"event_type\":\"{}\",",
+                    "\"service_id\":\"{}\",",
+                    "\"trace_id\":\"{}\",",
+                    "\"stack_profile\":\"{}\",",
+                    "\"fixture_version\":\"{}\",",
+                    "\"schema_version\":\"{}\",",
+                    "\"artifact_ref\":\"{}\",",
+                    "\"redaction_summary\":\"{}\",",
+                    "\"contains_raw_secret\":{},",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&event.event_id),
+                json_escape(&event.event_type),
+                json_escape(&event.service_id),
+                json_escape(&event.trace_id),
+                json_escape(&event.stack_profile),
+                json_escape(&event.fixture_version),
+                json_escape(&event.schema_version),
+                json_escape(&event.artifact_ref),
+                json_escape(&event.redaction_summary),
+                event.contains_raw_secret,
+                event.local_only,
+                event.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn json_owned_string_array(values: &[String]) -> String {
     let rendered = values
         .iter()
@@ -2807,6 +3885,18 @@ fn remediation_hint(reason_code: &str) -> &'static str {
         }
         "local_stack.backing_services_unavailable" => {
             "rerun doctor and inspect redacted diagnostic refs for unavailable local prerequisites"
+        }
+        "local_stack.health_timeout" => {
+            "inspect bounded wait diagnostics and exported redacted startup logs"
+        }
+        "local_stack.required_service_failed" => {
+            "inspect lifecycle startup graph and rollback artifact refs for the failed service"
+        }
+        "local_stack.degraded" => {
+            "inspect optional service readiness before relying on non-required local tooling"
+        }
+        "local_stack.already_running" => {
+            "inspect readiness checks if the existing local stack should be restarted"
         }
         "local_stack.port_conflict" => "free the reserved loopback port range 18080-18085",
         "local_stack.schema_version_incompatible" => {
@@ -3369,6 +4459,180 @@ mod tests {
             .diagnostic_refs
             .iter()
             .all(|reference| !reference.contains("secret") && !reference.contains("token")));
+    }
+
+    #[test]
+    fn phase6_startup_graph_orders_dependencies_and_events() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Start);
+        assert!(output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.ready");
+        assert_eq!(
+            output
+                .startup_graph
+                .iter()
+                .map(|step| step.service_id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "service:embedded_state",
+                "service:overqueue_jobs",
+                "service:overstore_stub",
+                "service:event_audit",
+                "service:api",
+                "service:worker",
+                "service:node_agent_simulator",
+            ]
+        );
+        assert!(output
+            .startup_graph
+            .windows(2)
+            .all(|window| window[0].dependency_order <= window[1].dependency_order));
+        assert!(output
+            .readiness_checks
+            .iter()
+            .all(|check| check.health_state == "ready"
+                && check.readiness_state == "ready"
+                && check.liveness_state == "ready"
+                && !check.stale_schema));
+        assert!(output.wait_policy.bounded);
+        assert!(output.wait_policy.no_unbounded_sleep);
+        assert_eq!(
+            output.wait_policy.poll_interval_ms,
+            DEFAULT_LIFECYCLE_POLL_INTERVAL_MS
+        );
+        assert!(output.lifecycle_events.iter().any(|event| {
+            event.event_type == "local_stack.start_requested"
+                && event.local_only
+                && event.test_only
+                && !event.contains_raw_secret
+        }));
+        assert!(output
+            .result_json()
+            .contains("\"lifecycle_phase_gate\":\"phase_6_lifecycle_orchestration\""));
+    }
+
+    #[test]
+    fn phase6_already_running_start_is_verified_without_reset() {
+        let mut options = test_options();
+        options.profile = "local-already-running".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.already_running");
+        assert!(output
+            .startup_graph
+            .iter()
+            .all(|step| step.startup_state == "already_running"));
+        assert!(output.rollback_reports.is_empty());
+    }
+
+    #[test]
+    fn phase6_optional_degraded_service_does_not_fail_required_stack() {
+        let mut options = test_options();
+        options.profile = "local-degraded-optional".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(output.is_ok());
+        assert_eq!(output.status, LocalStackStatus::Degraded);
+        assert_eq!(output.reason_code, "local_stack.degraded");
+        assert!(output.startup_graph.iter().any(|step| {
+            step.service_id == "service:developer_ui"
+                && !step.required
+                && step.startup_state == "degraded"
+        }));
+        assert!(output
+            .readiness_checks
+            .iter()
+            .any(|check| check.service_id == "service:developer_ui"
+                && check.readiness_state == "degraded"));
+    }
+
+    #[test]
+    fn phase6_health_timeout_exports_logs_and_rolls_back_started_services() {
+        let mut options = test_options();
+        options.profile = "local-health-timeout".to_owned();
+        options.timeout_ms = Some(4_500);
+        options.poll_interval_ms = Some(250);
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(!output.is_ok());
+        assert_eq!(
+            output.reason_code,
+            "local_stack.backing_services_unavailable"
+        );
+        assert!(output.lifecycle_strs().contains(&"collecting_artifacts"));
+        assert!(output.lifecycle_strs().contains(&"failed"));
+        assert_eq!(output.wait_policy.reason_code, "local_stack.health_timeout");
+        assert!(output.wait_policy.logs_exported_on_timeout);
+        assert_eq!(output.wait_policy.timeout_ms, 4_500);
+        assert!(output
+            .startup_graph
+            .iter()
+            .any(|step| step.service_id == "service:api"
+                && step.startup_state == "timeout"
+                && step.reason_code == "local_stack.health_timeout"));
+        assert!(output
+            .startup_graph
+            .iter()
+            .any(|step| step.service_id == "service:worker"
+                && step.startup_state == "not_started"
+                && step.reason_code == "local_stack.dependency_wait_blocked"));
+        assert!(!output.rollback_reports.is_empty());
+        assert!(output
+            .artifact_refs
+            .iter()
+            .any(|reference| reference.starts_with("log://local_stack/startup_failure/")));
+        assert!(output
+            .error_json()
+            .contains("\"logs_exported_on_timeout\":true"));
+    }
+
+    #[test]
+    fn phase6_restart_reports_reverse_shutdown_order() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Restart);
+        assert!(output.is_ok());
+        assert!(!output.shutdown_reports.is_empty());
+        assert_eq!(
+            output
+                .shutdown_reports
+                .iter()
+                .map(|report| report.service_id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "service:node_agent_simulator",
+                "service:worker",
+                "service:api",
+                "service:event_audit",
+                "service:overstore_stub",
+                "service:overqueue_jobs",
+                "service:embedded_state",
+            ]
+        );
+        assert!(output
+            .shutdown_reports
+            .iter()
+            .all(|report| report.graceful && report.state_preserved));
+        assert!(output
+            .lifecycle_events
+            .iter()
+            .any(|event| event.event_type == "local_stack.restart_requested"));
+    }
+
+    #[test]
+    fn phase6_schema_block_marks_readiness_as_stale_schema() {
+        let mut options = test_options();
+        options.profile = "local-stale-local-state-schema".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(!output.is_ok());
+        assert_eq!(
+            output.reason_code,
+            "local_stack.schema_version_incompatible"
+        );
+        assert!(output
+            .readiness_checks
+            .iter()
+            .all(|check| check.stale_schema
+                && check.readiness_state == "stale_schema"
+                && check.reason_code == "local_stack.schema_version_incompatible"));
+        assert!(output
+            .error_json()
+            .contains("\"lifecycle_phase_gate\":\"phase_6_lifecycle_orchestration\""));
     }
 
     #[test]
