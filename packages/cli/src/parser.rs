@@ -137,8 +137,38 @@ pub enum Command {
     Ledger(LedgerCommand),
     Dispute(DisputeCommand),
     IdempotencyCache(IdempotencyCacheCommand),
+    Dev(DevCommand),
     Test(TestCommand),
     Planned(PlannedCommand),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevCommand {
+    Start,
+    Stop,
+    Restart,
+    Status,
+    Reset,
+    Seed,
+    Smoke,
+    Logs,
+    Doctor,
+}
+
+impl DevCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Start => "dev start",
+            Self::Stop => "dev stop",
+            Self::Restart => "dev restart",
+            Self::Status => "dev status",
+            Self::Reset => "dev reset",
+            Self::Seed => "dev seed",
+            Self::Smoke => "dev smoke",
+            Self::Logs => "dev logs",
+            Self::Doctor => "dev doctor",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -677,6 +707,7 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "receipt" => receipt_command(tokens),
         "ledger" => ledger_command(tokens),
         "dispute" => dispute_command(tokens),
+        "dev" => dev_command(tokens),
         "test" => test_command(tokens),
         "release-readiness" | "readiness" | "phase10" | "phase-10" => {
             Ok(Command::Planned(PlannedCommand::ReleaseReadiness))
@@ -694,6 +725,21 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
             Ok(Command::Planned(PlannedCommand::Governance))
         }
         other => Err(CliParseError::UnknownCommand(other.to_owned())),
+    }
+}
+
+fn dev_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("status") {
+        "start" => Ok(Command::Dev(DevCommand::Start)),
+        "stop" => Ok(Command::Dev(DevCommand::Stop)),
+        "restart" => Ok(Command::Dev(DevCommand::Restart)),
+        "status" => Ok(Command::Dev(DevCommand::Status)),
+        "reset" => Ok(Command::Dev(DevCommand::Reset)),
+        "seed" => Ok(Command::Dev(DevCommand::Seed)),
+        "smoke" => Ok(Command::Dev(DevCommand::Smoke)),
+        "logs" => Ok(Command::Dev(DevCommand::Logs)),
+        "doctor" => Ok(Command::Dev(DevCommand::Doctor)),
+        other => Err(CliParseError::UnknownCommand(format!("dev {other}"))),
     }
 }
 
@@ -930,6 +976,32 @@ mod tests {
         let parsed = parse_cli(["overrid", "doctor", "--json"]).unwrap();
         assert_eq!(parsed.command, Command::Doctor);
         assert_eq!(parsed.globals.output, OutputMode::Json);
+    }
+
+    #[test]
+    fn maps_local_stack_dev_commands() {
+        for (subcommand, expected) in [
+            ("start", DevCommand::Start),
+            ("stop", DevCommand::Stop),
+            ("restart", DevCommand::Restart),
+            ("status", DevCommand::Status),
+            ("reset", DevCommand::Reset),
+            ("seed", DevCommand::Seed),
+            ("smoke", DevCommand::Smoke),
+            ("logs", DevCommand::Logs),
+            ("doctor", DevCommand::Doctor),
+        ] {
+            let parsed = parse_cli(["overrid", "dev", subcommand, "--json"]).unwrap();
+            assert_eq!(parsed.command, Command::Dev(expected));
+            assert_eq!(parsed.globals.output, OutputMode::Json);
+            assert_eq!(expected.as_str(), format!("dev {subcommand}"));
+        }
+
+        let default_status = parse_cli(["overrid", "dev"]).unwrap();
+        assert_eq!(
+            default_status.command,
+            Command::Dev(DevCommand::Status)
+        );
     }
 
     #[test]

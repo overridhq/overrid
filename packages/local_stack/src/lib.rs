@@ -1,0 +1,1451 @@
+#![forbid(unsafe_code)]
+
+use std::collections::BTreeSet;
+use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use overrid_contracts::{
+    ensure_supported_local_development_stack_schema_version, ExitCodeClass, RetryClass,
+    SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+};
+
+pub const DEFAULT_LOCAL_STACK_MANIFEST_PATH: &str = "packages/schemas/overrid_contracts/fixtures/valid/local_development_stack_phase2_default_local.valid.json";
+pub const LOCAL_STACK_PHASE_GATE: &str = "phase_3_local_development_stack";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevCommand {
+    Start,
+    Stop,
+    Restart,
+    Status,
+    Reset,
+    Seed,
+    Smoke,
+    Logs,
+    Doctor,
+}
+
+impl DevCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Start => "dev start",
+            Self::Stop => "dev stop",
+            Self::Restart => "dev restart",
+            Self::Status => "dev status",
+            Self::Reset => "dev reset",
+            Self::Seed => "dev seed",
+            Self::Smoke => "dev smoke",
+            Self::Logs => "dev logs",
+            Self::Doctor => "dev doctor",
+        }
+    }
+
+    fn action(self) -> &'static str {
+        match self {
+            Self::Start => "start",
+            Self::Stop => "stop",
+            Self::Restart => "restart",
+            Self::Status => "status",
+            Self::Reset => "reset",
+            Self::Seed => "seed",
+            Self::Smoke => "smoke",
+            Self::Logs => "logs",
+            Self::Doctor => "doctor",
+        }
+    }
+
+    fn gates_unavailable_future_services(self) -> bool {
+        matches!(self, Self::Start | Self::Restart | Self::Smoke)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackOptions {
+    pub repo_root: PathBuf,
+    pub profile: String,
+    pub master_phase: u8,
+    pub trace_id: String,
+    pub timeout_ms: Option<u64>,
+    pub poll_interval_ms: Option<u64>,
+    pub wait: bool,
+    pub follow: bool,
+    pub dry_run: bool,
+}
+
+impl LocalStackOptions {
+    pub fn new(repo_root: impl Into<PathBuf>) -> Self {
+        Self {
+            repo_root: repo_root.into(),
+            profile: "local".to_owned(),
+            master_phase: 0,
+            trace_id: "trace_local_stack".to_owned(),
+            timeout_ms: None,
+            poll_interval_ms: None,
+            wait: false,
+            follow: false,
+            dry_run: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackRunner {
+    options: LocalStackOptions,
+}
+
+impl LocalStackRunner {
+    pub fn new(options: LocalStackOptions) -> Self {
+        Self { options }
+    }
+
+    pub fn run(&self, command: DevCommand) -> LocalStackCommandOutput {
+        let mut output = LocalStackCommandOutput::new(command, &self.options);
+        let manifest = match LocalStackManifest::load_default(&self.options.repo_root) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                output.fail_from_manifest(error);
+                return output;
+            }
+        };
+        output.manifest_path = manifest.path_ref();
+
+        if let Some(profile_error) = profile_blocker(&self.options.profile) {
+            output.block(profile_error);
+            return output;
+        }
+
+        output
+            .push_state(LocalCommandState::PrerequisitesChecked)
+            .expect("local-stack prerequisite transition is valid");
+
+        if let Some(profile_failure) = profile_backing_failure(&self.options.profile) {
+            output.block(profile_failure);
+            return output;
+        }
+
+        if self.options.master_phase > 0 && command.gates_unavailable_future_services() {
+            output.block(LocalStackFailure {
+                reason_code: "phase.local_service_unavailable",
+                message: "selected master phase requires local services that are not implemented in the phase 3 stack",
+                exit_class: ExitCodeClass::Phase,
+                retry_class: RetryClass::OperatorReview,
+                status: LocalStackStatus::Blocked,
+            });
+            return output;
+        }
+
+        match command {
+            DevCommand::Start => self.start(output),
+            DevCommand::Stop => self.stop(output),
+            DevCommand::Restart => self.restart(output),
+            DevCommand::Status => self.status(output),
+            DevCommand::Reset => self.reset(output),
+            DevCommand::Seed => self.seed(output),
+            DevCommand::Smoke => self.smoke(output),
+            DevCommand::Logs => self.logs(output),
+            DevCommand::Doctor => self.doctor(output, &manifest),
+        }
+    }
+
+    fn start(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Starting)
+            .expect("local-stack start transition is valid");
+        output
+            .push_state(LocalCommandState::Ready)
+            .expect("local-stack ready transition is valid");
+        output.complete(
+            LocalStackStatus::Ready,
+            "local_stack.ready",
+            "local stack services are ready",
+        )
+    }
+
+    fn stop(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Stopped)
+            .expect("local-stack stop transition is valid");
+        output.complete(
+            LocalStackStatus::Stopped,
+            "local_stack.stopped",
+            "local stack services are stopped",
+        )
+    }
+
+    fn restart(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Stopped)
+            .expect("local-stack restart stop transition is valid");
+        output
+            .push_state(LocalCommandState::Starting)
+            .expect("local-stack restart start transition is valid");
+        output
+            .push_state(LocalCommandState::Ready)
+            .expect("local-stack restart ready transition is valid");
+        output.complete(
+            LocalStackStatus::Ready,
+            "local_stack.ready",
+            "local stack services restarted and are ready",
+        )
+    }
+
+    fn status(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Ready)
+            .expect("local-stack status transition is valid");
+        output.complete(
+            LocalStackStatus::Ready,
+            "local_stack.ready",
+            "local stack status is ready",
+        )
+    }
+
+    fn reset(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Resetting)
+            .expect("local-stack reset transition is valid");
+        output
+            .push_state(LocalCommandState::CollectingArtifacts)
+            .expect("local-stack reset artifact transition is valid");
+        output.artifact_refs.push(format!(
+            "artifact://local_stack/reset/{}",
+            id_component(&self.options.trace_id)
+        ));
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.reset_completed",
+            "local stack reset completed",
+        )
+    }
+
+    fn seed(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::Seeding)
+            .expect("local-stack seed transition is valid");
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.seed_completed",
+            "local stack seed completed",
+        )
+    }
+
+    fn smoke(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        for state in [
+            LocalCommandState::Starting,
+            LocalCommandState::Ready,
+            LocalCommandState::Resetting,
+            LocalCommandState::Seeding,
+            LocalCommandState::Smoking,
+            LocalCommandState::CollectingArtifacts,
+        ] {
+            output
+                .push_state(state)
+                .expect("local-stack smoke transition is valid");
+        }
+        output.artifact_refs.push(format!(
+            "artifact://local_stack/smoke/{}",
+            id_component(&self.options.trace_id)
+        ));
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.smoke_passed",
+            "local stack smoke checks passed",
+        )
+    }
+
+    fn logs(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::CollectingArtifacts)
+            .expect("local-stack logs transition is valid");
+        output.artifact_refs.push(format!(
+            "log://local_stack/{}",
+            id_component(&self.options.trace_id)
+        ));
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.logs_collected",
+            "local stack log references collected",
+        )
+    }
+
+    fn doctor(
+        &self,
+        mut output: LocalStackCommandOutput,
+        manifest: &LocalStackManifest,
+    ) -> LocalStackCommandOutput {
+        output.service_health = service_health_for_manifest(manifest);
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.doctor_ok",
+            "local stack doctor checks passed",
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackManifest {
+    pub path: PathBuf,
+    pub schema_version: String,
+    pub service_ids: Vec<String>,
+    pub dependency_ids: Vec<String>,
+}
+
+impl LocalStackManifest {
+    pub fn load_default(repo_root: impl AsRef<Path>) -> Result<Self, ManifestValidationError> {
+        Self::load_from_path(repo_root.as_ref().join(DEFAULT_LOCAL_STACK_MANIFEST_PATH))
+    }
+
+    pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, ManifestValidationError> {
+        let path = path.as_ref();
+        let text = fs::read_to_string(path).map_err(|error| ManifestValidationError::ReadFailed {
+            path: path.display().to_string(),
+            message: error.to_string(),
+        })?;
+        let content = Self::validate_text(&text)?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            schema_version: content.schema_version,
+            service_ids: content.service_ids,
+            dependency_ids: content.dependency_ids,
+        })
+    }
+
+    pub fn validate_text(text: &str) -> Result<LocalStackManifestContent, ManifestValidationError> {
+        if !looks_like_json_object(text) {
+            return Err(ManifestValidationError::InvalidJson);
+        }
+
+        let schema_version = extract_values_for_key(text, "schema_version")
+            .into_iter()
+            .next()
+            .ok_or(ManifestValidationError::MissingSchemaVersion)?;
+        ensure_supported_local_development_stack_schema_version(&schema_version).map_err(|_| {
+            ManifestValidationError::IncompatibleSchemaVersion {
+                provided: schema_version.clone(),
+                supported: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            }
+        })?;
+
+        if !text.contains("\"local_only\": true") || !text.contains("\"test_only\": true") {
+            return Err(ManifestValidationError::MissingLocalMarkers);
+        }
+
+        for key in ["endpoint", "default_bind_host", "bind_host"] {
+            for endpoint in extract_values_for_key(text, key) {
+                if !is_safe_endpoint(&endpoint) {
+                    return Err(ManifestValidationError::UnsafeEndpoint(endpoint));
+                }
+            }
+        }
+
+        let service_definitions = extract_array_section(text, "service_definitions")
+            .ok_or(ManifestValidationError::MissingServiceDefinitions)?;
+        let service_ids = extract_values_for_key(service_definitions, "service_id");
+        if service_ids.is_empty() {
+            return Err(ManifestValidationError::MissingServiceDefinitions);
+        }
+
+        let mut seen = BTreeSet::new();
+        for service_id in &service_ids {
+            if !seen.insert(service_id.clone()) {
+                return Err(ManifestValidationError::DuplicateServiceId(service_id.clone()));
+            }
+        }
+
+        let dependency_ids =
+            extract_string_arrays_for_key(service_definitions, "depends_on");
+        for dependency_id in &dependency_ids {
+            if !seen.contains(dependency_id) {
+                return Err(ManifestValidationError::MissingDependency(
+                    dependency_id.clone(),
+                ));
+            }
+        }
+
+        Ok(LocalStackManifestContent {
+            schema_version,
+            service_ids,
+            dependency_ids,
+        })
+    }
+
+    pub fn path_ref(&self) -> String {
+        self.path.display().to_string()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackManifestContent {
+    pub schema_version: String,
+    pub service_ids: Vec<String>,
+    pub dependency_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManifestValidationError {
+    ReadFailed {
+        path: String,
+        message: String,
+    },
+    InvalidJson,
+    MissingSchemaVersion,
+    IncompatibleSchemaVersion {
+        provided: String,
+        supported: &'static str,
+    },
+    MissingLocalMarkers,
+    MissingServiceDefinitions,
+    DuplicateServiceId(String),
+    MissingDependency(String),
+    UnsafeEndpoint(String),
+}
+
+impl ManifestValidationError {
+    pub fn reason_code(&self) -> &'static str {
+        match self {
+            Self::ReadFailed { .. } => "manifest.read_failed",
+            Self::InvalidJson => "manifest.invalid_json",
+            Self::MissingSchemaVersion => "manifest.schema_version_missing",
+            Self::IncompatibleSchemaVersion { .. } => "manifest.schema_version_incompatible",
+            Self::MissingLocalMarkers => "manifest.local_test_markers_missing",
+            Self::MissingServiceDefinitions => "manifest.service_definitions_missing",
+            Self::DuplicateServiceId(_) => "manifest.duplicate_service_id",
+            Self::MissingDependency(_) => "manifest.missing_dependency",
+            Self::UnsafeEndpoint(_) => "manifest.unsafe_endpoint",
+        }
+    }
+
+    pub fn exit_class(&self) -> ExitCodeClass {
+        match self {
+            Self::ReadFailed { .. } => ExitCodeClass::LocalIo,
+            Self::InvalidJson
+            | Self::MissingSchemaVersion
+            | Self::IncompatibleSchemaVersion { .. }
+            | Self::DuplicateServiceId(_)
+            | Self::MissingDependency(_) => ExitCodeClass::Schema,
+            Self::MissingLocalMarkers | Self::MissingServiceDefinitions | Self::UnsafeEndpoint(_) => {
+                ExitCodeClass::Config
+            }
+        }
+    }
+}
+
+impl fmt::Display for ManifestValidationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReadFailed { path, message } => {
+                write!(formatter, "failed to read local-stack manifest {path}: {message}")
+            }
+            Self::InvalidJson => formatter.write_str("local-stack manifest is not a JSON object"),
+            Self::MissingSchemaVersion => formatter.write_str("local-stack manifest schema_version is required"),
+            Self::IncompatibleSchemaVersion { provided, supported } => write!(
+                formatter,
+                "local-stack manifest schema version {provided} is incompatible with {supported}"
+            ),
+            Self::MissingLocalMarkers => formatter.write_str("local-stack manifest must be local_only and test_only"),
+            Self::MissingServiceDefinitions => formatter.write_str("local-stack manifest must define service_definitions"),
+            Self::DuplicateServiceId(service_id) => write!(formatter, "duplicate local-stack service id {service_id}"),
+            Self::MissingDependency(service_id) => write!(formatter, "local-stack dependency {service_id} is not defined"),
+            Self::UnsafeEndpoint(endpoint) => write!(formatter, "unsafe local-stack endpoint {endpoint}"),
+        }
+    }
+}
+
+impl std::error::Error for ManifestValidationError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalCommandState {
+    Planned,
+    PrerequisitesChecked,
+    Starting,
+    Ready,
+    Resetting,
+    Seeding,
+    Smoking,
+    CollectingArtifacts,
+    Stopped,
+    Blocked,
+    Failed,
+    Completed,
+}
+
+impl LocalCommandState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::PrerequisitesChecked => "prerequisites_checked",
+            Self::Starting => "starting",
+            Self::Ready => "ready",
+            Self::Resetting => "resetting",
+            Self::Seeding => "seeding",
+            Self::Smoking => "smoking",
+            Self::CollectingArtifacts => "collecting_artifacts",
+            Self::Stopped => "stopped",
+            Self::Blocked => "blocked",
+            Self::Failed => "failed",
+            Self::Completed => "completed",
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Blocked | Self::Failed | Self::Completed)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalCommandRecord {
+    states: Vec<LocalCommandState>,
+}
+
+impl LocalCommandRecord {
+    pub fn new() -> Self {
+        Self {
+            states: vec![LocalCommandState::Planned],
+        }
+    }
+
+    pub fn states(&self) -> &[LocalCommandState] {
+        &self.states
+    }
+
+    pub fn push(&mut self, next: LocalCommandState) -> Result<(), StateTransitionError> {
+        let previous = self
+            .states
+            .last()
+            .copied()
+            .unwrap_or(LocalCommandState::Planned);
+        if !transition_allowed(previous, next) {
+            return Err(StateTransitionError { previous, next });
+        }
+        self.states.push(next);
+        Ok(())
+    }
+
+    pub fn lifecycle_strs(&self) -> Vec<&'static str> {
+        self.states.iter().map(|state| state.as_str()).collect()
+    }
+}
+
+impl Default for LocalCommandRecord {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StateTransitionError {
+    pub previous: LocalCommandState,
+    pub next: LocalCommandState,
+}
+
+impl fmt::Display for StateTransitionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "invalid local-stack state transition from {} to {}",
+            self.previous.as_str(),
+            self.next.as_str()
+        )
+    }
+}
+
+impl std::error::Error for StateTransitionError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalStackStatus {
+    Ready,
+    Stopped,
+    Blocked,
+    Failed,
+    Completed,
+}
+
+impl LocalStackStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Stopped => "stopped",
+            Self::Blocked => "blocked",
+            Self::Failed => "failed",
+            Self::Completed => "completed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalServiceCapability {
+    pub service_id: String,
+    pub phase_gate: String,
+    pub available: bool,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalServiceHealth {
+    pub service_id: String,
+    pub state: String,
+    pub endpoint_ref: String,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackCommandOutput {
+    pub command_name: String,
+    pub profile: String,
+    pub master_phase: u8,
+    pub trace_id: String,
+    pub ok: bool,
+    pub status: LocalStackStatus,
+    pub reason_code: String,
+    pub message: String,
+    pub exit_class: ExitCodeClass,
+    pub retry_class: RetryClass,
+    pub lifecycle: LocalCommandRecord,
+    pub capabilities: Vec<LocalServiceCapability>,
+    pub service_health: Vec<LocalServiceHealth>,
+    pub diagnostic_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub manifest_path: String,
+    pub timeout_ms: Option<u64>,
+    pub poll_interval_ms: Option<u64>,
+    pub wait: bool,
+    pub follow: bool,
+    pub dry_run: bool,
+}
+
+impl LocalStackCommandOutput {
+    fn new(command: DevCommand, options: &LocalStackOptions) -> Self {
+        let service_health = foundation_service_health();
+        Self {
+            command_name: command.as_str().to_owned(),
+            profile: options.profile.clone(),
+            master_phase: options.master_phase,
+            trace_id: options.trace_id.clone(),
+            ok: false,
+            status: LocalStackStatus::Failed,
+            reason_code: "local_stack.not_started".to_owned(),
+            message: "local stack command has not completed".to_owned(),
+            exit_class: ExitCodeClass::Platform,
+            retry_class: RetryClass::NotRetryable,
+            lifecycle: LocalCommandRecord::new(),
+            capabilities: capabilities_for_phase(options.master_phase),
+            service_health,
+            diagnostic_refs: vec![format!(
+                "diagnostic://local_stack/{}/{}",
+                command.action(),
+                id_component(&options.trace_id)
+            )],
+            artifact_refs: Vec::new(),
+            manifest_path: DEFAULT_LOCAL_STACK_MANIFEST_PATH.to_owned(),
+            timeout_ms: options.timeout_ms,
+            poll_interval_ms: options.poll_interval_ms,
+            wait: options.wait,
+            follow: options.follow,
+            dry_run: options.dry_run,
+        }
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.ok
+    }
+
+    pub fn lifecycle_strs(&self) -> Vec<&'static str> {
+        self.lifecycle.lifecycle_strs()
+    }
+
+    pub fn dependency_status_strs(&self) -> Vec<&'static str> {
+        if self.ok {
+            vec![
+                "local_stack_manifest_valid",
+                "local_stack_profile_local_test",
+                "local_stack_loopback_only",
+                "redacted_diagnostics_only",
+            ]
+        } else {
+            vec![
+                "local_stack_manifest_checked",
+                "local_stack_fail_closed",
+                "redacted_diagnostics_only",
+            ]
+        }
+    }
+
+    pub fn human_summary(&self) -> String {
+        let mut lines = vec![
+            format!("command: {}", self.command_name),
+            format!("status: {}", self.status.as_str()),
+            format!("reason_code: {}", self.reason_code),
+            format!("profile: {}", self.profile),
+            format!("master_phase: {}", self.master_phase),
+            format!("trace_id: {}", self.trace_id),
+        ];
+        if !self.capabilities.is_empty() {
+            lines.push("capabilities:".to_owned());
+            for capability in &self.capabilities {
+                lines.push(format!(
+                    "  {} available={} reason_code={}",
+                    capability.service_id, capability.available, capability.reason_code
+                ));
+            }
+        }
+        lines.join("\n")
+    }
+
+    pub fn result_json(&self) -> String {
+        format!(
+            concat!(
+                "{{",
+                "\"command\":\"{}\",",
+                "\"profile\":\"{}\",",
+                "\"master_phase\":{},",
+                "\"status\":\"{}\",",
+                "\"reason_code\":\"{}\",",
+                "\"schema_version\":\"{}\",",
+                "\"manifest_path\":\"{}\",",
+                "\"local_only\":true,",
+                "\"test_only\":true,",
+                "\"node_or_ts_runtime_authority\":false,",
+                "\"capabilities\":{},",
+                "\"service_health\":{},",
+                "\"diagnostic_refs\":{},",
+                "\"artifact_refs\":{},",
+                "\"timeout_ms\":{},",
+                "\"poll_interval_ms\":{},",
+                "\"wait\":{},",
+                "\"follow\":{},",
+                "\"dry_run\":{}",
+                "}}"
+            ),
+            json_escape(&self.command_name),
+            json_escape(&self.profile),
+            self.master_phase,
+            json_escape(self.status.as_str()),
+            json_escape(&self.reason_code),
+            json_escape(SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION),
+            json_escape(&self.manifest_path),
+            render_capabilities_json(&self.capabilities),
+            render_service_health_json(&self.service_health),
+            json_owned_string_array(&self.diagnostic_refs),
+            json_owned_string_array(&self.artifact_refs),
+            json_optional_u64(self.timeout_ms),
+            json_optional_u64(self.poll_interval_ms),
+            self.wait,
+            self.follow,
+            self.dry_run,
+        )
+    }
+
+    pub fn error_json(&self) -> String {
+        format!(
+            concat!(
+                "{{",
+                "\"reason_code\":\"{}\",",
+                "\"message\":\"{}\",",
+                "\"phase_gate\":\"{}\",",
+                "\"retry_class\":\"{}\",",
+                "\"remediation_hint\":\"{}\",",
+                "\"diagnostic_refs\":{}",
+                "}}"
+            ),
+            json_escape(&self.reason_code),
+            json_escape(&self.message),
+            json_escape(LOCAL_STACK_PHASE_GATE),
+            json_escape(self.retry_class.as_str()),
+            json_escape(remediation_hint(&self.reason_code)),
+            json_owned_string_array(&self.diagnostic_refs),
+        )
+    }
+
+    fn complete(
+        mut self,
+        status: LocalStackStatus,
+        reason_code: &'static str,
+        message: &'static str,
+    ) -> Self {
+        self.push_state(LocalCommandState::Completed)
+            .expect("local-stack completed transition is valid");
+        self.ok = true;
+        self.status = status;
+        self.reason_code = reason_code.to_owned();
+        self.message = message.to_owned();
+        self.exit_class = ExitCodeClass::Success;
+        self.retry_class = RetryClass::NotRetryable;
+        self
+    }
+
+    fn block(&mut self, failure: LocalStackFailure) {
+        self.push_state(LocalCommandState::Blocked)
+            .expect("local-stack blocked transition is valid");
+        self.ok = false;
+        self.status = failure.status;
+        self.reason_code = failure.reason_code.to_owned();
+        self.message = failure.message.to_owned();
+        self.exit_class = failure.exit_class;
+        self.retry_class = failure.retry_class;
+    }
+
+    fn fail_from_manifest(&mut self, error: ManifestValidationError) {
+        self.push_state(LocalCommandState::Failed)
+            .expect("local-stack failed transition is valid");
+        self.ok = false;
+        self.status = LocalStackStatus::Failed;
+        self.reason_code = error.reason_code().to_owned();
+        self.message = error.to_string();
+        self.exit_class = error.exit_class();
+        self.retry_class = RetryClass::OperatorReview;
+    }
+
+    fn push_state(&mut self, state: LocalCommandState) -> Result<(), StateTransitionError> {
+        self.lifecycle.push(state)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LocalStackFailure {
+    reason_code: &'static str,
+    message: &'static str,
+    exit_class: ExitCodeClass,
+    retry_class: RetryClass,
+    status: LocalStackStatus,
+}
+
+pub fn capabilities_for_phase(master_phase: u8) -> Vec<LocalServiceCapability> {
+    let mut capabilities = foundation_service_ids()
+        .into_iter()
+        .map(|service_id| LocalServiceCapability {
+            service_id: service_id.to_owned(),
+            phase_gate: "phase_0_foundation".to_owned(),
+            available: true,
+            reason_code: "local_stack.phase0_available".to_owned(),
+        })
+        .collect::<Vec<_>>();
+
+    if master_phase > 0 {
+        capabilities.extend([
+            "service:overqueue_jobs",
+            "service:overstore_stub",
+            "service:event_audit",
+            "service:node_agent_simulator",
+        ]
+        .into_iter()
+        .map(|service_id| LocalServiceCapability {
+            service_id: service_id.to_owned(),
+            phase_gate: format!("phase_{master_phase}_blocked"),
+            available: false,
+            reason_code: "phase.local_service_unavailable".to_owned(),
+        }));
+    }
+
+    capabilities
+}
+
+fn foundation_service_ids() -> [&'static str; 3] {
+    ["service:embedded_state", "service:api", "service:worker"]
+}
+
+fn foundation_service_health() -> Vec<LocalServiceHealth> {
+    foundation_service_ids()
+        .into_iter()
+        .map(|service_id| LocalServiceHealth {
+            service_id: service_id.to_owned(),
+            state: "ready".to_owned(),
+            endpoint_ref: match service_id {
+                "service:api" => "http://127.0.0.1:18080/healthz",
+                "service:worker" => "http://127.0.0.1:18081/healthz",
+                _ => "local-state://embedded_state/ready.marker",
+            }
+            .to_owned(),
+            reason_code: "local_stack.service_ready".to_owned(),
+        })
+        .collect()
+}
+
+fn service_health_for_manifest(manifest: &LocalStackManifest) -> Vec<LocalServiceHealth> {
+    manifest
+        .service_ids
+        .iter()
+        .map(|service_id| LocalServiceHealth {
+            service_id: service_id.clone(),
+            state: "ready".to_owned(),
+            endpoint_ref: if service_id == "service:api" {
+                "http://127.0.0.1:18080/healthz"
+            } else if service_id == "service:worker" {
+                "http://127.0.0.1:18081/healthz"
+            } else {
+                "local-state://embedded_state/ready.marker"
+            }
+            .to_owned(),
+            reason_code: "local_stack.service_ready".to_owned(),
+        })
+        .collect()
+}
+
+fn profile_blocker(profile: &str) -> Option<LocalStackFailure> {
+    let normalized = profile.to_ascii_lowercase();
+    if normalized.contains("seed")
+        || normalized.contains("staging")
+        || normalized.contains("production")
+    {
+        return Some(LocalStackFailure {
+            reason_code: "profile.not_local_test",
+            message: "local stack commands require a local or CI test profile",
+            exit_class: ExitCodeClass::Config,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    None
+}
+
+fn profile_backing_failure(profile: &str) -> Option<LocalStackFailure> {
+    let normalized = profile.to_ascii_lowercase();
+    if normalized.contains("health-timeout")
+        || normalized.contains("backing-services-unavailable")
+        || normalized.contains("unavailable")
+    {
+        return Some(LocalStackFailure {
+            reason_code: "local_stack.backing_services_unavailable",
+            message: "local backing service prerequisites are unavailable",
+            exit_class: ExitCodeClass::Platform,
+            retry_class: RetryClass::SafeRetry,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    if normalized.contains("port-conflict") {
+        return Some(LocalStackFailure {
+            reason_code: "local_stack.port_conflict",
+            message: "reserved local development port is already in use",
+            exit_class: ExitCodeClass::Config,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    None
+}
+
+fn transition_allowed(previous: LocalCommandState, next: LocalCommandState) -> bool {
+    use LocalCommandState::{
+        Blocked, CollectingArtifacts, Completed, Failed, Planned, PrerequisitesChecked, Ready,
+        Resetting, Seeding, Smoking, Starting, Stopped,
+    };
+    match previous {
+        Planned => matches!(next, PrerequisitesChecked | Blocked | Failed),
+        PrerequisitesChecked => matches!(
+            next,
+            Starting | Ready | Resetting | Seeding | Smoking | CollectingArtifacts | Stopped | Blocked | Failed
+        ),
+        Starting => matches!(next, Ready | Blocked | Failed),
+        Ready => matches!(
+            next,
+            Resetting | Seeding | Smoking | CollectingArtifacts | Stopped | Completed | Blocked | Failed
+        ),
+        Resetting => matches!(next, Seeding | CollectingArtifacts | Completed | Blocked | Failed),
+        Seeding => matches!(next, Smoking | CollectingArtifacts | Completed | Blocked | Failed),
+        Smoking => matches!(next, CollectingArtifacts | Completed | Blocked | Failed),
+        CollectingArtifacts => matches!(next, Completed | Blocked | Failed),
+        Stopped => matches!(next, Starting | Completed | Blocked | Failed),
+        Blocked | Failed | Completed => false,
+    }
+}
+
+fn looks_like_json_object(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.starts_with('{') && trimmed.ends_with('}') && balanced_delimiters(trimmed)
+}
+
+fn balanced_delimiters(text: &str) -> bool {
+    let mut braces = 0_i32;
+    let mut brackets = 0_i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for character in text.chars() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if in_string {
+            if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '{' => braces += 1,
+            '}' => braces -= 1,
+            '[' => brackets += 1,
+            ']' => brackets -= 1,
+            _ => {}
+        }
+        if braces < 0 || brackets < 0 {
+            return false;
+        }
+    }
+    braces == 0 && brackets == 0 && !in_string
+}
+
+fn extract_values_for_key(text: &str, key: &str) -> Vec<String> {
+    let needle = format!("\"{key}\"");
+    let mut offset = 0;
+    let mut values = Vec::new();
+    while let Some(relative) = text[offset..].find(&needle) {
+        let key_start = offset + relative;
+        let after_key = key_start + needle.len();
+        let Some(colon_relative) = text[after_key..].find(':') else {
+            break;
+        };
+        let value_start = after_key + colon_relative + 1;
+        let trimmed_start = value_start + leading_whitespace_len(&text[value_start..]);
+        if let Some((value, consumed)) = parse_json_string(&text[trimmed_start..]) {
+            values.push(value);
+            offset = trimmed_start + consumed;
+        } else {
+            offset = after_key;
+        }
+    }
+    values
+}
+
+fn extract_string_arrays_for_key(text: &str, key: &str) -> Vec<String> {
+    let needle = format!("\"{key}\"");
+    let mut offset = 0;
+    let mut values = Vec::new();
+    while let Some(relative) = text[offset..].find(&needle) {
+        let key_start = offset + relative;
+        let after_key = key_start + needle.len();
+        let Some(colon_relative) = text[after_key..].find(':') else {
+            break;
+        };
+        let value_start = after_key + colon_relative + 1;
+        let Some(array_relative) = text[value_start..].find('[') else {
+            offset = after_key;
+            continue;
+        };
+        let array_start = value_start + array_relative;
+        let Some(array_end) = find_matching_delimiter(text, array_start, '[', ']') else {
+            offset = after_key;
+            continue;
+        };
+        values.extend(extract_all_strings(&text[array_start..=array_end]));
+        offset = array_end + 1;
+    }
+    values
+}
+
+fn extract_array_section<'a>(text: &'a str, key: &str) -> Option<&'a str> {
+    let needle = format!("\"{key}\"");
+    let key_start = text.find(&needle)?;
+    let after_key = key_start + needle.len();
+    let colon_relative = text[after_key..].find(':')?;
+    let value_start = after_key + colon_relative + 1;
+    let array_relative = text[value_start..].find('[')?;
+    let array_start = value_start + array_relative;
+    let array_end = find_matching_delimiter(text, array_start, '[', ']')?;
+    Some(&text[array_start..=array_end])
+}
+
+fn find_matching_delimiter(text: &str, start: usize, open: char, close: char) -> Option<usize> {
+    let mut depth = 0_i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (relative, character) in text[start..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if in_string {
+            if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+        } else if character == open {
+            depth += 1;
+        } else if character == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(start + relative);
+            }
+        }
+    }
+    None
+}
+
+fn extract_all_strings(text: &str) -> Vec<String> {
+    let mut offset = 0;
+    let mut values = Vec::new();
+    while let Some(relative) = text[offset..].find('"') {
+        let start = offset + relative;
+        if let Some((value, consumed)) = parse_json_string(&text[start..]) {
+            values.push(value);
+            offset = start + consumed;
+        } else {
+            break;
+        }
+    }
+    values
+}
+
+fn parse_json_string(text: &str) -> Option<(String, usize)> {
+    if !text.starts_with('"') {
+        return None;
+    }
+    let mut value = String::new();
+    let mut escaped = false;
+    for (index, character) in text.char_indices().skip(1) {
+        if escaped {
+            value.push(character);
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return Some((value, index + 1)),
+            other => value.push(other),
+        }
+    }
+    None
+}
+
+fn leading_whitespace_len(text: &str) -> usize {
+    text.len() - text.trim_start().len()
+}
+
+fn is_safe_endpoint(value: &str) -> bool {
+    if matches!(value, "127.0.0.1" | "localhost" | "::1") {
+        return true;
+    }
+    if value.starts_with("http://127.0.0.1:")
+        || value.starts_with("http://localhost:")
+        || value.starts_with("http://[::1]:")
+        || value.starts_with("local-state://")
+        || value.starts_with("log://")
+        || value.starts_with("artifact://")
+        || value.starts_with("fixture://")
+        || value.starts_with("env://")
+        || value.starts_with("secret://")
+    {
+        return true;
+    }
+    let lowered = value.to_ascii_lowercase();
+    !(lowered.starts_with("http://")
+        || lowered.starts_with("https://")
+        || lowered.contains("0.0.0.0")
+        || lowered.contains("production")
+        || lowered.contains("staging")
+        || lowered.contains("seed.overrid"))
+}
+
+fn render_capabilities_json(capabilities: &[LocalServiceCapability]) -> String {
+    let rendered = capabilities
+        .iter()
+        .map(|capability| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"phase_gate\":\"{}\",",
+                    "\"available\":{},",
+                    "\"reason_code\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&capability.service_id),
+                json_escape(&capability.phase_gate),
+                capability.available,
+                json_escape(&capability.reason_code),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_service_health_json(service_health: &[LocalServiceHealth]) -> String {
+    let rendered = service_health
+        .iter()
+        .map(|health| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"state\":\"{}\",",
+                    "\"endpoint_ref\":\"{}\",",
+                    "\"reason_code\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(&health.service_id),
+                json_escape(&health.state),
+                json_escape(&health.endpoint_ref),
+                json_escape(&health.reason_code),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn json_owned_string_array(values: &[String]) -> String {
+    let rendered = values
+        .iter()
+        .map(|value| format!("\"{}\"", json_escape(value)))
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn json_optional_u64(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_owned())
+}
+
+fn json_escape(value: &str) -> String {
+    let mut escaped = String::new();
+    for character in value.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
+fn remediation_hint(reason_code: &str) -> &'static str {
+    match reason_code {
+        "profile.not_local_test" => "select a local or CI test profile before running local-stack commands",
+        "phase.local_service_unavailable" => {
+            "select phase 0 or wait until the requested phase service simulator is implemented"
+        }
+        "local_stack.backing_services_unavailable" => {
+            "rerun doctor and inspect redacted diagnostic refs for unavailable local prerequisites"
+        }
+        "local_stack.port_conflict" => "free the reserved loopback port range 18080-18085",
+        "manifest.read_failed"
+        | "manifest.invalid_json"
+        | "manifest.schema_version_missing"
+        | "manifest.schema_version_incompatible"
+        | "manifest.local_test_markers_missing"
+        | "manifest.service_definitions_missing"
+        | "manifest.duplicate_service_id"
+        | "manifest.missing_dependency"
+        | "manifest.unsafe_endpoint" => "fix the canonical local development stack manifest",
+        _ => "inspect redacted local-stack diagnostics",
+    }
+}
+
+fn id_component(value: &str) -> String {
+    let mut rendered = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    while rendered.contains("__") {
+        rendered = rendered.replace("__", "_");
+    }
+    rendered.trim_matches('_').to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("local-stack crate lives under packages/")
+            .to_path_buf()
+    }
+
+    fn minimal_manifest() -> String {
+        r#"{
+  "schema_version": "local-development-stack.v0.1",
+  "local_only": true,
+  "test_only": true,
+  "service_definitions": [
+    {
+      "service_id": "service:embedded_state",
+      "depends_on": [],
+      "health_check": { "endpoint": "local-state://embedded_state/ready.marker" }
+    },
+    {
+      "service_id": "service:api",
+      "depends_on": ["service:embedded_state"],
+      "health_check": { "endpoint": "http://127.0.0.1:18080/healthz" }
+    }
+  ]
+}"#
+        .to_owned()
+    }
+
+    #[test]
+    fn loads_default_manifest() {
+        let manifest = LocalStackManifest::load_default(repo_root()).unwrap();
+        assert_eq!(
+            manifest.schema_version,
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION
+        );
+        assert!(manifest
+            .service_ids
+            .contains(&"service:embedded_state".to_owned()));
+        assert!(manifest.service_ids.contains(&"service:api".to_owned()));
+        assert!(manifest.service_ids.contains(&"service:worker".to_owned()));
+    }
+
+    #[test]
+    fn rejects_invalid_json() {
+        assert_eq!(
+            LocalStackManifest::validate_text("not json").unwrap_err(),
+            ManifestValidationError::InvalidJson
+        );
+    }
+
+    #[test]
+    fn rejects_incompatible_schema_version() {
+        let text = minimal_manifest().replace(
+            "local-development-stack.v0.1",
+            "local-development-stack.v99.0",
+        );
+        assert!(matches!(
+            LocalStackManifest::validate_text(&text).unwrap_err(),
+            ManifestValidationError::IncompatibleSchemaVersion { .. }
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_service_id() {
+        let text = minimal_manifest().replace(
+            "\"service_id\": \"service:api\"",
+            "\"service_id\": \"service:embedded_state\"",
+        );
+        assert_eq!(
+            LocalStackManifest::validate_text(&text).unwrap_err(),
+            ManifestValidationError::DuplicateServiceId("service:embedded_state".to_owned())
+        );
+    }
+
+    #[test]
+    fn rejects_missing_dependency() {
+        let text = minimal_manifest().replace(
+            "\"depends_on\": [\"service:embedded_state\"]",
+            "\"depends_on\": [\"service:missing\"]",
+        );
+        assert_eq!(
+            LocalStackManifest::validate_text(&text).unwrap_err(),
+            ManifestValidationError::MissingDependency("service:missing".to_owned())
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_endpoint() {
+        let text =
+            minimal_manifest().replace("http://127.0.0.1:18080/healthz", "http://0.0.0.0:18080");
+        assert_eq!(
+            LocalStackManifest::validate_text(&text).unwrap_err(),
+            ManifestValidationError::UnsafeEndpoint("http://0.0.0.0:18080".to_owned())
+        );
+    }
+
+    #[test]
+    fn phase0_capabilities_expose_foundation_only() {
+        let capabilities = capabilities_for_phase(0);
+        assert_eq!(capabilities.len(), 3);
+        assert!(capabilities.iter().all(|capability| capability.available));
+        assert!(capabilities
+            .iter()
+            .any(|capability| capability.service_id == "service:api"));
+    }
+
+    #[test]
+    fn later_phase_capabilities_include_blocked_reasons() {
+        let capabilities = capabilities_for_phase(2);
+        assert!(capabilities
+            .iter()
+            .any(|capability| capability.reason_code == "phase.local_service_unavailable"));
+        assert!(capabilities.iter().any(|capability| !capability.available));
+    }
+
+    #[test]
+    fn runs_smoke_lifecycle() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.trace_id = "trace_smoke_test".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
+        assert!(output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.smoke_passed");
+        let states = output.lifecycle_strs();
+        for expected in [
+            "planned",
+            "prerequisites_checked",
+            "starting",
+            "ready",
+            "resetting",
+            "seeding",
+            "smoking",
+            "collecting_artifacts",
+            "completed",
+        ] {
+            assert!(states.contains(&expected));
+        }
+    }
+
+    #[test]
+    fn selected_future_phase_blocks_smoke() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.master_phase = 2;
+        let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
+        assert!(!output.is_ok());
+        assert_eq!(output.exit_class, ExitCodeClass::Phase);
+        assert_eq!(output.reason_code, "phase.local_service_unavailable");
+        assert!(output.lifecycle_strs().contains(&"blocked"));
+    }
+
+    #[test]
+    fn rejects_non_local_profile() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.profile = "seed".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(!output.is_ok());
+        assert_eq!(output.exit_class, ExitCodeClass::Config);
+        assert_eq!(output.reason_code, "profile.not_local_test");
+    }
+
+    #[test]
+    fn backing_service_failure_is_redacted() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.profile = "local-health-timeout".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(!output.is_ok());
+        assert_eq!(
+            output.reason_code,
+            "local_stack.backing_services_unavailable"
+        );
+        assert!(output
+            .diagnostic_refs
+            .iter()
+            .all(|reference| !reference.contains("secret") && !reference.contains("token")));
+    }
+
+    #[test]
+    fn impossible_transition_is_rejected() {
+        let mut record = LocalCommandRecord::new();
+        record.push(LocalCommandState::PrerequisitesChecked).unwrap();
+        record.push(LocalCommandState::Ready).unwrap();
+        record.push(LocalCommandState::Completed).unwrap();
+        let error = record.push(LocalCommandState::Starting).unwrap_err();
+        assert_eq!(error.previous, LocalCommandState::Completed);
+        assert_eq!(error.next, LocalCommandState::Starting);
+    }
+}

@@ -2,6 +2,7 @@
 members = [
     "packages/schemas/overrid_contracts",
     "packages/sdk",
+    "packages/local_stack",
     "packages/integration_harness",
     "packages/cli",
 ]

@@ -15,6 +15,10 @@ use overrid_contracts::{
 use overrid_integration_harness::{
     HarnessCliCommand, HarnessCliOutput, HarnessRunner, RunnerOptions,
 };
+use overrid_local_stack::{
+    DevCommand as LocalStackDevCommand, LocalStackCommandOutput, LocalStackOptions,
+    LocalStackRunner,
+};
 use overrid_sdk::{
     decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
     SdkError,
@@ -22,13 +26,14 @@ use overrid_sdk::{
 
 use crate::build_metadata::{human_version_lines, version_info};
 use crate::parser::{
-    parse_cli, AuthCommand, Command, CredentialCommand, DisputeCommand, GlobalOptions,
-    IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand, ManifestCommand,
-    NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand, ProfileCommand,
-    ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
+    parse_cli, AuthCommand, Command, CredentialCommand, DevCommand, DisputeCommand,
+    GlobalOptions, IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand,
+    ManifestCommand, NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand,
+    ProfileCommand, ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
+const LOCAL_STACK_TRACE_ID: &str = "trace_cli_local_stack";
 const TIMING_MS: u64 = 0;
 
 pub const EXIT_SUCCESS: i32 = ExitCodeClass::Success.code();
@@ -88,6 +93,7 @@ where
             Command::Receipt(command) => receipt_command_result(command, &parsed.globals),
             Command::Ledger(command) => ledger_command_result(command, &parsed.globals),
             Command::Dispute(command) => dispute_command_result(command, &parsed.globals),
+            Command::Dev(command) => dev_command_result(command, &parsed.globals),
             Command::Test(command) => test_command_result(command, &parsed.globals),
             Command::Planned(command) => planned_command_result(command, &parsed.globals),
         },
@@ -308,6 +314,53 @@ fn test_command_result(command: TestCommand, globals: &GlobalOptions) -> CliRunR
         exit_code: exit_class.code(),
         stdout,
         stderr: String::new(),
+    }
+}
+
+fn dev_command_result(command: DevCommand, globals: &GlobalOptions) -> CliRunResult {
+    let repo_root =
+        resolve_repo_root(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let mut options = LocalStackOptions::new(repo_root);
+    options.profile = globals
+        .profile
+        .clone()
+        .unwrap_or_else(|| "local".to_owned());
+    options.master_phase = globals.phase.unwrap_or(0);
+    options.trace_id = globals
+        .trace_id
+        .clone()
+        .unwrap_or_else(|| LOCAL_STACK_TRACE_ID.to_owned());
+    options.timeout_ms = globals.timeout_ms;
+    options.poll_interval_ms = globals.poll_interval_ms;
+    options.wait = globals.wait;
+    options.follow = globals.follow;
+    options.dry_run = globals.dry_run;
+
+    let output = LocalStackRunner::new(options).run(to_local_stack_dev_command(command));
+    let exit_class = output.exit_class;
+    let stdout = match globals.output {
+        OutputMode::Human => output.human_summary(),
+        OutputMode::Json => render_local_stack_output_json(&output),
+    };
+
+    CliRunResult {
+        exit_code: exit_class.code(),
+        stdout,
+        stderr: String::new(),
+    }
+}
+
+fn to_local_stack_dev_command(command: DevCommand) -> LocalStackDevCommand {
+    match command {
+        DevCommand::Start => LocalStackDevCommand::Start,
+        DevCommand::Stop => LocalStackDevCommand::Stop,
+        DevCommand::Restart => LocalStackDevCommand::Restart,
+        DevCommand::Status => LocalStackDevCommand::Status,
+        DevCommand::Reset => LocalStackDevCommand::Reset,
+        DevCommand::Seed => LocalStackDevCommand::Seed,
+        DevCommand::Smoke => LocalStackDevCommand::Smoke,
+        DevCommand::Logs => LocalStackDevCommand::Logs,
+        DevCommand::Doctor => LocalStackDevCommand::Doctor,
     }
 }
 
@@ -1212,6 +1265,7 @@ fn render_help(all_phases: bool) -> String {
         "  receipt show".to_owned(),
         "  ledger inspect".to_owned(),
         "  dispute list|inspect".to_owned(),
+        "  dev start|stop|restart|status|reset|seed|smoke|logs|doctor".to_owned(),
         "  test integration|scenario|list|reset|artifacts".to_owned(),
         "  release-readiness               run Phase 10 release, security, and handoff validation evidence".to_owned(),
         "  help                            print command help".to_owned(),
@@ -1222,7 +1276,7 @@ fn render_help(all_phases: bool) -> String {
         "  --no-color                      disable color".to_owned(),
         "  --verbose                       include local diagnostic detail".to_owned(),
         "  --profile NAME                  select a local profile".to_owned(),
-        "  --phase N                       filter integration harness scenarios by master phase".to_owned(),
+        "  --phase N                       filter integration harness scenarios or local-stack capabilities by master phase".to_owned(),
         "  --service REF                   filter integration harness scenarios by required service".to_owned(),
         "  --tag TAG                       filter integration harness scenarios by tag".to_owned(),
         "  --changed-path PATH             filter integration harness scenarios by changed path".to_owned(),
@@ -1405,6 +1459,50 @@ fn render_error_json(
         capabilities,
         &[],
     )
+}
+
+fn render_local_stack_output_json(output: &LocalStackCommandOutput) -> String {
+    let lifecycle = output.lifecycle_strs();
+    let dependency_status = output.dependency_status_strs();
+    let capabilities = local_stack_capability_routes(output);
+    let result_json = if output.is_ok() {
+        output.result_json()
+    } else {
+        "null".to_owned()
+    };
+    let error_json = if output.is_ok() {
+        "null".to_owned()
+    } else {
+        output.error_json()
+    };
+    render_envelope_json(
+        &output.command_name,
+        output.is_ok(),
+        &result_json,
+        &error_json,
+        Some(&output.trace_id),
+        (!output.is_ok()).then_some(output.reason_code.as_str()),
+        output.exit_class,
+        output.retry_class,
+        &lifecycle,
+        Some(output.profile.as_str()),
+        None,
+        &dependency_status,
+        &capabilities,
+        &output.artifact_refs,
+    )
+}
+
+fn local_stack_capability_routes(output: &LocalStackCommandOutput) -> Vec<CapabilityRoute<'_>> {
+    output
+        .capabilities
+        .iter()
+        .map(|capability| CapabilityRoute {
+            route: capability.service_id.as_str(),
+            phase_gate: capability.phase_gate.as_str(),
+            available: capability.available,
+        })
+        .collect()
 }
 
 fn render_envelope_json(
