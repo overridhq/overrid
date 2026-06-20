@@ -161,6 +161,26 @@
         }
       }
     },
+    "workload_ref": {
+      "type": "string",
+      "pattern": "^workload:[a-z0-9_:-]+$",
+      "minLength": 3
+    },
+    "package_ref": {
+      "type": "string",
+      "pattern": "^package:[a-z0-9_:-]+$",
+      "minLength": 3
+    },
+    "local_ledger_account_ref": {
+      "type": "string",
+      "pattern": "^ledger:[a-z0-9_:-]+$",
+      "minLength": 3
+    },
+    "policy_context_ref": {
+      "type": "string",
+      "pattern": "^policy:[a-z0-9_:-]+$",
+      "minLength": 3
+    },
     "fixture_manifest": {
       "type": "object",
       "additionalProperties": false,
@@ -222,28 +242,28 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/overrid_ref"
+            "$ref": "#/$defs/workload_ref"
           }
         },
         "package_refs": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/overrid_ref"
+            "$ref": "#/$defs/package_ref"
           }
         },
         "local_ledger_account_refs": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/overrid_ref"
+            "$ref": "#/$defs/local_ledger_account_ref"
           }
         },
         "policy_context_refs": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/overrid_ref"
+            "$ref": "#/$defs/policy_context_ref"
           }
         },
         "test_only": {
@@ -641,10 +661,21 @@
         "retention_class",
         "privacy_classifications",
         "redaction_summary",
+        "redacted_log_refs",
+        "overwatch_export_refs",
+        "cli_output_refs",
+        "api_payload_envelope_refs",
+        "stack_health_refs",
+        "fixture_version_refs",
         "reproduction_command",
         "artifact_refs",
         "contains_raw_secret",
-        "contains_private_payload"
+        "contains_private_key",
+        "contains_token",
+        "contains_signature",
+        "contains_encrypted_rag_content",
+        "contains_private_payload",
+        "contains_fixture_key_material"
       ],
       "properties": {
         "schema_version": {
@@ -701,6 +732,48 @@
             }
           }
         },
+        "redacted_log_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "overwatch_export_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "cli_output_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "api_payload_envelope_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "stack_health_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
+        "fixture_version_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/overrid_ref"
+          }
+        },
         "reproduction_command": {
           "type": "string",
           "minLength": 1
@@ -715,7 +788,22 @@
         "contains_raw_secret": {
           "const": false
         },
+        "contains_private_key": {
+          "const": false
+        },
+        "contains_token": {
+          "const": false
+        },
+        "contains_signature": {
+          "const": false
+        },
+        "contains_encrypted_rag_content": {
+          "const": false
+        },
         "contains_private_payload": {
+          "const": false
+        },
+        "contains_fixture_key_material": {
           "const": false
         }
       }

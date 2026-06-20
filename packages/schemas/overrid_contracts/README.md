@@ -77,4 +77,7 @@ ledger/policy refs, `scenario_manifest`, `scenario_step`, `test_run_record`,
 canonical JSON Schema sources for SDS #3 harness compatibility and keep
 fixtures test-only, scenarios phase-gated, run records terminal and
 reason-coded, golden traces exact or DAG-safe, and artifacts redacted with
-secret-free reproduction commands.
+secret-free reproduction commands. Artifact bundles must name redacted log,
+Overwatch export, CLI output, API payload envelope, stack health, and fixture
+version refs, and must reject raw secrets, private keys, tokens, signatures,
+encrypted RAG content, private payloads, and fixture key material.

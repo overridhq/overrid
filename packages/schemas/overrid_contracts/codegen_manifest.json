@@ -57,7 +57,8 @@
     ],
     "fixtures": {
       "valid": [
-        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase2.valid.json"
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase2.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_blocked_dependency.valid.json"
       ],
       "invalid": [
         "packages/schemas/overrid_contracts/fixtures/invalid/fixture_missing_seed.invalid.json",
@@ -70,7 +71,12 @@
         "packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsafe_timeout.invalid.json",
         "packages/schemas/overrid_contracts/fixtures/invalid/run_missing_status.invalid.json",
         "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_edge.invalid.json",
-        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json"
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_event.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_extra_state_event.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_reordered_exact.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_forbidden_transition.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/artifact_sensitive_material.invalid.json"
       ]
     }
   },
@@ -157,6 +163,7 @@
     "Phase 10 phase-availability validation must keep unavailable later services denied with stable not_available_in_phase reason codes and no private shortcuts.",
     "Phase 10 Phase 7/13 handoff evidence must not authorize high-risk governance, compliance, incident, break-glass, migration, or backbone operations before owning contracts exist.",
     "Integration Harness Phase 2 contracts must keep fixture, scenario, run-record, assertion, golden-trace, and artifact-bundle schemas as canonical JSON Schema sources with Rust projection checks only.",
-    "Integration Harness Phase 2 fixture credentials must be visibly test_only and must reject raw key material, non-local profiles, unsafe timeouts, unsupported phases, and raw secret artifact bundles."
+    "Integration Harness Phase 2 fixture credentials must be visibly test_only and must reject raw key material, non-local profiles, unsafe timeouts, unsupported phases, and raw secret artifact bundles.",
+    "Integration Harness Phase 2 artifact bundles must name redacted log, Overwatch export, CLI output, API payload envelope, stack health, and fixture version refs, and reject private keys, tokens, signatures, encrypted RAG content, private payloads, and fixture key material."
   ]
 }

@@ -1,0 +1,54 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_sensitive_material",
+    "run_id": "run_sensitive_material",
+    "retention_class": "failure_evidence",
+    "privacy_classifications": [
+      "redacted_local_log"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [],
+      "scanner_passed": false
+    },
+    "redacted_log_refs": [
+      "artifact:logs:sensitive_material_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:sensitive_material"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:sensitive_material"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:sensitive_material"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:sensitive_material"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase0_smoke --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:sensitive_material"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": true,
+    "contains_token": true,
+    "contains_signature": true,
+    "contains_encrypted_rag_content": true,
+    "contains_private_payload": true,
+    "contains_fixture_key_material": true
+  },
+  "expected_errors": [
+    "artifact.private_key",
+    "artifact.token",
+    "artifact.signature",
+    "artifact.encrypted_rag_content",
+    "artifact.private_payload",
+    "artifact.fixture_key_material"
+  ]
+}

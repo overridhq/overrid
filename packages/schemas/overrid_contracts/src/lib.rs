@@ -2077,6 +2077,18 @@ impl FixtureManifest {
                 "fixture compatibility refs",
             ));
         }
+        for value in &self.workload_refs {
+            ensure_harness_ref_prefix("workload ref", value, "workload:")?;
+        }
+        for value in &self.package_refs {
+            ensure_harness_ref_prefix("package ref", value, "package:")?;
+        }
+        for value in &self.local_ledger_account_refs {
+            ensure_harness_ref_prefix("local ledger account ref", value, "ledger:")?;
+        }
+        for value in &self.policy_context_refs {
+            ensure_harness_ref_prefix("policy context ref", value, "policy:")?;
+        }
         Ok(())
     }
 }
@@ -2363,6 +2375,42 @@ impl GoldenTrace {
         }
         Ok(())
     }
+
+    pub fn assert_observed_nodes(
+        &self,
+        observed_nodes: &[String],
+    ) -> Result<(), HarnessContractError> {
+        for node in &self.required_nodes {
+            if !observed_nodes.contains(node) {
+                return Err(HarnessContractError::GoldenTraceMissingEvent);
+            }
+        }
+
+        if observed_nodes
+            .iter()
+            .any(|node| node.starts_with("event_") && !self.required_nodes.contains(node))
+        {
+            return Err(HarnessContractError::GoldenTraceExtraStateEvent);
+        }
+
+        if self.mode == GoldenTraceMode::Exact
+            && observed_nodes.len() >= self.required_nodes.len()
+            && observed_nodes[..self.required_nodes.len()] != self.required_nodes[..]
+        {
+            return Err(HarnessContractError::GoldenTraceExactOrderMismatch);
+        }
+
+        for (from, to) in &self.forbidden_transitions {
+            if observed_nodes
+                .windows(2)
+                .any(|window| window[0].as_str() == from.as_str() && window[1].as_str() == to.as_str())
+            {
+                return Err(HarnessContractError::GoldenTraceForbiddenTransition);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2373,10 +2421,21 @@ pub struct ArtifactBundle {
     pub retention_class: ArtifactRetentionClass,
     pub privacy_classifications: Vec<String>,
     pub redaction_policy: String,
+    pub redacted_log_refs: Vec<String>,
+    pub overwatch_export_refs: Vec<String>,
+    pub cli_output_refs: Vec<String>,
+    pub api_payload_envelope_refs: Vec<String>,
+    pub stack_health_refs: Vec<String>,
+    pub fixture_version_refs: Vec<String>,
     pub reproduction_command: String,
     pub artifact_refs: Vec<String>,
     pub contains_raw_secret: bool,
+    pub contains_private_key: bool,
+    pub contains_token: bool,
+    pub contains_signature: bool,
+    pub contains_encrypted_rag_content: bool,
     pub contains_private_payload: bool,
+    pub contains_fixture_key_material: bool,
 }
 
 impl ArtifactBundle {
@@ -2397,11 +2456,22 @@ impl ArtifactBundle {
                 "redacted_local_log".to_owned(),
             ],
             redaction_policy: "secret_free_refs_only".to_owned(),
+            redacted_log_refs: vec!["artifact:logs:phase0_smoke_redacted".to_owned()],
+            overwatch_export_refs: vec!["artifact:overwatch:phase0_smoke".to_owned()],
+            cli_output_refs: vec!["artifact:cli_output:phase0_smoke".to_owned()],
+            api_payload_envelope_refs: vec!["artifact:api_envelope:phase0_smoke".to_owned()],
+            stack_health_refs: vec!["artifact:health:local_stack".to_owned()],
+            fixture_version_refs: vec!["artifact:fixture_version:phase0_smoke".to_owned()],
             reproduction_command:
                 "overrid test scenario scenario_phase0_smoke --profile local --json".to_owned(),
             artifact_refs: vec!["artifact:bundle:phase0_smoke".to_owned()],
             contains_raw_secret,
+            contains_private_key: false,
+            contains_token: false,
+            contains_signature: false,
+            contains_encrypted_rag_content: false,
             contains_private_payload,
+            contains_fixture_key_material: false,
         };
         bundle.validate()?;
         Ok(bundle)
@@ -2416,11 +2486,33 @@ impl ArtifactBundle {
             ));
         }
         harness_require_non_empty(&self.redaction_policy, "redaction policy")?;
+        for (field, refs) in [
+            ("redacted log refs", &self.redacted_log_refs),
+            ("Overwatch export refs", &self.overwatch_export_refs),
+            ("CLI output refs", &self.cli_output_refs),
+            ("API payload envelope refs", &self.api_payload_envelope_refs),
+            ("stack health refs", &self.stack_health_refs),
+            ("fixture version refs", &self.fixture_version_refs),
+        ] {
+            if refs.is_empty() {
+                return Err(HarnessContractError::MissingRequiredField(field));
+            }
+            for value in refs {
+                ensure_harness_ref_prefix(field, value, "artifact:")?;
+            }
+        }
         harness_require_non_empty(&self.reproduction_command, "reproduction command")?;
         if self.artifact_refs.is_empty() {
             return Err(HarnessContractError::MissingArtifactPolicy);
         }
-        if self.contains_raw_secret || self.contains_private_payload {
+        if self.contains_raw_secret
+            || self.contains_private_key
+            || self.contains_token
+            || self.contains_signature
+            || self.contains_encrypted_rag_content
+            || self.contains_private_payload
+            || self.contains_fixture_key_material
+        {
             return Err(HarnessContractError::RawSecretInArtifact);
         }
         if contains_raw_secret_marker(&self.reproduction_command) {
@@ -2434,6 +2526,11 @@ impl ArtifactBundle {
 pub enum HarnessContractError {
     UnsupportedSchemaVersion(ContractError),
     MissingRequiredField(&'static str),
+    InvalidHarnessRef {
+        field: &'static str,
+        value: String,
+        expected_prefix: &'static str,
+    },
     FixtureNotTestOnly,
     FixtureKeyNotTestOnly,
     UnsupportedPhase(u8),
@@ -2445,6 +2542,10 @@ pub enum HarnessContractError {
     MissingReasonClass,
     MissingArtifactPolicy,
     GoldenTraceMissingEdge,
+    GoldenTraceMissingEvent,
+    GoldenTraceExtraStateEvent,
+    GoldenTraceExactOrderMismatch,
+    GoldenTraceForbiddenTransition,
     RawSecretInArtifact,
 }
 
@@ -2459,6 +2560,14 @@ impl fmt::Display for HarnessContractError {
         match self {
             Self::UnsupportedSchemaVersion(error) => error.fmt(formatter),
             Self::MissingRequiredField(field) => write!(formatter, "{field} is required"),
+            Self::InvalidHarnessRef {
+                field,
+                value,
+                expected_prefix,
+            } => write!(
+                formatter,
+                "{field} has invalid ref {value}; expected prefix {expected_prefix}"
+            ),
             Self::FixtureNotTestOnly => formatter.write_str("fixture manifest is not test-only"),
             Self::FixtureKeyNotTestOnly => {
                 formatter.write_str("fixture key must be test-only and signature-ref-only")
@@ -2478,6 +2587,18 @@ impl fmt::Display for HarnessContractError {
             Self::GoldenTraceMissingEdge => {
                 formatter.write_str("DAG golden trace requires at least one causal edge")
             }
+            Self::GoldenTraceMissingEvent => {
+                formatter.write_str("observed trace is missing a required event")
+            }
+            Self::GoldenTraceExtraStateEvent => {
+                formatter.write_str("observed trace contains an extra state-changing event")
+            }
+            Self::GoldenTraceExactOrderMismatch => {
+                formatter.write_str("observed trace does not match exact golden order")
+            }
+            Self::GoldenTraceForbiddenTransition => {
+                formatter.write_str("observed trace contains a forbidden transition")
+            }
             Self::RawSecretInArtifact => {
                 formatter.write_str("artifact or fixture contains raw secret material")
             }
@@ -2492,6 +2613,23 @@ fn harness_require_non_empty(value: &str, field: &'static str) -> Result<(), Har
         Err(HarnessContractError::MissingRequiredField(field))
     } else {
         Ok(())
+    }
+}
+
+fn ensure_harness_ref_prefix(
+    field: &'static str,
+    value: &str,
+    expected_prefix: &'static str,
+) -> Result<(), HarnessContractError> {
+    harness_require_non_empty(value, field)?;
+    if value.starts_with(expected_prefix) {
+        Ok(())
+    } else {
+        Err(HarnessContractError::InvalidHarnessRef {
+            field,
+            value: value.to_owned(),
+            expected_prefix,
+        })
     }
 }
 
@@ -3084,8 +3222,17 @@ mod tests {
             .resource_card_refs
             .contains(&"resource:local:synthetic_cpu".to_owned()));
         assert!(manifest
+            .workload_refs
+            .contains(&"workload:local:no_op".to_owned()));
+        assert!(manifest
+            .package_refs
+            .contains(&"package:local:no_op".to_owned()));
+        assert!(manifest
             .local_ledger_account_refs
             .contains(&"ledger:local:oru_account".to_owned()));
+        assert!(manifest
+            .policy_context_refs
+            .contains(&"policy:local:allow_smoke".to_owned()));
     }
 
     #[test]
@@ -3128,6 +3275,29 @@ mod tests {
                 SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
             ),
             Err(HarnessContractError::FixtureKeyNotTestOnly)
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_phase2_fixture_ref_prefixes() {
+        let mut manifest = FixtureManifest::new(
+            "fixture_bad_ref",
+            "tenant:local:alpha",
+            "actor:local:builder",
+            "seed_phase0_smoke_0001",
+            vec![harness_fixture_key()],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+        manifest.workload_refs = vec!["package:local:not_a_workload".to_owned()];
+
+        assert!(matches!(
+            manifest.validate(),
+            Err(HarnessContractError::InvalidHarnessRef {
+                field: "workload ref",
+                expected_prefix: "workload:",
+                ..
+            })
         ));
     }
 
@@ -3259,6 +3429,79 @@ mod tests {
     }
 
     #[test]
+    fn detects_observed_golden_trace_drift() {
+        let exact = GoldenTrace::new(
+            "golden_trace_phase0_noop",
+            GoldenTraceMode::Exact,
+            vec![
+                "event_command_accepted".to_owned(),
+                "event_audit_written".to_owned(),
+            ],
+            vec![(
+                "event_command_accepted".to_owned(),
+                "event_audit_written".to_owned(),
+            )],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        exact
+            .assert_observed_nodes(&[
+                "event_command_accepted".to_owned(),
+                "event_audit_written".to_owned(),
+            ])
+            .unwrap();
+        assert!(matches!(
+            exact.assert_observed_nodes(&["event_command_accepted".to_owned()]),
+            Err(HarnessContractError::GoldenTraceMissingEvent)
+        ));
+        assert!(matches!(
+            exact.assert_observed_nodes(&[
+                "event_command_accepted".to_owned(),
+                "event_unexpected_state_change".to_owned(),
+                "event_audit_written".to_owned(),
+            ]),
+            Err(HarnessContractError::GoldenTraceExtraStateEvent)
+        ));
+        assert!(matches!(
+            exact.assert_observed_nodes(&[
+                "event_audit_written".to_owned(),
+                "event_command_accepted".to_owned(),
+            ]),
+            Err(HarnessContractError::GoldenTraceExactOrderMismatch)
+        ));
+
+        let forbidden = GoldenTrace::new(
+            "golden_trace_forbidden_transition",
+            GoldenTraceMode::Exact,
+            vec![
+                "event_audit_written".to_owned(),
+                "event_command_accepted".to_owned(),
+            ],
+            vec![(
+                "event_audit_written".to_owned(),
+                "event_command_accepted".to_owned(),
+            )],
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .map(|mut trace| {
+            trace.forbidden_transitions = vec![(
+                "event_audit_written".to_owned(),
+                "event_command_accepted".to_owned(),
+            )];
+            trace
+        })
+        .unwrap();
+        assert!(matches!(
+            forbidden.assert_observed_nodes(&[
+                "event_audit_written".to_owned(),
+                "event_command_accepted".to_owned(),
+            ]),
+            Err(HarnessContractError::GoldenTraceForbiddenTransition)
+        ));
+    }
+
+    #[test]
     fn rejects_dag_golden_trace_without_edges() {
         assert!(matches!(
             GoldenTrace::new(
@@ -3291,8 +3534,31 @@ mod tests {
         assert!(bundle
             .reproduction_command
             .contains("overrid test scenario scenario_phase0_smoke"));
+        assert!(bundle
+            .redacted_log_refs
+            .contains(&"artifact:logs:phase0_smoke_redacted".to_owned()));
+        assert!(bundle
+            .overwatch_export_refs
+            .contains(&"artifact:overwatch:phase0_smoke".to_owned()));
+        assert!(bundle
+            .cli_output_refs
+            .contains(&"artifact:cli_output:phase0_smoke".to_owned()));
+        assert!(bundle
+            .api_payload_envelope_refs
+            .contains(&"artifact:api_envelope:phase0_smoke".to_owned()));
+        assert!(bundle
+            .stack_health_refs
+            .contains(&"artifact:health:local_stack".to_owned()));
+        assert!(bundle
+            .fixture_version_refs
+            .contains(&"artifact:fixture_version:phase0_smoke".to_owned()));
         assert!(!bundle.contains_raw_secret);
+        assert!(!bundle.contains_private_key);
+        assert!(!bundle.contains_token);
+        assert!(!bundle.contains_signature);
+        assert!(!bundle.contains_encrypted_rag_content);
         assert!(!bundle.contains_private_payload);
+        assert!(!bundle.contains_fixture_key_material);
     }
 
     #[test]
@@ -3317,6 +3583,36 @@ mod tests {
                 SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
             ),
             Err(HarnessContractError::RawSecretInArtifact)
+        ));
+
+        let mut signature_bundle = ArtifactBundle::new(
+            "artifact_bundle_signature",
+            "run_signature",
+            false,
+            false,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+        signature_bundle.contains_signature = true;
+        assert!(matches!(
+            signature_bundle.validate(),
+            Err(HarnessContractError::RawSecretInArtifact)
+        ));
+
+        let mut missing_ref_bundle = ArtifactBundle::new(
+            "artifact_bundle_missing_refs",
+            "run_missing_refs",
+            false,
+            false,
+            SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        )
+        .unwrap();
+        missing_ref_bundle.overwatch_export_refs.clear();
+        assert!(matches!(
+            missing_ref_bundle.validate(),
+            Err(HarnessContractError::MissingRequiredField(
+                "Overwatch export refs"
+            ))
         ));
     }
 

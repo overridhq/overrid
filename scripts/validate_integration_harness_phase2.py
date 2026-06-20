@@ -18,6 +18,13 @@ PROGRESS = Path("docs/planning/integration_test_harness_phase_02_progress.md")
 VALID_FIXTURE = Path(
     "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase2.valid.json"
 )
+BLOCKED_DEPENDENCY_FIXTURE = Path(
+    "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_blocked_dependency.valid.json"
+)
+VALID_FIXTURES = [
+    VALID_FIXTURE,
+    BLOCKED_DEPENDENCY_FIXTURE,
+]
 INVALID_FIXTURES = [
     Path("packages/schemas/overrid_contracts/fixtures/invalid/fixture_missing_seed.invalid.json"),
     Path(
@@ -35,12 +42,41 @@ INVALID_FIXTURES = [
     Path("packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsafe_timeout.invalid.json"),
     Path("packages/schemas/overrid_contracts/fixtures/invalid/run_missing_status.invalid.json"),
     Path("packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_edge.invalid.json"),
+    Path("packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_event.invalid.json"),
+    Path("packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_extra_state_event.invalid.json"),
+    Path("packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_reordered_exact.invalid.json"),
+    Path(
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_forbidden_transition.invalid.json"
+    ),
     Path("packages/schemas/overrid_contracts/fixtures/invalid/artifact_raw_secret.invalid.json"),
+    Path("packages/schemas/overrid_contracts/fixtures/invalid/artifact_sensitive_material.invalid.json"),
 ]
 
 SUPPORTED_SCHEMA = "integration-harness.v0.1"
 ACTION_KINDS = {"cli", "sdk", "api", "local_helper", "assertion"}
 RUN_STATUSES = {"passed", "failed", "blocked"}
+REF_PREFIX_FIELDS = {
+    "workload_refs": "workload:",
+    "package_refs": "package:",
+    "local_ledger_account_refs": "ledger:",
+    "policy_context_refs": "policy:",
+}
+ARTIFACT_REF_FIELDS = [
+    "redacted_log_refs",
+    "overwatch_export_refs",
+    "cli_output_refs",
+    "api_payload_envelope_refs",
+    "stack_health_refs",
+    "fixture_version_refs",
+]
+ARTIFACT_FORBIDDEN_FLAGS = {
+    "contains_private_key": "artifact.private_key",
+    "contains_token": "artifact.token",
+    "contains_signature": "artifact.signature",
+    "contains_encrypted_rag_content": "artifact.encrypted_rag_content",
+    "contains_private_payload": "artifact.private_payload",
+    "contains_fixture_key_material": "artifact.fixture_key_material",
+}
 FORBIDDEN_STACK_TERMS = {
     "PostgreSQL",
     "Redis",
@@ -73,7 +109,7 @@ def assert_contains(haystack: str, needle: str, path: Path) -> None:
 
 
 def check_required_files() -> None:
-    for path in [SCHEMA, MANIFEST, README, PLAN, PROGRESS, VALID_FIXTURE, *INVALID_FIXTURES]:
+    for path in [SCHEMA, MANIFEST, README, PLAN, PROGRESS, *VALID_FIXTURES, *INVALID_FIXTURES]:
         assert_true((REPO_ROOT / path).is_file(), f"missing required file: {path}")
 
 
@@ -88,6 +124,10 @@ def check_schema_surface(schema: dict[str, Any]) -> None:
         "fixture_identity",
         "fixture_key",
         "resource_card_ref",
+        "workload_ref",
+        "package_ref",
+        "local_ledger_account_ref",
+        "policy_context_ref",
         "scenario_manifest",
         "scenario_step",
         "test_run_record",
@@ -122,6 +162,20 @@ def check_schema_surface(schema: dict[str, Any]) -> None:
         defs["artifact_bundle"]["properties"]["contains_private_payload"].get("const") is False,
         "artifact bundle must reject private payloads",
     )
+    for field in ARTIFACT_REF_FIELDS:
+        assert_true(
+            field in defs["artifact_bundle"]["properties"],
+            f"artifact bundle missing explicit ref field: {field}",
+        )
+        assert_true(
+            field in defs["artifact_bundle"].get("required", []),
+            f"artifact bundle must require {field}",
+        )
+    for field in ARTIFACT_FORBIDDEN_FLAGS:
+        assert_true(
+            defs["artifact_bundle"]["properties"][field].get("const") is False,
+            f"artifact bundle must reject {field}",
+        )
 
 
 def check_manifest(manifest: dict[str, Any]) -> None:
@@ -141,6 +195,8 @@ def check_manifest(manifest: dict[str, Any]) -> None:
         "artifact_bundle",
     ]:
         assert_true(contract in harness.get("contracts", []), f"manifest missing contract: {contract}")
+    listed_valid = {Path(path) for path in harness.get("fixtures", {}).get("valid", [])}
+    assert_true(listed_valid == set(VALID_FIXTURES), "manifest valid fixture list drifted")
     listed_invalid = {Path(path) for path in harness.get("fixtures", {}).get("invalid", [])}
     assert_true(listed_invalid == set(INVALID_FIXTURES), "manifest invalid fixture list drifted")
 
@@ -162,6 +218,10 @@ def validate_fixture_manifest(fixture: dict[str, Any]) -> list[str]:
             or key.get("raw_key_material_present") is not False
         ):
             errors.append("safety.fixture_key_not_test_only")
+    for field, prefix in REF_PREFIX_FIELDS.items():
+        refs = fixture.get(field, [])
+        if not refs or not all(isinstance(ref, str) and ref.startswith(prefix) for ref in refs):
+            errors.append("fixture.ref_prefix_invalid")
     return errors
 
 
@@ -191,6 +251,8 @@ def validate_run_record(run: dict[str, Any]) -> list[str]:
         errors.append("run.status_missing")
     if not run.get("started_at_ms") or not run.get("ended_at_ms"):
         errors.append("run.timing_missing")
+    elif run["ended_at_ms"] < run["started_at_ms"]:
+        errors.append("run.timing_missing")
     if not run.get("reason_class"):
         errors.append("run.reason_class_missing")
     if not run.get("artifact_policy") or not run.get("artifact_refs"):
@@ -198,7 +260,7 @@ def validate_run_record(run: dict[str, Any]) -> list[str]:
     return errors
 
 
-def validate_golden_trace(trace: dict[str, Any]) -> list[str]:
+def validate_golden_trace(trace: dict[str, Any], observed_nodes: list[str] | None = None) -> list[str]:
     errors: list[str] = []
     if trace.get("schema_version") != SUPPORTED_SCHEMA:
         errors.append("schema.incompatible_version")
@@ -208,6 +270,40 @@ def validate_golden_trace(trace: dict[str, Any]) -> list[str]:
         errors.append("golden_trace.exact_order_missing")
     if not trace.get("stable_reason_codes"):
         errors.append("golden_trace.reason_codes_missing")
+    if observed_nodes is not None:
+        required_node_ids = [
+            node.get("node_id")
+            for node in trace.get("required_nodes", [])
+            if isinstance(node, dict) and isinstance(node.get("node_id"), str)
+        ]
+        missing = [node_id for node_id in required_node_ids if node_id not in observed_nodes]
+        if missing:
+            errors.append("golden_trace.event_missing")
+        extra = [
+            node_id
+            for node_id in observed_nodes
+            if isinstance(node_id, str)
+            and node_id.startswith("event_")
+            and node_id not in required_node_ids
+        ]
+        if extra:
+            errors.append("golden_trace.extra_state_event")
+        if (
+            trace.get("assertion_mode") == "exact"
+            and not missing
+            and not extra
+            and observed_nodes[: len(required_node_ids)] != required_node_ids
+        ):
+            errors.append("golden_trace.exact_order_mismatch")
+        for edge in trace.get("forbidden_transitions", []):
+            if not isinstance(edge, dict):
+                continue
+            from_node = edge.get("from")
+            to_node = edge.get("to")
+            for index, node_id in enumerate(observed_nodes[:-1]):
+                if node_id == from_node and observed_nodes[index + 1] == to_node:
+                    errors.append("golden_trace.forbidden_transition")
+                    break
     return errors
 
 
@@ -218,10 +314,15 @@ def validate_artifact_bundle(bundle: dict[str, Any]) -> list[str]:
     redaction = bundle.get("redaction_summary", {})
     if (
         bundle.get("contains_raw_secret") is not False
-        or bundle.get("contains_private_payload") is not False
         or redaction.get("scanner_passed") is not True
     ):
         errors.append("artifact.raw_secret")
+    for field in ARTIFACT_REF_FIELDS:
+        if not bundle.get(field):
+            errors.append("artifact.refs_missing")
+    for field, error in ARTIFACT_FORBIDDEN_FLAGS.items():
+        if bundle.get(field) is not False:
+            errors.append(error)
     if not bundle.get("reproduction_command"):
         errors.append("artifact.reproduction_missing")
     if not bundle.get("artifact_refs"):
@@ -240,7 +341,11 @@ def validate_document(document: dict[str, Any]) -> list[str]:
     if "test_run_record" in document:
         errors.extend(validate_run_record(document["test_run_record"]))
     if "golden_trace" in document:
-        errors.extend(validate_golden_trace(document["golden_trace"]))
+        observed_nodes = document.get("observed_trace_nodes")
+        if observed_nodes is not None and not all(isinstance(node, str) for node in observed_nodes):
+            errors.append("golden_trace.observed_nodes_invalid")
+            observed_nodes = None
+        errors.extend(validate_golden_trace(document["golden_trace"], observed_nodes))
     if "artifact_bundle" in document:
         errors.extend(validate_artifact_bundle(document["artifact_bundle"]))
     if "assertion_result" in document:
@@ -252,22 +357,36 @@ def validate_document(document: dict[str, Any]) -> list[str]:
     return errors
 
 
-def check_valid_fixture(document: dict[str, Any]) -> None:
+def check_valid_fixture(path: Path, document: dict[str, Any]) -> None:
     errors = validate_document(document)
-    assert_true(not errors, f"valid integration harness fixture failed: {errors}")
+    assert_true(not errors, f"{path} valid integration harness fixture failed: {errors}")
     assert_true(document["fixture_manifest"]["keys"][0]["test_only"] is True, "fixture key is not test_only")
-    assert_true(
-        document["scenario_manifest"]["steps"][0]["action_kind"] == "cli",
-        "valid fixture must include CLI step",
-    )
-    assert_true(
-        document["scenario_manifest"]["steps"][1]["action_kind"] == "assertion",
-        "valid fixture must include assertion step",
-    )
-    assert_true(
-        document["test_run_record"]["status"] == "passed",
-        "valid fixture must include terminal run status",
-    )
+    if path == VALID_FIXTURE:
+        assert_true(
+            document["scenario_manifest"]["steps"][0]["action_kind"] == "cli",
+            "valid fixture must include CLI step",
+        )
+        assert_true(
+            document["scenario_manifest"]["steps"][1]["action_kind"] == "assertion",
+            "valid fixture must include assertion step",
+        )
+        assert_true(
+            document["test_run_record"]["status"] == "passed",
+            "valid fixture must include terminal run status",
+        )
+    if path == BLOCKED_DEPENDENCY_FIXTURE:
+        assert_true(
+            document["scenario_manifest"]["steps"][0]["expected_result_class"] == "blocked",
+            "blocked dependency fixture must expect blocked result",
+        )
+        assert_true(
+            document["test_run_record"]["status"] == "blocked",
+            "blocked dependency fixture must be a terminal blocked run",
+        )
+        assert_true(
+            document["test_run_record"]["reason_code"] == "dependency.service_unavailable",
+            "blocked dependency fixture must use stable dependency reason code",
+        )
     assert_true(
         document["golden_trace"]["required_causal_edges"],
         "valid golden trace must include causal edge",
@@ -276,14 +395,24 @@ def check_valid_fixture(document: dict[str, Any]) -> None:
         "overrid test scenario" in document["artifact_bundle"]["reproduction_command"],
         "artifact bundle must include reproduction command",
     )
+    for field in ARTIFACT_REF_FIELDS:
+        assert_true(document["artifact_bundle"].get(field), f"artifact bundle missing {field}")
 
 
 def check_invalid_fixture(path: Path) -> None:
     document = load_json(path)
-    expected = document.get("expected_error")
-    assert_true(isinstance(expected, str), f"{path} missing expected_error")
+    expected_values = document.get("expected_errors", document.get("expected_error"))
+    if isinstance(expected_values, str):
+        expected = [expected_values]
+    else:
+        expected = expected_values
+    assert_true(
+        isinstance(expected, list) and all(isinstance(value, str) for value in expected),
+        f"{path} missing expected_error(s)",
+    )
     errors = validate_document(document)
-    assert_true(expected in errors, f"{path} expected {expected}, got {errors}")
+    missing = [value for value in expected if value not in errors]
+    assert_true(not missing, f"{path} expected {missing}, got {errors}")
 
 
 def check_docs_alignment() -> None:
@@ -298,6 +427,8 @@ def check_docs_alignment() -> None:
 
     assert_contains(readme, "fixture_manifest", README)
     assert_contains(readme, "golden_trace", README)
+    assert_contains(readme, "Overwatch export", README)
+    assert_contains(readme, "encrypted RAG", README)
     assert_contains(plan, "docs/overrid_tech_stack_choice.md", PLAN)
     assert_contains(plan, "JSON Schema", PLAN)
     assert_contains(progress, "Status: completed", PROGRESS)
@@ -313,7 +444,8 @@ def main() -> int:
     check_required_files()
     check_schema_surface(load_json(SCHEMA))
     check_manifest(load_json(MANIFEST))
-    check_valid_fixture(load_json(VALID_FIXTURE))
+    for fixture in VALID_FIXTURES:
+        check_valid_fixture(fixture, load_json(fixture))
     for fixture in INVALID_FIXTURES:
         check_invalid_fixture(fixture)
     check_docs_alignment()

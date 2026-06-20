@@ -1,0 +1,38 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_reordered_exact",
+    "assertion_mode": "exact",
+    "required_nodes": [
+      {
+        "node_id": "event_command_accepted",
+        "event_kind": "command.accepted",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "command.accepted"
+      },
+      {
+        "node_id": "event_audit_written",
+        "event_kind": "audit.written",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.written"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_command_accepted",
+        "to": "event_audit_written"
+      }
+    ],
+    "forbidden_transitions": [],
+    "stable_reason_codes": [
+      "command.accepted",
+      "audit.written"
+    ]
+  },
+  "observed_trace_nodes": [
+    "event_audit_written",
+    "event_command_accepted"
+  ],
+  "expected_error": "golden_trace.exact_order_mismatch"
+}

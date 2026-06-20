@@ -3,7 +3,7 @@ name = "overrid-contracts"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Rust projection of initial Overrid CLI contract shapes."
+description = "Rust projection of Overrid shared CLI and integration harness contract shapes."
 
 [lib]
 path = "src/lib.rs"

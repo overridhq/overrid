@@ -2,10 +2,10 @@
   "schema_version": "integration-harness.v0.1",
   "fixture_manifest": {
     "schema_version": "integration-harness.v0.1",
-    "fixture_id": "fixture_phase0_smoke",
+    "fixture_id": "fixture_phase0_blocked_dependency",
     "tenant_ref": "tenant:local:alpha",
     "actor_ref": "actor:local:builder",
-    "deterministic_seed": "seed_phase0_smoke_0001",
+    "deterministic_seed": "seed_blocked_dependency_0001",
     "identities": [
       {
         "identity_ref": "identity:local:builder",
@@ -53,136 +53,113 @@
   },
   "scenario_manifest": {
     "schema_version": "integration-harness.v0.1",
-    "scenario_id": "scenario_phase0_smoke",
+    "scenario_id": "scenario_blocked_dependency",
     "master_phase": 0,
     "gate_class": "smoke",
     "tags": [
       "phase0",
-      "smoke",
-      "contract_spine"
+      "blocked_dependency"
     ],
     "required_services": [
       "service:local_stack",
-      "service:overgate",
-      "service:overwatch"
+      "service:overqueue"
     ],
     "setup_fixture_refs": [
-      "fixture:phase0_smoke"
+      "fixture:phase0_blocked_dependency"
     ],
     "steps": [
       {
-        "step_id": "step_cli_noop",
-        "action_kind": "cli",
+        "step_id": "step_dependency_check",
+        "action_kind": "local_helper",
         "input_refs": [
-          "command:local:no_op"
+          "service:overqueue"
         ],
         "timeout_ms": 30000,
-        "retry_expectation": "none",
-        "expected_result_class": "passed",
-        "assertion_refs": [
-          "assertion:phase0:audit_ref"
-        ],
-        "cleanup_rule": "collect_artifacts_then_reset"
-      },
-      {
-        "step_id": "step_assert_trace",
-        "action_kind": "assertion",
-        "input_refs": [
-          "golden:trace:phase0_noop"
-        ],
-        "timeout_ms": 10000,
         "retry_expectation": "non_retryable",
-        "expected_result_class": "passed",
+        "expected_result_class": "blocked",
         "assertion_refs": [
-          "assertion:phase0:trace_order"
+          "assertion:dependency:service_unavailable"
         ],
         "cleanup_rule": "no_mutation"
       }
     ],
     "cleanup_rules": [
-      "collect_artifacts_then_reset"
+      "no_mutation"
     ]
   },
   "test_run_record": {
     "schema_version": "integration-harness.v0.1",
-    "run_id": "run_phase0_smoke_passed",
+    "run_id": "run_blocked_dependency",
     "scenario_ids": [
-      "scenario_phase0_smoke"
+      "scenario_blocked_dependency"
     ],
     "stack_profile": "local",
     "workspace_fingerprint": "workspace_local_0001",
-    "status": "passed",
+    "status": "blocked",
     "started_at_ms": 1781966000000,
-    "ended_at_ms": 1781966005000,
-    "reason_code": "run.passed",
-    "reason_class": "success",
+    "ended_at_ms": 1781966001000,
+    "reason_code": "dependency.service_unavailable",
+    "reason_class": "dependency",
     "assertion_refs": [
-      "assertion:phase0:audit_ref",
-      "assertion:phase0:trace_order"
+      "assertion:dependency:service_unavailable"
     ],
-    "artifact_policy": "phase_gate_evidence",
+    "artifact_policy": "failure_evidence",
     "artifact_refs": [
-      "artifact:bundle:phase0_smoke"
+      "artifact:bundle:blocked_dependency"
     ]
   },
   "assertion_result": {
-    "assertion_id": "assertion_phase0_trace_order",
-    "scenario_id": "scenario_phase0_smoke",
-    "status": "passed",
-    "reason_code": "assertion.passed",
-    "field_path": "$.events",
-    "expected_value": [
-      "command.accepted",
-      "audit.written"
-    ],
-    "actual_value": [
-      "command.accepted",
-      "audit.written"
-    ],
+    "assertion_id": "assertion_dependency_service_unavailable",
+    "scenario_id": "scenario_blocked_dependency",
+    "status": "blocked",
+    "reason_code": "dependency.service_unavailable",
+    "field_path": "$.required_services.service:overqueue",
+    "expected_value": "available",
+    "actual_value": "unavailable",
     "artifact_refs": [
-      "artifact:bundle:phase0_smoke"
+      "artifact:bundle:blocked_dependency"
     ]
   },
   "golden_trace": {
     "schema_version": "integration-harness.v0.1",
-    "trace_id": "golden_trace_phase0_noop",
+    "trace_id": "golden_trace_blocked_dependency",
     "assertion_mode": "exact",
     "required_nodes": [
       {
-        "node_id": "event_command_accepted",
-        "event_kind": "command.accepted",
+        "node_id": "event_dependency_checked",
+        "event_kind": "dependency.checked",
         "schema_version": "integration-harness.v0.1",
-        "reason_code": "command.accepted"
+        "reason_code": "dependency.checked"
       },
       {
-        "node_id": "event_audit_written",
-        "event_kind": "audit.written",
+        "node_id": "event_run_blocked",
+        "event_kind": "run.blocked",
         "schema_version": "integration-harness.v0.1",
-        "reason_code": "audit.written"
+        "reason_code": "dependency.service_unavailable"
       }
     ],
     "required_causal_edges": [
       {
-        "from": "event_command_accepted",
-        "to": "event_audit_written"
+        "from": "event_dependency_checked",
+        "to": "event_run_blocked"
       }
     ],
     "forbidden_transitions": [
       {
-        "from": "event_audit_written",
-        "to": "event_command_accepted"
+        "from": "event_run_blocked",
+        "to": "event_run_passed"
       }
     ],
     "stable_reason_codes": [
-      "command.accepted",
-      "audit.written"
+      "dependency.checked",
+      "dependency.service_unavailable"
     ]
   },
   "artifact_bundle": {
     "schema_version": "integration-harness.v0.1",
-    "bundle_id": "artifact_bundle_phase0_smoke",
-    "run_id": "run_phase0_smoke_passed",
-    "retention_class": "phase_gate_evidence",
+    "bundle_id": "artifact_bundle_blocked_dependency",
+    "run_id": "run_blocked_dependency",
+    "retention_class": "failure_evidence",
     "privacy_classifications": [
       "public_test_metadata",
       "redacted_local_log",
@@ -192,32 +169,31 @@
     "redaction_summary": {
       "policy": "secret_free_refs_only",
       "redacted_fields": [
-        "headers.authorization",
-        "payload.private"
+        "headers.authorization"
       ],
       "scanner_passed": true
     },
     "redacted_log_refs": [
-      "artifact:logs:phase0_smoke_redacted"
+      "artifact:logs:blocked_dependency_redacted"
     ],
     "overwatch_export_refs": [
-      "artifact:overwatch:phase0_smoke"
+      "artifact:overwatch:blocked_dependency"
     ],
     "cli_output_refs": [
-      "artifact:cli_output:phase0_smoke"
+      "artifact:cli_output:blocked_dependency"
     ],
     "api_payload_envelope_refs": [
-      "artifact:api_envelope:phase0_smoke"
+      "artifact:api_envelope:blocked_dependency"
     ],
     "stack_health_refs": [
       "artifact:health:local_stack"
     ],
     "fixture_version_refs": [
-      "artifact:fixture_version:phase0_smoke"
+      "artifact:fixture_version:blocked_dependency"
     ],
-    "reproduction_command": "overrid test scenario scenario_phase0_smoke --profile local --json",
+    "reproduction_command": "overrid test scenario scenario_blocked_dependency --profile local --json",
     "artifact_refs": [
-      "artifact:logs:phase0_smoke",
+      "artifact:logs:blocked_dependency",
       "artifact:health:local_stack"
     ],
     "contains_raw_secret": false,
