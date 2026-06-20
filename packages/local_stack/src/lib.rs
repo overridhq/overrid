@@ -16,9 +16,12 @@ pub const LOCAL_STACK_PHASE_GATE: &str = "phase_3_local_development_stack";
 pub const LOCAL_STACK_PHASE4_TOPOLOGY_GATE: &str = "phase_4_loopback_topology";
 pub const LOCAL_STACK_PHASE5_BACKING_GATE: &str = "phase_5_embedded_state_queue_store";
 pub const LOCAL_STACK_PHASE6_LIFECYCLE_GATE: &str = "phase_6_lifecycle_orchestration";
+pub const LOCAL_STACK_PHASE7_FIXTURE_GATE: &str = "phase_7_reset_seed_fixtures";
 pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
 pub const DEFAULT_LIFECYCLE_TIMEOUT_MS: u64 = 60_000;
 pub const DEFAULT_LIFECYCLE_POLL_INTERVAL_MS: u64 = 250;
+pub const LOCAL_STACK_PHASE7_FIXTURE_VERSION: &str = "fixture:phase7_control_plane_seed.v1";
+pub const LOCAL_STACK_PHASE7_DETERMINISTIC_SEED: &str = "seed:local_stack:phase7:0001";
 
 const RESERVED_PORT_BINDINGS: [ReservedPortBinding; 6] = [
     ReservedPortBinding {
@@ -426,6 +429,24 @@ impl LocalStackRunner {
         output
             .push_state(LocalCommandState::Resetting)
             .expect("local-stack reset transition is valid");
+        if output
+            .reset_safety_checks
+            .iter()
+            .any(|check| !check.safe_to_delete)
+        {
+            output.diagnostic_refs.push(format!(
+                "diagnostic://local_stack/reset_safety/{}",
+                id_component(&self.options.trace_id)
+            ));
+            output.block(LocalStackFailure {
+                reason_code: "local_stack.reset_unsafe_state",
+                message: "local stack reset aborted because test-state markers are missing, stale, or inconsistent",
+                exit_class: ExitCodeClass::Config,
+                retry_class: RetryClass::OperatorReview,
+                status: LocalStackStatus::Blocked,
+            });
+            return output;
+        }
         output
             .push_state(LocalCommandState::CollectingArtifacts)
             .expect("local-stack reset artifact transition is valid");
@@ -458,6 +479,29 @@ impl LocalStackRunner {
         output
             .push_state(LocalCommandState::Seeding)
             .expect("local-stack seed transition is valid");
+        if output
+            .fixture_drift_reports
+            .iter()
+            .any(|report| report.drift_detected && report.blocks_seed)
+        {
+            output.diagnostic_refs.push(format!(
+                "diagnostic://local_stack/fixture_drift/{}",
+                id_component(&self.options.trace_id)
+            ));
+            output.block(LocalStackFailure {
+                reason_code: "local_stack.fixture_drift_detected",
+                message:
+                    "local stack seed aborted because deterministic fixture drift was detected",
+                exit_class: ExitCodeClass::Schema,
+                retry_class: RetryClass::OperatorReview,
+                status: LocalStackStatus::Blocked,
+            });
+            return output;
+        }
+        output.artifact_refs.push(format!(
+            "artifact://local_stack/seed/{}",
+            id_component(&self.options.trace_id)
+        ));
         output.lifecycle_events.push(lifecycle_event(
             &self.options.profile,
             &self.options.trace_id,
@@ -499,6 +543,25 @@ impl LocalStackRunner {
                     RetryClass::SafeRetry,
                 );
             }
+        }
+        if output
+            .fixture_drift_reports
+            .iter()
+            .any(|report| report.drift_detected && report.blocks_seed)
+        {
+            output.diagnostic_refs.push(format!(
+                "diagnostic://local_stack/fixture_drift/{}",
+                id_component(&self.options.trace_id)
+            ));
+            output.block(LocalStackFailure {
+                reason_code: "local_stack.fixture_drift_detected",
+                message:
+                    "local stack smoke aborted because deterministic fixture drift was detected",
+                exit_class: ExitCodeClass::Schema,
+                retry_class: RetryClass::OperatorReview,
+                status: LocalStackStatus::Blocked,
+            });
+            return output;
         }
         for (event_type, discriminator) in [
             ("local_stack.reset_started", "smoke_reset"),
@@ -1112,6 +1175,78 @@ pub struct LocalLifecycleEventRecord {
     pub test_only: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalResetSafetyCheck {
+    pub check_id: String,
+    pub target_ref: String,
+    pub marker_ref: String,
+    pub marker_state: String,
+    pub planned_action: String,
+    pub deletion_plan_ref: String,
+    pub safe_to_delete: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalSeedFixtureRecord {
+    pub fixture_id: &'static str,
+    pub fixture_kind: &'static str,
+    pub fixture_ref: &'static str,
+    pub stable_id: &'static str,
+    pub apply_order: u8,
+    pub fixture_version: &'static str,
+    pub deterministic_seed: &'static str,
+    pub profile_binding: &'static str,
+    pub schema_version: &'static str,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalFixtureIsolationCheck {
+    pub check_id: String,
+    pub fixture_ref: String,
+    pub credential_ref: String,
+    pub profile_class: String,
+    pub bound_profile: String,
+    pub accepted: bool,
+    pub reason_code: String,
+    pub contains_raw_secret: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalControlPlaneSeedPrerequisite {
+    pub prerequisite_id: &'static str,
+    pub prerequisite_kind: &'static str,
+    pub fixture_ref: &'static str,
+    pub phase_gate: &'static str,
+    pub stable_ref: &'static str,
+    pub signing_required: bool,
+    pub id_preserved_for_phase1: bool,
+    pub bypasses_signing: bool,
+    pub reason_code: &'static str,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalFixtureDriftReport {
+    pub report_id: String,
+    pub fixture_ref: String,
+    pub diff_field: String,
+    pub expected_ref: String,
+    pub actual_ref: String,
+    pub drift_detected: bool,
+    pub reason_code: String,
+    pub blocks_seed: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LifecycleMode {
     CleanStart,
@@ -1448,6 +1583,11 @@ pub struct LocalStackCommandOutput {
     pub wait_policy: LocalWaitPolicy,
     pub rollback_reports: Vec<LocalRollbackReport>,
     pub lifecycle_events: Vec<LocalLifecycleEventRecord>,
+    pub reset_safety_checks: Vec<LocalResetSafetyCheck>,
+    pub seed_fixture_records: Vec<LocalSeedFixtureRecord>,
+    pub fixture_isolation_checks: Vec<LocalFixtureIsolationCheck>,
+    pub phase1_seed_prerequisites: Vec<LocalControlPlaneSeedPrerequisite>,
+    pub fixture_drift_reports: Vec<LocalFixtureDriftReport>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -1511,6 +1651,11 @@ impl LocalStackCommandOutput {
                 "stack",
                 command.action(),
             )],
+            reset_safety_checks: reset_safety_checks_for_profile(&options.profile, options.dry_run),
+            seed_fixture_records: seed_fixture_records(),
+            fixture_isolation_checks: fixture_isolation_checks(&options.profile),
+            phase1_seed_prerequisites: phase1_seed_prerequisites(),
+            fixture_drift_reports: fixture_drift_reports_for_profile(&options.profile),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -1554,6 +1699,11 @@ impl LocalStackCommandOutput {
                 "readiness_liveness_checks_ready",
                 "bounded_wait_policy_ready",
                 "lifecycle_events_secret_free",
+                "reset_safety_checked",
+                "deterministic_seed_verified",
+                "fixture_isolation_verified",
+                "phase1_seed_prerequisites_ready",
+                "fixture_drift_report_clean",
                 "redacted_diagnostics_only",
             ]
         } else {
@@ -1563,6 +1713,8 @@ impl LocalStackCommandOutput {
                 "lifecycle_orchestration_attempted",
                 "bounded_wait_policy_applied",
                 "redacted_lifecycle_events_collected",
+                "reset_safety_checked",
+                "fixture_drift_report_collected",
                 "local_stack_fail_closed",
                 "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
@@ -1605,6 +1757,7 @@ impl LocalStackCommandOutput {
                 "\"topology_phase_gate\":\"{}\",",
                 "\"backing_phase_gate\":\"{}\",",
                 "\"lifecycle_phase_gate\":\"{}\",",
+                "\"fixture_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
@@ -1624,6 +1777,11 @@ impl LocalStackCommandOutput {
                 "\"wait_policy\":{},",
                 "\"rollback_reports\":{},",
                 "\"lifecycle_events\":{},",
+                "\"reset_safety_checks\":{},",
+                "\"seed_fixture_records\":{},",
+                "\"fixture_isolation_checks\":{},",
+                "\"phase1_seed_prerequisites\":{},",
+                "\"fixture_drift_reports\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -1645,6 +1803,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
+            json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
@@ -1661,6 +1820,11 @@ impl LocalStackCommandOutput {
             render_wait_policy_json(&self.wait_policy),
             render_rollback_reports_json(&self.rollback_reports),
             render_lifecycle_events_json(&self.lifecycle_events),
+            render_reset_safety_checks_json(&self.reset_safety_checks),
+            render_seed_fixture_records_json(&self.seed_fixture_records),
+            render_fixture_isolation_checks_json(&self.fixture_isolation_checks),
+            render_phase1_seed_prerequisites_json(&self.phase1_seed_prerequisites),
+            render_fixture_drift_reports_json(&self.fixture_drift_reports),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -1685,6 +1849,7 @@ impl LocalStackCommandOutput {
                 "\"topology_phase_gate\":\"{}\",",
                 "\"backing_phase_gate\":\"{}\",",
                 "\"lifecycle_phase_gate\":\"{}\",",
+                "\"fixture_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
                 "\"port_conflicts\":{},",
                 "\"schema_compatibility_gates\":{},",
@@ -1693,6 +1858,9 @@ impl LocalStackCommandOutput {
                 "\"wait_policy\":{},",
                 "\"rollback_reports\":{},",
                 "\"lifecycle_events\":{},",
+                "\"reset_safety_checks\":{},",
+                "\"fixture_isolation_checks\":{},",
+                "\"fixture_drift_reports\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -1705,6 +1873,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
+            json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
@@ -1713,6 +1882,9 @@ impl LocalStackCommandOutput {
             render_wait_policy_json(&self.wait_policy),
             render_rollback_reports_json(&self.rollback_reports),
             render_lifecycle_events_json(&self.lifecycle_events),
+            render_reset_safety_checks_json(&self.reset_safety_checks),
+            render_fixture_isolation_checks_json(&self.fixture_isolation_checks),
+            render_fixture_drift_reports_json(&self.fixture_drift_reports),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -2763,6 +2935,362 @@ fn local_audit_query_records() -> Vec<LocalAuditQueryRecord> {
     ]
 }
 
+fn reset_safety_checks_for_profile(profile: &str, dry_run: bool) -> Vec<LocalResetSafetyCheck> {
+    let normalized = profile.to_ascii_lowercase();
+    let unsafe_marker = if normalized.contains("missing-reset-marker") {
+        Some(("missing", "local_stack.reset_marker_missing"))
+    } else if normalized.contains("stale-reset-marker") {
+        Some(("stale", "local_stack.reset_marker_stale"))
+    } else if normalized.contains("inconsistent-reset-marker") {
+        Some(("inconsistent", "local_stack.reset_marker_inconsistent"))
+    } else {
+        None
+    };
+    let planned_action = if dry_run {
+        "dry_run_delete"
+    } else {
+        "delete_marked_test_state"
+    };
+
+    [
+        (
+            "reset_check:embedded_state",
+            "local-state://embedded_state",
+            "local-state://embedded_state/.overrid-local-test-state",
+        ),
+        (
+            "reset_check:overqueue_jobs",
+            "overqueue://local/jobs",
+            "local-state://overqueue_jobs/.overrid-local-test-state",
+        ),
+        (
+            "reset_check:overstore_stub",
+            "artifact://local_stack",
+            "artifact://local_stack/.overrid-local-test-state",
+        ),
+        (
+            "reset_check:event_audit",
+            "event-audit://local_stack/events",
+            "local-state://event_audit/.overrid-local-test-state",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (check_id, target_ref, marker_ref))| {
+        let (marker_state, reason_code) = if index == 0 {
+            unsafe_marker.unwrap_or(("verified", "local_stack.reset_marker_verified"))
+        } else {
+            ("verified", "local_stack.reset_marker_verified")
+        };
+        let safe_to_delete = marker_state == "verified";
+        LocalResetSafetyCheck {
+            check_id: check_id.to_owned(),
+            target_ref: target_ref.to_owned(),
+            marker_ref: marker_ref.to_owned(),
+            marker_state: marker_state.to_owned(),
+            planned_action: planned_action.to_owned(),
+            deletion_plan_ref: format!(
+                "reset-plan://local_stack/phase7/{}",
+                id_component(target_ref)
+            ),
+            safe_to_delete,
+            reason_code: reason_code.to_owned(),
+            local_only: true,
+            test_only: true,
+        }
+    })
+    .collect()
+}
+
+fn seed_fixture_records() -> Vec<LocalSeedFixtureRecord> {
+    [
+        (
+            "fixture:phase7:tenant",
+            "tenant",
+            "fixture://local_stack/tenant/local_alpha",
+            "tenant:local:alpha",
+        ),
+        (
+            "fixture:phase7:actor",
+            "actor",
+            "fixture://local_stack/actor/local_builder",
+            "actor:local:builder",
+        ),
+        (
+            "fixture:phase7:key",
+            "key",
+            "fixture://local_stack/key/local_test_signing",
+            "key:local:test_signing",
+        ),
+        (
+            "fixture:phase7:node",
+            "node",
+            "fixture://local_stack/node/local_simulator_one",
+            "node:local:simulator:one",
+        ),
+        (
+            "fixture:phase7:manifest",
+            "manifest",
+            "fixture://local_stack/manifest/local_noop",
+            "manifest:local:noop",
+        ),
+        (
+            "fixture:phase7:package",
+            "package",
+            "fixture://local_stack/package/local_noop_package",
+            "package:local:noop_package",
+        ),
+        (
+            "fixture:phase7:workload",
+            "workload",
+            "fixture://local_stack/workload/phase1_pending_work",
+            "workload:local:phase1_pending_work",
+        ),
+        (
+            "fixture:phase7:oru_account",
+            "oru_account",
+            "fixture://local_stack/oru_account/local_alpha",
+            "oru:local:account:alpha",
+        ),
+        (
+            "fixture:phase7:seal_ledger_ref",
+            "seal_ledger_ref",
+            "fixture://local_stack/seal_ledger/phase1",
+            "ledger:local:seal:phase1",
+        ),
+        (
+            "fixture:phase7:policy_context",
+            "policy_context",
+            "fixture://local_stack/policy_context/phase1_smoke",
+            "policy:local:allow_phase1_smoke",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(
+        |(index, (fixture_id, fixture_kind, fixture_ref, stable_id))| LocalSeedFixtureRecord {
+            fixture_id,
+            fixture_kind,
+            fixture_ref,
+            stable_id,
+            apply_order: (index + 1) as u8,
+            fixture_version: LOCAL_STACK_PHASE7_FIXTURE_VERSION,
+            deterministic_seed: LOCAL_STACK_PHASE7_DETERMINISTIC_SEED,
+            profile_binding: "profile:local_default",
+            schema_version: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
+}
+
+fn fixture_isolation_checks(profile: &str) -> Vec<LocalFixtureIsolationCheck> {
+    [
+        ("local", true, "fixture.isolation.profile_allowed"),
+        ("ci", true, "fixture.isolation.profile_allowed"),
+        ("seed", false, "profile.not_local_test"),
+        ("staging", false, "profile.not_local_test"),
+        ("production_like", false, "profile.not_local_test"),
+        ("federation", false, "profile.not_local_test"),
+        ("public_provider", false, "profile.not_local_test"),
+        ("non_local", false, "profile.not_local_test"),
+    ]
+    .into_iter()
+    .map(
+        |(profile_class, accepted, reason_code)| LocalFixtureIsolationCheck {
+            check_id: format!("fixture_isolation:{profile_class}"),
+            fixture_ref: "fixture://local_stack/key/local_test_signing".to_owned(),
+            credential_ref: "secret://local_stack/fixture_key_ref".to_owned(),
+            profile_class: profile_class.to_owned(),
+            bound_profile: profile.to_owned(),
+            accepted,
+            reason_code: reason_code.to_owned(),
+            contains_raw_secret: false,
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
+}
+
+fn phase1_seed_prerequisites() -> Vec<LocalControlPlaneSeedPrerequisite> {
+    [
+        (
+            "phase1_seed:tenant",
+            "tenant",
+            "fixture://local_stack/tenant/local_alpha",
+            "tenant:local:alpha",
+        ),
+        (
+            "phase1_seed:actor",
+            "actor",
+            "fixture://local_stack/actor/local_builder",
+            "actor:local:builder",
+        ),
+        (
+            "phase1_seed:key",
+            "key",
+            "fixture://local_stack/key/local_test_signing",
+            "key:local:test_signing",
+        ),
+        (
+            "phase1_seed:manifest",
+            "manifest",
+            "fixture://local_stack/manifest/local_noop",
+            "manifest:local:noop",
+        ),
+        (
+            "phase1_seed:idempotency_key",
+            "idempotency_key",
+            "fixture://local_stack/idempotency/phase1_control_plane",
+            "idem:local_stack:phase1:control_plane",
+        ),
+        (
+            "phase1_seed:trace_root",
+            "trace_root",
+            "fixture://local_stack/trace/phase1_control_plane",
+            "trace_local_stack_phase1_control_plane",
+        ),
+        (
+            "phase1_seed:pending_work_target",
+            "pending_work_target",
+            "fixture://local_stack/workload/phase1_pending_work",
+            "overqueue://local/jobs/workload:local:phase1_pending_work",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(prerequisite_id, prerequisite_kind, fixture_ref, stable_ref)| {
+            LocalControlPlaneSeedPrerequisite {
+                prerequisite_id,
+                prerequisite_kind,
+                fixture_ref,
+                phase_gate: "local_smoke_prerequisite",
+                stable_ref,
+                signing_required: true,
+                id_preserved_for_phase1: true,
+                bypasses_signing: false,
+                reason_code: "local_stack.phase1_seed_prerequisite_ready",
+                local_only: true,
+                test_only: true,
+            }
+        },
+    )
+    .collect()
+}
+
+fn fixture_drift_reports_for_profile(profile: &str) -> Vec<LocalFixtureDriftReport> {
+    let normalized = profile.to_ascii_lowercase();
+    let mut reports = vec![
+        fixture_drift_report(
+            "generated_ids",
+            "fixture://local_stack/seed_manifest/phase7",
+            "seed_ids:stable",
+            "seed_ids:stable",
+            false,
+            "local_stack.fixture_ids_stable",
+        ),
+        fixture_drift_report(
+            "schema_versions",
+            "fixture://local_stack/schema/local_development_stack",
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            false,
+            "local_stack.fixture_schema_current",
+        ),
+        fixture_drift_report(
+            "event_refs",
+            "fixture://local_stack/events/phase7",
+            "event:local_stack:seed_completed:phase7",
+            "event:local_stack:seed_completed:phase7",
+            false,
+            "local_stack.fixture_event_refs_stable",
+        ),
+        fixture_drift_report(
+            "local_accounts",
+            "fixture://local_stack/oru_account/local_alpha",
+            "oru:local:account:alpha",
+            "oru:local:account:alpha",
+            false,
+            "local_stack.fixture_account_refs_stable",
+        ),
+        fixture_drift_report(
+            "artifact_hashes",
+            "artifact://local_stack/phase5/noop_payload",
+            &blake3_hex(local_artifact_payload().as_bytes()),
+            &blake3_hex(local_artifact_payload().as_bytes()),
+            false,
+            "local_stack.fixture_artifact_hashes_stable",
+        ),
+    ];
+
+    if normalized.contains("nondeterministic-fixture-ids") {
+        reports.push(fixture_drift_report(
+            "generated_ids",
+            "fixture://local_stack/seed_manifest/phase7",
+            "seed_ids:stable",
+            "seed_ids:randomized",
+            true,
+            "local_stack.fixture_id_drift",
+        ));
+    }
+    if normalized.contains("fixture-schema-drift") {
+        reports.push(fixture_drift_report(
+            "schema_versions",
+            "fixture://local_stack/schema/local_development_stack",
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            "local-development-stack.v99.0",
+            true,
+            "local_stack.fixture_schema_drift",
+        ));
+    }
+    if normalized.contains("missing-fixture-ref") {
+        reports.push(fixture_drift_report(
+            "missing_refs",
+            "fixture://local_stack/workload/phase1_pending_work",
+            "workload:local:phase1_pending_work",
+            "missing",
+            true,
+            "local_stack.fixture_ref_missing",
+        ));
+    }
+    if normalized.contains("extra-fixture-record") {
+        reports.push(fixture_drift_report(
+            "unexpected_extra_records",
+            "fixture://local_stack/seed_manifest/phase7",
+            "extra_records:none",
+            "extra_records:1",
+            true,
+            "local_stack.fixture_extra_record",
+        ));
+    }
+
+    reports
+}
+
+fn fixture_drift_report(
+    diff_field: &str,
+    fixture_ref: &str,
+    expected_ref: &str,
+    actual_ref: &str,
+    drift_detected: bool,
+    reason_code: &str,
+) -> LocalFixtureDriftReport {
+    LocalFixtureDriftReport {
+        report_id: format!("fixture_drift:{diff_field}:{}", id_component(fixture_ref)),
+        fixture_ref: fixture_ref.to_owned(),
+        diff_field: diff_field.to_owned(),
+        expected_ref: expected_ref.to_owned(),
+        actual_ref: actual_ref.to_owned(),
+        drift_detected,
+        reason_code: reason_code.to_owned(),
+        blocks_seed: drift_detected,
+        local_only: true,
+        test_only: true,
+    }
+}
+
 fn schema_compatibility_gates_for_profile(profile: &str) -> Vec<SchemaCompatibilityGate> {
     let normalized = profile.to_ascii_lowercase();
     [
@@ -2854,6 +3382,16 @@ fn doctor_checks_for_reason(reason_code: &str) -> Vec<LocalDoctorCheck> {
             "local_stack.schema_version_incompatible",
             "reset local backing records and regenerate local-stack schema fixtures",
         )),
+        "local_stack.reset_unsafe_state" => Some((
+            "doctor:local_volume_markers",
+            "local_stack.reset_unsafe_state",
+            "restore .overrid-local-test-state markers before reset",
+        )),
+        "local_stack.fixture_drift_detected" => Some((
+            "doctor:schema_outputs",
+            "local_stack.fixture_drift_detected",
+            "regenerate deterministic fixture records and inspect drift reports",
+        )),
         "doctor.profile_missing" => Some((
             "doctor:repo_layout",
             "doctor.profile_missing",
@@ -2907,6 +3445,11 @@ fn profile_blocker(profile: &str) -> Option<LocalStackFailure> {
     if normalized.contains("seed")
         || normalized.contains("staging")
         || normalized.contains("production")
+        || normalized.contains("federation")
+        || normalized.contains("public-provider")
+        || normalized.contains("public_provider")
+        || normalized.contains("non-local")
+        || normalized.contains("non_local")
     {
         return Some(LocalStackFailure {
             reason_code: "profile.not_local_test",
@@ -3820,6 +4363,185 @@ fn render_lifecycle_events_json(events: &[LocalLifecycleEventRecord]) -> String 
     format!("[{}]", rendered.join(","))
 }
 
+fn render_reset_safety_checks_json(checks: &[LocalResetSafetyCheck]) -> String {
+    let rendered = checks
+        .iter()
+        .map(|check| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"check_id\":\"{}\",",
+                    "\"target_ref\":\"{}\",",
+                    "\"marker_ref\":\"{}\",",
+                    "\"marker_state\":\"{}\",",
+                    "\"planned_action\":\"{}\",",
+                    "\"deletion_plan_ref\":\"{}\",",
+                    "\"safe_to_delete\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&check.check_id),
+                json_escape(&check.target_ref),
+                json_escape(&check.marker_ref),
+                json_escape(&check.marker_state),
+                json_escape(&check.planned_action),
+                json_escape(&check.deletion_plan_ref),
+                check.safe_to_delete,
+                json_escape(&check.reason_code),
+                check.local_only,
+                check.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_seed_fixture_records_json(records: &[LocalSeedFixtureRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"fixture_id\":\"{}\",",
+                    "\"fixture_kind\":\"{}\",",
+                    "\"fixture_ref\":\"{}\",",
+                    "\"stable_id\":\"{}\",",
+                    "\"apply_order\":{},",
+                    "\"fixture_version\":\"{}\",",
+                    "\"deterministic_seed\":\"{}\",",
+                    "\"profile_binding\":\"{}\",",
+                    "\"schema_version\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(record.fixture_id),
+                json_escape(record.fixture_kind),
+                json_escape(record.fixture_ref),
+                json_escape(record.stable_id),
+                record.apply_order,
+                json_escape(record.fixture_version),
+                json_escape(record.deterministic_seed),
+                json_escape(record.profile_binding),
+                json_escape(record.schema_version),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_fixture_isolation_checks_json(checks: &[LocalFixtureIsolationCheck]) -> String {
+    let rendered = checks
+        .iter()
+        .map(|check| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"check_id\":\"{}\",",
+                    "\"fixture_ref\":\"{}\",",
+                    "\"credential_ref\":\"{}\",",
+                    "\"profile_class\":\"{}\",",
+                    "\"bound_profile\":\"{}\",",
+                    "\"accepted\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"contains_raw_secret\":{},",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&check.check_id),
+                json_escape(&check.fixture_ref),
+                json_escape(&check.credential_ref),
+                json_escape(&check.profile_class),
+                json_escape(&check.bound_profile),
+                check.accepted,
+                json_escape(&check.reason_code),
+                check.contains_raw_secret,
+                check.local_only,
+                check.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_phase1_seed_prerequisites_json(records: &[LocalControlPlaneSeedPrerequisite]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"prerequisite_id\":\"{}\",",
+                    "\"prerequisite_kind\":\"{}\",",
+                    "\"fixture_ref\":\"{}\",",
+                    "\"phase_gate\":\"{}\",",
+                    "\"stable_ref\":\"{}\",",
+                    "\"signing_required\":{},",
+                    "\"id_preserved_for_phase1\":{},",
+                    "\"bypasses_signing\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(record.prerequisite_id),
+                json_escape(record.prerequisite_kind),
+                json_escape(record.fixture_ref),
+                json_escape(record.phase_gate),
+                json_escape(record.stable_ref),
+                record.signing_required,
+                record.id_preserved_for_phase1,
+                record.bypasses_signing,
+                json_escape(record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_fixture_drift_reports_json(reports: &[LocalFixtureDriftReport]) -> String {
+    let rendered = reports
+        .iter()
+        .map(|report| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"report_id\":\"{}\",",
+                    "\"fixture_ref\":\"{}\",",
+                    "\"diff_field\":\"{}\",",
+                    "\"expected_ref\":\"{}\",",
+                    "\"actual_ref\":\"{}\",",
+                    "\"drift_detected\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"blocks_seed\":{},",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&report.report_id),
+                json_escape(&report.fixture_ref),
+                json_escape(&report.diff_field),
+                json_escape(&report.expected_ref),
+                json_escape(&report.actual_ref),
+                report.drift_detected,
+                json_escape(&report.reason_code),
+                report.blocks_seed,
+                report.local_only,
+                report.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn json_owned_string_array(values: &[String]) -> String {
     let rendered = values
         .iter()
@@ -3901,6 +4623,12 @@ fn remediation_hint(reason_code: &str) -> &'static str {
         "local_stack.port_conflict" => "free the reserved loopback port range 18080-18085",
         "local_stack.schema_version_incompatible" => {
             "reset local backing records and regenerate local-stack schema fixtures"
+        }
+        "local_stack.reset_unsafe_state" => {
+            "restore local/test reset markers before deleting local stack state"
+        }
+        "local_stack.fixture_drift_detected" => {
+            "regenerate deterministic local fixtures and compare drift report fields"
         }
         "manifest.read_failed"
         | "manifest.invalid_json"
@@ -4633,6 +5361,213 @@ mod tests {
         assert!(output
             .error_json()
             .contains("\"lifecycle_phase_gate\":\"phase_6_lifecycle_orchestration\""));
+    }
+
+    #[test]
+    fn phase7_reset_safety_reports_marker_backed_deletion_plan() {
+        let mut options = test_options();
+        options.dry_run = true;
+        let output = LocalStackRunner::new(options).run(DevCommand::Reset);
+        assert!(output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.reset_completed");
+        assert!(!output.reset_safety_checks.is_empty());
+        assert!(output.reset_safety_checks.iter().all(|check| {
+            check.safe_to_delete
+                && check.marker_state == "verified"
+                && check.planned_action == "dry_run_delete"
+                && check.local_only
+                && check.test_only
+                && check.marker_ref.contains(".overrid-local-test-state")
+        }));
+        assert!(output
+            .artifact_refs
+            .iter()
+            .any(|reference| reference.starts_with("artifact://local_stack/reset/")));
+        assert!(output
+            .result_json()
+            .contains("\"fixture_phase_gate\":\"phase_7_reset_seed_fixtures\""));
+    }
+
+    #[test]
+    fn phase7_reset_aborts_when_markers_are_missing_stale_or_inconsistent() {
+        for (profile, marker_state) in [
+            ("local-missing-reset-marker", "missing"),
+            ("local-stale-reset-marker", "stale"),
+            ("local-inconsistent-reset-marker", "inconsistent"),
+        ] {
+            let mut options = test_options();
+            options.profile = profile.to_owned();
+            let output = LocalStackRunner::new(options).run(DevCommand::Reset);
+            assert!(!output.is_ok(), "{profile} should fail closed");
+            assert_eq!(output.reason_code, "local_stack.reset_unsafe_state");
+            assert_eq!(output.exit_class, ExitCodeClass::Config);
+            assert!(output.lifecycle_strs().contains(&"blocked"));
+            assert!(output
+                .reset_safety_checks
+                .iter()
+                .any(|check| { !check.safe_to_delete && check.marker_state == marker_state }));
+            assert!(output.error_json().contains("\"reset_safety_checks\""));
+        }
+    }
+
+    #[test]
+    fn phase7_seed_fixtures_are_deterministic_and_ordered() {
+        let first = LocalStackRunner::new(test_options()).run(DevCommand::Seed);
+        let second = LocalStackRunner::new(test_options()).run(DevCommand::Seed);
+        assert!(first.is_ok());
+        assert!(second.is_ok());
+        assert_eq!(first.seed_fixture_records, second.seed_fixture_records);
+        assert_eq!(
+            first
+                .seed_fixture_records
+                .iter()
+                .map(|fixture| fixture.apply_order)
+                .collect::<Vec<_>>(),
+            (1_u8..=10).collect::<Vec<_>>()
+        );
+        let kinds = first
+            .seed_fixture_records
+            .iter()
+            .map(|fixture| fixture.fixture_kind)
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "tenant",
+            "actor",
+            "key",
+            "node",
+            "manifest",
+            "package",
+            "workload",
+            "oru_account",
+            "seal_ledger_ref",
+            "policy_context",
+        ] {
+            assert!(kinds.contains(expected));
+        }
+        assert!(first.seed_fixture_records.iter().all(|fixture| {
+            fixture.fixture_version == LOCAL_STACK_PHASE7_FIXTURE_VERSION
+                && fixture.deterministic_seed == LOCAL_STACK_PHASE7_DETERMINISTIC_SEED
+                && fixture.schema_version == SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION
+                && fixture.local_only
+                && fixture.test_only
+        }));
+    }
+
+    #[test]
+    fn phase7_fixture_isolation_rejects_non_local_profile_classes() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        for rejected in [
+            "seed",
+            "staging",
+            "production_like",
+            "federation",
+            "public_provider",
+            "non_local",
+        ] {
+            assert!(output.fixture_isolation_checks.iter().any(|check| {
+                check.profile_class == rejected
+                    && !check.accepted
+                    && check.reason_code == "profile.not_local_test"
+                    && !check.contains_raw_secret
+            }));
+        }
+        assert!(output
+            .fixture_isolation_checks
+            .iter()
+            .any(|check| { check.profile_class == "local" && check.accepted }));
+        assert!(output
+            .fixture_isolation_checks
+            .iter()
+            .any(|check| { check.profile_class == "ci" && check.accepted }));
+
+        for profile in [
+            "seed",
+            "staging",
+            "production_like",
+            "federation",
+            "public-provider",
+            "non-local",
+        ] {
+            let mut options = test_options();
+            options.profile = profile.to_owned();
+            let blocked = LocalStackRunner::new(options).run(DevCommand::Seed);
+            assert!(!blocked.is_ok(), "{profile} should be rejected");
+            assert_eq!(blocked.reason_code, "profile.not_local_test");
+        }
+    }
+
+    #[test]
+    fn phase7_phase1_seed_prerequisites_require_signing_and_preserve_ids() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Seed);
+        assert!(output.is_ok());
+        let kinds = output
+            .phase1_seed_prerequisites
+            .iter()
+            .map(|record| record.prerequisite_kind)
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "tenant",
+            "actor",
+            "key",
+            "manifest",
+            "idempotency_key",
+            "trace_root",
+            "pending_work_target",
+        ] {
+            assert!(kinds.contains(expected));
+        }
+        assert!(output.phase1_seed_prerequisites.iter().all(|record| {
+            record.phase_gate == "local_smoke_prerequisite"
+                && record.signing_required
+                && record.id_preserved_for_phase1
+                && !record.bypasses_signing
+                && record.local_only
+                && record.test_only
+        }));
+    }
+
+    #[test]
+    fn phase7_fixture_drift_blocks_seed_and_reports_stable_fields() {
+        let clean = LocalStackRunner::new(test_options()).run(DevCommand::Seed);
+        assert!(clean.is_ok());
+        assert!(clean
+            .fixture_drift_reports
+            .iter()
+            .all(|report| !report.drift_detected && !report.blocks_seed));
+
+        for (profile, reason_code) in [
+            (
+                "local-nondeterministic-fixture-ids",
+                "local_stack.fixture_id_drift",
+            ),
+            (
+                "local-fixture-schema-drift",
+                "local_stack.fixture_schema_drift",
+            ),
+            (
+                "local-missing-fixture-ref",
+                "local_stack.fixture_ref_missing",
+            ),
+            (
+                "local-extra-fixture-record",
+                "local_stack.fixture_extra_record",
+            ),
+        ] {
+            let mut options = test_options();
+            options.profile = profile.to_owned();
+            let output = LocalStackRunner::new(options).run(DevCommand::Seed);
+            assert!(!output.is_ok(), "{profile} should block seed");
+            assert_eq!(output.reason_code, "local_stack.fixture_drift_detected");
+            assert_eq!(output.exit_class, ExitCodeClass::Schema);
+            assert!(output.fixture_drift_reports.iter().any(|report| {
+                report.drift_detected
+                    && report.blocks_seed
+                    && report.reason_code == reason_code
+                    && report.expected_ref != report.actual_ref
+            }));
+            assert!(output.error_json().contains("\"fixture_drift_reports\""));
+        }
     }
 
     #[test]
