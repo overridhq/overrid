@@ -248,6 +248,12 @@ fn test_command_result(command: TestCommand, globals: &GlobalOptions) -> CliRunR
         .clone()
         .unwrap_or_else(|| "local".to_owned());
     options.requested_phase = globals.phase;
+    options.selection_service = globals.selection_service.clone();
+    options.selection_tag = globals.selection_tag.clone();
+    options.selection_changed_path = globals.selection_changed_path.clone();
+    options.selection_required_dependency = globals.selection_required_dependency.clone();
+    options.selection_gate_class = globals.selection_gate_class.clone();
+    options.selection_scenario_name = globals.selection_scenario_name.clone();
     options.trace_id = globals.trace_id.clone();
     options.test_harness_profile = globals.test_harness_profile;
 
@@ -1217,6 +1223,12 @@ fn render_help(all_phases: bool) -> String {
         "  --verbose                       include local diagnostic detail".to_owned(),
         "  --profile NAME                  select a local profile".to_owned(),
         "  --phase N                       filter integration harness scenarios by master phase".to_owned(),
+        "  --service REF                   filter integration harness scenarios by required service".to_owned(),
+        "  --tag TAG                       filter integration harness scenarios by tag".to_owned(),
+        "  --changed-path PATH             filter integration harness scenarios by changed path".to_owned(),
+        "  --required-dependency REF       filter integration harness scenarios by service or fixture dependency".to_owned(),
+        "  --gate-class CLASS              filter integration harness scenarios by gate class".to_owned(),
+        "  --scenario-name ID              filter integration harness scenarios by exact scenario id".to_owned(),
         "  --environment CLASS             local, seed, staging, production_like, or ci".to_owned(),
         "  --endpoint URL                  Overgate endpoint".to_owned(),
         "  --endpoint-fingerprint VALUE    pinned endpoint identity".to_owned(),
@@ -3859,6 +3871,9 @@ mod tests {
         assert!(result
             .stdout
             .contains("test integration|scenario|list|reset|artifacts"));
+        assert!(result.stdout.contains("--service REF"));
+        assert!(result.stdout.contains("--changed-path PATH"));
+        assert!(result.stdout.contains("--gate-class CLASS"));
         assert!(result.stdout.contains("release-readiness"));
     }
 
@@ -3877,6 +3892,47 @@ mod tests {
         assert!(result
             .stdout
             .contains("\"schema_version\":\"integration-harness.v0.1\""));
+    }
+
+    #[test]
+    fn test_list_renders_phase9_selector_filters() {
+        let result = run_args([
+            "overrid",
+            "test",
+            "list",
+            "--phase",
+            "9",
+            "--service",
+            "service:overgate",
+            "--tag",
+            "control_plane_spine",
+            "--changed-path",
+            "services/overgate/routes.rs",
+            "--required-dependency",
+            "fixture:phase9_control_plane_spine",
+            "--gate-class",
+            "contract_spine",
+            "--scenario-name",
+            "scenario_phase1_control_plane_spine",
+            "--json",
+        ]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result
+            .stdout
+            .contains("\"scenario_id\":\"scenario_phase1_control_plane_spine\""));
+        assert!(result.stdout.contains("\"filters\""));
+        assert!(result.stdout.contains("service:service:overgate"));
+        assert!(result.stdout.contains("tag:control_plane_spine"));
+        assert!(result
+            .stdout
+            .contains("changed_path:services/overgate/routes.rs"));
+        assert!(result
+            .stdout
+            .contains("required_dependency:fixture:phase9_control_plane_spine"));
+        assert!(result.stdout.contains("gate_class:contract_spine"));
+        assert!(result
+            .stdout
+            .contains("scenario_name:scenario_phase1_control_plane_spine"));
     }
 
     #[test]
@@ -3914,6 +3970,25 @@ mod tests {
         assert!(result
             .stdout
             .contains("\"service_id\":\"service:local_stack\""));
+    }
+
+    #[test]
+    fn test_integration_phase9_uses_ci_smoke_entrypoint() {
+        let result = run_args(["overrid", "test", "integration", "--phase", "9", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result
+            .stdout
+            .contains("\"ci_entrypoint\":\"scenario_phase1_control_plane_spine\""));
+        assert!(result
+            .stdout
+            .contains("\"scenario_id\":\"scenario_phase1_control_plane_spine\""));
+        assert!(result
+            .stdout
+            .contains("\"service_id\":\"service:deployment_planner\""));
+        assert!(result
+            .stdout
+            .contains("\"status\":\"missing_required_contract\""));
+        assert!(!result.stdout.contains("flake.unstable_event_ordering"));
     }
 
     #[test]

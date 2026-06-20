@@ -22,6 +22,12 @@ pub struct GlobalOptions {
     pub verbose: bool,
     pub all_phases: bool,
     pub phase: Option<u8>,
+    pub selection_service: Option<String>,
+    pub selection_tag: Option<String>,
+    pub selection_changed_path: Option<String>,
+    pub selection_required_dependency: Option<String>,
+    pub selection_gate_class: Option<String>,
+    pub selection_scenario_name: Option<String>,
     pub profile: Option<String>,
     pub environment: Option<String>,
     pub endpoint: Option<String>,
@@ -66,6 +72,12 @@ impl Default for GlobalOptions {
             verbose: false,
             all_phases: false,
             phase: None,
+            selection_service: None,
+            selection_tag: None,
+            selection_changed_path: None,
+            selection_required_dependency: None,
+            selection_gate_class: None,
+            selection_scenario_name: None,
             profile: None,
             environment: None,
             endpoint: None,
@@ -508,6 +520,21 @@ where
             "--phase" => {
                 let value = next_value(&mut iter, "--phase")?;
                 globals.phase = Some(parse_numeric_flag("--phase", &value)?);
+            }
+            "--service" => globals.selection_service = Some(next_value(&mut iter, "--service")?),
+            "--tag" => globals.selection_tag = Some(next_value(&mut iter, "--tag")?),
+            "--changed-path" => {
+                globals.selection_changed_path = Some(next_value(&mut iter, "--changed-path")?)
+            }
+            "--required-dependency" => {
+                globals.selection_required_dependency =
+                    Some(next_value(&mut iter, "--required-dependency")?)
+            }
+            "--gate-class" => {
+                globals.selection_gate_class = Some(next_value(&mut iter, "--gate-class")?)
+            }
+            "--scenario-name" => {
+                globals.selection_scenario_name = Some(next_value(&mut iter, "--scenario-name")?)
             }
             "--environment" => globals.environment = Some(next_value(&mut iter, "--environment")?),
             "--endpoint" => globals.endpoint = Some(next_value(&mut iter, "--endpoint")?),
@@ -1161,5 +1188,51 @@ mod tests {
         );
         let parsed = parse_cli(["overrid", "test", "list", "--phase", "0"]).unwrap();
         assert_eq!(parsed.globals.phase, Some(0));
+
+        let parsed = parse_cli([
+            "overrid",
+            "test",
+            "list",
+            "--phase",
+            "9",
+            "--service",
+            "service:overgate",
+            "--tag",
+            "control_plane_spine",
+            "--changed-path",
+            "services/overgate/routes.rs",
+            "--required-dependency",
+            "fixture:phase9_control_plane_spine",
+            "--gate-class",
+            "contract_spine",
+            "--scenario-name",
+            "scenario_phase1_control_plane_spine",
+        ])
+        .unwrap();
+        assert_eq!(parsed.globals.phase, Some(9));
+        assert_eq!(
+            parsed.globals.selection_service.as_deref(),
+            Some("service:overgate")
+        );
+        assert_eq!(
+            parsed.globals.selection_tag.as_deref(),
+            Some("control_plane_spine")
+        );
+        assert_eq!(
+            parsed.globals.selection_changed_path.as_deref(),
+            Some("services/overgate/routes.rs")
+        );
+        assert_eq!(
+            parsed.globals.selection_required_dependency.as_deref(),
+            Some("fixture:phase9_control_plane_spine")
+        );
+        assert_eq!(
+            parsed.globals.selection_gate_class.as_deref(),
+            Some("contract_spine")
+        );
+        assert_eq!(
+            parsed.globals.selection_scenario_name.as_deref(),
+            Some("scenario_phase1_control_plane_spine")
+        );
     }
 }

@@ -247,6 +247,12 @@ pub struct RunnerOptions {
     pub artifact_root: PathBuf,
     pub profile: String,
     pub requested_phase: Option<u8>,
+    pub selection_service: Option<String>,
+    pub selection_tag: Option<String>,
+    pub selection_changed_path: Option<String>,
+    pub selection_required_dependency: Option<String>,
+    pub selection_gate_class: Option<String>,
+    pub selection_scenario_name: Option<String>,
     pub trace_id: Option<String>,
     pub test_harness_profile: bool,
 }
@@ -260,8 +266,26 @@ impl RunnerOptions {
             artifact_root,
             profile: "local".to_owned(),
             requested_phase: None,
+            selection_service: None,
+            selection_tag: None,
+            selection_changed_path: None,
+            selection_required_dependency: None,
+            selection_gate_class: None,
+            selection_scenario_name: None,
             trace_id: None,
             test_harness_profile: false,
+        }
+    }
+
+    pub fn selection_filter(&self) -> ScenarioSelectionFilter {
+        ScenarioSelectionFilter {
+            phase: self.requested_phase,
+            service: self.selection_service.clone(),
+            tag: self.selection_tag.clone(),
+            changed_path: self.selection_changed_path.clone(),
+            required_dependency: self.selection_required_dependency.clone(),
+            gate_class: self.selection_gate_class.clone(),
+            scenario_name: self.selection_scenario_name.clone(),
         }
     }
 }
@@ -304,6 +328,7 @@ pub struct ScenarioListItem {
 pub struct ScenarioSelectionReport {
     pub requested_phase: Option<u8>,
     pub selection_mode: String,
+    pub filter_summary: Vec<String>,
     pub selected_count: usize,
     pub planned_count: usize,
     pub selected_gate_classes: Vec<String>,
@@ -529,15 +554,17 @@ impl HarnessRunner {
     fn list_scenarios(&self) -> HarnessCliOutput {
         match self.load_catalog() {
             Ok(catalog) => {
-                let selection =
-                    catalog.select_scenarios(&ScenarioSelectionFilter::for_phase(
-                        self.options.requested_phase,
-                    ));
-                let selection_report =
-                    build_selection_report(&selection, self.options.requested_phase, "list");
+                let filter = self.options.selection_filter();
+                let selection = catalog.select_scenarios(&filter);
+                let selection_report = build_selection_report(&selection, &filter, "list");
                 let coverage_report =
                     service_contract_coverage(&selection, self.options.requested_phase);
-                let scenarios = scenario_items(selection.selected.clone());
+                let list_scenarios = if list_should_include_planned(&filter) {
+                    selection.all_scenarios()
+                } else {
+                    selection.selected.clone()
+                };
+                let scenarios = scenario_items(list_scenarios);
                 HarnessCliOutput {
                     command_name: "test list".to_owned(),
                     status: HarnessRunStatus::Planned,
@@ -571,10 +598,8 @@ impl HarnessRunner {
     fn run_integration(&self) -> HarnessCliOutput {
         match self.load_catalog() {
             Ok(catalog) => {
-                let selection =
-                    catalog.select_scenarios(&ScenarioSelectionFilter::for_phase(
-                        self.options.requested_phase,
-                    ));
+                let filter = self.options.selection_filter();
+                let selection = catalog.select_scenarios(&filter);
                 if selection.selected.is_empty() {
                     return self.blocked_without_scenario(
                         "test integration",
@@ -583,11 +608,11 @@ impl HarnessRunner {
                         "no scenarios match the requested phase filter",
                     );
                 }
-                let selection_report =
-                    build_selection_report(&selection, self.options.requested_phase, "ci_smoke");
+                let selection_report = build_selection_report(&selection, &filter, "ci_smoke");
                 let coverage_report =
                     service_contract_coverage(&selection, self.options.requested_phase);
-                let scenario = primary_ci_scenario(&selection.selected, self.options.requested_phase);
+                let scenario =
+                    primary_ci_scenario(&selection.selected, self.options.requested_phase);
                 self.run_local_stack_scenario(
                     "test integration",
                     &catalog,
@@ -1204,6 +1229,19 @@ fn primary_ci_scenario(
             .unwrap_or(&scenarios[0])
             .clone();
     }
+    if let Some(scenario) = scenarios
+        .iter()
+        .filter(|scenario| scenario.tags.iter().any(|tag| tag == "ci_smoke"))
+        .max_by_key(|scenario| {
+            (
+                scenario.master_phase,
+                gate_priority(&scenario.gate_class),
+                scenario.scenario_id.as_str(),
+            )
+        })
+    {
+        return scenario.clone();
+    }
     scenarios
         .iter()
         .max_by_key(|scenario| {
@@ -1229,7 +1267,7 @@ fn gate_priority(gate_class: &str) -> u8 {
 
 fn build_selection_report(
     selection: &ScenarioSelection,
-    requested_phase: Option<u8>,
+    filter: &ScenarioSelectionFilter,
     selection_mode: &str,
 ) -> ScenarioSelectionReport {
     let selected_gate_classes = selection
@@ -1242,11 +1280,12 @@ fn build_selection_report(
     let ci_entrypoint = if selection.selected.is_empty() {
         "none".to_owned()
     } else {
-        primary_ci_scenario(&selection.selected, requested_phase).scenario_id
+        primary_ci_scenario(&selection.selected, filter.phase).scenario_id
     };
     ScenarioSelectionReport {
-        requested_phase,
+        requested_phase: filter.phase,
         selection_mode: selection_mode.to_owned(),
+        filter_summary: selection_filter_summary(filter),
         selected_count: selection.selected.len(),
         planned_count: selection.planned.len(),
         selected_gate_classes,
@@ -1254,6 +1293,42 @@ fn build_selection_report(
         planned_scenario_ids: selection.planned_scenario_ids(),
         ci_entrypoint,
     }
+}
+
+fn selection_filter_summary(filter: &ScenarioSelectionFilter) -> Vec<String> {
+    let mut filters = Vec::new();
+    if let Some(phase) = filter.phase {
+        filters.push(format!("phase:{phase}"));
+    }
+    if let Some(service) = &filter.service {
+        filters.push(format!("service:{service}"));
+    }
+    if let Some(tag) = &filter.tag {
+        filters.push(format!("tag:{tag}"));
+    }
+    if let Some(path) = &filter.changed_path {
+        filters.push(format!("changed_path:{path}"));
+    }
+    if let Some(dependency) = &filter.required_dependency {
+        filters.push(format!("required_dependency:{dependency}"));
+    }
+    if let Some(gate_class) = &filter.gate_class {
+        filters.push(format!("gate_class:{gate_class}"));
+    }
+    if let Some(scenario_name) = &filter.scenario_name {
+        filters.push(format!("scenario_name:{scenario_name}"));
+    }
+    filters
+}
+
+fn list_should_include_planned(filter: &ScenarioSelectionFilter) -> bool {
+    filter.phase.is_some_and(|phase| phase >= 8)
+        || filter.service.is_some()
+        || filter.tag.is_some()
+        || filter.changed_path.is_some()
+        || filter.required_dependency.is_some()
+        || filter.gate_class.is_some()
+        || filter.scenario_name.is_some()
 }
 
 #[derive(Debug)]
@@ -1329,11 +1404,36 @@ fn service_contract_coverage(
 
 fn required_public_contract_services(phase: u8) -> &'static [&'static str] {
     match phase {
-        0 => &["service:local_stack", "service:overgate", "service:overwatch"],
-        1..=13 => &[
+        0 => &[
             "service:local_stack",
             "service:overgate",
             "service:overwatch",
+        ],
+        1..=8 => &[
+            "service:local_stack",
+            "service:overgate",
+            "service:overwatch",
+        ],
+        9 => &[
+            "service:local_stack",
+            "service:overgate",
+            "service:overwatch",
+            "service:overpack",
+            "service:deployment_planner",
+            "service:package_validator",
+            "service:release_strategy",
+        ],
+        10..=13 => &[
+            "service:local_stack",
+            "service:overgate",
+            "service:overwatch",
+            "service:overpack",
+            "service:deployment_planner",
+            "service:package_validator",
+            "service:release_strategy",
+            "service:federation_template",
+            "service:public_interest_pool",
+            "service:governance",
         ],
         _ => &[],
     }
@@ -1477,6 +1577,7 @@ fn selection_report_json(report: Option<&ScenarioSelectionReport>) -> String {
             "{{",
             "\"requested_phase\":{},",
             "\"selection_mode\":\"{}\",",
+            "\"filters\":{},",
             "\"selected_count\":{},",
             "\"planned_count\":{},",
             "\"selected_gate_classes\":{},",
@@ -1490,6 +1591,7 @@ fn selection_report_json(report: Option<&ScenarioSelectionReport>) -> String {
             .map(|phase| phase.to_string())
             .unwrap_or_else(|| "null".to_owned()),
         json_escape(&report.selection_mode),
+        json_string_array(&report.filter_summary),
         report.selected_count,
         report.planned_count,
         json_string_array(&report.selected_gate_classes),
@@ -1955,6 +2057,107 @@ mod tests {
         assert_eq!(output.status, HarnessRunStatus::Planned);
         assert_eq!(output.scenarios.len(), 2);
         assert!(output.result_json().contains("\"phase_filter\":0"));
+    }
+
+    #[test]
+    fn phase9_filters_select_control_plane_spine_scenario() {
+        let mut options = RunnerOptions::new(repo_root());
+        options.requested_phase = Some(1);
+        options.selection_service = Some("service:overgate".to_owned());
+        options.selection_tag = Some("control_plane_spine".to_owned());
+        options.selection_changed_path = Some("services/overgate/routes.rs".to_owned());
+        options.selection_required_dependency =
+            Some("fixture:phase9_control_plane_spine".to_owned());
+        options.selection_gate_class = Some("contract_spine".to_owned());
+        options.selection_scenario_name = Some("scenario_phase1_control_plane_spine".to_owned());
+
+        let output = HarnessRunner::new(options).run(HarnessCliCommand::List);
+
+        assert_eq!(output.status, HarnessRunStatus::Planned);
+        assert_eq!(output.scenarios.len(), 1);
+        assert_eq!(
+            output.scenarios[0].scenario_id,
+            "scenario_phase1_control_plane_spine"
+        );
+        let report = output
+            .selection_report
+            .as_ref()
+            .expect("phase 9 filter report exists");
+        assert_eq!(report.selected_count, 1);
+        assert_eq!(report.planned_count, 0);
+        assert!(report
+            .filter_summary
+            .contains(&"service:service:overgate".to_owned()));
+        assert!(report
+            .filter_summary
+            .contains(&"tag:control_plane_spine".to_owned()));
+        assert!(report
+            .filter_summary
+            .contains(&"changed_path:services/overgate/routes.rs".to_owned()));
+        assert!(report
+            .filter_summary
+            .contains(&"required_dependency:fixture:phase9_control_plane_spine".to_owned()));
+        assert!(report
+            .filter_summary
+            .contains(&"gate_class:contract_spine".to_owned()));
+        assert!(report
+            .filter_summary
+            .contains(&"scenario_name:scenario_phase1_control_plane_spine".to_owned()));
+        assert!(output.result_json().contains("\"filters\""));
+    }
+
+    #[test]
+    fn phase9_ci_prefers_bounded_smoke_entrypoint_over_later_regressions() {
+        let mut options = RunnerOptions::new(repo_root());
+        options.requested_phase = Some(9);
+
+        let output = HarnessRunner::new(options).run(HarnessCliCommand::Integration);
+
+        assert_eq!(output.status, HarnessRunStatus::Passed);
+        assert_eq!(output.scenarios.len(), 1);
+        assert_eq!(
+            output.scenarios[0].scenario_id,
+            "scenario_phase1_control_plane_spine"
+        );
+        let report = output
+            .selection_report
+            .as_ref()
+            .expect("phase 9 selection report exists");
+        assert_eq!(report.ci_entrypoint, "scenario_phase1_control_plane_spine");
+        assert!(report
+            .planned_scenario_ids
+            .contains(&"scenario_phase9_ci_blocked".to_owned()));
+        assert!(output.coverage_report.iter().any(|coverage| {
+            coverage.service_id == "service:deployment_planner"
+                && coverage.status == "missing_required_contract"
+        }));
+    }
+
+    #[test]
+    fn phase9_extended_gate_is_planned_not_mandatory_ci() {
+        let mut options = RunnerOptions::new(repo_root());
+        options.requested_phase = Some(9);
+        options.selection_gate_class = Some("extended".to_owned());
+        options.selection_tag = Some("blocked_outcome".to_owned());
+
+        let output = HarnessRunner::new(options).run(HarnessCliCommand::List);
+
+        assert_eq!(output.status, HarnessRunStatus::Planned);
+        assert_eq!(output.scenarios.len(), 1);
+        assert_eq!(
+            output.scenarios[0].scenario_id,
+            "scenario_phase9_ci_blocked"
+        );
+        let report = output
+            .selection_report
+            .as_ref()
+            .expect("phase 9 planned report exists");
+        assert_eq!(report.selected_count, 0);
+        assert_eq!(report.planned_count, 1);
+        assert!(report
+            .planned_scenario_ids
+            .contains(&"scenario_phase9_ci_blocked".to_owned()));
+        assert_eq!(report.ci_entrypoint, "none");
     }
 
     #[test]

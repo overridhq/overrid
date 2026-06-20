@@ -157,6 +157,30 @@
       "Retention classes must distinguish compact successful smoke, failure evidence, release candidates, and phase-gate evidence without adding non-Rust runtime authority."
     ]
   },
+  "integration_harness_phase9": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase9_control_plane_spine.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase9_ci_blocked.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_unsupported_phase.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/scenario_missing_assertion.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Phase and tag selection must inherit earlier master phase gates and only select mandatory gate classes for the requested phase.",
+      "CI smoke selection must prefer explicit ci_smoke scenarios and keep success, blocked, and failed outcomes machine-readable through stable exit classes.",
+      "Service contract coverage must report service ids, phases, scenario ids, schema modules, event types, reason-code families, and missing required contracts.",
+      "Product integration gates for Docdex, Mcoda, Codali, CLI, SDK, and admin UI remain planned until owning contracts exist and must route through public Overrid contracts.",
+      "Later deployment, federation, public-pool, native-app, governance, incident, migration, reporting, and scale gates must remain planned or missing-required-contract evidence until their owning phase contracts exist."
+    ]
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",

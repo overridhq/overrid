@@ -64,9 +64,7 @@ pub fn scenario_is_selected_for_phase(
     phase_filter: Option<u8>,
 ) -> bool {
     match phase_filter {
-        Some(phase) => {
-            scenario_phase <= phase && gate_class_is_mandatory(gate_class, phase)
-        }
+        Some(phase) => scenario_phase <= phase && gate_class_is_mandatory(gate_class, phase),
         None => true,
     }
 }
@@ -77,9 +75,7 @@ pub fn scenario_is_planned_for_phase(
     phase_filter: Option<u8>,
 ) -> bool {
     match phase_filter {
-        Some(phase) => {
-            scenario_phase > phase || !gate_class_is_mandatory(gate_class, phase)
-        }
+        Some(phase) => scenario_phase > phase || !gate_class_is_mandatory(gate_class, phase),
         None => false,
     }
 }
@@ -99,11 +95,7 @@ mod tests {
     #[test]
     fn selection_requires_inherited_phase_and_mandatory_gate() {
         assert!(scenario_is_selected_for_phase(0, "smoke", Some(1)));
-        assert!(scenario_is_selected_for_phase(
-            1,
-            "contract_spine",
-            Some(1)
-        ));
+        assert!(scenario_is_selected_for_phase(1, "contract_spine", Some(1)));
         assert!(!scenario_is_selected_for_phase(6, "extended", Some(6)));
         assert!(scenario_is_planned_for_phase(6, "extended", Some(6)));
         assert!(scenario_is_planned_for_phase(13, "extended", Some(1)));
