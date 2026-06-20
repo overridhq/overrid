@@ -1,0 +1,245 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase7_accounting_ledger",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase7_accounting_ledger_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:accounting"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase7_accounting_ledger_trace",
+    "master_phase": 7,
+    "gate_class": "regression",
+    "tags": [
+      "phase7",
+      "golden_trace",
+      "dag",
+      "usage_ledger_receipt"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase7_accounting_ledger"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase7_accounting_ledger_assert",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:reason_code:assertion.passed",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase7:accounting_ledger"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase7_accounting_ledger",
+    "scenario_ids": [
+      "scenario_phase7_accounting_ledger_trace"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781977030000,
+    "ended_at_ms": 1781977035000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase7:accounting_ledger"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase7_accounting_ledger"
+    ]
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase7_accounting_ledger_trace",
+    "scenario_id": "scenario_phase7_accounting_ledger_trace",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.golden_trace",
+    "expected_value": "accounting_ledger_dag_edges",
+    "actual_value": "accounting_ledger_dag_edges",
+    "artifact_refs": [
+      "artifact:bundle:phase7_accounting_ledger"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase7_accounting_ledger",
+    "assertion_mode": "dag",
+    "required_nodes": [
+      {
+        "node_id": "event_usage_metered",
+        "event_kind": "usage.meter",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "usage.metered"
+      },
+      {
+        "node_id": "event_ledger_debited",
+        "event_kind": "ledger.debit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "ledger.debited"
+      },
+      {
+        "node_id": "event_receipt_written",
+        "event_kind": "receipt.write",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "receipt.written"
+      },
+      {
+        "node_id": "event_receipt_read",
+        "event_kind": "receipt.read",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "receipt.read"
+      },
+      {
+        "node_id": "event_ledger_audit_written",
+        "event_kind": "ledger.audit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.written"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_usage_metered",
+        "to": "event_ledger_debited"
+      },
+      {
+        "from": "event_ledger_debited",
+        "to": "event_receipt_written"
+      },
+      {
+        "from": "event_receipt_written",
+        "to": "event_receipt_read"
+      },
+      {
+        "from": "event_receipt_read",
+        "to": "event_ledger_audit_written"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_receipt_written",
+        "to": "event_usage_metered"
+      }
+    ],
+    "stable_reason_codes": [
+      "usage.metered",
+      "ledger.debited",
+      "receipt.written",
+      "receipt.read",
+      "audit.written"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase7_accounting_ledger",
+    "run_id": "run_phase7_accounting_ledger",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase7_accounting_ledger_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase7_accounting_ledger"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase7_accounting_ledger"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase7_accounting_ledger"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase7_accounting_ledger"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase7_accounting_ledger_trace --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:phase7_accounting_ledger",
+      "artifact:health:local_stack"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

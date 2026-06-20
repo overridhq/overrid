@@ -1,0 +1,311 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase7_execution_dag",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase7_execution_dag_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:execution_loop"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase7_execution_dag_trace",
+    "master_phase": 7,
+    "gate_class": "regression",
+    "tags": [
+      "phase7",
+      "golden_trace",
+      "dag",
+      "execution_loop"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase7_execution_dag"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase7_execution_trace_assert",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:reason_code:assertion.passed",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase7:execution_dag"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase7_execution_dag",
+    "scenario_ids": [
+      "scenario_phase7_execution_dag_trace"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781977010000,
+    "ended_at_ms": 1781977015000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase7:execution_dag"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase7_execution_dag"
+    ]
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase7_execution_dag_trace",
+    "scenario_id": "scenario_phase7_execution_dag_trace",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.golden_trace",
+    "expected_value": "execution_dag_edges",
+    "actual_value": "execution_dag_edges",
+    "artifact_refs": [
+      "artifact:bundle:phase7_execution_dag"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase7_execution_loop",
+    "assertion_mode": "dag",
+    "required_nodes": [
+      {
+        "node_id": "event_queue_admitted",
+        "event_kind": "execution.queue",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "queue.admitted"
+      },
+      {
+        "node_id": "event_scheduler_dispatched",
+        "event_kind": "execution.scheduler",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "scheduler.dispatched"
+      },
+      {
+        "node_id": "event_lease_acquired",
+        "event_kind": "execution.lease",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "lease.acquired"
+      },
+      {
+        "node_id": "event_runner_started",
+        "event_kind": "execution.runner",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "runner.started"
+      },
+      {
+        "node_id": "event_result_recorded",
+        "event_kind": "execution.result",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "result.recorded"
+      },
+      {
+        "node_id": "event_retry_evaluated",
+        "event_kind": "execution.retry",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "retry.evaluated"
+      },
+      {
+        "node_id": "event_cancellation_checked",
+        "event_kind": "execution.cancellation",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "cancellation.checked"
+      },
+      {
+        "node_id": "event_timeout_evaluated",
+        "event_kind": "execution.timeout",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "timeout.evaluated"
+      },
+      {
+        "node_id": "event_dead_letter_checked",
+        "event_kind": "execution.dead_letter",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "dead_letter.checked"
+      },
+      {
+        "node_id": "event_usage_recorded",
+        "event_kind": "execution.usage",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "usage.recorded"
+      },
+      {
+        "node_id": "event_audit_written",
+        "event_kind": "execution.audit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.written"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_queue_admitted",
+        "to": "event_scheduler_dispatched"
+      },
+      {
+        "from": "event_scheduler_dispatched",
+        "to": "event_lease_acquired"
+      },
+      {
+        "from": "event_lease_acquired",
+        "to": "event_runner_started"
+      },
+      {
+        "from": "event_runner_started",
+        "to": "event_result_recorded"
+      },
+      {
+        "from": "event_result_recorded",
+        "to": "event_retry_evaluated"
+      },
+      {
+        "from": "event_result_recorded",
+        "to": "event_cancellation_checked"
+      },
+      {
+        "from": "event_result_recorded",
+        "to": "event_timeout_evaluated"
+      },
+      {
+        "from": "event_result_recorded",
+        "to": "event_dead_letter_checked"
+      },
+      {
+        "from": "event_result_recorded",
+        "to": "event_usage_recorded"
+      },
+      {
+        "from": "event_usage_recorded",
+        "to": "event_audit_written"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_audit_written",
+        "to": "event_runner_started"
+      }
+    ],
+    "stable_reason_codes": [
+      "queue.admitted",
+      "scheduler.dispatched",
+      "lease.acquired",
+      "runner.started",
+      "result.recorded",
+      "retry.evaluated",
+      "cancellation.checked",
+      "timeout.evaluated",
+      "dead_letter.checked",
+      "usage.recorded",
+      "audit.written"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase7_execution_dag",
+    "run_id": "run_phase7_execution_dag",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase7_execution_dag_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase7_execution_dag"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase7_execution_dag"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase7_execution_dag"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase7_execution_dag"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase7_execution_dag_trace --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:phase7_execution_dag",
+      "artifact:health:local_stack"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

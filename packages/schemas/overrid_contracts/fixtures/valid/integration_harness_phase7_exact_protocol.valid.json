@@ -1,0 +1,289 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase7_exact_protocol",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase7_exact_protocol_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:no_op"
+    ],
+    "package_refs": [
+      "package:local:no_op"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase7_exact_protocol_trace",
+    "master_phase": 7,
+    "gate_class": "regression",
+    "tags": [
+      "phase7",
+      "golden_trace",
+      "exact",
+      "phase01_protocol"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase7_exact_protocol"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase7_exact_protocol_assert",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:reason_code:assertion.passed",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase7:exact_protocol"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase7_exact_protocol",
+    "scenario_ids": [
+      "scenario_phase7_exact_protocol_trace"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781977000000,
+    "ended_at_ms": 1781977005000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase7:exact_protocol"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase7_exact_protocol"
+    ]
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase7_exact_protocol_trace",
+    "scenario_id": "scenario_phase7_exact_protocol_trace",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.golden_trace",
+    "expected_value": "exact_phase01_protocol",
+    "actual_value": "exact_phase01_protocol",
+    "artifact_refs": [
+      "artifact:bundle:phase7_exact_protocol"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase7_phase01_protocol",
+    "assertion_mode": "exact",
+    "required_nodes": [
+      {
+        "node_id": "event_signed_command_admitted",
+        "event_kind": "phase01.command",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "command.accepted"
+      },
+      {
+        "node_id": "event_schema_denial_observed",
+        "event_kind": "phase01.schema",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "schema.denial_observed"
+      },
+      {
+        "node_id": "event_tenant_created",
+        "event_kind": "phase01.tenant",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "tenant.created"
+      },
+      {
+        "node_id": "event_identity_created",
+        "event_kind": "phase01.identity",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "identity.created"
+      },
+      {
+        "node_id": "event_key_created",
+        "event_kind": "phase01.key",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "key.created"
+      },
+      {
+        "node_id": "event_audit_written",
+        "event_kind": "phase01.audit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.written"
+      },
+      {
+        "node_id": "event_audit_read",
+        "event_kind": "phase01.audit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.read"
+      },
+      {
+        "node_id": "event_idempotency_observed",
+        "event_kind": "phase01.idempotency",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "idempotency.observed"
+      },
+      {
+        "node_id": "event_pending_queue_transition",
+        "event_kind": "phase01.queue",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "queue.pending"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_signed_command_admitted",
+        "to": "event_schema_denial_observed"
+      },
+      {
+        "from": "event_schema_denial_observed",
+        "to": "event_tenant_created"
+      },
+      {
+        "from": "event_tenant_created",
+        "to": "event_identity_created"
+      },
+      {
+        "from": "event_identity_created",
+        "to": "event_key_created"
+      },
+      {
+        "from": "event_key_created",
+        "to": "event_audit_written"
+      },
+      {
+        "from": "event_audit_written",
+        "to": "event_audit_read"
+      },
+      {
+        "from": "event_audit_read",
+        "to": "event_idempotency_observed"
+      },
+      {
+        "from": "event_idempotency_observed",
+        "to": "event_pending_queue_transition"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_pending_queue_transition",
+        "to": "event_signed_command_admitted"
+      }
+    ],
+    "stable_reason_codes": [
+      "command.accepted",
+      "schema.denial_observed",
+      "tenant.created",
+      "identity.created",
+      "key.created",
+      "audit.written",
+      "audit.read",
+      "idempotency.observed",
+      "queue.pending"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase7_exact_protocol",
+    "run_id": "run_phase7_exact_protocol",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase7_exact_protocol_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase7_exact_protocol"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase7_exact_protocol"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase7_exact_protocol"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase7_exact_protocol"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase7_exact_protocol_trace --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:phase7_exact_protocol",
+      "artifact:health:local_stack"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

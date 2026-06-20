@@ -1,0 +1,256 @@
+{
+  "schema_version": "integration-harness.v0.1",
+  "fixture_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "fixture_id": "fixture_phase7_policy_dispute",
+    "tenant_ref": "tenant:local:alpha",
+    "actor_ref": "actor:local:builder",
+    "deterministic_seed": "seed_phase7_policy_dispute_0001",
+    "identities": [
+      {
+        "identity_ref": "identity:local:builder",
+        "tenant_ref": "tenant:local:alpha",
+        "actor_ref": "actor:local:builder",
+        "identity_kind": "person",
+        "role_refs": [
+          "role:local:tenant_admin"
+        ],
+        "test_only": true
+      }
+    ],
+    "keys": [
+      {
+        "key_ref": "key:fixture:local_builder",
+        "key_id": "fixture_local_builder",
+        "credential_class": "fixture",
+        "test_only": true,
+        "signature_ref_only": true,
+        "raw_key_material_present": false
+      }
+    ],
+    "resource_cards": [
+      {
+        "resource_ref": "resource:local:synthetic_cpu",
+        "resource_kind": "synthetic",
+        "capability_refs": [
+          "capability:local:cpu"
+        ]
+      }
+    ],
+    "workload_refs": [
+      "workload:local:policy_verification"
+    ],
+    "package_refs": [
+      "package:local:policy_bundle"
+    ],
+    "local_ledger_account_refs": [
+      "ledger:local:oru_account"
+    ],
+    "policy_context_refs": [
+      "policy:local:verification"
+    ],
+    "test_only": true
+  },
+  "scenario_manifest": {
+    "schema_version": "integration-harness.v0.1",
+    "scenario_id": "scenario_phase7_policy_dispute_trace",
+    "master_phase": 7,
+    "gate_class": "regression",
+    "tags": [
+      "phase7",
+      "golden_trace",
+      "dag",
+      "policy_dispute"
+    ],
+    "required_services": [
+      "service:local_stack",
+      "service:overgate",
+      "service:overwatch"
+    ],
+    "setup_fixture_refs": [
+      "fixture:phase7_policy_dispute"
+    ],
+    "steps": [
+      {
+        "step_id": "step_phase7_policy_dispute_assert",
+        "action_kind": "assertion",
+        "input_refs": [
+          "assertion:reason_code:assertion.passed",
+          "assertion:terminal:passed"
+        ],
+        "timeout_ms": 10000,
+        "retry_expectation": "non_retryable",
+        "expected_result_class": "passed",
+        "assertion_refs": [
+          "assertion:phase7:policy_dispute"
+        ],
+        "cleanup_rule": "no_mutation"
+      }
+    ],
+    "cleanup_rules": [
+      "no_mutation"
+    ]
+  },
+  "test_run_record": {
+    "schema_version": "integration-harness.v0.1",
+    "run_id": "run_phase7_policy_dispute",
+    "scenario_ids": [
+      "scenario_phase7_policy_dispute_trace"
+    ],
+    "stack_profile": "local",
+    "workspace_fingerprint": "workspace_local_0001",
+    "status": "passed",
+    "started_at_ms": 1781977020000,
+    "ended_at_ms": 1781977025000,
+    "reason_code": "run.passed",
+    "reason_class": "success",
+    "assertion_refs": [
+      "assertion:phase7:policy_dispute"
+    ],
+    "artifact_policy": "phase_gate_evidence",
+    "artifact_refs": [
+      "artifact:bundle:phase7_policy_dispute"
+    ]
+  },
+  "assertion_result": {
+    "assertion_id": "assertion_phase7_policy_dispute_trace",
+    "scenario_id": "scenario_phase7_policy_dispute_trace",
+    "status": "passed",
+    "reason_code": "assertion.passed",
+    "field_path": "$.golden_trace",
+    "expected_value": "policy_dispute_dag_edges",
+    "actual_value": "policy_dispute_dag_edges",
+    "artifact_refs": [
+      "artifact:bundle:phase7_policy_dispute"
+    ]
+  },
+  "golden_trace": {
+    "schema_version": "integration-harness.v0.1",
+    "trace_id": "golden_trace_phase7_policy_dispute",
+    "assertion_mode": "dag",
+    "required_nodes": [
+      {
+        "node_id": "event_policy_package_loaded",
+        "event_kind": "policy.package",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "policy.loaded"
+      },
+      {
+        "node_id": "event_verification_requested",
+        "event_kind": "verification.request",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "verification.requested"
+      },
+      {
+        "node_id": "event_verification_decided",
+        "event_kind": "verification.decision",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "verification.decided"
+      },
+      {
+        "node_id": "event_dispute_window_opened",
+        "event_kind": "dispute.window",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "dispute.window_opened"
+      },
+      {
+        "node_id": "event_dispute_evidence_recorded",
+        "event_kind": "dispute.evidence",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "dispute.evidence_recorded"
+      },
+      {
+        "node_id": "event_policy_audit_written",
+        "event_kind": "policy.audit",
+        "schema_version": "integration-harness.v0.1",
+        "reason_code": "audit.written"
+      }
+    ],
+    "required_causal_edges": [
+      {
+        "from": "event_policy_package_loaded",
+        "to": "event_verification_requested"
+      },
+      {
+        "from": "event_verification_requested",
+        "to": "event_verification_decided"
+      },
+      {
+        "from": "event_verification_decided",
+        "to": "event_dispute_window_opened"
+      },
+      {
+        "from": "event_dispute_window_opened",
+        "to": "event_dispute_evidence_recorded"
+      },
+      {
+        "from": "event_dispute_evidence_recorded",
+        "to": "event_policy_audit_written"
+      }
+    ],
+    "forbidden_transitions": [
+      {
+        "from": "event_policy_audit_written",
+        "to": "event_verification_requested"
+      }
+    ],
+    "stable_reason_codes": [
+      "policy.loaded",
+      "verification.requested",
+      "verification.decided",
+      "dispute.window_opened",
+      "dispute.evidence_recorded",
+      "audit.written"
+    ]
+  },
+  "artifact_bundle": {
+    "schema_version": "integration-harness.v0.1",
+    "bundle_id": "artifact_bundle_phase7_policy_dispute",
+    "run_id": "run_phase7_policy_dispute",
+    "retention_class": "phase_gate_evidence",
+    "privacy_classifications": [
+      "public_test_metadata",
+      "redacted_local_log",
+      "stack_health",
+      "fixture_version"
+    ],
+    "redaction_summary": {
+      "policy": "secret_free_refs_only",
+      "redacted_fields": [
+        "headers.authorization",
+        "payload.private"
+      ],
+      "scanner_passed": true
+    },
+    "redacted_log_refs": [
+      "artifact:logs:phase7_policy_dispute_redacted"
+    ],
+    "overwatch_export_refs": [
+      "artifact:overwatch:phase7_policy_dispute"
+    ],
+    "cli_output_refs": [
+      "artifact:cli_output:phase7_policy_dispute"
+    ],
+    "api_payload_envelope_refs": [
+      "artifact:api_envelope:phase7_policy_dispute"
+    ],
+    "stack_health_refs": [
+      "artifact:health:local_stack"
+    ],
+    "fixture_version_refs": [
+      "artifact:fixture_version:phase7_policy_dispute"
+    ],
+    "reproduction_command": "overrid test scenario scenario_phase7_policy_dispute_trace --profile local --json",
+    "artifact_refs": [
+      "artifact:logs:phase7_policy_dispute",
+      "artifact:health:local_stack"
+    ],
+    "contains_raw_secret": false,
+    "contains_private_key": false,
+    "contains_token": false,
+    "contains_signature": false,
+    "contains_encrypted_rag_content": false,
+    "contains_private_payload": false,
+    "contains_fixture_key_material": false
+  }
+}

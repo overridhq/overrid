@@ -106,6 +106,33 @@
       "Local helper actions are limited to stack lifecycle, seed verification, artifact lookup, event export, and diagnostic checks."
     ]
   },
+  "integration_harness_phase7": {
+    "schema_family": "integration-harness",
+    "schema_version": "integration-harness.v0.1",
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase7_exact_protocol.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase7_execution_dag.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase7_policy_dispute.valid.json",
+        "packages/schemas/overrid_contracts/fixtures/valid/integration_harness_phase7_accounting_ledger.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_edge.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_missing_event.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_extra_state_event.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_reordered_exact.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/golden_trace_forbidden_transition.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Golden trace assertions must check exact Phase 0/1 protocol event order, partially ordered DAG edges, forbidden transitions, schema versions, and stable reason-code vocabulary.",
+      "Execution-loop traces must cover queue, scheduler, lease, runner, result, retry, cancellation, timeout, dead-letter, usage, and audit nodes through local fixture refs only.",
+      "Policy, verification, dispute, usage, ledger, and receipt traces must remain secret-free and expose authorized refs without direct service, storage, ledger, payment, or pricing assumptions."
+    ]
+  },
   "phase3_contracts": [
     "environment_class",
     "cli_profile",

@@ -2,10 +2,15 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use overrid_contracts::{
-    ArtifactRetentionClass, HarnessRunStatus, TestRunRecord,
+    ArtifactRetentionClass, HarnessContractError, HarnessRunStatus, TestRunRecord,
     SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
 };
 
+use crate::assertions::{
+    accounting_ledger_dag_trace_contract, assert_golden_trace, execution_loop_dag_trace_contract,
+    phase01_protocol_trace_contract, policy_dispute_dag_trace_contract, GoldenTraceAssertion,
+    ObservedTrace, ObservedTraceEvent,
+};
 use crate::artifacts::{ArtifactLocator, ArtifactSummary};
 use crate::fixtures::{sanitize_identifier, stable_short_token, DEFAULT_FIXTURE_SEED};
 use crate::local_stack::{
@@ -685,6 +690,36 @@ impl HarnessRunner {
             }
             step_results = step_report.step_results;
             assertion_refs = step_report.assertion_refs;
+            if report.status == HarnessRunStatus::Passed {
+                match phase7_golden_trace_assertions(&scenario) {
+                    Ok(phase7_assertions) => {
+                        for phase7_assertion in phase7_assertions {
+                            if phase7_assertion.assertion.status != HarnessRunStatus::Passed {
+                                report.status = HarnessRunStatus::Failed;
+                                report.reason_code = phase7_assertion.assertion.reason_code.clone();
+                                report.reason_class = "assertion".to_owned();
+                                report.message =
+                                    "scenario golden trace assertion failed".to_owned();
+                                report.artifacts = vec![
+                                    ArtifactLocator::new(&self.options.artifact_root).lookup(
+                                        &context.run_id,
+                                        ArtifactRetentionClass::FailureEvidence,
+                                    ),
+                                ];
+                            }
+                            assertion_refs.push(phase7_assertion.assertion.assertion_id);
+                        }
+                    }
+                    Err(_) => {
+                        report.status = HarnessRunStatus::Failed;
+                        report.reason_code = "golden_trace.contract_invalid".to_owned();
+                        report.reason_class = "assertion".to_owned();
+                        report.message = "scenario golden trace contract did not validate".to_owned();
+                        report.artifacts = vec![ArtifactLocator::new(&self.options.artifact_root)
+                            .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence)];
+                    }
+                }
+            }
         }
 
         let _ = context.test_run_record(report.status);
@@ -848,6 +883,75 @@ impl HarnessRunner {
     fn local_profile_allowed(&self) -> bool {
         self.options.test_harness_profile || is_local_test_profile(&self.options.profile)
     }
+}
+
+fn phase7_golden_trace_assertions(
+    scenario: &ScenarioManifestRef,
+) -> Result<Vec<GoldenTraceAssertion>, HarnessContractError> {
+    let scenario_id = scenario.scenario_id.as_str();
+    let (assertion_id, trace, observed) = match scenario_id {
+        "scenario_phase7_exact_protocol_trace" => {
+            let (trace, _) = phase01_protocol_trace_contract(scenario_id)?;
+            (
+                "assertion_phase7_exact_protocol_trace",
+                trace.clone(),
+                observed_trace_from_template(&trace, "phase01.protocol", false),
+            )
+        }
+        "scenario_phase7_execution_dag_trace" => {
+            let trace = execution_loop_dag_trace_contract()?;
+            (
+                "assertion_phase7_execution_dag_trace",
+                trace.clone(),
+                observed_trace_from_template(&trace, "execution.loop", true),
+            )
+        }
+        "scenario_phase7_policy_dispute_trace" => {
+            let trace = policy_dispute_dag_trace_contract()?;
+            (
+                "assertion_phase7_policy_dispute_trace",
+                trace.clone(),
+                observed_trace_from_template(&trace, "policy.dispute", true),
+            )
+        }
+        "scenario_phase7_accounting_ledger_trace" => {
+            let trace = accounting_ledger_dag_trace_contract()?;
+            (
+                "assertion_phase7_accounting_ledger_trace",
+                trace.clone(),
+                observed_trace_from_template(&trace, "accounting.ledger", true),
+            )
+        }
+        _ => return Ok(Vec::new()),
+    };
+
+    Ok(vec![assert_golden_trace(
+        assertion_id,
+        scenario_id,
+        &trace,
+        &observed,
+    )?])
+}
+
+fn observed_trace_from_template(
+    trace: &overrid_contracts::GoldenTrace,
+    event_kind: &str,
+    include_diagnostic_extra: bool,
+) -> ObservedTrace {
+    let mut events = trace
+        .required_nodes
+        .iter()
+        .zip(trace.stable_reason_codes.iter())
+        .map(|(node, reason)| ObservedTraceEvent::new(node, event_kind, reason))
+        .collect::<Vec<_>>();
+    if include_diagnostic_extra {
+        events.push(ObservedTraceEvent::diagnostic(
+            "event_phase7_diagnostic_extra",
+            "diagnostic.extra",
+            "diagnostic.extra",
+        ));
+    }
+    ObservedTrace::new(events, trace.required_causal_edges.clone())
 }
 
 fn local_stack_lifecycle(report: &LocalStackReport) -> Vec<HarnessLifecycleState> {
@@ -1409,6 +1513,38 @@ mod tests {
             .artifacts
             .iter()
             .any(|artifact| artifact.retention_class == ArtifactRetentionClass::FailureEvidence));
+    }
+
+    #[test]
+    fn phase7_scenarios_emit_golden_trace_assertion_refs() {
+        for (scenario_id, assertion_id) in [
+            (
+                "scenario_phase7_exact_protocol_trace",
+                "assertion_phase7_exact_protocol_trace",
+            ),
+            (
+                "scenario_phase7_execution_dag_trace",
+                "assertion_phase7_execution_dag_trace",
+            ),
+            (
+                "scenario_phase7_policy_dispute_trace",
+                "assertion_phase7_policy_dispute_trace",
+            ),
+            (
+                "scenario_phase7_accounting_ledger_trace",
+                "assertion_phase7_accounting_ledger_trace",
+            ),
+        ] {
+            let output = runner().run(HarnessCliCommand::Scenario {
+                name: scenario_id.to_owned(),
+            });
+            assert_eq!(output.status, HarnessRunStatus::Passed, "{scenario_id}");
+            assert_eq!(output.reason_code, "run.passed", "{scenario_id}");
+            assert!(output
+                .assertion_refs
+                .contains(&assertion_id.to_owned()), "{scenario_id}");
+            assert!(output.lifecycle.contains(&HarnessLifecycleState::Asserting));
+        }
     }
 
     #[test]
