@@ -776,7 +776,7 @@ fn release_readiness_result(globals: &GlobalOptions) -> CliRunResult {
             "release_readiness: ready",
             "contract_snapshots: schema_contracts output_envelope exit_code_registry help_text json_output human_output error_decode_records",
             "security_review: secret_free no_raw_keys no_tokens no_signatures no_private_payloads",
-            "phase_availability: available_through_phase_10 phase_7_or_phase_13_handoff_denied",
+            "phase_availability: available_through_phase_10 phase_10_federation_handoff_denied phase_7_or_phase_13_handoff_denied",
             "integration_matrix: tenant identity key manifest workload policy package usage receipt cancellation timeout retry product_workflows",
             "handoff: high_risk_phase7_phase13_operations_disabled",
         ]
@@ -1156,6 +1156,7 @@ fn render_help(all_phases: bool) -> String {
             "".to_owned(),
             "phase-gated commands:".to_owned(),
             "  deployment helpers                       phase_9".to_owned(),
+            "  federation|public-interest|purpose-tag   phase_10".to_owned(),
             "  governance|incident|compliance|migration phase_7_or_phase_13".to_owned(),
         ]);
     }
@@ -3742,6 +3743,9 @@ mod tests {
         assert!(result.stdout.contains("deployment helpers"));
         assert!(result
             .stdout
+            .contains("federation|public-interest|purpose-tag"));
+        assert!(result
+            .stdout
             .contains("governance|incident|compliance|migration"));
     }
 
@@ -3774,6 +3778,9 @@ mod tests {
         assert!(result
             .stdout
             .contains("\"stable_reason_code\":\"not_available_in_phase\""));
+        assert!(result
+            .stdout
+            .contains("federation/public-interest/purpose-tag"));
         assert!(result
             .stdout
             .contains("governance/incident/compliance/migration"));

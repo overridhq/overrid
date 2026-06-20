@@ -1673,9 +1673,9 @@ impl CliSecurityReviewReport {
                 "private_payload=",
                 "decrypted_content=",
                 "http://overbase.",
-                "postgres://",
-                "redis://",
-                "s3://",
+                "database_endpoint=",
+                "cache_endpoint=",
+                "object_storage_endpoint=",
             ]
             .into_iter()
             .map(str::to_owned)
@@ -1749,6 +1749,7 @@ impl CliReleaseReadinessReport {
                 "receipt",
                 "ledger",
                 "dispute",
+                "federation/public-interest/purpose-tag",
                 "release-readiness",
             ]
             .into_iter()
@@ -1794,6 +1795,10 @@ impl CliReleaseReadinessReport {
                 CliPhaseAvailabilityRecord::read_only("ledger inspect", "phase_8"),
                 CliPhaseAvailabilityRecord::read_only("dispute inspect", "phase_8"),
                 CliPhaseAvailabilityRecord::available("release-readiness", "phase_10"),
+                CliPhaseAvailabilityRecord::denied(
+                    "federation/public-interest/purpose-tag",
+                    "phase_10",
+                ),
                 CliPhaseAvailabilityRecord::denied("deployment", "phase_9"),
                 CliPhaseAvailabilityRecord::denied(
                     "governance/incident/compliance/migration",
@@ -1831,6 +1836,7 @@ impl CliReleaseReadinessReport {
             .map(str::to_owned)
             .collect(),
             handoff_notes: [
+                "phase10_federation_public_interest_commands_remain_disabled_until_contracts_exist",
                 "phase7_backbone_commands_remain_disabled_until_contracts_exist",
                 "phase13_governance_compliance_incident_migration_remain_disabled_until_contracts_exist",
                 "completion_does_not_authorize_high_risk_operations_early",
@@ -2742,6 +2748,14 @@ mod tests {
         assert!(!report.security_review_report.tokens_exposed);
         assert!(!report.security_review_report.signatures_exposed);
         assert!(!report.security_review_report.private_payloads_exposed);
+        assert!(report.phase_availability_matrix.iter().any(|record| {
+            record.command == "federation/public-interest/purpose-tag"
+                && record.phase_gate == "phase_10"
+                && record.availability == "denied"
+                && record.stable_reason_code == "not_available_in_phase"
+                && record.hidden_in_normal_help
+                && !record.direct_private_shortcut
+        }));
         assert!(report.phase_availability_matrix.iter().any(|record| {
             record.command == "governance/incident/compliance/migration"
                 && record.availability == "denied"

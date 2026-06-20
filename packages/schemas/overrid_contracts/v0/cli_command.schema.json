@@ -1673,7 +1673,7 @@
     },
     "cli_phase_availability_matrix": {
       "type": "array",
-      "minItems": 20,
+      "minItems": 21,
       "items": {
         "$ref": "#/$defs/cli_phase_availability_record"
       }
@@ -1774,7 +1774,7 @@
         },
         "help_snapshot_commands": {
           "type": "array",
-          "minItems": 18,
+          "minItems": 19,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/non_empty_string"
@@ -1820,7 +1820,7 @@
         },
         "handoff_notes": {
           "type": "array",
-          "minItems": 3,
+          "minItems": 4,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/non_empty_string"

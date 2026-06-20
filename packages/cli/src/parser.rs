@@ -391,6 +391,7 @@ impl IdempotencyCacheCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlannedCommand {
     Package,
+    FederationPublicInterest,
     Governance,
     ReleaseReadiness,
 }
@@ -399,6 +400,7 @@ impl PlannedCommand {
     pub fn command_name(self) -> &'static str {
         match self {
             PlannedCommand::Package => "deployment",
+            PlannedCommand::FederationPublicInterest => "federation/public-interest/purpose-tag",
             PlannedCommand::Governance => "governance/incident/compliance",
             PlannedCommand::ReleaseReadiness => "release-readiness",
         }
@@ -407,6 +409,7 @@ impl PlannedCommand {
     pub fn phase_gate(self) -> &'static str {
         match self {
             PlannedCommand::Package => "phase_9",
+            PlannedCommand::FederationPublicInterest => "phase_10",
             PlannedCommand::Governance => "phase_7_or_phase_13",
             PlannedCommand::ReleaseReadiness => "phase_10",
         }
@@ -623,6 +626,14 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
             Ok(Command::Planned(PlannedCommand::ReleaseReadiness))
         }
         "deploy" | "deployment" => Ok(Command::Planned(PlannedCommand::Package)),
+        "federation"
+        | "federation-template"
+        | "federation-template-service"
+        | "public-interest"
+        | "public-interest-pool"
+        | "purpose-tag"
+        | "purpose-tags"
+        | "purpose-tag-registry" => Ok(Command::Planned(PlannedCommand::FederationPublicInterest)),
         "governance" | "incident" | "compliance" | "migration" => {
             Ok(Command::Planned(PlannedCommand::Governance))
         }
@@ -819,6 +830,24 @@ mod tests {
     fn maps_phase7_node_command() {
         let parsed = parse_cli(["overrid", "node", "register"]).unwrap();
         assert_eq!(parsed.command, Command::Node(NodeCommand::Register));
+    }
+
+    #[test]
+    fn maps_phase10_federation_public_interest_commands() {
+        for command in [
+            "federation",
+            "federation-template",
+            "public-interest",
+            "public-interest-pool",
+            "purpose-tag",
+            "purpose-tag-registry",
+        ] {
+            let parsed = parse_cli(["overrid", command]).unwrap();
+            assert_eq!(
+                parsed.command,
+                Command::Planned(PlannedCommand::FederationPublicInterest)
+            );
+        }
     }
 
     #[test]

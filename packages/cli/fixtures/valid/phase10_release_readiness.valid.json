@@ -33,6 +33,7 @@
     "receipt",
     "ledger",
     "dispute",
+    "federation/public-interest/purpose-tag",
     "release-readiness"
   ],
   "exit_code_classes": [
@@ -92,9 +93,9 @@
       "private_payload=",
       "decrypted_content=",
       "http://overbase.",
-      "postgres://",
-      "redis://",
-      "s3://"
+      "database_endpoint=",
+      "cache_endpoint=",
+      "object_storage_endpoint="
     ],
     "raw_keys_exposed": false,
     "tokens_exposed": false,
@@ -251,6 +252,14 @@
       "direct_private_shortcut": false
     },
     {
+      "command": "federation/public-interest/purpose-tag",
+      "phase_gate": "phase_10",
+      "availability": "denied",
+      "stable_reason_code": "not_available_in_phase",
+      "hidden_in_normal_help": true,
+      "direct_private_shortcut": false
+    },
+    {
       "command": "deployment",
       "phase_gate": "phase_9",
       "availability": "denied",
@@ -292,6 +301,7 @@
     "ci_non_interactive_credentials"
   ],
   "handoff_notes": [
+    "phase10_federation_public_interest_commands_remain_disabled_until_contracts_exist",
     "phase7_backbone_commands_remain_disabled_until_contracts_exist",
     "phase13_governance_compliance_incident_migration_remain_disabled_until_contracts_exist",
     "completion_does_not_authorize_high_risk_operations_early"

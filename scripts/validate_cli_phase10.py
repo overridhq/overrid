@@ -57,6 +57,7 @@ HELP_COMMANDS = {
     "receipt",
     "ledger",
     "dispute",
+    "federation/public-interest/purpose-tag",
     "release-readiness",
 }
 EXIT_CLASSES = {
@@ -121,6 +122,7 @@ SECURITY_FALSE_FLAGS = {
     "cross_tenant_access_allowed",
 }
 DENIED_HANDOFF_COMMANDS = {
+    "federation/public-interest/purpose-tag": "phase_10",
     "deployment": "phase_9",
     "governance/incident/compliance/migration": "phase_7_or_phase_13",
 }
@@ -266,7 +268,7 @@ def validate_schema_and_manifest() -> None:
     availability = defs["cli_phase_availability_record"]["properties"]
     if availability["direct_private_shortcut"].get("const") is not False:
         raise AssertionError("cli_phase_availability_record must forbid private shortcuts")
-    if defs["cli_phase_availability_matrix"].get("minItems", 0) < 20:
+    if defs["cli_phase_availability_matrix"].get("minItems", 0) < 21:
         raise AssertionError("cli_phase_availability_matrix must cover the full command matrix")
 
     release = defs["cli_release_readiness_report"]["properties"]
@@ -421,6 +423,7 @@ def validate_cli_outputs() -> None:
     for expected in [
         "release_readiness: ready",
         "security_review: secret_free",
+        "phase_10_federation_handoff_denied",
         "phase_7_or_phase_13_handoff_denied",
         "high_risk_phase7_phase13_operations_disabled",
     ]:
@@ -434,11 +437,30 @@ def validate_cli_outputs() -> None:
         raise AssertionError("normal help must not show Phase 7/13 handoff commands")
 
     all_help = run_capture(["cargo", "run", "-q", "-p", "overrid-cli", "--", "help", "--all-phases"])
-    for expected in ["deployment helpers", "governance|incident|compliance|migration"]:
+    for expected in [
+        "deployment helpers",
+        "federation|public-interest|purpose-tag",
+        "governance|incident|compliance|migration",
+    ]:
         if expected not in all_help:
             raise AssertionError(f"all-phases help is missing {expected}")
 
     for args, command_name, phase_gate in [
+        (
+            ["federation", "--json"],
+            "federation/public-interest/purpose-tag",
+            "phase_10",
+        ),
+        (
+            ["public-interest", "--json"],
+            "federation/public-interest/purpose-tag",
+            "phase_10",
+        ),
+        (
+            ["purpose-tag", "--json"],
+            "federation/public-interest/purpose-tag",
+            "phase_10",
+        ),
         (["deployment", "--json"], "deployment", "phase_9"),
         (["governance", "--json"], "governance/incident/compliance", "phase_7_or_phase_13"),
         (["incident", "--json"], "governance/incident/compliance", "phase_7_or_phase_13"),

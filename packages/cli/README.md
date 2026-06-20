@@ -62,3 +62,7 @@ compatibility, and Phase 7/13 handoff evidence through the same stable output
 envelope. It does not enable deployment, governance, compliance, incident,
 break-glass, migration, or backbone operations early; those routes remain
 denied with `not_available_in_phase` until owning contracts exist.
+Master Phase 10 federation, public-interest pool, and purpose-tag command
+families are also documented as fail-closed planned routes until their owning
+Federation Template Service, Public-Interest Pool Service, Purpose Tag Registry,
+Overgrant, accounting, policy, and dispute contracts exist.

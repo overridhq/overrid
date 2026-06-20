@@ -194,6 +194,11 @@ def validate_contracts() -> None:
         "product_workflow_recipe",
         "ci_automation_profile",
     }
+    expected_phase10_extensions = {
+        "cli_security_review_report",
+        "cli_phase_availability_matrix",
+        "cli_release_readiness_report",
+    }
     actual_contracts = set(schema["properties"]["contracts"]["items"]["enum"])
     missing_phase2_contracts = expected_phase2_contracts - actual_contracts
     if missing_phase2_contracts:
@@ -209,6 +214,7 @@ def validate_contracts() -> None:
         | expected_phase7_extensions
         | expected_phase8_extensions
         | expected_phase9_extensions
+        | expected_phase10_extensions
     )
     unexpected_contracts = actual_contracts - allowed_contracts
     if unexpected_contracts:
