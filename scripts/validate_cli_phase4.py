@@ -250,7 +250,14 @@ def validate_rust_phase4_surface() -> None:
         assert_contains(contracts, expected, CONTRACTS / "src/lib.rs")
 
     parser = read(CLI / "src/parser.rs")
-    for expected in ["Doctor", '"doctor"', "PlannedCommand::Policy"]:
+    for expected in [
+        "Doctor",
+        '"doctor"',
+        "PolicyCommand",
+        "PackageCommand",
+        "UsageCommand",
+        "PlannedCommand::Package",
+    ]:
         assert_contains(parser, expected, CLI / "src/parser.rs")
 
     runner = read(CLI / "src/runner.rs")
@@ -348,12 +355,12 @@ def validate_cli_behavior() -> None:
     if not credential["result"]["signature_ref"].startswith("sigref:"):
         raise AssertionError("credential enroll must retain signer handoff refs")
 
-    phase_gated = run_cli(["policy", "dry-run", "--json"], expected_exit=7)
+    phase_gated = run_cli(["deployment", "--json"], expected_exit=7)
     validate_envelope(phase_gated, ok=False, exit_class="phase")
     if phase_gated["error"]["reason_code"] != "not_available_in_phase":
-        raise AssertionError("phase-gated policy command must return not_available_in_phase")
+        raise AssertionError("phase-gated deployment command must return not_available_in_phase")
     if phase_gated["capabilities"]["fail_closed"] is not True:
-        raise AssertionError("phase-gated policy command must fail closed")
+        raise AssertionError("phase-gated deployment command must fail closed")
     routes = phase_gated["capabilities"]["routes"]
     if not routes or routes[0]["available"] is not False:
         raise AssertionError("phase-gated route must be marked unavailable")

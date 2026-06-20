@@ -183,6 +183,13 @@ def validate_contracts() -> None:
         "polling_plan",
         "execution_diagnostic_event",
     }
+    expected_phase8_extensions = {
+        "policy_dry_run_decision",
+        "package_validation_summary",
+        "usage_oru_rollup",
+        "receipt_ledger_read",
+        "dispute_read_model",
+    }
     actual_contracts = set(schema["properties"]["contracts"]["items"]["enum"])
     missing_phase2_contracts = expected_phase2_contracts - actual_contracts
     if missing_phase2_contracts:
@@ -196,6 +203,7 @@ def validate_contracts() -> None:
         | expected_phase5_extensions
         | expected_phase6_extensions
         | expected_phase7_extensions
+        | expected_phase8_extensions
     )
     unexpected_contracts = actual_contracts - allowed_contracts
     if unexpected_contracts:
@@ -262,7 +270,11 @@ def validate_cli_runtime_boundary() -> None:
         "--output",
         "ConflictingOutputMode",
         "set_output_mode",
-        "PlannedCommand::Node",
+        "NodeCommand",
+        "PolicyCommand",
+        "PackageCommand",
+        "UsageCommand",
+        "PlannedCommand::Package",
     ]:
         assert_contains(parser, expected, CLI / "src/parser.rs")
 

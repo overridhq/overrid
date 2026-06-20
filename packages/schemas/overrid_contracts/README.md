@@ -1,7 +1,8 @@
 # Overrid Contract Schemas
 
 This package contains the Phase 2 through Phase 5 CLI contract source plus
-Phase 6 hardening contracts, Phase 7 execution contracts, and the Rust
+Phase 6 hardening contracts, Phase 7 execution contracts, Phase 8
+policy/package/accounting read contracts, and the Rust
 projection for `SUB BUILD PLAN #2 - CLI`.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
@@ -39,3 +40,11 @@ Phase 7 seed private swarm and execution contracts define `node_status_record`,
 These keep node and workload execution CLI output on authorized refs with
 profile-scoped credential checks, bounded streaming/polling, trace-linked
 diagnostics, and no direct node, queue, runner, or object-store paths.
+
+Phase 8 policy, package, usage, receipt, ledger, and dispute contracts define
+`policy_dry_run_decision`, `package_validation_summary`, `usage_oru_rollup`,
+`receipt_ledger_read`, and `dispute_read_model`. These keep policy/package
+validation and accounting reads on SDK/Overgate contracts, expose only
+authorized refs, forbid direct meter/ledger/dispute/package/policy access, and
+exclude pricing, revenue, customer-count, market-volume, blockchain, and NFT
+assumptions.

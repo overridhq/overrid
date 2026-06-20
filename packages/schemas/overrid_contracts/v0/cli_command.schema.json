@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/cli_command.schema.json",
   "title": "Overrid CLI Command Contracts",
-  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, Phase 1 bootstrap, seed private swarm node, and real workload execution command shapes defined by SUB BUILD PLAN #2 Phases 2 through 7.",
+  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, Phase 1 bootstrap, seed private swarm node, real workload execution, and Phase 8 policy/package/accounting read command shapes defined by SUB BUILD PLAN #2 Phases 2 through 8.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     },
     "contracts": {
       "type": "array",
-      "minItems": 32,
+      "minItems": 37,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -54,7 +54,12 @@
           "execution_log_bundle",
           "execution_result_ref",
           "polling_plan",
-          "execution_diagnostic_event"
+          "execution_diagnostic_event",
+          "policy_dry_run_decision",
+          "package_validation_summary",
+          "usage_oru_rollup",
+          "receipt_ledger_read",
+          "dispute_read_model"
         ]
       }
     }
@@ -937,7 +942,14 @@
         "identity",
         "key",
         "manifest",
-        "workload"
+        "workload",
+        "node",
+        "policy",
+        "package",
+        "usage",
+        "receipt",
+        "ledger",
+        "dispute"
       ]
     },
     "phase1_bootstrap_command": {
@@ -1119,6 +1131,332 @@
         }
       }
     },
+    "policy_dry_run_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_ref",
+        "decision",
+        "reason_codes",
+        "workload_class",
+        "data_sensitivity",
+        "quota_ref",
+        "package_trust_ref",
+        "egress_policy_ref",
+        "provider_eligibility_ref",
+        "budget_ref",
+        "evaluated_via",
+        "mutates_platform_state",
+        "direct_policy_service_access"
+      ],
+      "properties": {
+        "target_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "decision": {
+          "enum": [
+            "accepted",
+            "denied"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "workload_class": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "data_sensitivity": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "quota_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "package_trust_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "egress_policy_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "provider_eligibility_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "budget_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "evaluated_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "mutates_platform_state": {
+          "const": false
+        },
+        "direct_policy_service_access": {
+          "const": false
+        }
+      }
+    },
+    "package_validation_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_ref",
+        "validation_state",
+        "reason_codes",
+        "schema_checked",
+        "signature_checked",
+        "hash_checked",
+        "dependency_checked",
+        "permission_checked",
+        "provenance_available",
+        "sbom_ref",
+        "policy_compatibility_checked",
+        "submitted_via",
+        "direct_package_store_access"
+      ],
+      "properties": {
+        "package_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "validation_state": {
+          "enum": [
+            "accepted",
+            "invalid_package",
+            "unsupported_version",
+            "missing_provenance",
+            "policy_incompatible"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "schema_checked": {
+          "const": true
+        },
+        "signature_checked": {
+          "const": true
+        },
+        "hash_checked": {
+          "const": true
+        },
+        "dependency_checked": {
+          "const": true
+        },
+        "permission_checked": {
+          "const": true
+        },
+        "provenance_available": {
+          "type": "boolean"
+        },
+        "sbom_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "policy_compatibility_checked": {
+          "const": true
+        },
+        "submitted_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "direct_package_store_access": {
+          "const": false
+        }
+      }
+    },
+    "usage_oru_rollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_ref",
+        "usage_ref",
+        "units",
+        "budget_state",
+        "disputed_usage",
+        "read_via",
+        "payment_behavior_created",
+        "direct_meter_access"
+      ],
+      "properties": {
+        "tenant_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "usage_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "units": {
+          "type": "array",
+          "contains": {
+            "const": "CPU-ORU"
+          },
+          "minItems": 6,
+          "items": {
+            "enum": [
+              "CPU-ORU",
+              "GPU-ORU",
+              "STOR-ORU",
+              "NET-ORU",
+              "MEM-ORU",
+              "DATA-ORU"
+            ]
+          }
+        },
+        "budget_state": {
+          "enum": [
+            "within_budget",
+            "budget_exhausted"
+          ]
+        },
+        "disputed_usage": {
+          "type": "boolean"
+        },
+        "read_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "payment_behavior_created": {
+          "const": false
+        },
+        "direct_meter_access": {
+          "const": false
+        }
+      }
+    },
+    "receipt_ledger_read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_ref",
+        "ledger_refs",
+        "invoice_status",
+        "refund_ref",
+        "correction_ref",
+        "payout_hold_ref",
+        "audit_refs",
+        "read_via",
+        "pricing_assumptions_present",
+        "revenue_assumptions_present",
+        "customer_count_assumptions_present",
+        "market_volume_assumptions_present",
+        "direct_ledger_access"
+      ],
+      "properties": {
+        "receipt_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "ledger_refs": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "invoice_status": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "refund_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "correction_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "payout_hold_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "read_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "pricing_assumptions_present": {
+          "const": false
+        },
+        "revenue_assumptions_present": {
+          "const": false
+        },
+        "customer_count_assumptions_present": {
+          "const": false
+        },
+        "market_volume_assumptions_present": {
+          "const": false
+        },
+        "direct_ledger_access": {
+          "const": false
+        }
+      }
+    },
+    "dispute_read_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dispute_ref",
+        "case_refs",
+        "evidence_refs",
+        "hold_status",
+        "correction_refs",
+        "resolution_state",
+        "tenant_role_filtered",
+        "read_via",
+        "direct_dispute_mutation",
+        "direct_ledger_mutation"
+      ],
+      "properties": {
+        "dispute_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "case_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "hold_status": {
+          "enum": [
+            "held",
+            "released"
+          ]
+        },
+        "correction_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "resolution_state": {
+          "enum": [
+            "open",
+            "resolved"
+          ]
+        },
+        "tenant_role_filtered": {
+          "const": true
+        },
+        "read_via": {
+          "const": "sdk_overgate_contract"
+        },
+        "direct_dispute_mutation": {
+          "const": false
+        },
+        "direct_ledger_mutation": {
+          "const": false
+        }
+      }
+    },
     "output_envelope": {
       "type": "object",
       "additionalProperties": false,
@@ -1287,7 +1625,12 @@
         "execution_log_bundle",
         "execution_result_ref",
         "polling_plan",
-        "execution_diagnostic_event"
+        "execution_diagnostic_event",
+        "policy_dry_run_decision",
+        "package_validation_summary",
+        "usage_oru_rollup",
+        "receipt_ledger_read",
+        "dispute_read_model"
       ]
     }
   ]

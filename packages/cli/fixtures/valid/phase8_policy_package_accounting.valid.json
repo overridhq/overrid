@@ -1,0 +1,70 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "phase": "cli_phase_08",
+  "policy_targets": {
+    "policy_accept": "accepted",
+    "policy_denied_egress": "policy.egress_denied",
+    "policy_wrong_tenant": "policy.wrong_tenant",
+    "policy_insufficient_trust": "policy.insufficient_trust",
+    "policy_quota_exhausted": "policy.quota_exhausted",
+    "policy_unsupported_workload": "policy.unsupported_workload_class"
+  },
+  "package_targets": {
+    "package_accept": "accepted",
+    "package_invalid": "package.invalid",
+    "package_unsupported_version": "package.unsupported_version",
+    "package_missing_provenance": "package.missing_provenance",
+    "package_policy_incompatible": "package.policy_incompatible"
+  },
+  "usage_units": [
+    "CPU-ORU",
+    "GPU-ORU",
+    "STOR-ORU",
+    "NET-ORU",
+    "MEM-ORU",
+    "DATA-ORU"
+  ],
+  "usage_targets": {
+    "usage_within_budget": {
+      "budget_state": "within_budget",
+      "disputed_usage": false
+    },
+    "usage_budget_exhausted": {
+      "budget_state": "budget_exhausted",
+      "disputed_usage": false
+    },
+    "usage_disputed": {
+      "budget_state": "within_budget",
+      "disputed_usage": true
+    }
+  },
+  "receipt_required_refs": [
+    "seal-ledger:entry",
+    "overbill:receipt",
+    "overbill:refund",
+    "seal-ledger:correction",
+    "seal-ledger:payout-hold",
+    "overwatch:audit"
+  ],
+  "dispute_required_refs": [
+    "overclaim:case",
+    "overclaim:evidence",
+    "seal-ledger:correction"
+  ],
+  "guardrails": {
+    "evaluated_via": "sdk_overgate_contract",
+    "read_via": "sdk_overgate_contract",
+    "mutates_platform_state": false,
+    "direct_policy_service_access": false,
+    "direct_package_store_access": false,
+    "direct_meter_access": false,
+    "direct_ledger_access": false,
+    "direct_dispute_mutation": false,
+    "direct_ledger_mutation": false,
+    "payment_behavior_created": false,
+    "pricing_assumptions_present": false,
+    "revenue_assumptions_present": false,
+    "customer_count_assumptions_present": false,
+    "market_volume_assumptions_present": false
+  }
+}

@@ -648,6 +648,12 @@ pub enum BootstrapCommandFamily {
     Manifest,
     Workload,
     Node,
+    Policy,
+    Package,
+    Usage,
+    Receipt,
+    Ledger,
+    Dispute,
 }
 
 impl BootstrapCommandFamily {
@@ -660,12 +666,23 @@ impl BootstrapCommandFamily {
             Self::Manifest => "manifest",
             Self::Workload => "workload",
             Self::Node => "node",
+            Self::Policy => "policy",
+            Self::Package => "package",
+            Self::Usage => "usage",
+            Self::Receipt => "receipt",
+            Self::Ledger => "ledger",
+            Self::Dispute => "dispute",
         }
     }
 
     pub fn phase_gate(self) -> &'static str {
         match self {
             Self::Node => "phase_2_seed_private_swarm",
+            Self::Policy => "phase_4_trust_policy_verification",
+            Self::Package => "phase_9_overpack_deployment_platform",
+            Self::Usage | Self::Receipt | Self::Ledger | Self::Dispute => {
+                "phase_5_metering_accounting"
+            }
             _ => "phase_1_control_plane_bootstrap",
         }
     }
@@ -1081,6 +1098,256 @@ impl PollingPlan {
             event_stream_preferred: true,
             fallback_polling: true,
             interruptible: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyDryRunDecisionState {
+    Accepted,
+    Denied,
+}
+
+impl PolicyDryRunDecisionState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Denied => "denied",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PolicyDryRunDecision {
+    pub target_ref: String,
+    pub decision: PolicyDryRunDecisionState,
+    pub reason_codes: Vec<String>,
+    pub workload_class: String,
+    pub data_sensitivity: String,
+    pub quota_ref: String,
+    pub package_trust_ref: String,
+    pub egress_policy_ref: String,
+    pub provider_eligibility_ref: String,
+    pub budget_ref: String,
+    pub evaluated_via: String,
+    pub mutates_platform_state: bool,
+    pub direct_policy_service_access: bool,
+}
+
+impl PolicyDryRunDecision {
+    pub fn new(target_ref: impl Into<String>, reason_codes: Vec<String>) -> Self {
+        let target_ref = target_ref.into();
+        let decision = if reason_codes.is_empty() {
+            PolicyDryRunDecisionState::Accepted
+        } else {
+            PolicyDryRunDecisionState::Denied
+        };
+        Self {
+            quota_ref: format!("overmeter:quota:{target_ref}"),
+            package_trust_ref: format!("overguard:package_trust:{target_ref}"),
+            egress_policy_ref: format!("overguard:egress:{target_ref}"),
+            provider_eligibility_ref: format!("overguard:provider:{target_ref}"),
+            budget_ref: format!("oru:budget:{target_ref}"),
+            target_ref,
+            decision,
+            reason_codes,
+            workload_class: "standard_compute".to_owned(),
+            data_sensitivity: "low_sensitivity".to_owned(),
+            evaluated_via: "sdk_overgate_contract".to_owned(),
+            mutates_platform_state: false,
+            direct_policy_service_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageValidationState {
+    Accepted,
+    InvalidPackage,
+    UnsupportedVersion,
+    MissingProvenance,
+    PolicyIncompatible,
+}
+
+impl PackageValidationState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::InvalidPackage => "invalid_package",
+            Self::UnsupportedVersion => "unsupported_version",
+            Self::MissingProvenance => "missing_provenance",
+            Self::PolicyIncompatible => "policy_incompatible",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackageValidationSummary {
+    pub package_ref: String,
+    pub validation_state: PackageValidationState,
+    pub reason_codes: Vec<String>,
+    pub schema_checked: bool,
+    pub signature_checked: bool,
+    pub hash_checked: bool,
+    pub dependency_checked: bool,
+    pub permission_checked: bool,
+    pub provenance_available: bool,
+    pub sbom_ref: String,
+    pub policy_compatibility_checked: bool,
+    pub submitted_via: String,
+    pub direct_package_store_access: bool,
+}
+
+impl PackageValidationSummary {
+    pub fn new(
+        package_ref: impl Into<String>,
+        validation_state: PackageValidationState,
+        reason_codes: Vec<String>,
+    ) -> Self {
+        let package_ref = package_ref.into();
+        Self {
+            sbom_ref: format!("overpack:sbom:{package_ref}"),
+            package_ref,
+            validation_state,
+            reason_codes,
+            schema_checked: true,
+            signature_checked: true,
+            hash_checked: true,
+            dependency_checked: true,
+            permission_checked: true,
+            provenance_available: !matches!(
+                validation_state,
+                PackageValidationState::MissingProvenance
+            ),
+            policy_compatibility_checked: true,
+            submitted_via: "sdk_overgate_contract".to_owned(),
+            direct_package_store_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsageOruRollup {
+    pub tenant_ref: String,
+    pub usage_ref: String,
+    pub units: Vec<String>,
+    pub budget_state: String,
+    pub disputed_usage: bool,
+    pub read_via: String,
+    pub payment_behavior_created: bool,
+    pub direct_meter_access: bool,
+}
+
+impl UsageOruRollup {
+    pub fn new(tenant_ref: impl Into<String>, usage_ref: impl Into<String>) -> Self {
+        let usage_ref = usage_ref.into();
+        let normalized = usage_ref.to_ascii_lowercase();
+        Self {
+            tenant_ref: tenant_ref.into(),
+            usage_ref,
+            units: [
+                "CPU-ORU", "GPU-ORU", "STOR-ORU", "NET-ORU", "MEM-ORU", "DATA-ORU",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            budget_state: if normalized.contains("budget_exhausted") {
+                "budget_exhausted"
+            } else {
+                "within_budget"
+            }
+            .to_owned(),
+            disputed_usage: normalized.contains("disputed"),
+            read_via: "sdk_overgate_contract".to_owned(),
+            payment_behavior_created: false,
+            direct_meter_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReceiptLedgerRead {
+    pub receipt_ref: String,
+    pub ledger_refs: Vec<String>,
+    pub invoice_status: String,
+    pub refund_ref: String,
+    pub correction_ref: String,
+    pub payout_hold_ref: String,
+    pub audit_refs: Vec<String>,
+    pub read_via: String,
+    pub pricing_assumptions_present: bool,
+    pub revenue_assumptions_present: bool,
+    pub customer_count_assumptions_present: bool,
+    pub market_volume_assumptions_present: bool,
+    pub direct_ledger_access: bool,
+}
+
+impl ReceiptLedgerRead {
+    pub fn new(receipt_ref: impl Into<String>) -> Self {
+        let receipt_ref = receipt_ref.into();
+        Self {
+            ledger_refs: vec![
+                format!("seal-ledger:entry:{receipt_ref}"),
+                format!("overbill:receipt:{receipt_ref}"),
+            ],
+            refund_ref: format!("overbill:refund:{receipt_ref}"),
+            correction_ref: format!("seal-ledger:correction:{receipt_ref}"),
+            payout_hold_ref: format!("seal-ledger:payout-hold:{receipt_ref}"),
+            audit_refs: vec![format!("overwatch:audit:{receipt_ref}")],
+            receipt_ref,
+            invoice_status: "issued".to_owned(),
+            read_via: "sdk_overgate_contract".to_owned(),
+            pricing_assumptions_present: false,
+            revenue_assumptions_present: false,
+            customer_count_assumptions_present: false,
+            market_volume_assumptions_present: false,
+            direct_ledger_access: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisputeReadModel {
+    pub dispute_ref: String,
+    pub case_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub hold_status: String,
+    pub correction_refs: Vec<String>,
+    pub resolution_state: String,
+    pub tenant_role_filtered: bool,
+    pub read_via: String,
+    pub direct_dispute_mutation: bool,
+    pub direct_ledger_mutation: bool,
+}
+
+impl DisputeReadModel {
+    pub fn new(dispute_ref: impl Into<String>) -> Self {
+        let dispute_ref = dispute_ref.into();
+        let normalized = dispute_ref.to_ascii_lowercase();
+        Self {
+            case_refs: vec![
+                format!("overclaim:case:{dispute_ref}:primary"),
+                format!("overclaim:case:{dispute_ref}:appeal"),
+            ],
+            evidence_refs: vec![format!("overclaim:evidence:{dispute_ref}:bundle")],
+            hold_status: if normalized.contains("released") {
+                "released"
+            } else {
+                "held"
+            }
+            .to_owned(),
+            correction_refs: vec![format!("seal-ledger:correction:{dispute_ref}")],
+            resolution_state: if normalized.contains("resolved") {
+                "resolved"
+            } else {
+                "open"
+            }
+            .to_owned(),
+            dispute_ref,
+            tenant_role_filtered: true,
+            read_via: "sdk_overgate_contract".to_owned(),
+            direct_dispute_mutation: false,
+            direct_ledger_mutation: false,
         }
     }
 }

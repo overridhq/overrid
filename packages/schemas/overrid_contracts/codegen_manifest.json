@@ -16,6 +16,9 @@
     "phase7_valid": [
       "packages/cli/fixtures/valid/phase7_node_states.valid.json",
       "packages/cli/fixtures/valid/phase7_workload_execution_states.valid.json"
+    ],
+    "phase8_valid": [
+      "packages/cli/fixtures/valid/phase8_policy_package_accounting.valid.json"
     ]
   },
   "phase3_contracts": [
@@ -56,6 +59,13 @@
     "polling_plan",
     "execution_diagnostic_event"
   ],
+  "phase8_contracts": [
+    "policy_dry_run_decision",
+    "package_validation_summary",
+    "usage_oru_rollup",
+    "receipt_ledger_read",
+    "dispute_read_model"
+  ],
   "guardrails": [
     "JSON Schema is the docs-facing and fixture-facing source of truth.",
     "The Rust projection is consumed by the CLI and SDK but must not become contract authority.",
@@ -71,6 +81,10 @@
     "Local idempotency cache records must be scoped to profile/environment, owner-only, inspectable/resettable, and free of private payloads.",
     "Phase 7 node status records must be profile-scoped, credential-checked, capability-ref backed, and free of direct node access.",
     "Phase 7 workload execution timelines must use Overgate/Overqueue/Oversched/Overlease/Overrun/Overwatch refs and expose trace-linked diagnostics only.",
-    "Phase 7 log/result retrieval must expose authorized refs, bounded streaming or polling plans, and redacted outputs without private storage paths."
+    "Phase 7 log/result retrieval must expose authorized refs, bounded streaming or polling plans, and redacted outputs without private storage paths.",
+    "Phase 8 policy dry-run commands must remain dry-run/read-only and route through SDK/Overgate contracts without direct policy-service access.",
+    "Phase 8 package validation commands must expose schema/signature/hash/dependency/permission/SBOM/provenance/policy compatibility refs without direct package-store access.",
+    "Phase 8 usage, receipt, ledger, and dispute read commands must expose authorized read-model refs without direct meter, ledger, dispute, or payment mutation access.",
+    "Phase 8 accounting outputs must not encode pricing, revenue, customer-count, market-volume, blockchain, or NFT assumptions."
   ]
 }

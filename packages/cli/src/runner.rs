@@ -1,11 +1,13 @@
 use overrid_contracts::{
     BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint, CliProfile,
-    ConfirmationPolicy, CredentialReference, CredentialReferenceClass, EnvironmentClass,
-    ErrorDecodeRecord, ExecutionDiagnosticEvent, ExecutionLogBundle, ExecutionResultRef,
-    ExecutionTimeline, ExitCodeClass, FixtureAllowance, LocalIdempotencyCacheRecord,
-    ManifestBootstrapRef, NodeState, NodeStatusRecord, PollingPlan, ProfileValidationError,
-    RetryClass, RetryTimeoutPolicy, SignedCommandEnvelope, SyntheticWorkloadPendingState,
-    WorkloadExecutionState, SUPPORTED_SCHEMA_VERSION,
+    ConfirmationPolicy, CredentialReference, CredentialReferenceClass, DisputeReadModel,
+    EnvironmentClass, ErrorDecodeRecord, ExecutionDiagnosticEvent, ExecutionLogBundle,
+    ExecutionResultRef, ExecutionTimeline, ExitCodeClass, FixtureAllowance,
+    LocalIdempotencyCacheRecord, ManifestBootstrapRef, NodeState, NodeStatusRecord,
+    PackageValidationState, PackageValidationSummary, PolicyDryRunDecision, PollingPlan,
+    ProfileValidationError, ReceiptLedgerRead, RetryClass, RetryTimeoutPolicy,
+    SignedCommandEnvelope, SyntheticWorkloadPendingState, UsageOruRollup, WorkloadExecutionState,
+    SUPPORTED_SCHEMA_VERSION,
 };
 use overrid_sdk::{
     decode_phase6_error, enforce_profile_environment, retry_timeout_policy, CommandSafetyInput,
@@ -14,9 +16,10 @@ use overrid_sdk::{
 
 use crate::build_metadata::{human_version_lines, version_info};
 use crate::parser::{
-    parse_cli, AuthCommand, Command, CredentialCommand, GlobalOptions, IdempotencyCacheCommand,
-    IdentityCommand, KeyCommand, ManifestCommand, NodeCommand, OutputMode, PlannedCommand,
-    ProfileCommand, TenantCommand, WorkloadCommand,
+    parse_cli, AuthCommand, Command, CredentialCommand, DisputeCommand, GlobalOptions,
+    IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand, ManifestCommand,
+    NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand, ProfileCommand,
+    ReceiptCommand, TenantCommand, UsageCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
@@ -73,6 +76,12 @@ where
             Command::Manifest(command) => manifest_command_result(command, &parsed.globals),
             Command::Node(command) => node_command_result(command, &parsed.globals),
             Command::Workload(command) => workload_command_result(command, &parsed.globals),
+            Command::Policy(command) => policy_command_result(command, &parsed.globals),
+            Command::Package(command) => package_command_result(command, &parsed.globals),
+            Command::Usage(command) => usage_command_result(command, &parsed.globals),
+            Command::Receipt(command) => receipt_command_result(command, &parsed.globals),
+            Command::Ledger(command) => ledger_command_result(command, &parsed.globals),
+            Command::Dispute(command) => dispute_command_result(command, &parsed.globals),
             Command::Planned(command) => planned_command_result(command, &parsed.globals),
         },
         Err(error) => parse_error_result(&args, &error.to_string()),
@@ -386,6 +395,122 @@ fn workload_command_result(command: WorkloadCommand, globals: &GlobalOptions) ->
             success(render_workload_execution_result(command, globals, &context))
         }
     }
+}
+
+fn policy_command_result(command: PolicyCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "policy_accept");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Policy,
+        command.as_str(),
+        "policy_dry_run_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_policy_dry_run_result(command, &context, globals))
+}
+
+fn package_command_result(command: PackageCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "package_accept");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Package,
+        command.as_str(),
+        "package_validation_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_package_validation_result(command, &context, globals))
+}
+
+fn usage_command_result(command: UsageCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "usage_within_budget");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Usage,
+        command.as_str(),
+        "usage_oru_read_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_usage_result(command, &context, globals))
+}
+
+fn receipt_command_result(command: ReceiptCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "receipt_local");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Receipt,
+        command.as_str(),
+        "receipt_read_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_receipt_ledger_result(
+        command.as_str(),
+        &context,
+        globals,
+    ))
+}
+
+fn ledger_command_result(command: LedgerCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "ledger_local");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Ledger,
+        command.as_str(),
+        "ledger_ref_read_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_receipt_ledger_result(
+        command.as_str(),
+        &context,
+        globals,
+    ))
+}
+
+fn dispute_command_result(command: DisputeCommand, globals: &GlobalOptions) -> CliRunResult {
+    let target_ref = default_target_ref(globals, "dispute_open");
+    let context = match prepare_bootstrap_context(
+        BootstrapCommandFamily::Dispute,
+        command.as_str(),
+        "dispute_read_request",
+        target_ref,
+        false,
+        false,
+        globals,
+    ) {
+        Ok(context) => context,
+        Err(result) => return result,
+    };
+
+    success(render_dispute_result(command, &context, globals))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -938,6 +1063,12 @@ fn render_help(all_phases: bool) -> String {
         "  manifest validate|submit|inspect".to_owned(),
         "  node register|inspect|health".to_owned(),
         "  workload submit|status|timeline|logs|cancel|result|follow".to_owned(),
+        "  policy dry-run".to_owned(),
+        "  package validate".to_owned(),
+        "  usage show".to_owned(),
+        "  receipt show".to_owned(),
+        "  ledger inspect".to_owned(),
+        "  dispute list|inspect".to_owned(),
         "  help                            print command help".to_owned(),
         "".to_owned(),
         "global flags:".to_owned(),
@@ -976,9 +1107,7 @@ fn render_help(all_phases: bool) -> String {
         lines.extend([
             "".to_owned(),
             "phase-gated commands:".to_owned(),
-            "  policy dry-run                           phase_4".to_owned(),
-            "  usage|receipt|dispute                    phase_5_or_phase_6".to_owned(),
-            "  package validate and deployment helpers  phase_9".to_owned(),
+            "  deployment helpers                       phase_9".to_owned(),
             "  governance|incident|compliance|migration phase_7_or_phase_13".to_owned(),
         ]);
     }
@@ -1907,6 +2036,312 @@ fn render_workload_execution_result(
     }
 }
 
+fn render_policy_dry_run_result(
+    command: PolicyCommand,
+    context: &BootstrapContext,
+    globals: &GlobalOptions,
+) -> String {
+    let decision = PolicyDryRunDecision::new(
+        context.target_ref.clone(),
+        policy_reason_codes(&context.target_ref),
+    );
+    match globals.output {
+        OutputMode::Human => format!(
+            "policy_dry_run: {} {} trace_id={}",
+            context.target_ref,
+            decision.decision.as_str(),
+            context.trace_id
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"policy\",",
+                    "\"phase_gate\":\"phase_4_trust_policy_verification\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"policy_dry_run_decision\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                render_policy_dry_run_decision_json(&decision),
+            );
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ],
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "overguard_policy_dry_run_ref",
+                    "quota_ref",
+                    "package_trust_ref",
+                    "egress_policy_ref",
+                    "provider_eligibility_ref",
+                    "budget_placeholder_ref",
+                ],
+                &[CapabilityRoute {
+                    route: "policy dry-run",
+                    phase_gate: "phase_4_trust_policy_verification",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &[],
+            )
+        }
+    }
+}
+
+fn render_package_validation_result(
+    command: PackageCommand,
+    context: &BootstrapContext,
+    globals: &GlobalOptions,
+) -> String {
+    let validation_state = package_validation_state_for_ref(&context.target_ref);
+    let summary = PackageValidationSummary::new(
+        context.target_ref.clone(),
+        validation_state,
+        package_reason_codes(validation_state),
+    );
+    match globals.output {
+        OutputMode::Human => format!(
+            "package_validation: {} {} trace_id={}",
+            context.target_ref,
+            summary.validation_state.as_str(),
+            context.trace_id
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"package\",",
+                    "\"phase_gate\":\"phase_9_overpack_deployment_platform\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"package_validation_summary\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                render_package_validation_summary_json(&summary),
+            );
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ],
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "package_validator_contract_ref",
+                    "schema_signature_hash_checks",
+                    "sbom_provenance_ref",
+                    "policy_compatibility_ref",
+                ],
+                &[CapabilityRoute {
+                    route: "package validate",
+                    phase_gate: "phase_9_overpack_deployment_platform",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &[],
+            )
+        }
+    }
+}
+
+fn render_usage_result(
+    command: UsageCommand,
+    context: &BootstrapContext,
+    globals: &GlobalOptions,
+) -> String {
+    let rollup = UsageOruRollup::new(
+        context.profile.tenant_id.clone(),
+        context.target_ref.clone(),
+    );
+    match globals.output {
+        OutputMode::Human => format!(
+            "usage_oru_rollup: {} {} trace_id={}",
+            rollup.usage_ref, rollup.budget_state, context.trace_id
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"usage\",",
+                    "\"phase_gate\":\"phase_5_metering_accounting\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"usage_oru_rollup\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                render_usage_oru_rollup_json(&rollup),
+            );
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ],
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "overmeter_rollup_ref",
+                    "oru_balance_ref",
+                    "reservation_hold_ref",
+                    "budget_status_ref",
+                ],
+                &[CapabilityRoute {
+                    route: "usage show",
+                    phase_gate: "phase_5_metering_accounting",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &[],
+            )
+        }
+    }
+}
+
+fn render_receipt_ledger_result(
+    command_name: &str,
+    context: &BootstrapContext,
+    globals: &GlobalOptions,
+) -> String {
+    let receipt = ReceiptLedgerRead::new(context.target_ref.clone());
+    match globals.output {
+        OutputMode::Human => format!(
+            "receipt_ledger_read: {} {} trace_id={}",
+            command_name, receipt.receipt_ref, context.trace_id
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"receipt_ledger\",",
+                    "\"phase_gate\":\"phase_5_metering_accounting\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"receipt_ledger_read\":{}",
+                    "}}"
+                ),
+                json_escape(command_name),
+                json_escape(&context.profile.name),
+                render_receipt_ledger_read_json(&receipt),
+            );
+            render_success_json_with_trace(
+                command_name,
+                &result_json,
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ],
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "seal_ledger_ref",
+                    "overbill_receipt_ref",
+                    "refund_correction_ref",
+                    "payout_hold_ref",
+                    "audit_ref",
+                ],
+                &[CapabilityRoute {
+                    route: command_name,
+                    phase_gate: "phase_5_metering_accounting",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &receipt.audit_refs,
+            )
+        }
+    }
+}
+
+fn render_dispute_result(
+    command: DisputeCommand,
+    context: &BootstrapContext,
+    globals: &GlobalOptions,
+) -> String {
+    let dispute = DisputeReadModel::new(context.target_ref.clone());
+    match globals.output {
+        OutputMode::Human => format!(
+            "dispute_read: {} {} trace_id={}",
+            command.as_str(),
+            dispute.resolution_state,
+            context.trace_id
+        ),
+        OutputMode::Json => {
+            let result_json = format!(
+                concat!(
+                    "{{",
+                    "\"command\":\"{}\",",
+                    "\"family\":\"dispute\",",
+                    "\"phase_gate\":\"phase_5_metering_accounting\",",
+                    "\"sdk_target\":\"overgate_only\",",
+                    "\"profile_name\":\"{}\",",
+                    "\"dispute_read_model\":{}",
+                    "}}"
+                ),
+                json_escape(command.as_str()),
+                json_escape(&context.profile.name),
+                render_dispute_read_model_json(&dispute),
+            );
+            render_success_json_with_trace(
+                command.as_str(),
+                &result_json,
+                &[
+                    "parsed",
+                    "profile_loaded",
+                    "credential_ready",
+                    "payload_validated",
+                    "completed",
+                ],
+                Some(&context.profile.name),
+                Some(&context.profile.endpoint_fingerprint),
+                &[
+                    "overclaim_case_ref",
+                    "evidence_ref",
+                    "hold_status_ref",
+                    "correction_ref",
+                    "tenant_role_filter",
+                ],
+                &[CapabilityRoute {
+                    route: command.as_str(),
+                    phase_gate: "phase_5_metering_accounting",
+                    available: true,
+                }],
+                Some(&context.trace_id),
+                &[],
+            )
+        }
+    }
+}
+
 fn render_phase_acceptance_json(
     command_type: &str,
     accepted_ref: &str,
@@ -2076,6 +2511,165 @@ fn render_polling_plan_json(plan: &PollingPlan) -> String {
         plan.event_stream_preferred,
         plan.fallback_polling,
         plan.interruptible,
+    )
+}
+
+fn render_policy_dry_run_decision_json(decision: &PolicyDryRunDecision) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"target_ref\":\"{}\",",
+            "\"decision\":\"{}\",",
+            "\"reason_codes\":{},",
+            "\"workload_class\":\"{}\",",
+            "\"data_sensitivity\":\"{}\",",
+            "\"quota_ref\":\"{}\",",
+            "\"package_trust_ref\":\"{}\",",
+            "\"egress_policy_ref\":\"{}\",",
+            "\"provider_eligibility_ref\":\"{}\",",
+            "\"budget_ref\":\"{}\",",
+            "\"evaluated_via\":\"{}\",",
+            "\"mutates_platform_state\":{},",
+            "\"direct_policy_service_access\":{}",
+            "}}"
+        ),
+        json_escape(&decision.target_ref),
+        json_escape(decision.decision.as_str()),
+        json_owned_string_array(&decision.reason_codes),
+        json_escape(&decision.workload_class),
+        json_escape(&decision.data_sensitivity),
+        json_escape(&decision.quota_ref),
+        json_escape(&decision.package_trust_ref),
+        json_escape(&decision.egress_policy_ref),
+        json_escape(&decision.provider_eligibility_ref),
+        json_escape(&decision.budget_ref),
+        json_escape(&decision.evaluated_via),
+        decision.mutates_platform_state,
+        decision.direct_policy_service_access,
+    )
+}
+
+fn render_package_validation_summary_json(summary: &PackageValidationSummary) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"package_ref\":\"{}\",",
+            "\"validation_state\":\"{}\",",
+            "\"reason_codes\":{},",
+            "\"schema_checked\":{},",
+            "\"signature_checked\":{},",
+            "\"hash_checked\":{},",
+            "\"dependency_checked\":{},",
+            "\"permission_checked\":{},",
+            "\"provenance_available\":{},",
+            "\"sbom_ref\":\"{}\",",
+            "\"policy_compatibility_checked\":{},",
+            "\"submitted_via\":\"{}\",",
+            "\"direct_package_store_access\":{}",
+            "}}"
+        ),
+        json_escape(&summary.package_ref),
+        json_escape(summary.validation_state.as_str()),
+        json_owned_string_array(&summary.reason_codes),
+        summary.schema_checked,
+        summary.signature_checked,
+        summary.hash_checked,
+        summary.dependency_checked,
+        summary.permission_checked,
+        summary.provenance_available,
+        json_escape(&summary.sbom_ref),
+        summary.policy_compatibility_checked,
+        json_escape(&summary.submitted_via),
+        summary.direct_package_store_access,
+    )
+}
+
+fn render_usage_oru_rollup_json(rollup: &UsageOruRollup) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"tenant_ref\":\"{}\",",
+            "\"usage_ref\":\"{}\",",
+            "\"units\":{},",
+            "\"budget_state\":\"{}\",",
+            "\"disputed_usage\":{},",
+            "\"read_via\":\"{}\",",
+            "\"payment_behavior_created\":{},",
+            "\"direct_meter_access\":{}",
+            "}}"
+        ),
+        json_escape(&rollup.tenant_ref),
+        json_escape(&rollup.usage_ref),
+        json_owned_string_array(&rollup.units),
+        json_escape(&rollup.budget_state),
+        rollup.disputed_usage,
+        json_escape(&rollup.read_via),
+        rollup.payment_behavior_created,
+        rollup.direct_meter_access,
+    )
+}
+
+fn render_receipt_ledger_read_json(read: &ReceiptLedgerRead) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"receipt_ref\":\"{}\",",
+            "\"ledger_refs\":{},",
+            "\"invoice_status\":\"{}\",",
+            "\"refund_ref\":\"{}\",",
+            "\"correction_ref\":\"{}\",",
+            "\"payout_hold_ref\":\"{}\",",
+            "\"audit_refs\":{},",
+            "\"read_via\":\"{}\",",
+            "\"pricing_assumptions_present\":{},",
+            "\"revenue_assumptions_present\":{},",
+            "\"customer_count_assumptions_present\":{},",
+            "\"market_volume_assumptions_present\":{},",
+            "\"direct_ledger_access\":{}",
+            "}}"
+        ),
+        json_escape(&read.receipt_ref),
+        json_owned_string_array(&read.ledger_refs),
+        json_escape(&read.invoice_status),
+        json_escape(&read.refund_ref),
+        json_escape(&read.correction_ref),
+        json_escape(&read.payout_hold_ref),
+        json_owned_string_array(&read.audit_refs),
+        json_escape(&read.read_via),
+        read.pricing_assumptions_present,
+        read.revenue_assumptions_present,
+        read.customer_count_assumptions_present,
+        read.market_volume_assumptions_present,
+        read.direct_ledger_access,
+    )
+}
+
+fn render_dispute_read_model_json(dispute: &DisputeReadModel) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"dispute_ref\":\"{}\",",
+            "\"case_refs\":{},",
+            "\"evidence_refs\":{},",
+            "\"hold_status\":\"{}\",",
+            "\"correction_refs\":{},",
+            "\"resolution_state\":\"{}\",",
+            "\"tenant_role_filtered\":{},",
+            "\"read_via\":\"{}\",",
+            "\"direct_dispute_mutation\":{},",
+            "\"direct_ledger_mutation\":{}",
+            "}}"
+        ),
+        json_escape(&dispute.dispute_ref),
+        json_owned_string_array(&dispute.case_refs),
+        json_owned_string_array(&dispute.evidence_refs),
+        json_escape(&dispute.hold_status),
+        json_owned_string_array(&dispute.correction_refs),
+        json_escape(&dispute.resolution_state),
+        dispute.tenant_role_filtered,
+        json_escape(&dispute.read_via),
+        dispute.direct_dispute_mutation,
+        dispute.direct_ledger_mutation,
     )
 }
 
@@ -2637,6 +3231,50 @@ fn polling_plan_for(command: WorkloadCommand, globals: &GlobalOptions) -> Pollin
     )
 }
 
+fn policy_reason_codes(target_ref: &str) -> Vec<String> {
+    let normalized = target_ref.to_ascii_lowercase().replace('-', "_");
+    let reason = if normalized.contains("denied_egress") || normalized.contains("egress") {
+        Some("policy.egress_denied")
+    } else if normalized.contains("wrong_tenant") || normalized.contains("tenant") {
+        Some("policy.wrong_tenant")
+    } else if normalized.contains("insufficient_trust") || normalized.contains("trust") {
+        Some("policy.insufficient_trust")
+    } else if normalized.contains("quota_exhausted") || normalized.contains("quota") {
+        Some("policy.quota_exhausted")
+    } else if normalized.contains("unsupported_workload") || normalized.contains("unsupported") {
+        Some("policy.unsupported_workload_class")
+    } else {
+        None
+    };
+    reason.into_iter().map(str::to_owned).collect()
+}
+
+fn package_validation_state_for_ref(target_ref: &str) -> PackageValidationState {
+    let normalized = target_ref.to_ascii_lowercase().replace('-', "_");
+    if normalized.contains("unsupported_version") || normalized.contains("unsupported") {
+        PackageValidationState::UnsupportedVersion
+    } else if normalized.contains("missing_provenance") || normalized.contains("provenance") {
+        PackageValidationState::MissingProvenance
+    } else if normalized.contains("policy_incompatible") || normalized.contains("incompatible") {
+        PackageValidationState::PolicyIncompatible
+    } else if normalized.contains("invalid") {
+        PackageValidationState::InvalidPackage
+    } else {
+        PackageValidationState::Accepted
+    }
+}
+
+fn package_reason_codes(state: PackageValidationState) -> Vec<String> {
+    let reason = match state {
+        PackageValidationState::Accepted => None,
+        PackageValidationState::InvalidPackage => Some("package.invalid"),
+        PackageValidationState::UnsupportedVersion => Some("package.unsupported_version"),
+        PackageValidationState::MissingProvenance => Some("package.missing_provenance"),
+        PackageValidationState::PolicyIncompatible => Some("package.policy_incompatible"),
+    };
+    reason.into_iter().map(str::to_owned).collect()
+}
+
 fn json_optional_string(value: Option<&str>) -> String {
     value
         .map(|value| format!("\"{}\"", json_escape(value)))
@@ -2748,6 +3386,12 @@ mod tests {
         assert!(result
             .stdout
             .contains("workload submit|status|timeline|logs|cancel|result|follow"));
+        assert!(result.stdout.contains("policy dry-run"));
+        assert!(result.stdout.contains("package validate"));
+        assert!(result.stdout.contains("usage show"));
+        assert!(result.stdout.contains("receipt show"));
+        assert!(result.stdout.contains("ledger inspect"));
+        assert!(result.stdout.contains("dispute list|inspect"));
     }
 
     #[test]
@@ -2755,7 +3399,7 @@ mod tests {
         let result = run_args(["overrid", "help", "--all-phases"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
         assert!(result.stdout.contains("node register|inspect|health"));
-        assert!(result.stdout.contains("policy dry-run"));
+        assert!(result.stdout.contains("deployment helpers"));
         assert!(result
             .stdout
             .contains("governance|incident|compliance|migration"));
@@ -2763,12 +3407,12 @@ mod tests {
 
     #[test]
     fn planned_command_fails_with_stable_phase_reason() {
-        let result = run_args(["overrid", "policy", "dry-run", "--json"]);
+        let result = run_args(["overrid", "deployment", "--json"]);
         assert_eq!(result.exit_code, EXIT_NOT_AVAILABLE_IN_PHASE);
         assert!(result
             .stdout
             .contains("\"reason_code\":\"not_available_in_phase\""));
-        assert!(result.stdout.contains("\"phase_gate\":\"phase_4\""));
+        assert!(result.stdout.contains("\"phase_gate\":\"phase_9\""));
         assert!(result.stdout.contains("\"exit_class\":\"phase\""));
         assert!(result.stdout.contains("\"fail_closed\":true"));
     }
@@ -3190,6 +3834,162 @@ mod tests {
                 .contains("\"synthetic_workload_pending_state\""));
             assert!(state.stdout.contains("\"execution_timeline\""));
         }
+    }
+
+    #[test]
+    fn phase8_policy_package_accounting_commands_emit_refs_only() {
+        for (target_ref, expected_decision, expected_reason) in [
+            ("policy_accept", "accepted", ""),
+            ("policy_denied_egress", "denied", "policy.egress_denied"),
+            ("policy_wrong_tenant", "denied", "policy.wrong_tenant"),
+            (
+                "policy_insufficient_trust",
+                "denied",
+                "policy.insufficient_trust",
+            ),
+            ("policy_quota_exhausted", "denied", "policy.quota_exhausted"),
+            (
+                "policy_unsupported_workload",
+                "denied",
+                "policy.unsupported_workload_class",
+            ),
+        ] {
+            let args = args_with(
+                &["policy", "dry-run", "--json", "--target-ref", target_ref],
+                LOCAL_PROFILE_ARGS,
+            );
+            let result = run_args(args);
+            assert_eq!(result.exit_code, EXIT_SUCCESS);
+            assert!(result.stdout.contains("\"policy_dry_run_decision\""));
+            assert!(result
+                .stdout
+                .contains(&format!("\"decision\":\"{expected_decision}\"")));
+            assert!(result.stdout.contains("\"mutates_platform_state\":false"));
+            assert!(result
+                .stdout
+                .contains("\"direct_policy_service_access\":false"));
+            assert!(result
+                .stdout
+                .contains("\"evaluated_via\":\"sdk_overgate_contract\""));
+            if !expected_reason.is_empty() {
+                assert!(result.stdout.contains(expected_reason));
+            }
+        }
+
+        for (target_ref, expected_state, expected_reason) in [
+            ("package_accept", "accepted", ""),
+            ("package_invalid", "invalid_package", "package.invalid"),
+            (
+                "package_unsupported_version",
+                "unsupported_version",
+                "package.unsupported_version",
+            ),
+            (
+                "package_missing_provenance",
+                "missing_provenance",
+                "package.missing_provenance",
+            ),
+            (
+                "package_policy_incompatible",
+                "policy_incompatible",
+                "package.policy_incompatible",
+            ),
+        ] {
+            let args = args_with(
+                &["package", "validate", "--json", "--target-ref", target_ref],
+                LOCAL_PROFILE_ARGS,
+            );
+            let result = run_args(args);
+            assert_eq!(result.exit_code, EXIT_SUCCESS);
+            assert!(result.stdout.contains("\"package_validation_summary\""));
+            assert!(result
+                .stdout
+                .contains(&format!("\"validation_state\":\"{expected_state}\"")));
+            assert!(result.stdout.contains("\"schema_checked\":true"));
+            assert!(result.stdout.contains("\"signature_checked\":true"));
+            assert!(result.stdout.contains("\"hash_checked\":true"));
+            assert!(result
+                .stdout
+                .contains("\"direct_package_store_access\":false"));
+            if !expected_reason.is_empty() {
+                assert!(result.stdout.contains(expected_reason));
+            }
+        }
+
+        let usage = run_args(args_with(
+            &["usage", "show", "--json", "--target-ref", "usage_disputed"],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(usage.exit_code, EXIT_SUCCESS);
+        for unit in [
+            "CPU-ORU", "GPU-ORU", "STOR-ORU", "NET-ORU", "MEM-ORU", "DATA-ORU",
+        ] {
+            assert!(usage.stdout.contains(unit));
+        }
+        assert!(usage.stdout.contains("\"disputed_usage\":true"));
+        assert!(usage.stdout.contains("\"payment_behavior_created\":false"));
+        assert!(usage.stdout.contains("\"direct_meter_access\":false"));
+
+        let receipt = run_args(args_with(
+            &["receipt", "show", "--json", "--target-ref", "receipt_local"],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(receipt.exit_code, EXIT_SUCCESS);
+        assert!(receipt.stdout.contains("\"receipt_ledger_read\""));
+        assert!(receipt.stdout.contains("seal-ledger:entry:receipt_local"));
+        assert!(receipt.stdout.contains("overbill:receipt:receipt_local"));
+        assert!(receipt
+            .stdout
+            .contains("\"pricing_assumptions_present\":false"));
+        assert!(receipt
+            .stdout
+            .contains("\"revenue_assumptions_present\":false"));
+        assert!(receipt
+            .stdout
+            .contains("\"customer_count_assumptions_present\":false"));
+        assert!(receipt
+            .stdout
+            .contains("\"market_volume_assumptions_present\":false"));
+        assert!(receipt.stdout.contains("\"direct_ledger_access\":false"));
+
+        let ledger = run_args(args_with(
+            &[
+                "ledger",
+                "inspect",
+                "--json",
+                "--target-ref",
+                "ledger_local",
+            ],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(ledger.exit_code, EXIT_SUCCESS);
+        assert!(ledger.stdout.contains("\"command\":\"ledger inspect\""));
+        assert!(ledger.stdout.contains("\"receipt_ledger_read\""));
+        assert!(ledger.stdout.contains("\"direct_ledger_access\":false"));
+
+        let dispute = run_args(args_with(
+            &[
+                "dispute",
+                "inspect",
+                "--json",
+                "--target-ref",
+                "dispute_resolved_released",
+            ],
+            LOCAL_PROFILE_ARGS,
+        ));
+        assert_eq!(dispute.exit_code, EXIT_SUCCESS);
+        assert!(dispute.stdout.contains("\"dispute_read_model\""));
+        assert!(dispute
+            .stdout
+            .contains("overclaim:case:dispute_resolved_released"));
+        assert!(dispute
+            .stdout
+            .contains("overclaim:evidence:dispute_resolved_released"));
+        assert!(dispute.stdout.contains("\"hold_status\":\"released\""));
+        assert!(dispute.stdout.contains("\"resolution_state\":\"resolved\""));
+        assert!(dispute.stdout.contains("\"tenant_role_filtered\":true"));
+        assert!(dispute.stdout.contains("\"direct_dispute_mutation\":false"));
+        assert!(dispute.stdout.contains("\"direct_ledger_mutation\":false"));
     }
 
     #[test]

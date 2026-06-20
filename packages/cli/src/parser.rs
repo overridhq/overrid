@@ -116,6 +116,12 @@ pub enum Command {
     Manifest(ManifestCommand),
     Node(NodeCommand),
     Workload(WorkloadCommand),
+    Policy(PolicyCommand),
+    Package(PackageCommand),
+    Usage(UsageCommand),
+    Receipt(ReceiptCommand),
+    Ledger(LedgerCommand),
+    Dispute(DisputeCommand),
     IdempotencyCache(IdempotencyCacheCommand),
     Planned(PlannedCommand),
 }
@@ -288,6 +294,86 @@ impl NodeCommand {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyCommand {
+    DryRun,
+}
+
+impl PolicyCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DryRun => "policy dry-run",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageCommand {
+    Validate,
+}
+
+impl PackageCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Validate => "package validate",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsageCommand {
+    Show,
+}
+
+impl UsageCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Show => "usage show",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReceiptCommand {
+    Show,
+}
+
+impl ReceiptCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Show => "receipt show",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LedgerCommand {
+    Inspect,
+}
+
+impl LedgerCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Inspect => "ledger inspect",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisputeCommand {
+    List,
+    Inspect,
+}
+
+impl DisputeCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::List => "dispute list",
+            Self::Inspect => "dispute inspect",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdempotencyCacheCommand {
     Inspect,
     Reset,
@@ -304,10 +390,6 @@ impl IdempotencyCacheCommand {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlannedCommand {
-    Node,
-    WorkloadExecution,
-    Policy,
-    Usage,
     Package,
     Governance,
 }
@@ -315,21 +397,13 @@ pub enum PlannedCommand {
 impl PlannedCommand {
     pub fn command_name(self) -> &'static str {
         match self {
-            PlannedCommand::Node => "node",
-            PlannedCommand::WorkloadExecution => "workload execution",
-            PlannedCommand::Policy => "policy",
-            PlannedCommand::Usage => "usage/receipt/dispute",
-            PlannedCommand::Package => "package/deployment",
+            PlannedCommand::Package => "deployment",
             PlannedCommand::Governance => "governance/incident/compliance",
         }
     }
 
     pub fn phase_gate(self) -> &'static str {
         match self {
-            PlannedCommand::Node => "phase_2",
-            PlannedCommand::WorkloadExecution => "phase_3",
-            PlannedCommand::Policy => "phase_4",
-            PlannedCommand::Usage => "phase_5_or_phase_6",
             PlannedCommand::Package => "phase_9",
             PlannedCommand::Governance => "phase_7_or_phase_13",
         }
@@ -536,9 +610,13 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "node" => node_command(tokens),
         "workload" => workload_command(tokens),
         "idempotency" | "idempotency-cache" => idempotency_cache_command(tokens),
-        "policy" => Ok(Command::Planned(PlannedCommand::Policy)),
-        "usage" | "receipt" | "dispute" => Ok(Command::Planned(PlannedCommand::Usage)),
-        "package" | "deploy" | "deployment" => Ok(Command::Planned(PlannedCommand::Package)),
+        "policy" => policy_command(tokens),
+        "package" => package_command(tokens),
+        "usage" => usage_command(tokens),
+        "receipt" => receipt_command(tokens),
+        "ledger" => ledger_command(tokens),
+        "dispute" => dispute_command(tokens),
+        "deploy" | "deployment" => Ok(Command::Planned(PlannedCommand::Package)),
         "governance" | "incident" | "compliance" | "migration" => {
             Ok(Command::Planned(PlannedCommand::Governance))
         }
@@ -622,6 +700,50 @@ fn idempotency_cache_command(tokens: &[String]) -> Result<Command, CliParseError
         other => Err(CliParseError::UnknownCommand(format!(
             "idempotency-cache {other}"
         ))),
+    }
+}
+
+fn policy_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("dry-run") {
+        "dry-run" | "dryrun" => Ok(Command::Policy(PolicyCommand::DryRun)),
+        other => Err(CliParseError::UnknownCommand(format!("policy {other}"))),
+    }
+}
+
+fn package_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("validate") {
+        "validate" => Ok(Command::Package(PackageCommand::Validate)),
+        "deploy" | "release" => Ok(Command::Planned(PlannedCommand::Package)),
+        other => Err(CliParseError::UnknownCommand(format!("package {other}"))),
+    }
+}
+
+fn usage_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("show") {
+        "show" => Ok(Command::Usage(UsageCommand::Show)),
+        other => Err(CliParseError::UnknownCommand(format!("usage {other}"))),
+    }
+}
+
+fn receipt_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("show") {
+        "show" => Ok(Command::Receipt(ReceiptCommand::Show)),
+        other => Err(CliParseError::UnknownCommand(format!("receipt {other}"))),
+    }
+}
+
+fn ledger_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("inspect") {
+        "inspect" => Ok(Command::Ledger(LedgerCommand::Inspect)),
+        other => Err(CliParseError::UnknownCommand(format!("ledger {other}"))),
+    }
+}
+
+fn dispute_command(tokens: &[String]) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("list") {
+        "list" => Ok(Command::Dispute(DisputeCommand::List)),
+        "inspect" => Ok(Command::Dispute(DisputeCommand::Inspect)),
+        other => Err(CliParseError::UnknownCommand(format!("dispute {other}"))),
     }
 }
 
@@ -878,5 +1000,41 @@ mod tests {
         assert_eq!(parsed.globals.timeout_ms, Some(12000));
         assert_eq!(parsed.globals.poll_interval_ms, Some(500));
         assert!(parsed.globals.follow);
+    }
+
+    #[test]
+    fn maps_phase8_policy_package_accounting_commands() {
+        assert_eq!(
+            parse_cli(["overrid", "policy", "dry-run"]).unwrap().command,
+            Command::Policy(PolicyCommand::DryRun)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "package", "validate"])
+                .unwrap()
+                .command,
+            Command::Package(PackageCommand::Validate)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "usage", "show"]).unwrap().command,
+            Command::Usage(UsageCommand::Show)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "receipt", "show"]).unwrap().command,
+            Command::Receipt(ReceiptCommand::Show)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "ledger", "inspect"]).unwrap().command,
+            Command::Ledger(LedgerCommand::Inspect)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "dispute", "inspect"])
+                .unwrap()
+                .command,
+            Command::Dispute(DisputeCommand::Inspect)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "deployment"]).unwrap().command,
+            Command::Planned(PlannedCommand::Package)
+        );
     }
 }

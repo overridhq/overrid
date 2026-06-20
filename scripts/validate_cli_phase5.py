@@ -186,8 +186,12 @@ def validate_schema_and_manifest() -> None:
     if missing_defs:
         raise AssertionError(f"CLI schema is missing Phase 5 $defs: {sorted(missing_defs)}")
 
-    if defs["bootstrap_command_family"]["enum"] != BOOTSTRAP_FAMILIES:
-        raise AssertionError("Phase 5 bootstrap command family enum changed")
+    actual_bootstrap_families = set(defs["bootstrap_command_family"]["enum"])
+    missing_bootstrap_families = set(BOOTSTRAP_FAMILIES) - actual_bootstrap_families
+    if missing_bootstrap_families:
+        raise AssertionError(
+            f"Phase 5 bootstrap command family enum lost required families: {sorted(missing_bootstrap_families)}"
+        )
 
     bootstrap = defs["phase1_bootstrap_command"]
     if bootstrap["properties"]["phase_gate"].get("const") != "phase_1_control_plane_bootstrap":
