@@ -45,6 +45,10 @@ Incident response provides operational discipline for scale and public participa
 
 The design contract is expanded in [Incident Response Service SDS](../../sds/governance_ops/incident_response_service.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #77 - Incident Response Service](../../build_plan/sub_build_plan_077_incident_response_service.md)
+
 ## SDS Design Alignment
 
 - Treat the service as incident case coordination, timeline, containment-request, communication, drill, and post-incident-report infrastructure, not as the event log or direct containment executor.

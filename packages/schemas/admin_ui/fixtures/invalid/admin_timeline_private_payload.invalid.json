@@ -1,0 +1,33 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "path": "/admin/workloads/{id}/timeline",
+  "workload_id": "workload:bad-private-payload",
+  "trace_id": "trace_admin_phase3_bad_timeline",
+  "status": "partial",
+  "nodes": [
+    {
+      "node_id": "timeline_node:bad-private-payload",
+      "kind": "overrun_result",
+      "status": "available",
+      "trace_id": "trace_admin_phase3_bad_timeline",
+      "refs": ["result:bad"],
+      "reason_codes": ["admin.timeline.node_available"],
+      "audit_refs": [
+        {
+          "audit_id": "audit:bad-timeline",
+          "source_service": "overwatch",
+          "trace_id": "trace_admin_phase3_bad_timeline"
+        }
+      ],
+      "private_payload": "must-not-render"
+    }
+  ],
+  "partial_dependencies": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:bad-timeline",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_bad_timeline"
+    }
+  ]
+}

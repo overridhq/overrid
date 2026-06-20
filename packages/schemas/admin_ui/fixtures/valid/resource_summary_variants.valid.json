@@ -1,0 +1,362 @@
+[
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "tenant",
+    "resource_id": "tenant:seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_tenant_seed",
+    "display_name": "Seed tenant",
+    "state": "active",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:tenant_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 60
+    },
+    "redaction_markers": [
+      "tenant_scope_only"
+    ],
+    "reason_codes": [
+      "tenant.visible"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:tenant_summary_read",
+        "source_service": "overgate",
+        "trace_id": "trace_summary_tenant_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "identity",
+    "resource_id": "identity:founder",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_identity_founder",
+    "display_name": "Founder identity",
+    "state": "active",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:identity_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 60
+    },
+    "redaction_markers": [
+      "profile_ref_only"
+    ],
+    "reason_codes": [
+      "identity.visible"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:identity_summary_read",
+        "source_service": "overpass",
+        "trace_id": "trace_summary_identity_founder"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "key",
+    "resource_id": "key:founder_admin",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_key_founder_admin",
+    "display_name": "Founder admin key",
+    "state": "rotation_current",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:key_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 60
+    },
+    "redaction_markers": [
+      "key_material_redacted"
+    ],
+    "reason_codes": [
+      "key.metadata_visible"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:key_summary_read",
+        "source_service": "overkey",
+        "trace_id": "trace_summary_key_founder_admin"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "node",
+    "resource_id": "node:seed_gpu_01",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_node_seed_gpu_01",
+    "display_name": "Seed GPU node 01",
+    "state": "healthy",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:node_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 30
+    },
+    "redaction_markers": [
+      "host_detail_ref_only"
+    ],
+    "reason_codes": [
+      "node.heartbeat_current"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:node_summary_read",
+        "source_service": "overcell",
+        "trace_id": "trace_summary_node_seed_gpu_01"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "package",
+    "resource_id": "package:docdex_indexer",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_package_docdex_indexer",
+    "display_name": "Docdex indexer package",
+    "state": "validated",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:package_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 120
+    },
+    "redaction_markers": [
+      "manifest_ref_only"
+    ],
+    "reason_codes": [
+      "package.validated"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:package_summary_read",
+        "source_service": "overpack",
+        "trace_id": "trace_summary_package_docdex_indexer"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "workload",
+    "resource_id": "workload:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_workload_docdex_index_seed",
+    "display_name": "Docdex index seed workload",
+    "state": "queued",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:workload_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 60
+    },
+    "redaction_markers": [
+      "payload_ref_only"
+    ],
+    "reason_codes": [
+      "workload.queued"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:workload_summary_read",
+        "source_service": "overqueue",
+        "trace_id": "trace_summary_workload_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "queue_item",
+    "resource_id": "queue_item:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_queue_item_docdex_index_seed",
+    "display_name": "Docdex queue item",
+    "state": "pending_lease",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:queue_item_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 30
+    },
+    "redaction_markers": [
+      "payload_ref_only"
+    ],
+    "reason_codes": [
+      "queue.pending"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:queue_item_summary_read",
+        "source_service": "overqueue",
+        "trace_id": "trace_summary_queue_item_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "lease",
+    "resource_id": "lease:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_lease_docdex_index_seed",
+    "display_name": "Docdex seed lease",
+    "state": "reserved",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:lease_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 30
+    },
+    "redaction_markers": [
+      "node_assignment_ref_only"
+    ],
+    "reason_codes": [
+      "lease.reserved"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:lease_summary_read",
+        "source_service": "overlease",
+        "trace_id": "trace_summary_lease_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "usage",
+    "resource_id": "usage:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_usage_docdex_index_seed",
+    "display_name": "Docdex seed usage",
+    "state": "rollup_pending",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:usage_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 120
+    },
+    "redaction_markers": [
+      "meter_ref_only"
+    ],
+    "reason_codes": [
+      "usage.rollup_pending"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:usage_summary_read",
+        "source_service": "overmeter",
+        "trace_id": "trace_summary_usage_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "receipt",
+    "resource_id": "receipt:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_receipt_docdex_index_seed",
+    "display_name": "Docdex seed receipt",
+    "state": "settled",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:receipt_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 120
+    },
+    "redaction_markers": [
+      "settlement_ref_only"
+    ],
+    "reason_codes": [
+      "receipt.settled"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:receipt_summary_read",
+        "source_service": "seal_ledger",
+        "trace_id": "trace_summary_receipt_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "dispute",
+    "resource_id": "dispute:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_dispute_docdex_index_seed",
+    "display_name": "Docdex seed dispute",
+    "state": "none_open",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:dispute_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 120
+    },
+    "redaction_markers": [
+      "evidence_ref_only"
+    ],
+    "reason_codes": [
+      "dispute.none_open"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:dispute_summary_read",
+        "source_service": "overclaim",
+        "trace_id": "trace_summary_dispute_docdex_index_seed"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui.v0.1",
+    "kind": "policy_decision",
+    "resource_id": "policy_decision:docdex_index_seed",
+    "tenant_id": "tenant:seed",
+    "trace_id": "trace_summary_policy_docdex_index_seed",
+    "display_name": "Docdex seed policy decision",
+    "state": "allowed",
+    "pagination": {
+      "limit": 50,
+      "cursor_ref": "cursor:policy_first_page"
+    },
+    "stale_data": {
+      "as_of": "2026-06-20T09:00:00Z",
+      "stale_after_seconds": 120
+    },
+    "redaction_markers": [
+      "policy_reason_ref_only"
+    ],
+    "reason_codes": [
+      "policy.allowed"
+    ],
+    "audit_refs": [
+      {
+        "audit_id": "audit:policy_summary_read",
+        "source_service": "overguard",
+        "trace_id": "trace_summary_policy_docdex_index_seed"
+      }
+    ]
+  }
+]

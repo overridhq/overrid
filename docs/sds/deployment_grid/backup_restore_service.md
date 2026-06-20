@@ -17,6 +17,7 @@ Backup and Restore Service is the recovery contract that makes Phase 7 grid-resi
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 7: Grid-Resident Backbone](../../build_plan/phase_07_grid_resident_backbone.md) |
+| SDS sub-build plan | [SUB BUILD PLAN #45 - Backup and Restore Service](../../build_plan/sub_build_plan_045_backup_restore_service.md) |
 
 ## Service Family
 

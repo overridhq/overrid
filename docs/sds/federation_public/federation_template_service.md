@@ -13,6 +13,7 @@ Federation Template Service is the trusted-partner capacity contract layer. It d
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [federation_template_service.md](../../service_catalog/federation_public/federation_template_service.md) |
+| Sub-build plan | [SUB BUILD PLAN #52 - Federation Template Service](../../build_plan/sub_build_plan_052_federation_template_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

@@ -45,6 +45,10 @@ Fraud control protects public pools, provider payouts, native apps, and stewards
 
 The detailed design contract lives in [Fraud Control Service SDS](../../sds/federation_public/fraud_control_service.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #53 - Fraud Control Service](../../build_plan/sub_build_plan_053_fraud_control_service.md).
+
 ## Design Alignment
 
 - Treat Fraud Control Service as evidence-backed signal, risk-case, hold/throttle recommendation, challenge recommendation, and correction infrastructure.

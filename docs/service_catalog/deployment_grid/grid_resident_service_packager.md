@@ -45,6 +45,10 @@ This feeds the deployment planner and grid-resident backbone migration.
 
 The detailed design contract lives in [Grid-Resident Service Packager SDS](../../sds/deployment_grid/grid_resident_service_packager.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #48 - Grid-Resident Service Packager](../../build_plan/sub_build_plan_048_grid_resident_service_packager.md).
+
 ## Design Alignment
 
 - Treat Grid-Resident Service Packager as the system-service package-contract authority: manifests, runtime artifacts, config schemas, secret refs, health/readiness commands, migration, backup, restore, rollback, privilege profiles, version pins, and provenance.

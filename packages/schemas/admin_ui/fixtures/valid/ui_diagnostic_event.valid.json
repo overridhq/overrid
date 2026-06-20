@@ -1,0 +1,23 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "event_id": "ui_diagnostic:summary_panel_stale",
+  "occurred_at": "2026-06-20T09:06:00Z",
+  "trace_id": "trace_admin_diagnostic_001",
+  "severity": "warning",
+  "reason_code": "ui.summary_stale",
+  "message": "Workload summary panel is older than the configured refresh window.",
+  "redaction_profile": {
+    "profile_id": "redaction:diagnostic_safe",
+    "classification": "redacted_diagnostic_ref",
+    "ruleset_version": "redaction.v0.1",
+    "hidden_fields": [
+      "private_payload",
+      "credentials",
+      "prompts"
+    ]
+  },
+  "safe_refs": [
+    "panel:workload_summary",
+    "dependency:overgate"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "kind": "workload",
+  "resource_id": "workload:docdex_index_seed",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_workload_docdex_index_seed",
+  "display_name": "Docdex index seed workload",
+  "state": "queued",
+  "pagination": {
+    "limit": 50,
+    "cursor_ref": "cursor:first_page"
+  },
+  "stale_data": {
+    "as_of": "2026-06-20T09:00:00Z",
+    "stale_after_seconds": 60
+  },
+  "redaction_markers": [
+    "payload_ref_only"
+  ],
+  "reason_codes": [
+    "queue.accepted"
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:workload_summary_read",
+      "source_service": "overgate",
+      "trace_id": "trace_workload_docdex_index_seed"
+    }
+  ]
+}

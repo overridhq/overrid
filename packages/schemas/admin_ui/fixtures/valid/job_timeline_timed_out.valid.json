@@ -1,0 +1,49 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:timeout_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_timeout_001",
+  "outcome": "timed_out",
+  "nodes": [
+    {
+      "node_id": "timeline:timeout_lease",
+      "kind": "overlease_reservation",
+      "state": "expired",
+      "occurred_at": "2026-06-20T09:04:00Z",
+      "owning_service": "overlease",
+      "refs": [
+        "lease:timeout_001"
+      ],
+      "reason_codes": [
+        "lease.expired"
+      ]
+    },
+    {
+      "node_id": "timeline:timeout_run",
+      "kind": "overrun_execution",
+      "state": "timed_out",
+      "occurred_at": "2026-06-20T09:04:05Z",
+      "owning_service": "overrun",
+      "refs": [
+        "execution:timeout_001"
+      ],
+      "reason_codes": [
+        "execution.timed_out"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "timeline:timeout_lease",
+      "to": "timeline:timeout_run",
+      "edge_kind": "trace_next"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:timeout_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_timeout_001"
+    }
+  ]
+}

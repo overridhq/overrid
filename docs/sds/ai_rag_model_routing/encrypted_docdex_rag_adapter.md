@@ -13,10 +13,11 @@ Encrypted Docdex RAG Adapter is the authorization and context-assembly boundary 
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [encrypted_docdex_rag_adapter.md](../../service_catalog/ai_rag_model_routing/encrypted_docdex_rag_adapter.md) |
+| Sub-build plan | [SUB BUILD PLAN #61 - Encrypted Docdex RAG Adapter](../../build_plan/sub_build_plan_061_encrypted_docdex_rag_adapter.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Build phase alignment | [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md), [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md) |
 | Docdex implementation context | `/Users/bekirdag/Documents/apps/docdex` |
 
 ## Service Family
@@ -24,7 +25,7 @@ Encrypted Docdex RAG Adapter is the authorization and context-assembly boundary 
 - Family: AI, RAG, and model routing
 - Owning layer: Authorized encrypted-index retrieval and context bundle assembly
 - Primary data scope: index refs, retrieval scopes, context grants, leakage profiles, retrieval requests/results, redaction plans, context bundle refs, usage refs, and audit evidence
-- First build phase from service plan: [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), expanded for native AI in [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md)
+- First build phase from service plan: [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), expanded for native AI in [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md), with leakage, revocation, retention, privacy, incident, and compliance hardening in [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md)
 
 ## Problem Statement
 

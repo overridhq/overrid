@@ -17,6 +17,7 @@ Overclaim is the dispute and correction coordination layer. It does not rewrite 
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md) |
+| Sub-build plan | [SUB BUILD PLAN #32 - Overclaim](../../build_plan/sub_build_plan_032_overclaim.md) |
 
 ## Service Family
 

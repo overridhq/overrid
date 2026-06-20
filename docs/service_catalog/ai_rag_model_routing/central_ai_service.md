@@ -6,7 +6,7 @@ Coordinate ecosystem-level AI stewardship for fraud detection, grant recommendat
 
 ## First Build Phase
 
-[Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) interface; stronger governance in [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md).
+[Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) through the read-heavy Central AI Stewardship Interface fraud/evidence review queue, with prerequisites from Phases 0, 1, 4, 5, 6, 8, 10, and 11 and stronger governance in [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md).
 
 ## Dependencies
 
@@ -44,6 +44,10 @@ Central AI service supports bounded governance, anti-fraud work, public-interest
 ## Detailed SDS
 
 - [Central AI Service SDS](../../sds/ai_rag_model_routing/central_ai_service.md)
+
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #60 - Central AI Service](../../build_plan/sub_build_plan_060_central_ai_service.md)
 
 ## Design Alignment
 

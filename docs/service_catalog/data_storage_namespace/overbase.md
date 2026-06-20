@@ -36,6 +36,8 @@ Build the distributed application state substrate for documents, key-value recor
 
 The detailed design contract lives in [Overbase SDS](../../sds/data_storage_namespace/overbase.md).
 
+- [SUB BUILD PLAN #27 - Overbase](../../build_plan/sub_build_plan_027_overbase.md)
+
 ## Design Alignment
 
 - Treat Overbase as the structured state substrate for documents, key-value records, event streams, secondary indexes, vector indexes, backups, restores, and migrations.

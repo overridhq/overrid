@@ -13,6 +13,7 @@ Grid-Resident Service Packager turns backbone services into deployable service p
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [grid_resident_service_packager.md](../../service_catalog/deployment_grid/grid_resident_service_packager.md) |
+| SDS sub-build plan | [SUB BUILD PLAN #48 - Grid-Resident Service Packager](../../build_plan/sub_build_plan_048_grid_resident_service_packager.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

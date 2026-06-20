@@ -12,10 +12,16 @@ Build a Craigslist-like native utility for classifieds, services, jobs, housing,
 
 - Overbase.
 - Overstore.
+- Overvault.
 - Overpass namespace.
-- Search engine.
-- Messaging center.
+- Universal Namespace Service.
+- Overguard and Overwatch.
+- Search Engine.
+- Messaging Center.
+- Maps and Navigation.
+- Fraud Control and Reputation/Anti-Sybil.
 - Overclaim.
+- Overmeter, ORU Account Service, Seal Ledger, and Wallet/Usage Center.
 
 ## Development Order
 
@@ -23,18 +29,22 @@ Build a Craigslist-like native utility for classifieds, services, jobs, housing,
 2. Add listing creation, edit, expiration, moderation, and local discovery.
 3. Add organization/business pages.
 4. Add search and messaging handoff.
-5. Add reputation, abuse reports, and disputes.
+5. Add map/place handoff, reputation, abuse reports, moderation, disputes, usage, and replay.
 
 ## Contracts And Interfaces
 
 - Listing schema.
 - Category and locality refs.
+- Organization page schema.
+- Search and map handoff contracts.
 - Reputation/dispute refs.
 - Messaging handoff contract.
+- Usage, audit, and replay contracts.
 
 ## Validation
 
 - Users can create and search listings.
+- Contact, search, and map handoffs preserve Directory-owned listing truth and downstream service authority.
 - Abuse reports and disputes create evidence records.
 - Directory search does not become an ad-trap ranking dependency.
 
@@ -45,6 +55,10 @@ Directory listings are an early native utility that exercises identity, search, 
 ## Detailed SDS
 
 The detailed design contract is [Directory Listings SDS](../../sds/native_apps/directory_listings.md).
+
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #69 - Directory Listings](../../build_plan/sub_build_plan_069_directory_listings.md)
 
 ## Design Alignment
 

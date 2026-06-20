@@ -17,6 +17,7 @@ Search Engine is the native discovery utility for Overrid. It owns source regist
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Sub-build plan | [SUB BUILD PLAN #72 - Search Engine](../../build_plan/sub_build_plan_072_search_engine.md) |
 
 ## Service Family
 

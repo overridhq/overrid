@@ -1,0 +1,49 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:denied_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_denied_001",
+  "outcome": "denied",
+  "nodes": [
+    {
+      "node_id": "timeline:denied_request",
+      "kind": "overgate_request",
+      "state": "accepted",
+      "occurred_at": "2026-06-20T09:02:00Z",
+      "owning_service": "overgate",
+      "refs": [
+        "command:denied_001"
+      ],
+      "reason_codes": [
+        "command.accepted"
+      ]
+    },
+    {
+      "node_id": "timeline:denied_policy",
+      "kind": "overguard_decision",
+      "state": "denied",
+      "occurred_at": "2026-06-20T09:02:03Z",
+      "owning_service": "overguard",
+      "refs": [
+        "policy_decision:denied_001"
+      ],
+      "reason_codes": [
+        "policy.insufficient_trust"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "timeline:denied_request",
+      "to": "timeline:denied_policy",
+      "edge_kind": "blocked_by"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:denied_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_denied_001"
+    }
+  ]
+}

@@ -46,6 +46,10 @@ Mcoda adapter proves agent execution and model routing on Overrid resources.
 
 The detailed design contract is [Mcoda Adapter SDS](../../sds/adapters/mcoda_adapter.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #66 - Mcoda Adapter](../../build_plan/sub_build_plan_066_mcoda_adapter.md)
+
 ## Design Alignment
 
 - Treat the adapter as the Mcoda-to-Overrid workload translation boundary, not as the Mcoda agent runtime or marketplace.

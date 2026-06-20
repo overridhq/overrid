@@ -13,6 +13,7 @@ Reputation and Anti-Sybil Service is a Phase 11 public-supply hardening service.
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [reputation_anti_sybil_service.md](../../service_catalog/trust_policy_verification/reputation_anti_sybil_service.md) |
+| Sub-build plan | [SUB BUILD PLAN #36 - Reputation and Anti-Sybil Service](../../build_plan/sub_build_plan_036_reputation_anti_sybil_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

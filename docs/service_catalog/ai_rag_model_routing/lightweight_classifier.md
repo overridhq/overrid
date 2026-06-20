@@ -10,14 +10,17 @@ Cheaply classify request intent, sensitivity, tool needs, model size, RAG need, 
 
 ## Dependencies
 
-- AI gateway router.
-- Overguard policy labels.
-- ADES enrichment adapter where useful.
+- AI Gateway Router.
+- Overguard policy labels and Workload Classifier facts.
+- Encrypted Docdex RAG Adapter context and RAG-need handoffs.
+- Personal AI Assistant and native app callers.
+- ADES Enrichment Adapter where useful.
+- Overregistry classifier/version refs, Overmeter usage refs, Overwatch audit refs, and Overbase/Overstore/Overvault state and artifact refs.
 
 ## Development Order
 
 1. Define intent, sensitivity, tool, model-size, RAG, and safety labels.
-2. Implement local or cheap model classification path.
+2. Implement deterministic Rust heuristic classification with optional policy-allowed small local model classification.
 3. Add confidence thresholds and fallback to larger routing analysis.
 4. Add classifier evidence to routing decisions.
 5. Add evaluation fixtures from real assistant tasks.
@@ -43,6 +46,10 @@ The classifier lowers compute waste for personal AI, gateway routing, and native
 
 - [Lightweight Classifier SDS](../../sds/ai_rag_model_routing/lightweight_classifier.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #62 - Lightweight Classifier](../../build_plan/sub_build_plan_062_lightweight_classifier.md)
+
 ## Design Alignment
 
-The SDS refines this implementation plan as an advisory pre-routing service. It owns label taxonomy, classifier versions, confidence thresholds, escalation records, evaluation fixtures, calibration reports, and usage refs, while explicitly preventing classifier output from bypassing Overguard, AI Gateway Router, context authorization, user permissions, or final safety review.
+The SDS refines this implementation plan as an advisory pre-routing service. It owns label taxonomy, classifier versions, confidence thresholds, escalation records, evaluation fixtures, calibration reports, drift signals, rollout state, replay refs, and usage refs, while explicitly preventing classifier output from bypassing Overguard, Workload Classifier, AI Gateway Router, context authorization, user permissions, native app authority, or final safety review. Phase 13 hardening must cover false-negative sensitive classes, escalation bypass, rollout drift, privacy retention, and optional ADES/small-local-model supply-chain risks.

@@ -19,7 +19,7 @@ Keep backbone services available through node failures, partial outages, queue b
 
 1. Define health signals and failover triggers.
 2. Add health-based route shifting.
-3. Add leader election or equivalent failover for critical services.
+3. Add Overrid-owned writer fencing, active/passive promotion, and replicated-log/checkpoint prerequisites for critical write heads.
 4. Add queue worker failover.
 5. Add split-brain prevention and recovery sequencing.
 
@@ -43,6 +43,10 @@ This supports grid-resident backbone reliability and later incident response.
 ## Detailed SDS
 
 The detailed design contract lives in [Failover and Recovery Coordinator SDS](../../sds/deployment_grid/failover_recovery_coordinator.md).
+
+## Sub-Build Plan
+
+[SUB BUILD PLAN #47 - Failover and Recovery Coordinator](../../build_plan/sub_build_plan_047_failover_recovery_coordinator.md).
 
 ## Design Alignment
 

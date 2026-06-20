@@ -17,6 +17,7 @@ Incident Response Service is the case-management and coordination layer for inci
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md), with simple incident records earlier in [Overwatch](../control_plane/overwatch.md) |
+| Sub-build plan | [SUB BUILD PLAN #77 - Incident Response Service](../../build_plan/sub_build_plan_077_incident_response_service.md) |
 
 ## Service Family
 

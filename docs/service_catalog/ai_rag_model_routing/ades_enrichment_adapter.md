@@ -44,6 +44,10 @@ ADES enrichment supports personal AI, model routing, and domain-specific assista
 
 - [ADES Enrichment Adapter SDS](../../sds/ai_rag_model_routing/ades_enrichment_adapter.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #58 - ADES Enrichment Adapter](../../build_plan/sub_build_plan_058_ades_enrichment_adapter.md)
+
 ## Design Alignment
 
 The SDS defines ADES Enrichment Adapter as an optional local semantic enrichment bridge, not a required protocol dependency or final routing/policy authority. It owns connector configuration, local health checks, approved domain-pack refs, enrichment request/result normalization, routing hint bundles, privacy guard records, degradation records, and usage refs.

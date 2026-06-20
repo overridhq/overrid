@@ -1,0 +1,821 @@
+[
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:tenants",
+    "method": "GET",
+    "path": "/admin/tenants",
+    "resource_kind": "tenant",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "state",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "support_viewer"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:admin-read-default",
+      "redacted_fields": [
+        "raw_payload",
+        "internal_notes"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:identities",
+    "method": "GET",
+    "path": "/admin/identities",
+    "resource_kind": "identity",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "identity_type",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "support_viewer",
+        "incident_responder"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:identity-read",
+      "redacted_fields": [
+        "contact_ref",
+        "internal_notes"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:keys",
+    "method": "GET",
+    "path": "/admin/keys",
+    "resource_kind": "key",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "rotation_state",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "incident_responder"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "system_service_only_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:key-metadata-read",
+      "redacted_fields": [
+        "key_material",
+        "signing_material"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:nodes",
+    "method": "GET",
+    "path": "/admin/nodes",
+    "resource_kind": "node",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "health",
+      "trust_class",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "support_viewer",
+        "incident_responder",
+        "system_service"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "system_service_only_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:node-read",
+      "redacted_fields": [
+        "local_path_ref",
+        "operator_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:packages",
+    "method": "GET",
+    "path": "/admin/packages",
+    "resource_kind": "package",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "package_state",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:package-read",
+      "redacted_fields": [
+        "input_ref",
+        "mount_ref"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:workloads",
+    "method": "GET",
+    "path": "/admin/workloads",
+    "resource_kind": "workload",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "workload_state",
+      "trace_id",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer",
+        "incident_responder",
+        "system_service"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:workload-read",
+      "redacted_fields": [
+        "input_ref",
+        "output_ref",
+        "runtime_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:queue-items",
+    "method": "GET",
+    "path": "/admin/queue-items",
+    "resource_kind": "queue_item",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "queue_state",
+      "priority",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "support_viewer",
+        "incident_responder",
+        "system_service"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "system_service_only_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:queue-read",
+      "redacted_fields": [
+        "payload_ref",
+        "retry_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:policy-decisions",
+    "method": "GET",
+    "path": "/admin/policy-decisions",
+    "resource_kind": "policy_decision",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "reason_code",
+      "decision_state",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer",
+        "incident_responder",
+        "system_service"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.policy"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:policy-read",
+      "redacted_fields": [
+        "fact_ref",
+        "evidence_ref"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:usage",
+    "method": "GET",
+    "path": "/admin/usage",
+    "resource_kind": "usage",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "actor_id",
+      "time_window",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "accounting_viewer",
+        "system_service"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.accounting"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:usage-read",
+      "redacted_fields": [
+        "usage_detail_ref",
+        "pricing_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:ledger",
+    "method": "GET",
+    "path": "/admin/ledger",
+    "resource_kind": "ledger",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "account_ref",
+      "time_window",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "accounting_viewer",
+        "system_service"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.accounting"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:ledger-read",
+      "redacted_fields": [
+        "settlement_note",
+        "correction_ref"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:receipts",
+    "method": "GET",
+    "path": "/admin/receipts",
+    "resource_kind": "receipt",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "receipt_state",
+      "time_window",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "accounting_viewer",
+        "system_service"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.accounting"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:receipt-read",
+      "redacted_fields": [
+        "settlement_note",
+        "payer_ref"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:disputes",
+    "method": "GET",
+    "path": "/admin/disputes",
+    "resource_kind": "dispute",
+    "owning_service": "overgate",
+    "capability": "admin.summary.read",
+    "response_contract": "admin_list_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "case_state",
+      "reason_code",
+      "cursor"
+    ],
+    "cursor_pagination": {
+      "supported": true,
+      "default_limit": 50,
+      "max_limit": 200,
+      "cursor_field": "cursor_ref"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "support_viewer",
+        "incident_responder",
+        "accounting_viewer"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.incident"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:dispute-read",
+      "redacted_fields": [
+        "evidence_ref",
+        "operator_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:workload-timeline",
+    "method": "GET",
+    "path": "/admin/workloads/{id}/timeline",
+    "resource_kind": "workload_timeline",
+    "owning_service": "overgate",
+    "capability": "admin.timeline.read",
+    "response_contract": "admin_timeline_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "workload_id",
+      "trace_id"
+    ],
+    "cursor_pagination": {
+      "supported": false,
+      "default_limit": 1,
+      "max_limit": 1,
+      "cursor_field": "not_applicable"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer",
+        "incident_responder",
+        "system_service"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.timeline"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:timeline-read",
+      "redacted_fields": [
+        "input_ref",
+        "output_ref",
+        "evidence_ref"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  },
+  {
+    "schema_version": "admin-ui-admin-api.v0.1",
+    "route_id": "admin_route:capabilities",
+    "method": "GET",
+    "path": "/admin/capabilities",
+    "resource_kind": "capability",
+    "owning_service": "overgate",
+    "capability": "admin.session.read",
+    "response_contract": "admin_capabilities_response",
+    "error_contract": "admin_error_response",
+    "bounded_filters": [
+      "tenant_id",
+      "schema_version"
+    ],
+    "cursor_pagination": {
+      "supported": false,
+      "default_limit": 1,
+      "max_limit": 1,
+      "cursor_field": "not_applicable"
+    },
+    "server_authorization": {
+      "tenant_scoped": true,
+      "actor_scoped": true,
+      "roles_allowed": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer",
+        "incident_responder",
+        "accounting_viewer",
+        "service_account",
+        "system_service"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.capability"
+      ],
+      "denies_cross_tenant": true,
+      "server_side_only": true
+    },
+    "redaction": {
+      "profile_ref": "redaction:capability-read",
+      "redacted_fields": [
+        "operator_note"
+      ],
+      "high_risk_fields_fail_closed": true
+    },
+    "audit_refs": [
+      {
+        "audit_id": "audit:admin-read-routes",
+        "source_service": "overwatch",
+        "trace_id": "trace_admin_phase3_routes"
+      }
+    ]
+  }
+]

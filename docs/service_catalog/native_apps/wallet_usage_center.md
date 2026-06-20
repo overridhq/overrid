@@ -45,6 +45,10 @@ Wallet is the first native app because every other native service depends on usa
 
 The detailed design contract is [Wallet and Usage Center SDS](../../sds/native_apps/wallet_usage_center.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #74 - Wallet and Usage Center](../../build_plan/sub_build_plan_074_wallet_usage_center.md)
+
 ## Design Alignment
 
 - Treat Wallet and Usage Center as a user-facing projection and control app, not as ORU Account Service, Seal Ledger, Overbill, Overgrant, Overmeter, Overclaim, or an external payment processor.

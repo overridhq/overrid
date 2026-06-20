@@ -17,6 +17,7 @@ Wallet and Usage Center is the native account-visibility and permission-control 
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Sub-build plan | [SUB BUILD PLAN #74 - Wallet and Usage Center](../../build_plan/sub_build_plan_074_wallet_usage_center.md) |
 
 ## Service Family
 

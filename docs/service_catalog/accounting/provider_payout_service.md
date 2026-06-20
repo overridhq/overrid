@@ -45,6 +45,10 @@ Provider payouts support private swarms, federation, public pools, and Overbill.
 
 The detailed design contract lives in [Provider Payout Service SDS](../../sds/accounting/provider_payout_service.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #43 - Provider Payout Service](../../build_plan/sub_build_plan_043_provider_payout_service.md).
+
 ## Design Alignment
 
 - Treat Provider Payout Service as payout eligibility, hold, batch, result, failure, reversal, and correction coordination, not the source of earning truth or a payment processor.

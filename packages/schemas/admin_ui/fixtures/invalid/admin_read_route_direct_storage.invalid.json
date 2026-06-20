@@ -1,0 +1,50 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "route_id": "admin_route:bad-direct-storage",
+  "method": "GET",
+  "path": "/admin/tenants",
+  "resource_kind": "tenant",
+  "owning_service": "postgres",
+  "capability": "admin.summary.read",
+  "response_contract": "admin_list_response",
+  "error_contract": "admin_error_response",
+  "bounded_filters": [
+    "tenant_id",
+    "cursor"
+  ],
+  "cursor_pagination": {
+    "supported": true,
+    "default_limit": 50,
+    "max_limit": 200,
+    "cursor_field": "cursor_ref"
+  },
+  "server_authorization": {
+    "tenant_scoped": true,
+    "actor_scoped": true,
+    "roles_allowed": [
+      "tenant_owner"
+    ],
+    "data_classes": [
+      "tenant_private_ref"
+    ],
+    "policy_scopes": [
+      "admin.read.summary"
+    ],
+    "denies_cross_tenant": true,
+    "server_side_only": true
+  },
+  "redaction": {
+    "profile_ref": "redaction:admin-read-default",
+    "redacted_fields": [
+      "raw_payload"
+    ],
+    "high_risk_fields_fail_closed": true
+  },
+  "audit_refs": [
+    {
+      "audit_id": "audit:bad-route",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_bad_route"
+    }
+  ]
+}

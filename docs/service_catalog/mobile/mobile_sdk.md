@@ -63,6 +63,10 @@ Mobile SDK enables Overrid-backed native and third-party mobile apps.
 
 See [Mobile SDK SDS](../../sds/mobile/mobile_sdk.md) for the concrete design contract.
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #83 - Mobile SDK](../../build_plan/sub_build_plan_083_mobile_sdk.md)
+
 ## SDS Design Alignment
 
 - Treat the SDK as a versioned mobile client package, not as a backend service or authority over identity, policy, storage, wallet balances, AI routing, or native app state.

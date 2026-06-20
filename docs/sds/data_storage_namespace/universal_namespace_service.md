@@ -17,6 +17,7 @@ The Universal Namespace Service is the address and naming layer. It owns normali
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) |
+| Sub-build plan | [SUB BUILD PLAN #30 - Universal Namespace Service](../../build_plan/sub_build_plan_030_universal_namespace_service.md) |
 
 ## Service Family
 

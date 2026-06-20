@@ -6,7 +6,9 @@ Represent operational ownership and resource rights for resources, credits, rese
 
 ## First Build Phase
 
-[Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md) or [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) depending on first right type.
+[Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md) for first evidence-backed accounting and operational right records.
+
+[Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) expands storage entitlement and namespace-bound right refs once the owner services exist.
 
 ## Dependencies
 
@@ -34,6 +36,10 @@ Represent operational ownership and resource rights for resources, credits, rese
 ## Detailed SDS
 
 The detailed design contract lives in [Overasset SDS](../../sds/accounting/overasset.md).
+
+## Sub-Build Plan
+
+[SUB BUILD PLAN #39 - Overasset](../../build_plan/sub_build_plan_039_overasset.md).
 
 ## Design Alignment
 

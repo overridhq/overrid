@@ -35,6 +35,8 @@ Records in [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_
 
 The detailed design contract lives in [Overclaim SDS](../../sds/trust_policy_verification/overclaim.md).
 
+- [SUB BUILD PLAN #32 - Overclaim](../../build_plan/sub_build_plan_032_overclaim.md)
+
 ## Design Alignment
 
 - Treat Overclaim as the append-only dispute, evidence, hold, correction, refund-proposal, appeal, and finality coordination layer.

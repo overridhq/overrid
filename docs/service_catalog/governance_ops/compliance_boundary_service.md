@@ -45,6 +45,10 @@ Compliance boundaries protect Overrid as native apps, payments, and public parti
 
 The design contract is expanded in [Compliance Boundary Service SDS](../../sds/governance_ops/compliance_boundary_service.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #76 - Compliance Boundary Service](../../build_plan/sub_build_plan_076_compliance_boundary_service.md)
+
 ## SDS Design Alignment
 
 - Treat the service as the versioned compliance fact and boundary-marker authority, not as legal advice, payment processing, policy enforcement, or custody.

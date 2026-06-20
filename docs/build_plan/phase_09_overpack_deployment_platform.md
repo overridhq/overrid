@@ -20,8 +20,8 @@ Developers should describe what the app needs; Overrid should validate, authoriz
 3. Add deployment planner.
 4. Add provisioning for runtime, data, storage, routes, policy, and billing.
 5. Add health checks and observability.
-6. Add rolling, blue-green, and canary strategies.
-7. Add rollback and recovery.
+6. Add Release Strategy Service plans, channels, health gates, version pins, rolling, blue-green, canary, manual rollout, and route-weight strategies.
+7. Add rollback, freeze, and recovery handoffs.
 8. Prove one app deployment from a signed manifest.
 
 ## Workstream 1: Application-Intent Manifest
@@ -97,19 +97,34 @@ Provision:
 
 The platform should not require manual infrastructure edits for normal deployment.
 
-## Workstream 5: Release Strategies
+## Workstream 5: Release Strategy Service
+
+Release Strategy Service owns rollout intent:
+
+- Release plans.
+- Strategy templates.
+- Release channels.
+- Traffic steps.
+- Health gates.
+- Promotion rules.
+- Freeze records.
+- Version pins.
+- Rollback triggers.
+- Approval records.
+- Release evidence refs.
 
 Support:
 
 - Rolling update.
 - Blue-green deployment.
 - Canary deployment.
+- Manual rollout.
 - Manual rollback.
 - Automatic rollback on health failure.
 - Route-weight changes.
 - Version pinning.
 
-Keep release operations auditable and tied to signed deployment commands.
+Keep release operations auditable and tied to signed deployment commands, package validation refs, deployment plan refs, Overmesh route refs, Overguard policy refs, Overwatch health evidence, restore refs when required, and metering/billing hook readiness where billable traffic is involved.
 
 ## Workstream 6: AI-Generated Package Compatibility
 

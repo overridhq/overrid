@@ -1,0 +1,31 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:private_payload_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_private_payload_001",
+  "outcome": "successful",
+  "nodes": [
+    {
+      "node_id": "timeline:private_payload",
+      "kind": "overrun_execution",
+      "state": "completed",
+      "occurred_at": "2026-06-20T09:07:00Z",
+      "owning_service": "overrun",
+      "refs": [
+        "execution:private_payload_001"
+      ],
+      "reason_codes": [
+        "execution.completed"
+      ],
+      "private_payload": "not allowed"
+    }
+  ],
+  "edges": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:private_payload_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_private_payload_001"
+    }
+  ]
+}

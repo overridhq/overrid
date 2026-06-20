@@ -71,6 +71,64 @@ The UI is an Overrid client surface. It must use Overgate admin APIs, signed com
   - Output: Cross-document maintenance rule in this plan.
   - Validation: Review checklist rejects UI-only changes that invent backend state.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Artifact | Required SDS #1 link | Current source | Validation gate |
+| --- | --- | --- | --- |
+| Numbered SDS | Link to `SUB BUILD PLAN #1 - Admin and Developer UI` | `docs/sds/foundation/admin_developer_ui.md` Source Documents table | Local Markdown link check and Docdex search must surface both files. |
+| Service catalog entry | Link to the detailed SDS and this sub-build plan | `docs/service_catalog/foundation/admin_developer_ui.md` Detailed SDS and Detailed Build Plan sections | Service catalog review must keep Phase 6 as the first build phase. |
+| Master build plan | Per-SDS row for SDS #1 | `docs/build_plan/master_plan.md` Per-SDS Sub-Build Plans table | Master order must keep UI implementation in Phase 6 with prerequisites from Phases 0, 1, 3, 4, and 5. |
+| Build-plan crosswalk | Per-SDS row for SDS #1 | `docs/build_plan/service_catalog_alignment.md` Per-SDS Sub-Build Plan Index | Crosswalk must preserve Phase 6 as the first build phase. |
+| Tech stack decision | Operator/developer UI rule | `docs/overrid_tech_stack_choice.md` Operator/developer UI row | UI work must stay TypeScript/client-bound and never become core control-plane runtime. |
+
+#### Frozen Client Boundary
+
+| Concern | Rust service owner | UI allowance | Phase 1 gate |
+| --- | --- | --- | --- |
+| Authentication, signing, idempotency, rate limits, and command intake | Overgate | Use generated client bindings and signed request helpers only. | No raw service URLs outside Overgate. |
+| Actor, tenant, roles, keys, redaction, and visible capabilities | Overpass, Overtenant, Overkey, Overgate | Render server-filtered session context and capability flags. | No client-side authority decisions beyond hiding disabled controls. |
+| Queue, workload, package, lease, execution, and node state | Overqueue, Overpack, Oversched, Overlease, Overcell, Overrun | Render read models returned by Overgate-admin APIs. | No direct queue, node-agent, package-store, or execution-runtime access. |
+| Policy, verification, disputes, and incident evidence | Overguard, Oververify, Challenge Task Service, Overclaim, Overwatch | Render reason codes, refs, appeal/correction status, and evidence summaries. | No private evidence expansion unless the owning service returns redacted refs. |
+| Usage, accounting, receipts, grants, and rights | Overmeter, ORU Account Service, Seal Ledger, Overbill, Overgrant, Overasset | Render read-only summaries and receipt refs. | No UI-owned accounting state or pricing assumptions. |
+| Diagnostics | UI local state plus Overgate/Overwatch refs | Collect redacted local diagnostic events and copy-safe bundles. | No secrets, private payloads, decrypted RAG snippets, raw credentials, or private file paths. |
+
+#### Phase Entry Prerequisite Matrix
+
+| UI panel or action path | Earliest mode | Required upstream contracts | Gate before implementation |
+| --- | --- | --- | --- |
+| Session, environment, tenant, and role context | Read-only context load | Phase 0 envelopes and schemas; Phase 1 Overgate, Overpass, Overtenant, Overkey, and Overwatch refs | `admin_session_context` schema and server-side redaction rules exist. |
+| Tenant, identity, and key panels | Read-only panel | Phase 1 identity, tenant, role, key metadata, suspension, quota, and audit-ref APIs | Panel renders only server-filtered records and never exposes key material. |
+| Node and capability panels | Read-only panel | Phase 2 node registration/capability contracts plus Phase 4 verification/trust refs where available | Missing later-phase verification appears as disabled/degraded status, not fabricated state. |
+| Package, workload, and queue summaries | Read-only panel | Phase 3 Overpack, Overqueue, Oversched, Overlease, Overcell, Overrun, and Overmeter refs | Each row names trace id, state, stale age, and owning-service status. |
+| Workload timeline | Read-only drilldown | Phase 3 execution refs, Phase 4 policy/dispute evidence, Phase 5 usage/accounting/receipt refs, and Overwatch trace refs | Partial dependencies render explicit unavailable/degraded nodes. |
+| Policy, verification, dispute, and incident evidence | Read-only panel | Phase 4 Overguard, Oververify, Challenge Task Service, Overclaim, and Overwatch refs | Private evidence and regulated fields remain redacted by owning services. |
+| Usage, ORU, Seal Ledger, Overbill, Overgrant, Overasset, and receipt views | Read-only panel | Phase 5 metering, ORU, ledger, billing, grant, rights, and receipt contracts | UI renders observed usage and settlement state separately and does not encode pricing. |
+| Diagnostic bundle | Local read/copy action | Phase 0 reason-code/trace-id conventions and Phase 1 Overgate reachability status | Bundle includes only trace ids, schema versions, reason codes, feature flags, and redacted local errors. |
+| Signed admin actions | Disabled until contracts exist | Phase 2 action schemas, Phase 3+ owning-service command contracts, Overgate signing, idempotency, policy, and Overwatch receipt contracts | Mutation controls remain disabled unless the capability response names the action, target, schema version, and owning service. |
+
+#### Read-Only-First Capability Gates
+
+| Capability flag | Unlocks | Default before upstream contract | Required validation |
+| --- | --- | --- | --- |
+| `admin.session.read` | Session context, environment selector, active tenant display | Disabled shell with setup/error state | Missing actor, tenant, role, redaction, or schema version fails closed. |
+| `admin.summary.read` | Tenant, identity, key, node, package, workload, queue, policy, usage, ledger, dispute, and receipt summaries | Panel hidden or dependency status visible | Fixtures prove unavailable dependencies do not trigger direct storage reads. |
+| `admin.timeline.read` | Trace-linked workload timeline | Timeline tab disabled with dependency reason | Successful, denied, cancelled, timed-out, and disputed fixtures render without private payloads. |
+| `admin.diagnostics.copy` | Copy-safe diagnostic bundle | Disabled in production unless policy allows local diagnostics | Validation rejects secrets, raw credentials, private payloads, private paths, and decrypted RAG snippets. |
+| `admin.actions.submit` | Signed bounded admin actions | Disabled | Contract tests prove signed request, reason, expected state, idempotency key, policy refs, trace id, and audit refs are required. |
+
+#### Documentation Update Rule
+
+Any UI requirement that needs data not already exposed by an owning service must follow this order:
+
+1. Update the owning service SDS and API/schema contract.
+2. Update the shared schema package or generated binding plan if a cross-boundary type changes.
+3. Update this sub-build plan with the new dependency, capability flag, validation fixture, and disabled/degraded behavior.
+4. Implement or update the TypeScript UI only after the Overgate-admin contract and generated binding shape are stable.
+
+Review must reject UI-only changes that invent platform state, bypass Overgate, make client-side authority decisions, directly access service storage, or turn local diagnostics into authoritative audit events.
+
 ## Phase 2: Shared Admin Schemas And Generated Client Contracts
 
 ### Work Items

@@ -17,6 +17,7 @@ Social Photo/Video App is the native media and community sharing utility for Ove
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Sub-build plan | [SUB BUILD PLAN #73 - Social Photo/Video App](../../build_plan/sub_build_plan_073_social_photo_video_app.md) |
 
 ## Service Family
 

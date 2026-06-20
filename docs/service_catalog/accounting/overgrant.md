@@ -45,6 +45,10 @@ Overgrant powers public-interest pools, native service surplus routing, central 
 
 The detailed design contract lives in [Overgrant SDS](../../sds/accounting/overgrant.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #41 - Overgrant](../../build_plan/sub_build_plan_041_overgrant.md).
+
 ## Design Alignment
 
 - Treat Overgrant as programmable resource allocation and grant authorization infrastructure, not a token drop, balance store, billing service, or speculative market.

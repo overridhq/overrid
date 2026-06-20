@@ -13,6 +13,7 @@ Seal Ledger is Overrid's accounting truth layer. It replaces the need for blockc
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [seal_ledger.md](../../service_catalog/accounting/seal_ledger.md) |
+| Sub-build plan | [SUB BUILD PLAN #44 - Seal Ledger](../../build_plan/sub_build_plan_044_seal_ledger.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

@@ -6,7 +6,7 @@ Connect Overrid resource control to mSwarm local-first runtime concerns such as 
 
 ## First Build Phase
 
-[Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md) or earlier if required by native runtime.
+[Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), with later [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) expansion where app-owned local-first runtime flows require it.
 
 ## Dependencies
 
@@ -44,6 +44,10 @@ mSwarm bridge supports local-first app runtime and native application developmen
 ## Detailed SDS
 
 The detailed design contract is [mSwarm Runtime Bridge SDS](../../sds/adapters/mswarm_runtime_bridge.md).
+
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #67 - mSwarm Runtime Bridge](../../build_plan/sub_build_plan_067_mswarm_runtime_bridge.md)
 
 ## Design Alignment
 

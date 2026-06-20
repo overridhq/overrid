@@ -1,0 +1,26 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "command_id": "command:cancel_workload_missing_reason",
+  "tenant_id": "tenant:seed",
+  "actor_id": "actor:founder",
+  "target": {
+    "target_id": "workload:cancelled_001",
+    "target_kind": "workload",
+    "owning_service": "overqueue"
+  },
+  "action_type": "cancel_workload",
+  "expected_current_state": "queued",
+  "idempotency_key": "idem_cancel_workload_missing_reason",
+  "trace_id": "trace_job_cancelled_missing_reason",
+  "signature_refs": [
+    "signature:founder_cancel_001"
+  ],
+  "policy_refs": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:cancel_request_missing_reason",
+      "source_service": "overgate",
+      "trace_id": "trace_job_cancelled_missing_reason"
+    }
+  ]
+}

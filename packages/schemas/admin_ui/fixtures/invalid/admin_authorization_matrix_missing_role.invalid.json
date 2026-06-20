@@ -1,0 +1,35 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "roles": [
+    {
+      "role": "tenant_owner",
+      "allowed_routes": [
+        "/admin/tenants",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material"
+      ],
+      "data_classes": [
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    }
+  ],
+  "fail_closed_defaults": {
+    "missing_role_denied": true,
+    "missing_tenant_denied": true,
+    "high_risk_field_redacted": true
+  },
+  "audit_refs": [
+    {
+      "audit_id": "audit:bad-authz",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_bad_authz"
+    }
+  ]
+}

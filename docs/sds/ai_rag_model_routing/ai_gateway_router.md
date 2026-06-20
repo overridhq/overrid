@@ -16,6 +16,7 @@ AI Gateway Router owns route-decision infrastructure for Overrid AI work. It cla
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
+| Sub-build plan | [SUB BUILD PLAN #59 - AI Gateway Router](../../build_plan/sub_build_plan_059_ai_gateway_router.md) |
 | Build phase alignment | [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
 
 ## Service Family

@@ -46,6 +46,10 @@ Migration tooling supports grid independence, customer swarms, and long-term pla
 
 The design contract is expanded in [Migration Tooling SDS](../../sds/governance_ops/migration_tooling.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #78 - Migration Tooling](../../build_plan/sub_build_plan_078_migration_tooling.md)
+
 ## SDS Design Alignment
 
 - Treat migration as planned, resumable, checkpointed coordination across owning services, not direct edits to stores, routes, ledgers, queues, or vaults.

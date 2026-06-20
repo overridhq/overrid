@@ -17,6 +17,7 @@ Challenge Task Service is the active testing layer for Overrid trust. It creates
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 4: Trust, Policy, and Verification](../../build_plan/phase_04_trust_policy_verification.md), [Phase 11: Limited Public Low-Sensitivity Pool](../../build_plan/phase_11_limited_public_low_sensitivity_pool.md) |
+| Sub-build plan | [SUB BUILD PLAN #31 - Challenge Task Service](../../build_plan/sub_build_plan_031_challenge_task_service.md) |
 
 ## Service Family
 

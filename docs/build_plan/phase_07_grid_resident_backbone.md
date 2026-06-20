@@ -69,6 +69,7 @@ Package core services for grid deployment:
 - Backup command.
 - Restore command.
 - Rollback command.
+- Package Validator report ref for schema, signature, artifact hash, dependency evidence, permission, policy-compatibility, and system-service contract checks.
 
 The same deployment path later feeds Overpack application deployment.
 
@@ -76,7 +77,7 @@ The same deployment path later feeds Overpack application deployment.
 
 Plan state stores:
 
-- Primary database or equivalent state engine.
+- Primary Overrid-owned structured state engine or equivalent state engine.
 - Event log.
 - Queue state.
 - Object/artifact storage.
@@ -90,7 +91,9 @@ Every critical store needs backup, restore, and corruption detection.
 
 Implement or choose mechanisms for:
 
-- Leader election or equivalent active/passive failover.
+- Overrid-owned single-writer fencing through Overlease, Overkey, store epochs/checkpoints, route drains, queue drains, and Overwatch evidence.
+- Active/passive promotion for stateless or rebuildable service surfaces.
+- Replicated-log or checkpoint readiness before founder fallback is removed for critical write heads.
 - Health-based route shifting.
 - Queue worker failover.
 - State lock safety.
@@ -114,6 +117,8 @@ Add operational controls:
 System-service changes must be traceable because they affect the whole ecosystem.
 
 ## Workstream 7: Migration Sequence
+
+The limited grid migration slice is expanded in [SUB BUILD PLAN #78 - Migration Tooling](sub_build_plan_078_migration_tooling.md). Phase 7 should prove a non-critical system-service move with checkpoints, owner-service refs, rollback evidence, and founder-hardware fallback gates; full migration planning, reporting, security review, and scale hardening remain Phase 13 work.
 
 Migrate in this order:
 

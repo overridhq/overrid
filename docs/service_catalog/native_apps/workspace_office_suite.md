@@ -46,6 +46,10 @@ Workspace exercises Overbase, Overstore, Overvault, search, personal AI, and usa
 
 The detailed design contract is [Workspace and Office Suite SDS](../../sds/native_apps/workspace_office_suite.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #75 - Workspace and Office Suite](../../build_plan/sub_build_plan_075_workspace_office_suite.md)
+
 ## Design Alignment
 
 - Treat Workspace and Office Suite as the owner of collaborative workspace object state, not as raw object storage, vault storage, search engine, AI model provider, messaging replacement, or accounting service.

@@ -46,6 +46,10 @@ Docdex adapter proves data-and-AI workloads and feeds personal AI RAG.
 
 - [Docdex Adapter SDS](../../sds/adapters/docdex_adapter.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #65 - Docdex Adapter](../../build_plan/sub_build_plan_065_docdex_adapter.md)
+
 ## Design Alignment
 
-The SDS refines this implementation plan as the Docdex workload adapter for instance refs, repo bindings, encrypted repo configs, index/search/retrieval/admin-ingest jobs, result refs, cleanup jobs, and usage refs. It keeps final context authorization in Encrypted Docdex RAG Adapter, model/resource decisions in AI Gateway Router, and Overrid identity/accounting truth in the core platform services.
+The SDS refines this implementation plan as the Docdex workload adapter for instance refs, repo bindings, encrypted repo configs, index/search/retrieval/admin-ingest jobs, result refs, cleanup/deprovision jobs, usage refs, audit refs, and replay bundles. It keeps final context authorization in Encrypted Docdex RAG Adapter, model/resource decisions in AI Gateway Router, and Overrid identity/accounting truth in the core platform services. Phase 13 hardening must cover encrypted repo leakage facts, key failures, disabled structural features, admin-ingest plaintext cleanup, two-phase deprovision evidence, unauthorized repo binding access, usage reconciliation, incident response, and replay/audit gaps.

@@ -13,6 +13,7 @@ Public-Interest Pool Service defines pool accounts, contributed resource scopes,
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [public_interest_pool_service.md](../../service_catalog/federation_public/public_interest_pool_service.md) |
+| SDS sub-build plan | [SUB BUILD PLAN #54 - Public-Interest Pool Service](../../build_plan/sub_build_plan_054_public_interest_pool_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

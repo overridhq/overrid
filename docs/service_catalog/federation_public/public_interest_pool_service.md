@@ -45,6 +45,10 @@ Public-interest pools turn Overrid surplus and donated capacity into accountable
 
 The detailed design contract lives in [Public-Interest Pool Service SDS](../../sds/federation_public/public_interest_pool_service.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #54 - Public-Interest Pool Service](../../build_plan/sub_build_plan_054_public_interest_pool_service.md).
+
 ## Design Alignment
 
 - Treat Public-Interest Pool Service as purpose-aware allocation and reporting infrastructure: pool definitions, contributions, eligible grantees, quotas, fairness windows, allocation requests, abuse throttles, usage reports, and outcome refs.

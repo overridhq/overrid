@@ -1,0 +1,129 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "backend_schema_version": "admin-ui.v0.1",
+  "generated_at": "2026-06-20T10:30:00Z",
+  "routes": [
+    {
+      "path": "/admin/tenants",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/identities",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/keys",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/nodes",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/packages",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/workloads",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/queue-items",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/policy-decisions",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/usage",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/ledger",
+      "available": false,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": ["admin.capability.dependency_unavailable"]
+    },
+    {
+      "path": "/admin/receipts",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/disputes",
+      "available": true,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/workloads/{id}/timeline",
+      "available": true,
+      "required_capability": "admin.timeline.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    },
+    {
+      "path": "/admin/capabilities",
+      "available": true,
+      "required_capability": "admin.session.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": []
+    }
+  ],
+  "feature_flags": ["admin.session.read", "admin.summary.read", "admin.timeline.read"],
+  "limits": {
+    "route_max_limit": 200,
+    "filter_max_count": 8,
+    "cursor_required": true
+  },
+  "disabled_panels": [
+    {
+      "panel": "Ledger",
+      "reason_code": "admin.capability.dependency_unavailable",
+      "dependency_status": {
+        "service": "seal_ledger",
+        "status": "unavailable",
+        "reason_code": "admin.dependency.unavailable"
+      }
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:capabilities-001",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_capabilities"
+    }
+  ]
+}

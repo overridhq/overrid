@@ -1,0 +1,23 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "receipt_id": "admin_receipt:cancel_workload_001",
+  "command_id": "command:cancel_workload_001",
+  "tenant_id": "tenant:seed",
+  "actor_id": "actor:founder",
+  "trace_id": "trace_job_cancelled_001",
+  "outcome": "completed",
+  "affected_refs": [
+    "workload:cancelled_001",
+    "queue:cancelled_001"
+  ],
+  "reason_codes": [
+    "admin_action.completed"
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:cancel_receipt_001",
+      "source_service": "overgate",
+      "trace_id": "trace_job_cancelled_001"
+    }
+  ]
+}

@@ -44,6 +44,10 @@ PIP registry becomes the long-term governance path for protocol evolution.
 
 The design contract is expanded in [Protocol Improvement Proposal Registry SDS](../../sds/governance_ops/pip_registry.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #79 - Protocol Improvement Proposal Registry](../../build_plan/sub_build_plan_079_pip_registry.md)
+
 ## SDS Design Alignment
 
 - Treat the registry as append-only protocol and service-contract governance records, not implementation, deployment, token voting, or hidden private governance.

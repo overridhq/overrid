@@ -13,6 +13,7 @@ ADES Enrichment Adapter connects Overrid AI flows to ADES without making ADES a 
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [ades_enrichment_adapter.md](../../service_catalog/ai_rag_model_routing/ades_enrichment_adapter.md) |
+| Sub-build plan | [sub_build_plan_058_ades_enrichment_adapter.md](../../build_plan/sub_build_plan_058_ades_enrichment_adapter.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

@@ -13,6 +13,7 @@ ORU Account Service is the account and balance projection service for ORU. It mu
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [oru_account_service.md](../../service_catalog/accounting/oru_account_service.md) |
+| Sub-build plan | [SUB BUILD PLAN #38 - ORU Account Service](../../build_plan/sub_build_plan_038_oru_account_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

@@ -46,6 +46,10 @@ This interface makes central AI stewardship inspectable and accountable.
 
 The detailed design contract is [Central AI Stewardship Interface SDS](../../sds/native_apps/central_ai_stewardship_interface.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #68 - Central AI Stewardship Interface](../../build_plan/sub_build_plan_068_central_ai_stewardship_interface.md)
+
 ## Design Alignment
 
 - Treat the interface as a redacted view and signed-action surface, not as Central AI Service or a direct mutation path for funds, grants, fraud cases, disputes, or reports.

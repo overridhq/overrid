@@ -46,6 +46,10 @@ Maps integrate directory, search, messaging, local discovery, and mobile clients
 
 The detailed design contract is [Maps and Navigation SDS](../../sds/native_apps/maps_navigation.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #70 - Maps and Navigation](../../build_plan/sub_build_plan_070_maps_navigation.md)
+
 ## Design Alignment
 
 - Treat Maps and Navigation as the privacy-preserving place, route, layer, local-discovery, and offline-area utility, not as a surveillance or advertising surface.

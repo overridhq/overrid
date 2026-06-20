@@ -47,9 +47,13 @@ Messaging becomes a protocol-level utility for directory, workspace, native apps
 
 The detailed design contract is [Messaging Center SDS](../../sds/native_apps/messaging_center.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #71 - Messaging Center](../../build_plan/sub_build_plan_071_messaging_center.md)
+
 ## Design Alignment
 
 - Treat Messaging Center as a username-addressed communication utility, not as a social feed, identity authority, ad surface, storage system, or payment service.
 - Require inboxes, threads, message envelopes, organization inbox routing, app notifications, attachment refs, encrypted payload refs, contact/block prefs, AI triage permissions, abuse reports, and usage refs.
-- Integrate with Directory Listings, Workspace, Social, Maps, Personal AI Assistant, Overvault, Overstore, Overguard, Fraud Control, and Wallet/Usage Center through explicit refs and events.
+- Integrate with Directory Listings, Workspace, Social, Maps, Personal AI Assistant, AI Gateway Router, Overvault, Overstore, Overguard, Fraud Control, and Wallet/Usage Center through explicit refs and events.
 - Encrypted personal messages, org inbox roles, first-contact rules, notification preferences, and AI triage must be permissioned, auditable, and revocable.

@@ -46,6 +46,10 @@ Social media should launch only after privacy, moderation, storage, and abuse sy
 
 The detailed design contract is [Social Photo/Video App SDS](../../sds/native_apps/social_photo_video_app.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #73 - Social Photo/Video App](../../build_plan/sub_build_plan_073_social_photo_video_app.md)
+
 ## Design Alignment
 
 - Treat Social Photo/Video as a native media/community utility, not as an addiction engine, hidden profiling system, ad marketplace, storage system, messaging system, or payment service.

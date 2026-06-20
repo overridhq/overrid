@@ -13,6 +13,7 @@ Mcoda Adapter is the translation boundary between Mcoda agent tasks and Overrid 
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [mcoda_adapter.md](../../service_catalog/adapters/mcoda_adapter.md) |
+| Sub-build plan | [SUB BUILD PLAN #66 - Mcoda Adapter](../../build_plan/sub_build_plan_066_mcoda_adapter.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

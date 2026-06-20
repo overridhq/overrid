@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build provider attestation, benchmarking, certification, result checks, challenge protocols, and explainable trust scoring.
+Build evidence-backed provider and node verification records, source-authenticated evidence validation, certification, workload-class eligibility publication, and explainable trust signals.
 
 ## First Build Phase
 
@@ -18,21 +18,23 @@ Build provider attestation, benchmarking, certification, result checks, challeng
 ## Development Order
 
 1. Store provider and node verification records.
-2. Validate benchmark evidence.
-3. Add challenge task outcomes.
+2. Validate source-authenticated benchmark evidence refs.
+3. Ingest Challenge Task Service outcome refs.
 4. Add reliability, dispute, and abuse history.
-5. Produce explainable trust scores and eligibility flags.
+5. Produce explainable trust and eligibility signals.
 
 ## Contracts And Interfaces
 
 - Verification record schema.
 - Challenge result schema.
-- Trust score evidence refs.
+- Trust signal evidence refs.
 - Scheduler eligibility signals.
 
 ## Detailed SDS
 
 The detailed design contract lives in [Oververify SDS](../../sds/trust_policy_verification/oververify.md).
+
+- [SUB BUILD PLAN #34 - Oververify](../../build_plan/sub_build_plan_034_oververify.md)
 
 ## Design Alignment
 
@@ -45,7 +47,7 @@ The detailed design contract lives in [Oververify SDS](../../sds/trust_policy_ve
 
 - Scheduler eligibility changes when verification evidence changes.
 - Challenge failures reduce trust or create holds.
-- Trust scores can be explained from stored evidence.
+- Trust and eligibility signals can be explained from stored evidence, reason codes, and policy/evaluator versions.
 
 ## Handoff
 

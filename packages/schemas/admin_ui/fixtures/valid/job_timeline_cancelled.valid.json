@@ -1,0 +1,49 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:cancelled_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_cancelled_001",
+  "outcome": "cancelled",
+  "nodes": [
+    {
+      "node_id": "timeline:cancelled_queue",
+      "kind": "overqueue_item",
+      "state": "cancelled",
+      "occurred_at": "2026-06-20T09:03:00Z",
+      "owning_service": "overqueue",
+      "refs": [
+        "queue:cancelled_001"
+      ],
+      "reason_codes": [
+        "queue.cancelled_by_operator"
+      ]
+    },
+    {
+      "node_id": "timeline:cancelled_action",
+      "kind": "overgate_request",
+      "state": "admin_action_applied",
+      "occurred_at": "2026-06-20T09:03:04Z",
+      "owning_service": "overgate",
+      "refs": [
+        "command:cancel_workload_001"
+      ],
+      "reason_codes": [
+        "admin_action.completed"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "timeline:cancelled_action",
+      "to": "timeline:cancelled_queue",
+      "edge_kind": "caused_by"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:cancelled_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_cancelled_001"
+    }
+  ]
+}

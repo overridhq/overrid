@@ -16,6 +16,7 @@ System-Service Workload Class is a policy and eligibility contract, not a schedu
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
+| Sub-build plan | [SUB BUILD PLAN #51 - System-Service Workload Class](../../build_plan/sub_build_plan_051_system_service_workload_class.md) |
 | Build phase alignment | [Phase 7: Grid-Resident Backbone](../../build_plan/phase_07_grid_resident_backbone.md) |
 
 ## Service Family

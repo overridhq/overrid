@@ -1,0 +1,29 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "backend_schema_version": "admin-ui.v0.1",
+  "generated_at": "2026-06-20T10:30:00Z",
+  "routes": [
+    {
+      "path": "/admin/tenants",
+      "available": false,
+      "required_capability": "admin.summary.read",
+      "schema_version": "admin-ui-admin-api.v0.1",
+      "reason_codes": ["admin.capability.dependency_unavailable"],
+      "fallback_path": "postgres://admin/tenants"
+    }
+  ],
+  "feature_flags": ["admin.session.read"],
+  "limits": {
+    "route_max_limit": 200,
+    "filter_max_count": 8,
+    "cursor_required": true
+  },
+  "disabled_panels": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:bad-capability",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_bad_capability"
+    }
+  ]
+}

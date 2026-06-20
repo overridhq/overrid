@@ -1,0 +1,895 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.overrid.local/admin_ui/v0/admin_read_api_contracts.schema.json",
+  "title": "Admin UI Phase 3 Overgate Admin Read API Contracts",
+  "description": "Canonical JSON Schema source for Admin and Developer UI Overgate-admin read API contracts defined by SUB BUILD PLAN #1 Phase 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_family",
+    "schema_version",
+    "contracts"
+  ],
+  "properties": {
+    "schema_family": {
+      "const": "admin_ui_admin_read_api"
+    },
+    "schema_version": {
+      "$ref": "#/$defs/read_api_schema_version"
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "admin_read_route",
+          "admin_list_response",
+          "admin_timeline_response",
+          "admin_authorization_matrix",
+          "admin_capabilities_response",
+          "admin_error_response"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admin_ui_schema_version": {
+      "type": "string",
+      "pattern": "^admin-ui\\.v0\\.\\d+$"
+    },
+    "read_api_schema_version": {
+      "type": "string",
+      "pattern": "^admin-ui-admin-api\\.v0\\.\\d+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*:[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^trace_[A-Za-z0-9._:-]+$"
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "role": {
+      "enum": [
+        "platform_owner",
+        "tenant_owner",
+        "tenant_admin",
+        "product_integrator",
+        "support_viewer",
+        "incident_responder",
+        "accounting_viewer",
+        "service_account",
+        "system_service"
+      ]
+    },
+    "resource_kind": {
+      "enum": [
+        "tenant",
+        "identity",
+        "key",
+        "node",
+        "package",
+        "workload",
+        "queue_item",
+        "policy_decision",
+        "usage",
+        "ledger",
+        "receipt",
+        "dispute",
+        "workload_timeline",
+        "capability"
+      ]
+    },
+    "data_class": {
+      "enum": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref",
+        "encrypted_private_ref",
+        "system_service_only_ref",
+        "redacted_diagnostic_ref"
+      ]
+    },
+    "policy_scope": {
+      "enum": [
+        "admin.read.session",
+        "admin.read.summary",
+        "admin.read.timeline",
+        "admin.read.accounting",
+        "admin.read.policy",
+        "admin.read.incident",
+        "admin.read.capability"
+      ]
+    },
+    "route_path": {
+      "enum": [
+        "/admin/tenants",
+        "/admin/identities",
+        "/admin/keys",
+        "/admin/nodes",
+        "/admin/packages",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/usage",
+        "/admin/ledger",
+        "/admin/receipts",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ]
+    },
+    "capability_flag": {
+      "enum": [
+        "admin.session.read",
+        "admin.summary.read",
+        "admin.timeline.read",
+        "admin.diagnostics.copy",
+        "admin.actions.submit"
+      ]
+    },
+    "audit_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_id",
+        "source_service",
+        "trace_id"
+      ],
+      "properties": {
+        "audit_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_service": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        }
+      }
+    },
+    "schema_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admin_ui_contracts",
+        "admin_read_api_contracts"
+      ],
+      "properties": {
+        "admin_ui_contracts": {
+          "$ref": "#/$defs/admin_ui_schema_version"
+        },
+        "admin_read_api_contracts": {
+          "$ref": "#/$defs/read_api_schema_version"
+        }
+      }
+    },
+    "cursor_pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported",
+        "default_limit",
+        "max_limit",
+        "cursor_field"
+      ],
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "default_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cursor_field": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "authorization_filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_scoped",
+        "actor_scoped",
+        "roles_allowed",
+        "data_classes",
+        "policy_scopes",
+        "denies_cross_tenant",
+        "server_side_only"
+      ],
+      "properties": {
+        "tenant_scoped": {
+          "type": "boolean"
+        },
+        "actor_scoped": {
+          "type": "boolean"
+        },
+        "roles_allowed": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/role"
+          }
+        },
+        "data_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/data_class"
+          }
+        },
+        "policy_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/policy_scope"
+          }
+        },
+        "denies_cross_tenant": {
+          "type": "boolean"
+        },
+        "server_side_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "redaction_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_ref",
+        "redacted_fields",
+        "high_risk_fields_fail_closed"
+      ],
+      "properties": {
+        "profile_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "redacted_fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "high_risk_fields_fail_closed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dependency_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "status",
+        "reason_code"
+      ],
+      "properties": {
+        "service": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable",
+            "degraded",
+            "redacted"
+          ]
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "cursor_ref"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cursor_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "next_cursor_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "read_model_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tenant_id",
+        "kind",
+        "state",
+        "trace_id",
+        "schema_version",
+        "reason_codes",
+        "redaction",
+        "audit_refs"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "$ref": "#/$defs/resource_kind"
+        },
+        "state": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/admin_ui_schema_version"
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction_rule"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "timeline_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "kind",
+        "status",
+        "trace_id",
+        "refs",
+        "reason_codes",
+        "audit_refs"
+      ],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "overgate_request",
+            "overqueue_item",
+            "oversched_placement",
+            "overlease_reservation",
+            "overcell_execution",
+            "overrun_result",
+            "overguard_decision",
+            "overmeter_rollup",
+            "seal_ledger_receipt",
+            "overclaim_dispute",
+            "gap"
+          ]
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable",
+            "degraded",
+            "redacted"
+          ]
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_read_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "route_id",
+        "method",
+        "path",
+        "resource_kind",
+        "owning_service",
+        "capability",
+        "response_contract",
+        "error_contract",
+        "bounded_filters",
+        "cursor_pagination",
+        "server_authorization",
+        "redaction",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "route_id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "GET"
+        },
+        "path": {
+          "$ref": "#/$defs/route_path"
+        },
+        "resource_kind": {
+          "$ref": "#/$defs/resource_kind"
+        },
+        "owning_service": {
+          "const": "overgate"
+        },
+        "capability": {
+          "$ref": "#/$defs/capability_flag"
+        },
+        "response_contract": {
+          "enum": [
+            "admin_list_response",
+            "admin_timeline_response",
+            "admin_capabilities_response"
+          ]
+        },
+        "error_contract": {
+          "const": "admin_error_response"
+        },
+        "bounded_filters": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "cursor_pagination": {
+          "$ref": "#/$defs/cursor_pagination"
+        },
+        "server_authorization": {
+          "$ref": "#/$defs/authorization_filter"
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction_rule"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_list_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "path",
+        "resource_kind",
+        "schema_versions",
+        "status",
+        "items",
+        "page",
+        "degraded_dependencies",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "path": {
+          "$ref": "#/$defs/route_path"
+        },
+        "resource_kind": {
+          "$ref": "#/$defs/resource_kind"
+        },
+        "schema_versions": {
+          "$ref": "#/$defs/schema_versions"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "degraded",
+            "empty"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read_model_summary"
+          }
+        },
+        "page": {
+          "$ref": "#/$defs/page"
+        },
+        "degraded_dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency_status"
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_timeline_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "path",
+        "workload_id",
+        "trace_id",
+        "status",
+        "nodes",
+        "partial_dependencies",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "path": {
+          "const": "/admin/workloads/{id}/timeline"
+        },
+        "workload_id": {
+          "$ref": "#/$defs/id"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/timeline_node"
+          }
+        },
+        "partial_dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency_status"
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_authorization_matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "roles",
+        "fail_closed_defaults",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "allowed_routes",
+              "denied_fields",
+              "data_classes",
+              "policy_scopes",
+              "cross_tenant_access"
+            ],
+            "properties": {
+              "role": {
+                "$ref": "#/$defs/role"
+              },
+              "allowed_routes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/route_path"
+                }
+              },
+              "denied_fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/non_empty_string"
+                }
+              },
+              "data_classes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/data_class"
+                }
+              },
+              "policy_scopes": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/policy_scope"
+                }
+              },
+              "cross_tenant_access": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "fail_closed_defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "missing_role_denied",
+            "missing_tenant_denied",
+            "high_risk_field_redacted"
+          ],
+          "properties": {
+            "missing_role_denied": {
+              "type": "boolean"
+            },
+            "missing_tenant_denied": {
+              "type": "boolean"
+            },
+            "high_risk_field_redacted": {
+              "type": "boolean"
+            }
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_capabilities_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "backend_schema_version",
+        "generated_at",
+        "routes",
+        "feature_flags",
+        "limits",
+        "disabled_panels",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "backend_schema_version": {
+          "$ref": "#/$defs/admin_ui_schema_version"
+        },
+        "generated_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "available",
+              "required_capability",
+              "schema_version",
+              "reason_codes"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/route_path"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "required_capability": {
+                "$ref": "#/$defs/capability_flag"
+              },
+              "schema_version": {
+                "$ref": "#/$defs/read_api_schema_version"
+              },
+              "reason_codes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/reason_code"
+                }
+              }
+            }
+          }
+        },
+        "feature_flags": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability_flag"
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "route_max_limit",
+            "filter_max_count",
+            "cursor_required"
+          ],
+          "properties": {
+            "route_max_limit": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "filter_max_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "cursor_required": {
+              "type": "boolean"
+            }
+          }
+        },
+        "disabled_panels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "panel",
+              "reason_code",
+              "dependency_status"
+            ],
+            "properties": {
+              "panel": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "reason_code": {
+                "$ref": "#/$defs/reason_code"
+              },
+              "dependency_status": {
+                "$ref": "#/$defs/dependency_status"
+              }
+            }
+          }
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    },
+    "admin_error_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "reason_code",
+        "trace_id",
+        "retryable",
+        "user_visible_message",
+        "details_ref",
+        "audit_refs"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/read_api_schema_version"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "user_visible_message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "details_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "audit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/audit_ref"
+          }
+        }
+      }
+    }
+  }
+}

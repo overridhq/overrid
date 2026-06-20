@@ -12,10 +12,11 @@ Build the user's everyday native AI surface using central AI coordination, encry
 
 - Encrypted Docdex RAG adapter.
 - AI gateway router.
+- Lightweight Classifier and ADES Enrichment Adapter.
 - Overpass.
 - Overvault.
-- ORU account service.
-- Wallet app.
+- Overguard, Overmeter, Overwatch, ORU account service, and Seal Ledger receipt refs.
+- Wallet and Usage Center plus delegated native app APIs.
 
 ## Development Order
 
@@ -47,6 +48,10 @@ Personal AI becomes the user-facing AI layer for workspace, messaging, search, d
 
 - [Personal AI Assistant SDS](../../sds/ai_rag_model_routing/personal_ai_assistant.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #63 - Personal AI Assistant](../../build_plan/sub_build_plan_063_personal_ai_assistant.md)
+
 ## Design Alignment
 
-The SDS refines this implementation plan as a permission-first native AI application. It owns sessions, turns, permission manifests, context-source selections, tool-call proposals, delegated native-app calls, privacy audit, and usage receipt refs, while keeping raw app data, encrypted RAG authorization, policy enforcement, model routing, and accounting truth in their owning services.
+The SDS refines this implementation plan as a permission-first native AI application. It owns profiles, sessions, turns, permission manifests, context-source selections, tool-call proposals, delegated native-app calls, privacy audit, and usage receipt refs, while keeping raw app data, encrypted RAG authorization, policy enforcement, model routing, native-app state, and accounting truth in their owning services. Phase 13 hardening must cover assistant permission abuse, context leakage, tool-delegation side effects, revocation bypass, mobile offline replay, unsafe-output repair, privacy audit, and addictive or dark-pattern behavior.

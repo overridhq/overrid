@@ -1,0 +1,52 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "path": "/admin/workloads",
+  "resource_kind": "workload",
+  "schema_versions": {
+    "admin_ui_contracts": "admin-ui.v0.1",
+    "admin_read_api_contracts": "admin-ui-admin-api.v0.1"
+  },
+  "status": "degraded",
+  "items": [
+    {
+      "id": "workload:wl-001",
+      "tenant_id": "tenant:seed",
+      "kind": "workload",
+      "state": "running",
+      "trace_id": "trace_admin_phase3_workload",
+      "schema_version": "admin-ui.v0.1",
+      "reason_codes": ["admin.visible.server_filtered"],
+      "redaction": {
+        "profile_ref": "redaction:workload-read",
+        "redacted_fields": ["input_ref", "output_ref"],
+        "high_risk_fields_fail_closed": true
+      },
+      "audit_refs": [
+        {
+          "audit_id": "audit:workload-list-001",
+          "source_service": "overwatch",
+          "trace_id": "trace_admin_phase3_workload"
+        }
+      ]
+    }
+  ],
+  "page": {
+    "limit": 50,
+    "cursor_ref": "cursor:workloads-page-1",
+    "next_cursor_ref": "cursor:workloads-page-2"
+  },
+  "degraded_dependencies": [
+    {
+      "service": "overmeter",
+      "status": "degraded",
+      "reason_code": "admin.dependency.partial"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:workload-list-001",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_workload"
+    }
+  ]
+}

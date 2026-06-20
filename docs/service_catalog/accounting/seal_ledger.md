@@ -45,6 +45,10 @@ Seal Ledger is the accounting backbone for ORU, Overbill, Overclaim, wallet, gra
 
 The detailed design contract lives in [Seal Ledger SDS](../../sds/accounting/seal_ledger.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #44 - Seal Ledger](../../build_plan/sub_build_plan_044_seal_ledger.md).
+
 ## Design Alignment
 
 - Treat Seal Ledger as append-only internal accounting truth with entry streams, batches, checkpoints, replay, reconciliation, and correction-by-new-entry.

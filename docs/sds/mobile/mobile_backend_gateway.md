@@ -17,6 +17,7 @@ Mobile Backend Gateway is the server-side adaptation layer for mobile clients. I
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Sub-build plan | [SUB BUILD PLAN #82 - Mobile Backend Gateway](../../build_plan/sub_build_plan_082_mobile_backend_gateway.md) |
 
 ## Service Family
 

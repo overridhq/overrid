@@ -1,0 +1,16 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "status": 403,
+  "reason_code": "admin.authorization.cross_tenant_denied",
+  "trace_id": "trace_admin_phase3_error",
+  "retryable": false,
+  "user_visible_message": "The requested record is outside the active tenant scope.",
+  "details_ref": "error:cross-tenant-denied",
+  "audit_refs": [
+    {
+      "audit_id": "audit:error-001",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_error"
+    }
+  ]
+}

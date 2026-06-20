@@ -1,0 +1,23 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "path": "/admin/workloads",
+  "resource_kind": "workload",
+  "schema_versions": {
+    "admin_ui_contracts": "admin-ui.v0.1",
+    "admin_read_api_contracts": "admin-ui-admin-api.v0.1"
+  },
+  "status": "ok",
+  "items": [],
+  "page": {
+    "limit": 0,
+    "cursor_ref": "cursor:bad-limit"
+  },
+  "degraded_dependencies": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:bad-list",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_bad_list"
+    }
+  ]
+}

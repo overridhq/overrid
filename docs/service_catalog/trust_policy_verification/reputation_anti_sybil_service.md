@@ -34,6 +34,8 @@ Protect the public pool from fake providers, repeated abuse, identity farming, p
 
 The detailed design contract lives in [Reputation and Anti-Sybil Service SDS](../../sds/trust_policy_verification/reputation_anti_sybil_service.md).
 
+- [SUB BUILD PLAN #36 - Reputation and Anti-Sybil Service](../../build_plan/sub_build_plan_036_reputation_anti_sybil_service.md)
+
 ## Design Alignment
 
 - Treat Reputation and Anti-Sybil Service as public-provider risk and eligibility recommendation infrastructure, not provider onboarding, final trust scoring, payout mutation, or incident response.

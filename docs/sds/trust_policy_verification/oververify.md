@@ -13,6 +13,7 @@ Oververify is the evidence-backed trust and eligibility service. It publishes sc
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [oververify.md](../../service_catalog/trust_policy_verification/oververify.md) |
+| Sub-build plan | [SUB BUILD PLAN #34 - Oververify](../../build_plan/sub_build_plan_034_oververify.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
@@ -242,7 +243,7 @@ The service implementation plan lists these requirements:
 
 - Scheduler eligibility changes when verification evidence changes.
 - Challenge failures reduce trust or create holds.
-- Trust scores can be explained from stored evidence.
+- Trust and eligibility signals can be explained from stored evidence, reason codes, and policy/evaluator versions.
 
 Additional SDS-level validation:
 

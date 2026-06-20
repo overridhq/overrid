@@ -143,7 +143,7 @@ Build:
 - `packages/schemas` for shared protocol objects.
 - `packages/sdk` for client libraries.
 - `packages/cli` for developer and operator commands.
-- `infra/local` for local database, queue, object store, and test services.
+- `infra/local` for Overrid-shaped local durable state, durable job tables, object/artifact stubs, service definitions, and test services.
 - `tests/integration` for cross-service validation.
 
 Interfaces: File layout, package boundaries, build/test commands, documentation conventions.
@@ -183,9 +183,9 @@ Build:
 
 - Local API process.
 - Local worker process.
-- Local queue or durable job table.
-- Local database.
-- Object/artifact storage stub.
+- Overrid-shaped local durable job table.
+- Overrid-shaped local durable state stub.
+- Overrid-shaped object/artifact storage stub.
 - One node-agent simulator.
 - Seed tenant, identity, key, and workload fixtures.
 
@@ -1348,10 +1348,11 @@ Build:
 - Index job adapter.
 - Search job adapter.
 - Retrieval job adapter.
-- Model-routing metadata.
-- Encrypted index storage refs.
+- Route/reference metadata for downstream AI Gateway decisions.
+- Encrypted index and result refs through native Overrid storage/vault boundaries.
 - Usage rollups.
 - Result and artifact capture.
+- Admin ingest and cleanup/deprovision evidence.
 
 Interfaces: Docdex, Overpack, Overqueue, Overrun, Overstore, Overvault, Overmeter.
 

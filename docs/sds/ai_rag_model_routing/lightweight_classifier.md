@@ -13,10 +13,11 @@ Lightweight Classifier is an advisory pre-routing component for AI work. It prod
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [lightweight_classifier.md](../../service_catalog/ai_rag_model_routing/lightweight_classifier.md) |
+| Sub-build plan | [SUB BUILD PLAN #62 - Lightweight Classifier](../../build_plan/sub_build_plan_062_lightweight_classifier.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
+| Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md), [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md) |
 
 ## Service Family
 

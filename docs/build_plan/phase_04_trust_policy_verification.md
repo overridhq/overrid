@@ -2,7 +2,7 @@
 
 ## Objective
 
-Make Overrid safe enough for multiple tenants and real workloads by adding policy enforcement, provider verification, challenge checks, dispute handling, cache trust scopes, and private mesh controls.
+Make Overrid safe enough for multiple tenants and real workloads by adding policy enforcement, evidence-backed provider/node verification, challenge-result consumption, dispute handling, cache trust scopes, and private mesh controls.
 
 This phase prevents the system from becoming a blind job marketplace.
 
@@ -15,11 +15,11 @@ This phase prevents the system from becoming a blind job marketplace.
 
 ## Build Order
 
-1. Define workload sensitivity classes.
+1. Build Workload Classifier workload/data sensitivity classes and classification facts.
 2. Build Overguard policy engine.
 3. Add policy dry-run API.
-4. Add Oververify evidence and trust scoring.
-5. Add challenge checks and benchmark validation.
+4. Add Oververify verification records, evidence validation, trust signals, and eligibility signals.
+5. Add Challenge Task Service outcomes and Benchmark Runner evidence consumption.
 6. Add Overclaim disputes and holds.
 7. Add Overmesh private connectivity.
 8. Add cache trust scopes.
@@ -35,7 +35,7 @@ Define initial classes:
 - Research/public-interest workload.
 - Regulated or secret-bearing workload.
 
-Every workload must declare a class, and the policy engine must be allowed to downgrade eligibility or deny placement.
+Workload Classifier produces the deterministic classification facts for these classes. Every workload must declare a class, and the classifier must be allowed to downgrade eligibility, deny placement, mark facts unknown, or require review before Overguard evaluates admission.
 
 ## Workstream 2: Overguard Policy Engine
 
@@ -59,13 +59,15 @@ Policy output should include decision, reason codes, matched rules, policy versi
 
 Expose a dry-run endpoint that returns:
 
-- Would accept or deny.
+- Would allow, deny, block, or require review.
 - Reasons.
 - Required trust class.
 - Expected placement class.
-- Estimated resource reservation.
+- Estimated reservation requirements with no accounting authority.
 - Missing prerequisites.
 - Policy version.
+
+Dry runs must use the same Overguard evaluator as real admission while remaining side-effect-free: no queue items, leases, reservations, vault mounts, bills, payouts, ORU transitions, or workload records.
 
 This endpoint will become important for developers, native apps, and central AI governance.
 
@@ -80,9 +82,9 @@ Store verification evidence:
 - Historical reliability.
 - Dispute history.
 - Abuse markers.
-- Trust score.
+- Trust and eligibility signals.
 
-Trust score must be explainable from evidence. Avoid opaque trust numbers that cannot be appealed.
+Trust and eligibility signals must be explainable from evidence, reason codes, and policy/evaluator versions. Avoid opaque trust numbers that cannot be appealed. Oververify consumes Benchmark Runner and Challenge Task Service evidence; it does not run benchmarks or orchestrate challenges.
 
 ## Workstream 5: Challenge Checks
 

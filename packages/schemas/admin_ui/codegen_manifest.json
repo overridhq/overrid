@@ -1,0 +1,38 @@
+{
+  "schema_family": "admin_ui",
+  "schema_version": "admin-ui.v0.1",
+  "canonical_schema": "packages/schemas/admin_ui/v0/admin_ui_contracts.schema.json",
+  "source_of_truth": "json_schema",
+  "rust_first_validation": true,
+  "typescript_projection": {
+    "status": "generated_projection",
+    "path": "packages/schemas/admin_ui/generated/typescript/admin_ui_contracts.d.ts",
+    "source_schema": "packages/schemas/admin_ui/v0/admin_ui_contracts.schema.json",
+    "non_authoritative": true
+  },
+  "fixtures": {
+    "valid": "packages/schemas/admin_ui/fixtures/valid",
+    "invalid": "packages/schemas/admin_ui/fixtures/invalid"
+  },
+  "guardrails": [
+    "JSON Schema is the docs-facing and fixture-facing source of truth.",
+    "Rust-owned validators consume schemas before TypeScript/web projection is treated as usable by UI code.",
+    "TypeScript/web declarations are generated from canonical schemas and must not be hand-edited into a divergent source.",
+    "Diagnostic fixtures must not contain secrets, raw credentials, private payloads, decrypted RAG snippets, prompts, or private file paths."
+  ],
+  "additional_schemas": [
+    {
+      "phase": "admin_ui_phase3",
+      "canonical_schema": "packages/schemas/admin_ui/v0/admin_read_api_contracts.schema.json",
+      "source_of_truth": "json_schema",
+      "rust_first_validation": true,
+      "typescript_projection": {
+        "status": "generated_projection",
+        "path": "packages/schemas/admin_ui/generated/typescript/admin_read_api_contracts.d.ts",
+        "source_schema": "packages/schemas/admin_ui/v0/admin_read_api_contracts.schema.json",
+        "non_authoritative": true
+      },
+      "validator": "scripts/validate_admin_ui_phase3.py"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ Central AI Service is the evidence-bounded AI coordination layer for ecosystem s
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [central_ai_service.md](../../service_catalog/ai_rag_model_routing/central_ai_service.md) |
+| Sub-build plan | [SUB BUILD PLAN #60 - Central AI Service](../../build_plan/sub_build_plan_060_central_ai_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
@@ -23,7 +24,7 @@ Central AI Service is the evidence-bounded AI coordination layer for ecosystem s
 - Family: AI, RAG, and model routing
 - Owning layer: Evidence-bounded ecosystem stewardship, recommendations, and governance analysis
 - Primary data scope: evidence packages, analysis jobs, fraud/abuse assessments, grant recommendations, public-interest allocation recommendations, intervention proposals, stewardship report refs, appeal/dispute refs, model/run provenance, and governance audit records
-- First build phase from service plan: [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) interface; stronger governance in [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md)
+- First build phase from service plan: [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) through the read-heavy Central AI Stewardship Interface fraud/evidence review queue, with prerequisites from Phases 0, 1, 4, 5, 6, 8, 10, and 11 and stronger governance in [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md)
 
 ## Problem Statement
 

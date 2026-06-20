@@ -44,6 +44,10 @@ This enables grid-resident backbone migration and protected Overrid self-hosting
 
 The detailed design contract lives in [System-Service Workload Class SDS](../../sds/deployment_grid/system_service_workload_class.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #51 - System-Service Workload Class](../../build_plan/sub_build_plan_051_system_service_workload_class.md).
+
 ## Design Alignment
 
 - Treat System-Service Workload Class as the versioned eligibility and guardrail contract for protected backbone placement, not as scheduler, runner, package validator, release service, or failover system.

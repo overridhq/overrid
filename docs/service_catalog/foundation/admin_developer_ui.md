@@ -48,6 +48,13 @@ Provide operational visibility into tenants, identities, nodes, jobs, policy dec
 - The first build is read-only. Mutating admin actions are added only after signed operator action, idempotency, expected-current-state, and Overwatch receipt contracts exist.
 - The UI must not read private service storage directly.
 
+## Phase 1 Implementation Gates
+
+- `SUB BUILD PLAN #1` Phase 1 is the gate source for SDS links, client-surface boundaries, prerequisite matrices, read-only capability flags, and documentation-update rules.
+- Panels may be implemented only from Overgate-admin read contracts and generated bindings. Missing upstream contracts must appear as disabled or degraded panel status.
+- Mutating controls remain disabled until the capability response names the action, target, owning service, schema version, signing requirements, idempotency behavior, policy refs, trace id, and audit receipt contract.
+- Review must reject direct UI access to service storage, node agents, queues, ledgers, vaults, private RAG data, or locally invented platform state.
+
 ## Validation
 
 - Operator can trace a job from request through execution and accounting.

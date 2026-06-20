@@ -16,6 +16,7 @@ Release Strategy Service owns rollout intent: rolling update, blue-green deploym
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
+| Sub-build plan | [SUB BUILD PLAN #50 - Release Strategy Service](../../build_plan/sub_build_plan_050_release_strategy_service.md) |
 | Build phase alignment | [Phase 9: Overpack Deployment Platform](../../build_plan/phase_09_overpack_deployment_platform.md) |
 
 ## Service Family

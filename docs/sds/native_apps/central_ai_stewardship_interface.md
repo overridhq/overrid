@@ -13,6 +13,7 @@ Central AI Stewardship Interface is the inspectable native app surface for stewa
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [central_ai_stewardship_interface.md](../../service_catalog/native_apps/central_ai_stewardship_interface.md) |
+| Sub-build plan | [SUB BUILD PLAN #68 - Central AI Stewardship Interface](../../build_plan/sub_build_plan_068_central_ai_stewardship_interface.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

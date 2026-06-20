@@ -35,6 +35,8 @@ Enforce policy for workload admission, data sensitivity, sandboxing, compliance,
 
 The detailed design contract lives in [Overguard SDS](../../sds/trust_policy_verification/overguard.md).
 
+- [SUB BUILD PLAN #33 - Overguard](../../build_plan/sub_build_plan_033_overguard.md)
+
 ## Design Alignment
 
 - Treat Overguard as the policy decision engine, not the queue, scheduler, runner, vault, trust scorer, or accounting service.

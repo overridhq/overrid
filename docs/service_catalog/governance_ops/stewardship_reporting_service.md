@@ -45,6 +45,10 @@ Stewardship reporting makes the ecosystem accountable to users and public-intere
 
 The design contract is expanded in [Stewardship Reporting Service SDS](../../sds/governance_ops/stewardship_reporting_service.md).
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #80 - Stewardship Reporting Service](../../build_plan/sub_build_plan_080_stewardship_reporting_service.md)
+
 ## SDS Design Alignment
 
 - Treat reporting as evidence aggregation, redaction, review, publication, correction, retraction, and replay infrastructure, not as grant, ledger, dispute, fraud, or policy authority.

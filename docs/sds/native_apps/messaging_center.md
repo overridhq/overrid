@@ -13,6 +13,7 @@ Messaging Center is the native communication utility for Overrid. It owns inboxe
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [messaging_center.md](../../service_catalog/native_apps/messaging_center.md) |
+| Sub-build plan | [SUB BUILD PLAN #71 - Messaging Center](../../build_plan/sub_build_plan_071_messaging_center.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
@@ -68,6 +69,7 @@ The hard part is boundary discipline. Messaging Center must provide delivery and
 - [Overbase](../data_storage_namespace/overbase.md), [Overstore](../data_storage_namespace/overstore.md), and [Overvault](../data_storage_namespace/overvault.md) for structured message state, attachment object refs, encrypted payload refs, grants, and private metadata.
 - [Overguard](../trust_policy_verification/overguard.md), [Workload Classifier](../trust_policy_verification/workload_classifier.md), [Overwatch](../control_plane/overwatch.md), [Overclaim](../trust_policy_verification/overclaim.md), [Fraud Control Service](../federation_public/fraud_control_service.md), and [Reputation and Anti-Sybil Service](../trust_policy_verification/reputation_anti_sybil_service.md) for policy, audit, abuse triage, disputes, spam, impersonation, and Sybil signals.
 - [Personal AI Assistant](../ai_rag_model_routing/personal_ai_assistant.md) for permissioned triage, summaries, reply drafts, routing recommendations, and user-facing automation.
+- [AI Gateway Router](../ai_rag_model_routing/ai_gateway_router.md) for assistant-owned route/request refs when permissioned triage needs model execution; Messaging Center records refs and permissions but does not choose model routes.
 - [Directory Listings](directory_listings.md), [Workspace and Office Suite](workspace_office_suite.md), [Social Photo/Video App](social_photo_video_app.md), [Maps and Navigation](maps_navigation.md), and [Wallet and Usage Center](wallet_usage_center.md) for native app handoffs.
 - [Overmeter](../execution_scheduling/overmeter.md), [ORU Account Service](../accounting/oru_account_service.md), [Seal Ledger](../accounting/seal_ledger.md), and [Overbill](../accounting/overbill.md) for usage refs, receipts, accounting projections, and statement visibility.
 

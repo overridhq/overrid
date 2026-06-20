@@ -17,13 +17,14 @@ Overasset is not an NFT system. It is a utility rights and ownership-reference l
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md), [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) |
+| SDS sub-build plan | [SUB BUILD PLAN #39 - Overasset](../../build_plan/sub_build_plan_039_overasset.md) |
 
 ## Service Family
 
 - Family: Accounting, credits, billing, and rights
 - Owning layer: Operational ownership records, resource-right refs, storage entitlement refs, namespace bindings, transfer/delegation audit, and dispute/correction links
 - Primary data scope: resource-right records, entitlement records, ownership evidence refs, delegation records, transfer records, revocation records, namespace/storage bindings, grant-right refs, ledger refs, registry refs, dispute refs, and audit exports
-- First build phase from service plan: [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md) or [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) depending on first right type.
+- First build phase from service plan: [Phase 5: Metering, ORU, Seal Ledger, and Overbill](../../build_plan/phase_05_metering_oru_seal_ledger_overbill.md) for first evidence-backed accounting and operational right records; [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) expands storage entitlement and namespace-bound right refs.
 
 ## Problem Statement
 

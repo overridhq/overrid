@@ -13,10 +13,11 @@ Personal AI Assistant is the user-facing native AI app. It manages sessions, per
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [personal_ai_assistant.md](../../service_catalog/ai_rag_model_routing/personal_ai_assistant.md) |
+| Sub-build plan | [SUB BUILD PLAN #63 - Personal AI Assistant](../../build_plan/sub_build_plan_063_personal_ai_assistant.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
-| Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md), [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md) |
+| Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md), [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), [Phase 13: Governance, Compliance, and Scale Hardening](../../build_plan/phase_13_governance_compliance_scale_hardening.md) |
 
 ## Service Family
 

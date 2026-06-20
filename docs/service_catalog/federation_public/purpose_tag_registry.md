@@ -44,6 +44,10 @@ Purpose tags power public-interest pools, central AI stewardship, and grant repo
 
 - [Purpose Tag Registry SDS](../../sds/federation_public/purpose_tag_registry.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #57 - Purpose Tag Registry](../../build_plan/sub_build_plan_057_purpose_tag_registry.md)
+
 ## Design Alignment
 
 The SDS defines Purpose Tag Registry as the stewarded, versioned purpose taxonomy and evidence-requirement authority. It owns tag definitions, tag versions, eligibility criteria, evidence requirement bundles, steward assignments, review proposals, deprecations, purpose-claim validation refs, and policy export refs.

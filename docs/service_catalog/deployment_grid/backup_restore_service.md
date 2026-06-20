@@ -46,6 +46,10 @@ Backup/restore is required before founder hardware can leave the normal producti
 
 The detailed design contract lives in [Backup and Restore Service SDS](../../sds/deployment_grid/backup_restore_service.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #45 - Backup and Restore Service](../../build_plan/sub_build_plan_045_backup_restore_service.md).
+
 ## Design Alignment
 
 - Treat Backup and Restore Service as service-aware recovery infrastructure: backup targets, policies, manifests, snapshot sets, integrity reports, restore plans, restore sessions, drills, retention tombstones, and disaster-recovery evidence.

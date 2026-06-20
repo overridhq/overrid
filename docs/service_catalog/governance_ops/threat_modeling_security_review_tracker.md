@@ -52,6 +52,10 @@ This tracker supports security hardening, incident response, and governance repo
 
 See [Threat Modeling and Security Review Tracker SDS](../../sds/governance_ops/threat_modeling_security_review_tracker.md) for the concrete design contract.
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #81 - Threat Modeling and Security Review Tracker](../../build_plan/sub_build_plan_081_threat_modeling_security_review_tracker.md)
+
 ## SDS Design Alignment
 
 - Treat the tracker as the durable security-review record system, not as a scanner, SIEM, package validator, release blocker, or incident-response executor.

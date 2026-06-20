@@ -13,6 +13,7 @@ Public Provider Onboarding collects provider identity, node identity, contact, p
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [public_provider_onboarding.md](../../service_catalog/federation_public/public_provider_onboarding.md) |
+| SDS sub-build plan | [SUB BUILD PLAN #55 - Public Provider Onboarding](../../build_plan/sub_build_plan_055_public_provider_onboarding.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

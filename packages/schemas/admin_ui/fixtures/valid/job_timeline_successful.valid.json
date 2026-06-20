@@ -1,0 +1,85 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:success_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_success_001",
+  "outcome": "successful",
+  "nodes": [
+    {
+      "node_id": "timeline:success_request",
+      "kind": "overgate_request",
+      "state": "accepted",
+      "occurred_at": "2026-06-20T09:01:00Z",
+      "owning_service": "overgate",
+      "refs": [
+        "command:success_001"
+      ],
+      "reason_codes": [
+        "command.accepted"
+      ]
+    },
+    {
+      "node_id": "timeline:success_queue",
+      "kind": "overqueue_item",
+      "state": "leased",
+      "occurred_at": "2026-06-20T09:01:05Z",
+      "owning_service": "overqueue",
+      "refs": [
+        "queue:success_001"
+      ],
+      "reason_codes": [
+        "queue.leased"
+      ]
+    },
+    {
+      "node_id": "timeline:success_run",
+      "kind": "overrun_execution",
+      "state": "completed",
+      "occurred_at": "2026-06-20T09:01:40Z",
+      "owning_service": "overrun",
+      "refs": [
+        "execution:success_001"
+      ],
+      "reason_codes": [
+        "execution.completed"
+      ]
+    },
+    {
+      "node_id": "timeline:success_receipt",
+      "kind": "seal_ledger_receipt",
+      "state": "settled",
+      "occurred_at": "2026-06-20T09:01:55Z",
+      "owning_service": "seal_ledger",
+      "refs": [
+        "receipt:success_001"
+      ],
+      "reason_codes": [
+        "receipt.settled"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "timeline:success_request",
+      "to": "timeline:success_queue",
+      "edge_kind": "trace_next"
+    },
+    {
+      "from": "timeline:success_queue",
+      "to": "timeline:success_run",
+      "edge_kind": "trace_next"
+    },
+    {
+      "from": "timeline:success_run",
+      "to": "timeline:success_receipt",
+      "edge_kind": "trace_next"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:success_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_success_001"
+    }
+  ]
+}

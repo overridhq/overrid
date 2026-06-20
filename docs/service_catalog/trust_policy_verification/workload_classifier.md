@@ -33,9 +33,11 @@ Normalize workload sensitivity and allowed execution environments before schedul
 
 The detailed design contract lives in [Workload Classifier SDS](../../sds/trust_policy_verification/workload_classifier.md).
 
+- [SUB BUILD PLAN #37 - Workload Classifier](../../build_plan/sub_build_plan_037_workload_classifier.md)
+
 ## Design Alignment
 
-- Treat Workload Classifier as a deterministic classification-fact producer, not the policy engine, scheduler, runner, vault, or billing service.
+- Treat Workload Classifier as a deterministic classification-fact producer, not the policy engine, scheduler, runner, Overvault, or billing service.
 - Store workload/data class definitions, classification input snapshots, rule matches, classification decisions, reason codes, policy input facts, overrides, and replay bundles.
 - Use the strictest applicable class when declared class conflicts with manifest, data, secret, egress, tenant, or package evidence.
 - Feed Overguard, Policy Dry-Run API, Oversched, Overrun, Overmesh, Overcache, Overvault, compliance boundaries, SDK, CLI, and admin UI with versioned classification decisions.

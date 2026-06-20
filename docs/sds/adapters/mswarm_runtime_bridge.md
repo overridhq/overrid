@@ -13,6 +13,7 @@ mSwarm Runtime Bridge is an adapter, not a replacement control plane. It maps mS
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [mswarm_runtime_bridge.md](../../service_catalog/adapters/mswarm_runtime_bridge.md) |
+| Sub-build plan | [SUB BUILD PLAN #67 - mSwarm Runtime Bridge](../../build_plan/sub_build_plan_067_mswarm_runtime_bridge.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
@@ -23,7 +24,7 @@ mSwarm Runtime Bridge is an adapter, not a replacement control plane. It maps mS
 - Family: Ecosystem adapters
 - Owning layer: Product/runtime integration layer for local-first app runtime coordination
 - Primary data scope: bridge sessions, identity/tenant mappings, sync manifests, sync cursors, discovery records, collaboration room refs, cloud coordination hooks, runtime capability snapshots, handoff records, usage refs, and audit refs
-- First build phase from service plan: [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), or earlier only when a native runtime path requires it
+- First build phase from service plan: [Phase 6: First Product Integration](../../build_plan/phase_06_first_product_integration.md), with later [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) expansion where app-owned local-first runtime flows require it
 
 ## Problem Statement
 

@@ -34,6 +34,8 @@ Actively test providers and nodes instead of trusting self-reported capacity or 
 
 The detailed design contract lives in [Challenge Task Service SDS](../../sds/trust_policy_verification/challenge_task_service.md).
 
+- [SUB BUILD PLAN #31 - Challenge Task Service](../../build_plan/sub_build_plan_031_challenge_task_service.md)
+
 ## Design Alignment
 
 - Treat Challenge Task Service as active verification-work orchestration, not the trust scorer, scheduler, runner, or payout authority.

@@ -61,6 +61,10 @@ Mobile backend gateway is the operational bridge between mobile apps and Overrid
 
 See [Mobile Backend Gateway SDS](../../sds/mobile/mobile_backend_gateway.md) for the concrete design contract.
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #82 - Mobile Backend Gateway](../../build_plan/sub_build_plan_082_mobile_backend_gateway.md)
+
 ## SDS Design Alignment
 
 - Treat the gateway as a mobile adaptation layer, not as a replacement for Overgate, identity, policy, accounting, storage, native app backends, or AI routing.

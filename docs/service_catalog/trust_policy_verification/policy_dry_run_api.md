@@ -33,6 +33,8 @@ Let developers, native apps, and operators preview policy outcomes before submit
 
 The detailed design contract lives in [Policy Dry-Run API SDS](../../sds/trust_policy_verification/policy_dry_run_api.md).
 
+- [SUB BUILD PLAN #35 - Policy Dry-Run API](../../build_plan/sub_build_plan_035_policy_dry_run_api.md)
+
 ## Design Alignment
 
 - Treat Policy Dry-Run API as a side-effect-free Overguard preview surface, not a separate policy engine or admission shortcut.

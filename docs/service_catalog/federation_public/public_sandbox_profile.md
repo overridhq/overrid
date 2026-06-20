@@ -44,6 +44,10 @@ Public sandbox profile enables safe limited use of public supply.
 
 - [Public Sandbox Profile SDS](../../sds/federation_public/public_sandbox_profile.md)
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #56 - Public Sandbox Profile](../../build_plan/sub_build_plan_056_public_sandbox_profile.md).
+
 ## Design Alignment
 
 The SDS defines Public Sandbox Profile as the versioned public low-sensitivity runtime safety contract, not an onboarding, scheduling, runner, trust, or payout service. It owns sandbox profile versions, restriction sets, workload/data-class bindings, secret and mount denials, output validation, artifact quarantine, log redaction, and replayable profile evaluations.

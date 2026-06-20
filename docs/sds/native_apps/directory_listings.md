@@ -13,6 +13,7 @@ Directory Listings is a native public utility app. It owns listing records, cate
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [directory_listings.md](../../service_catalog/native_apps/directory_listings.md) |
+| Sub-build plan | [SUB BUILD PLAN #69 - Directory Listings](../../build_plan/sub_build_plan_069_directory_listings.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

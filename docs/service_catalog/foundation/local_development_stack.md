@@ -20,11 +20,11 @@ Let developers run a complete minimal Overrid environment locally without extern
 
 - Repository layout.
 - Shared schema package.
-- Local database, queue, and object-store choices.
+- Overrid-shaped local durable state, durable job table, and object/artifact stub choices.
 
 ## Development Order
 
-1. Add local service definitions for API, worker, database, queue, object store, and node-agent simulator.
+1. Add local service definitions for API, worker, Overrid-shaped local durable state, durable job table, object/artifact stubs, and node-agent simulator.
 2. Add seed fixtures for tenant, identity, key, node, workload, and package.
 3. Add reset and seed commands.
 4. Add local observability output for logs, events, and job state.

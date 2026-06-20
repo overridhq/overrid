@@ -45,6 +45,10 @@ Federation templates prepare Overrid for trusted external capacity before public
 
 The detailed design contract lives in [Federation Template Service SDS](../../sds/federation_public/federation_template_service.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #52 - Federation Template Service](../../build_plan/sub_build_plan_052_federation_template_service.md).
+
 ## Design Alignment
 
 - Treat Federation Template Service as the trusted-partner capacity contract layer: template versions, participant roles, capacity scopes, workload/data-class eligibility, accounting boundaries, reporting, dispute boundaries, and concrete federation instances.

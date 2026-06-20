@@ -1,0 +1,68 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "path": "/admin/workloads/{id}/timeline",
+  "workload_id": "workload:wl-001",
+  "trace_id": "trace_admin_phase3_workload",
+  "status": "partial",
+  "nodes": [
+    {
+      "node_id": "timeline_node:overgate-request",
+      "kind": "overgate_request",
+      "status": "available",
+      "trace_id": "trace_admin_phase3_workload",
+      "refs": ["ingress_request:req-001"],
+      "reason_codes": ["admin.timeline.node_available"],
+      "audit_refs": [
+        {
+          "audit_id": "audit:timeline-001",
+          "source_service": "overwatch",
+          "trace_id": "trace_admin_phase3_workload"
+        }
+      ]
+    },
+    {
+      "node_id": "timeline_node:queue-item",
+      "kind": "overqueue_item",
+      "status": "available",
+      "trace_id": "trace_admin_phase3_workload",
+      "refs": ["queue_item:qi-001"],
+      "reason_codes": ["admin.timeline.node_available"],
+      "audit_refs": [
+        {
+          "audit_id": "audit:timeline-001",
+          "source_service": "overwatch",
+          "trace_id": "trace_admin_phase3_workload"
+        }
+      ]
+    },
+    {
+      "node_id": "timeline_node:usage-gap",
+      "kind": "gap",
+      "status": "unavailable",
+      "trace_id": "trace_admin_phase3_workload",
+      "refs": ["dependency:overmeter"],
+      "reason_codes": ["admin.timeline.dependency_unavailable"],
+      "audit_refs": [
+        {
+          "audit_id": "audit:timeline-001",
+          "source_service": "overwatch",
+          "trace_id": "trace_admin_phase3_workload"
+        }
+      ]
+    }
+  ],
+  "partial_dependencies": [
+    {
+      "service": "overmeter",
+      "status": "unavailable",
+      "reason_code": "admin.dependency.unavailable"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:timeline-001",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_workload"
+    }
+  ]
+}

@@ -45,6 +45,10 @@ AI gateway router supports personal AI, Docdex, Mcoda, Codali, central AI, and n
 
 - [AI Gateway Router SDS](../../sds/ai_rag_model_routing/ai_gateway_router.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #59 - AI Gateway Router](../../build_plan/sub_build_plan_059_ai_gateway_router.md)
+
 ## Design Alignment
 
 The SDS defines AI Gateway Router as the route-decision authority for AI requests, not a model runner, conversation store, RAG index reader, policy engine, or accounting service. It owns route requests, classification fact bundles, context access plans, capability snapshots, route decisions, route attempts, fallback policies, usage refs, and replay evidence.

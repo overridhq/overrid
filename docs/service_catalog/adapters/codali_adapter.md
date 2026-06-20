@@ -46,6 +46,10 @@ Codali adapter proves developer-productivity workloads and exercises Overrid's A
 
 - [Codali Adapter SDS](../../sds/adapters/codali_adapter.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #64 - Codali Adapter](../../build_plan/sub_build_plan_064_codali_adapter.md)
+
 ## Design Alignment
 
-The SDS refines this implementation plan as code-agent workload packaging and result capture. It owns code-agent manifests, repo context refs, sandbox/tool boundaries, phase logs, artifacts, structured results, bounded repair loops, and usage refs, while preventing arbitrary repo writes, direct Git ownership, context bypass, and unsandboxed agent execution.
+The SDS refines this implementation plan as code-agent workload packaging and result capture. It owns code-agent manifests, repo context refs, sandbox/tool boundaries, phase logs, artifacts, structured results, bounded repair loops, approval handoff refs, replay bundles, and usage refs, while preventing arbitrary repo writes, direct Git ownership, context bypass, hardcoded model routing, and unsandboxed agent execution. Phase 13 hardening must cover sandbox escapes, unauthorized repo scope, secret access, unredacted private logs, artifact tampering, repair-loop abuse, approval bypass, and replay/audit gaps.

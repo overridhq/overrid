@@ -1,0 +1,49 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "workload_id": "workload:disputed_001",
+  "tenant_id": "tenant:seed",
+  "trace_id": "trace_job_disputed_001",
+  "outcome": "disputed",
+  "nodes": [
+    {
+      "node_id": "timeline:disputed_usage",
+      "kind": "overmeter_rollup",
+      "state": "held",
+      "occurred_at": "2026-06-20T09:05:00Z",
+      "owning_service": "overmeter",
+      "refs": [
+        "usage:disputed_001"
+      ],
+      "reason_codes": [
+        "usage.dispute_hold"
+      ]
+    },
+    {
+      "node_id": "timeline:disputed_claim",
+      "kind": "overclaim_dispute",
+      "state": "open",
+      "occurred_at": "2026-06-20T09:05:07Z",
+      "owning_service": "overclaim",
+      "refs": [
+        "dispute:disputed_001"
+      ],
+      "reason_codes": [
+        "dispute.opened"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "timeline:disputed_usage",
+      "to": "timeline:disputed_claim",
+      "edge_kind": "blocked_by"
+    }
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:disputed_timeline_read",
+      "source_service": "overgate",
+      "trace_id": "trace_job_disputed_001"
+    }
+  ]
+}

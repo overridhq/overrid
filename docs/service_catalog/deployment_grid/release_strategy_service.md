@@ -44,6 +44,10 @@ Release strategy supports native apps, system services, and third-party app depl
 
 The detailed design contract lives in [Release Strategy Service SDS](../../sds/deployment_grid/release_strategy_service.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #50 - Release Strategy Service](../../build_plan/sub_build_plan_050_release_strategy_service.md).
+
 ## Design Alignment
 
 - Treat Release Strategy Service as the rollout-intent owner: release plans, channels, strategy templates, traffic steps, health gates, rollback triggers, freeze records, approval records, and version pins.

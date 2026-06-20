@@ -17,6 +17,7 @@ Overbase is the structured state layer. It is not object storage, secret storage
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 8: Data, Storage, and Namespace Platform](../../build_plan/phase_08_data_storage_namespace_platform.md) |
+| Sub-build plan | [SUB BUILD PLAN #27 - Overbase](../../build_plan/sub_build_plan_027_overbase.md) |
 
 ## Service Family
 

@@ -45,6 +45,10 @@ Public provider onboarding feeds anti-Sybil, Oververify, public sandbox, fraud c
 
 The detailed design contract lives in [Public Provider Onboarding SDS](../../sds/federation_public/public_provider_onboarding.md).
 
+## Sub-Build Plan
+
+Implementation sequencing lives in [SUB BUILD PLAN #55 - Public Provider Onboarding](../../build_plan/sub_build_plan_055_public_provider_onboarding.md).
+
 ## Design Alignment
 
 - Treat Public Provider Onboarding as the limited public-provider front door: enrollment records, node refs, policy acknowledgements, resource claims, verification refs, payout eligibility refs, public workload acceptance contracts, and capability publication refs.

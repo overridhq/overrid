@@ -27,6 +27,7 @@ The public boundary must remain Overrid services and protocols:
 - Overbase for structured state.
 - Overstore for content-addressed object and artifact persistence.
 - Overvault for sensitive/private encrypted state and secrets.
+- Universal Namespace Service for readable names, scoped uniqueness, route bindings, resolution, and namespace governance.
 - Overqueue for durable workload state.
 - Overmesh for controlled connectivity and route resolution.
 - ORU, Seal Ledger, Overmeter, Overbill, Overgrant, and Overasset for accounting and rights.
@@ -56,7 +57,7 @@ The public boundary must remain Overrid services and protocols:
 | Private storage | Native Overvault: encrypted private records, secret refs, key policy metadata, deny-by-default access checks, and audit evidence |
 | Observability | Rust tracing plus OpenTelemetry-compatible spans/metrics/logs, with Overwatch as the authoritative audit/evidence layer |
 | CLI | Rust CLI using generated contracts, signing, idempotency, trace propagation, and stable JSON output |
-| SDKs | Generated Rust SDK first; TypeScript/web bindings from the same contracts for apps, adapters, and UI surfaces |
+| SDKs | Generated Rust SDK first; TypeScript/web bindings from the same contracts for apps, adapters, and UI surfaces; mobile bindings such as Kotlin/Android and Swift/iOS only after shared schema compatibility checks, golden request-envelope fixtures, generated error objects, and cross-language contract tests are stable |
 | Operator/developer UI | Phase 6 client surface only; TypeScript web UI is acceptable, but it must call Overgate/admin APIs and never become a privileged backdoor |
 | Local development | Loopback-only local stack with deterministic reset/seed and explicit test stubs that preserve final Overrid contract shapes |
 
@@ -146,6 +147,7 @@ The main architectural goal is to avoid accidental dependency inversion. Overrid
 - [Overbase SDS](sds/data_storage_namespace/overbase.md)
 - [Overstore SDS](sds/data_storage_namespace/overstore.md)
 - [Overvault SDS](sds/data_storage_namespace/overvault.md)
+- [Universal Namespace Service SDS](sds/data_storage_namespace/universal_namespace_service.md)
 - [Overcell SDS](sds/execution_scheduling/overcell.md)
 - [Overrun SDS](sds/execution_scheduling/overrun.md)
 - [Oversched SDS](sds/execution_scheduling/oversched.md)

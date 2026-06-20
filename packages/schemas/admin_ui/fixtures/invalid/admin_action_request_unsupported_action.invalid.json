@@ -1,0 +1,27 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "command_id": "command:unsupported_action",
+  "tenant_id": "tenant:seed",
+  "actor_id": "actor:founder",
+  "target": {
+    "target_id": "receipt:settled_001",
+    "target_kind": "receipt",
+    "owning_service": "seal_ledger"
+  },
+  "action_type": "delete_ledger_receipt",
+  "reason": "This action must remain unsupported.",
+  "expected_current_state": "settled",
+  "idempotency_key": "idem_unsupported_action",
+  "trace_id": "trace_unsupported_action",
+  "signature_refs": [
+    "signature:founder_unsupported_action"
+  ],
+  "policy_refs": [],
+  "audit_refs": [
+    {
+      "audit_id": "audit:unsupported_action",
+      "source_service": "overgate",
+      "trace_id": "trace_unsupported_action"
+    }
+  ]
+}

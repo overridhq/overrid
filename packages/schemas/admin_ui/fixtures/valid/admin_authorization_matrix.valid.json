@@ -1,0 +1,286 @@
+{
+  "schema_version": "admin-ui-admin-api.v0.1",
+  "roles": [
+    {
+      "role": "platform_owner",
+      "allowed_routes": [
+        "/admin/tenants",
+        "/admin/identities",
+        "/admin/keys",
+        "/admin/nodes",
+        "/admin/packages",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/usage",
+        "/admin/ledger",
+        "/admin/receipts",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "raw_payload"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref",
+        "system_service_only_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.accounting",
+        "admin.read.incident",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "tenant_owner",
+      "allowed_routes": [
+        "/admin/tenants",
+        "/admin/identities",
+        "/admin/keys",
+        "/admin/nodes",
+        "/admin/packages",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/usage",
+        "/admin/ledger",
+        "/admin/receipts",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "raw_payload"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.accounting",
+        "admin.read.incident",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "tenant_admin",
+      "allowed_routes": [
+        "/admin/tenants",
+        "/admin/identities",
+        "/admin/keys",
+        "/admin/nodes",
+        "/admin/packages",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/usage",
+        "/admin/receipts",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "settlement_note"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.accounting",
+        "admin.read.incident",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "product_integrator",
+      "allowed_routes": [
+        "/admin/packages",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "ledger_balance"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "support_viewer",
+      "allowed_routes": [
+        "/admin/tenants",
+        "/admin/identities",
+        "/admin/nodes",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "settlement_note",
+        "contact_ref"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.incident",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "incident_responder",
+      "allowed_routes": [
+        "/admin/identities",
+        "/admin/keys",
+        "/admin/nodes",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/disputes",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "settlement_note"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.incident",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "accounting_viewer",
+      "allowed_routes": [
+        "/admin/usage",
+        "/admin/ledger",
+        "/admin/receipts",
+        "/admin/disputes",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "input_ref",
+        "output_ref"
+      ],
+      "data_classes": [
+        "tenant_private_ref",
+        "regulated_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.accounting",
+        "admin.read.incident",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "service_account",
+      "allowed_routes": [
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "raw_payload"
+      ],
+      "data_classes": [
+        "public_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    },
+    {
+      "role": "system_service",
+      "allowed_routes": [
+        "/admin/nodes",
+        "/admin/workloads",
+        "/admin/queue-items",
+        "/admin/policy-decisions",
+        "/admin/usage",
+        "/admin/workloads/{id}/timeline",
+        "/admin/capabilities"
+      ],
+      "denied_fields": [
+        "key_material",
+        "raw_payload"
+      ],
+      "data_classes": [
+        "public_ref",
+        "tenant_private_ref",
+        "system_service_only_ref"
+      ],
+      "policy_scopes": [
+        "admin.read.summary",
+        "admin.read.policy",
+        "admin.read.accounting",
+        "admin.read.timeline",
+        "admin.read.capability"
+      ],
+      "cross_tenant_access": false
+    }
+  ],
+  "fail_closed_defaults": {
+    "missing_role_denied": true,
+    "missing_tenant_denied": true,
+    "high_risk_field_redacted": true
+  },
+  "audit_refs": [
+    {
+      "audit_id": "audit:authorization-matrix-001",
+      "source_service": "overwatch",
+      "trace_id": "trace_admin_phase3_authz"
+    }
+  ]
+}

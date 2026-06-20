@@ -34,6 +34,10 @@ Manage Overrid Resource Unit credits as the internal non-speculative utility cre
 
 The detailed design contract lives in [ORU Account Service SDS](../../sds/accounting/oru_account_service.md).
 
+## Detailed Build Plan
+
+- [SUB BUILD PLAN #38 - ORU Account Service](../../build_plan/sub_build_plan_038_oru_account_service.md)
+
 ## Design Alignment
 
 - Treat ORU Account Service as the account and balance projection layer, not Seal Ledger, Overbill, Overmark, Overgrant, Provider Payout Service, or a speculative token system.

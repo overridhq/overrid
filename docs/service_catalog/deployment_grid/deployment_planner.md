@@ -46,6 +46,10 @@ Deployment planner is the core of Overrid as an application platform.
 
 The detailed design contract lives in [Deployment Planner SDS](../../sds/deployment_grid/deployment_planner.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #46 - Deployment Planner](../../build_plan/sub_build_plan_046_deployment_planner.md).
+
 ## Design Alignment
 
 - Treat Deployment Planner as the manifest-to-plan and plan-execution coordinator: deployment plans, plan graphs, provisioning steps, rollback plans, execution cursors, preflight aggregation, and deployment evidence.

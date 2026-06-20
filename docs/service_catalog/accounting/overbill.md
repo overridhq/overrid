@@ -34,6 +34,10 @@ Handle fiat billing, invoices, payment-provider integration, taxes, refunds, cha
 
 The detailed design contract lives in [Overbill SDS](../../sds/accounting/overbill.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #40 - Overbill](../../build_plan/sub_build_plan_040_overbill.md).
+
 ## Design Alignment
 
 - Treat Overbill as the billing-document and external-payment-ref bridge, not usage truth, ORU balance storage, provider payout execution, or dispute adjudication.

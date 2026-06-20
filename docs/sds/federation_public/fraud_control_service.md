@@ -13,6 +13,7 @@ Fraud Control Service is an evidence and recommendation layer. It creates fraud 
 | Source | Path |
 | --- | --- |
 | Service implementation plan | [fraud_control_service.md](../../service_catalog/federation_public/fraud_control_service.md) |
+| Sub-build plan | [SUB BUILD PLAN #53 - Fraud Control Service](../../build_plan/sub_build_plan_053_fraud_control_service.md) |
 | Master SDS | [master_sds.md](../master_sds.md) |
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |

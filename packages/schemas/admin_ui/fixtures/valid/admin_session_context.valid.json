@@ -1,0 +1,39 @@
+{
+  "schema_version": "admin-ui.v0.1",
+  "active_tenant_id": "tenant:seed",
+  "actor_id": "actor:founder",
+  "selected_environment": {
+    "environment_id": "environment:local_seed",
+    "display_name": "Local seed Overgate",
+    "overgate_route_scope": "overgate-admin"
+  },
+  "role_bindings": [
+    {
+      "tenant_id": "tenant:seed",
+      "actor_id": "actor:founder",
+      "role": "platform_owner"
+    }
+  ],
+  "redaction_profile": {
+    "profile_id": "redaction:platform_owner_safe",
+    "classification": "tenant_private_ref",
+    "ruleset_version": "redaction.v0.1",
+    "hidden_fields": [
+      "key_material",
+      "private_payload"
+    ]
+  },
+  "visible_capabilities": [
+    "admin.session.read",
+    "admin.summary.read",
+    "admin.timeline.read",
+    "admin.diagnostics.copy"
+  ],
+  "audit_refs": [
+    {
+      "audit_id": "audit:session_context_loaded",
+      "source_service": "overgate",
+      "trace_id": "trace_admin_phase2_session"
+    }
+  ]
+}

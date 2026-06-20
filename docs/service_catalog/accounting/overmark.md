@@ -44,6 +44,10 @@ Overmark informs scheduling, budgeting, billing previews, grants, and native ser
 
 The detailed design contract lives in [Overmark SDS](../../sds/accounting/overmark.md).
 
+## Sub-Build Plan
+
+[SUB BUILD PLAN #42 - Overmark](../../build_plan/sub_build_plan_042_overmark.md).
+
 ## Design Alignment
 
 - Treat Overmark as versioned resource-card, reference-band, budget-preview, and placement-signal infrastructure, not a spot market, payout oracle, exchange, or speculative token-pricing service.
