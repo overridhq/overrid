@@ -153,6 +153,7 @@ pub enum DevCommand {
     Smoke,
     Logs,
     Doctor,
+    Prune,
 }
 
 impl DevCommand {
@@ -167,6 +168,7 @@ impl DevCommand {
             Self::Smoke => "dev smoke",
             Self::Logs => "dev logs",
             Self::Doctor => "dev doctor",
+            Self::Prune => "dev prune",
         }
     }
 }
@@ -739,6 +741,7 @@ fn dev_command(tokens: &[String]) -> Result<Command, CliParseError> {
         "smoke" => Ok(Command::Dev(DevCommand::Smoke)),
         "logs" => Ok(Command::Dev(DevCommand::Logs)),
         "doctor" => Ok(Command::Dev(DevCommand::Doctor)),
+        "prune" => Ok(Command::Dev(DevCommand::Prune)),
         other => Err(CliParseError::UnknownCommand(format!("dev {other}"))),
     }
 }
@@ -990,6 +993,7 @@ mod tests {
             ("smoke", DevCommand::Smoke),
             ("logs", DevCommand::Logs),
             ("doctor", DevCommand::Doctor),
+            ("prune", DevCommand::Prune),
         ] {
             let parsed = parse_cli(["overrid", "dev", subcommand, "--json"]).unwrap();
             assert_eq!(parsed.command, Command::Dev(expected));

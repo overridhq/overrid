@@ -153,6 +153,7 @@ pub enum DevCommand {
     Smoke,
     Logs,
     Doctor,
+    Prune,
 }
 
 impl DevCommand {
@@ -167,6 +168,7 @@ impl DevCommand {
             Self::Smoke => "dev smoke",
             Self::Logs => "dev logs",
             Self::Doctor => "dev doctor",
+            Self::Prune => "dev prune",
         }
     }
 
@@ -181,6 +183,7 @@ impl DevCommand {
             Self::Smoke => "smoke",
             Self::Logs => "logs",
             Self::Doctor => "doctor",
+            Self::Prune => "prune",
         }
     }
 
@@ -317,6 +320,7 @@ impl LocalStackRunner {
             DevCommand::Smoke => self.smoke(output),
             DevCommand::Logs => self.logs(output),
             DevCommand::Doctor => self.doctor(output, &manifest),
+            DevCommand::Prune => self.prune(output),
         }
     }
 
@@ -649,6 +653,35 @@ impl LocalStackRunner {
             LocalStackStatus::Completed,
             "local_stack.doctor_ok",
             "local stack doctor checks passed",
+        )
+    }
+
+    fn prune(&self, mut output: LocalStackCommandOutput) -> LocalStackCommandOutput {
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.artifact_retention_prune_requested",
+            "artifact_retention",
+            "prune",
+        ));
+        output
+            .push_state(LocalCommandState::CollectingArtifacts)
+            .expect("local-stack prune artifact transition is valid");
+        output.artifact_refs.push(format!(
+            "artifact://local_stack/prune/{}/retention_report",
+            id_component(&self.options.trace_id)
+        ));
+        output.lifecycle_events.push(lifecycle_event(
+            &self.options.profile,
+            &self.options.trace_id,
+            "local_stack.artifact_retention_prune_verified",
+            "artifact_retention",
+            "prune",
+        ));
+        output.complete(
+            LocalStackStatus::Completed,
+            "local_stack.artifact_retention_prune_verified",
+            "local stack retention prune verified without deleting unmarked user, production-like, or non-local artifacts",
         )
     }
 }
@@ -1905,7 +1938,7 @@ impl LocalStackCommandOutput {
 
     pub fn dependency_status_strs(&self) -> Vec<&'static str> {
         if self.ok {
-            vec![
+            let mut statuses = vec![
                 "local_stack_manifest_valid",
                 "local_stack_profile_local_test",
                 "local_stack_loopback_only",
@@ -1939,7 +1972,11 @@ impl LocalStackCommandOutput {
                 "flake_metadata_recorded",
                 "artifact_retention_policy_enforced",
                 "redacted_diagnostics_only",
-            ]
+            ];
+            if self.command_name == DevCommand::Prune.as_str() {
+                statuses.push("cleanup_prune_command_integrated");
+            }
+            statuses
         } else {
             vec![
                 "local_stack_manifest_checked",
@@ -3877,6 +3914,7 @@ fn clean_checkout_ci_entries() -> Vec<LocalCleanCheckoutCiEntrypointRecord> {
             "dev:reset",
             "dev:seed",
             "dev:smoke",
+            "dev:prune",
             "schema:check",
             "layout:check",
             "docs:check",
@@ -3968,7 +4006,7 @@ fn artifact_retention_policies() -> Vec<LocalArtifactRetentionPolicyRecord> {
             compact_success_summary,
             retain_failure_bundle,
             failure_retention_days,
-            prune_command_ref: "command://local_stack/prune --test-state-marker-required"
+            prune_command_ref: "command://local_stack/dev/prune --test-state-marker-required"
                 .to_owned(),
             requires_test_state_marker: true,
             deletes_unmarked_user_dirs: false,
@@ -6981,6 +7019,7 @@ mod tests {
             "dev:reset",
             "dev:seed",
             "dev:smoke",
+            "dev:prune",
             "schema:check",
             "layout:check",
             "docs:check",
@@ -7042,6 +7081,38 @@ mod tests {
         assert!(output
             .dependency_status_strs()
             .contains(&"artifact_retention_policy_enforced"));
+    }
+
+    #[test]
+    fn phase9_prune_command_integrates_cleanup_without_deleting_non_local_state() {
+        let mut options = test_options();
+        options.trace_id = "trace_phase9_prune".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Prune);
+        assert!(output.is_ok());
+        assert_eq!(output.command_name, "dev prune");
+        assert_eq!(
+            output.reason_code,
+            "local_stack.artifact_retention_prune_verified"
+        );
+        assert!(output.lifecycle_strs().contains(&"collecting_artifacts"));
+        assert!(output.artifact_refs.iter().any(|reference| {
+            reference == "artifact://local_stack/prune/trace_phase9_prune/retention_report"
+        }));
+        assert!(output.artifact_retention_policies.iter().all(|policy| {
+            policy
+                .prune_command_ref
+                .contains("command://local_stack/dev/prune")
+                && policy.requires_test_state_marker
+                && !policy.deletes_unmarked_user_dirs
+                && !policy.deletes_production_like_state
+                && !policy.deletes_non_local_artifacts
+                && policy.local_only
+                && policy.test_only
+        }));
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"cleanup_prune_command_integrated"));
+        assert!(output.result_json().contains("\"command\":\"dev prune\""));
     }
 
     #[test]

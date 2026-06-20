@@ -361,6 +361,7 @@ fn to_local_stack_dev_command(command: DevCommand) -> LocalStackDevCommand {
         DevCommand::Smoke => LocalStackDevCommand::Smoke,
         DevCommand::Logs => LocalStackDevCommand::Logs,
         DevCommand::Doctor => LocalStackDevCommand::Doctor,
+        DevCommand::Prune => LocalStackDevCommand::Prune,
     }
 }
 
@@ -1265,7 +1266,7 @@ fn render_help(all_phases: bool) -> String {
         "  receipt show".to_owned(),
         "  ledger inspect".to_owned(),
         "  dispute list|inspect".to_owned(),
-        "  dev start|stop|restart|status|reset|seed|smoke|logs|doctor".to_owned(),
+        "  dev start|stop|restart|status|reset|seed|smoke|logs|doctor|prune".to_owned(),
         "  test integration|scenario|list|reset|artifacts".to_owned(),
         "  release-readiness               run Phase 10 release, security, and handoff validation evidence".to_owned(),
         "  help                            print command help".to_owned(),
@@ -4116,6 +4117,37 @@ mod tests {
             .stdout
             .contains("\"reason_code\":\"safety.non_local_profile\""));
         assert!(result.stdout.contains("\"status\":\"blocked\""));
+    }
+
+    #[test]
+    fn dev_prune_reports_marker_gated_retention_policy() {
+        let result = run_args([
+            "overrid",
+            "dev",
+            "prune",
+            "--json",
+            "--trace-id",
+            "trace_cli_prune",
+        ]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"command\":\"dev prune\""));
+        assert!(result
+            .stdout
+            .contains("\"reason_code\":\"local_stack.artifact_retention_prune_verified\""));
+        assert!(result.stdout.contains("\"artifact_retention_policies\""));
+        assert!(result
+            .stdout
+            .contains("\"requires_test_state_marker\":true"));
+        assert!(result
+            .stdout
+            .contains("\"deletes_unmarked_user_dirs\":false"));
+        assert!(result
+            .stdout
+            .contains("\"deletes_production_like_state\":false"));
+        assert!(result
+            .stdout
+            .contains("\"deletes_non_local_artifacts\":false"));
+        assert!(result.stdout.contains("cleanup_prune_command_integrated"));
     }
 
     #[test]

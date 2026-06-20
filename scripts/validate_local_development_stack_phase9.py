@@ -12,6 +12,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 LOCAL_STACK_LIB = Path("packages/local_stack/src/lib.rs")
+CLI_PARSER = Path("packages/cli/src/parser.rs")
+CLI_RUNNER = Path("packages/cli/src/runner.rs")
 SUB_PLAN = Path("docs/build_plan/sub_build_plan_004_local_development_stack.md")
 PHASE_PLAN = Path("docs/planning/local_development_stack_phase_09_plan.md")
 PHASE_PROGRESS = Path("docs/planning/local_development_stack_phase_09_progress.md")
@@ -20,6 +22,8 @@ SUITE_VALIDATOR = Path("scripts/validate_overrid.py")
 
 REQUIRED_FILES = [
     LOCAL_STACK_LIB,
+    CLI_PARSER,
+    CLI_RUNNER,
     SUB_PLAN,
     PHASE_PLAN,
     PHASE_PROGRESS,
@@ -42,6 +46,7 @@ EXPECTED_CI_COMMANDS = {
     "dev:reset",
     "dev:seed",
     "dev:smoke",
+    "dev:prune",
     "schema:check",
     "layout:check",
     "docs:check",
@@ -127,6 +132,8 @@ def check_required_files() -> None:
 
 def check_docs_and_source() -> None:
     source = read_text(LOCAL_STACK_LIB)
+    cli_parser = read_text(CLI_PARSER)
+    cli_runner = read_text(CLI_RUNNER)
     sub_plan = read_text(SUB_PLAN)
     phase_plan = read_text(PHASE_PLAN)
     phase_progress = read_text(PHASE_PROGRESS)
@@ -141,7 +148,7 @@ def check_docs_and_source() -> None:
         "diagnostic artifact bundle records",
         "clean-checkout CI entrypoint evidence",
         "flake evidence fields",
-        "cleanup and retention policy records",
+        "cleanup command integration and retention policy records",
     ]:
         assert_contains(phase_plan, expected, PHASE_PLAN)
     assert_contains(phase_progress, "Local Development Stack Phase 9 Progress", PHASE_PROGRESS)
@@ -175,9 +182,25 @@ def check_docs_and_source() -> None:
         "phase9_clean_checkout_ci_entrypoint_is_loopback_only_and_reproducible",
         "phase9_flake_evidence_records_repeat_variance_retries_and_timeout_classes",
         "phase9_retention_policy_prune_keeps_user_production_and_non_local_state_safe",
+        "phase9_prune_command_integrates_cleanup_without_deleting_non_local_state",
+        "DevCommand::Prune",
+        "cleanup_prune_command_integrated",
+        "local_stack.artifact_retention_prune_verified",
         PHASE9_GATE,
     ]:
         assert_contains(source, expected, LOCAL_STACK_LIB)
+    for expected in [
+        "DevCommand::Prune",
+        '"prune" => Ok(Command::Dev(DevCommand::Prune))',
+        'Self::Prune => "dev prune"',
+    ]:
+        assert_contains(cli_parser, expected, CLI_PARSER)
+    for expected in [
+        "DevCommand::Prune => LocalStackDevCommand::Prune",
+        "dev start|stop|restart|status|reset|seed|smoke|logs|doctor|prune",
+        "dev_prune_reports_marker_gated_retention_policy",
+    ]:
+        assert_contains(cli_runner, expected, CLI_RUNNER)
 
 
 def check_cargo_tests() -> None:
@@ -243,6 +266,10 @@ def check_diagnostic_bundle_and_retention() -> None:
     assert_true(any(policy["retention_class"] == "success_summary" for policy in policies), "success retention missing")
     assert_true(any(policy["retention_class"] == "failure_evidence" for policy in policies), "failure retention missing")
     for policy in policies:
+        assert_true(
+            "command://local_stack/dev/prune" in policy["prune_command_ref"],
+            "retention prune command must point at dev prune",
+        )
         assert_true(policy["requires_test_state_marker"] is True, "retention must require test marker")
         assert_true(policy["deletes_unmarked_user_dirs"] is False, "retention may not delete unmarked user dirs")
         assert_true(policy["deletes_production_like_state"] is False, "retention may not delete production-like state")
@@ -252,6 +279,48 @@ def check_diagnostic_bundle_and_retention() -> None:
         "dependency status missing retention evidence",
     )
     assert_secret_free(output, "phase 9 smoke")
+
+
+def check_cleanup_prune_command() -> None:
+    output = run_cli_json(
+        [
+            "dev",
+            "prune",
+            "--json",
+            "--trace-id",
+            "trace_phase9_validator_prune",
+        ]
+    )
+    assert_true(output["ok"] is True, "phase 9 prune should pass")
+    result = output["result"]
+    assert_true(result["command"] == "dev prune", "prune command name drifted")
+    assert_true(
+        result["reason_code"] == "local_stack.artifact_retention_prune_verified",
+        "prune reason code drifted",
+    )
+    assert_true(
+        any(
+            reference == "artifact://local_stack/prune/trace_phase9_validator_prune/retention_report"
+            for reference in result["artifact_refs"]
+        ),
+        "prune output missing retention report artifact ref",
+    )
+    policies = result["artifact_retention_policies"]
+    assert_true(len(policies) >= 2, "prune output missing retention policies")
+    for policy in policies:
+        assert_true(
+            "command://local_stack/dev/prune" in policy["prune_command_ref"],
+            "prune policy command ref drifted",
+        )
+        assert_true(policy["requires_test_state_marker"] is True, "prune must require test marker")
+        assert_true(policy["deletes_unmarked_user_dirs"] is False, "prune may not delete unmarked user dirs")
+        assert_true(policy["deletes_production_like_state"] is False, "prune may not delete production-like state")
+        assert_true(policy["deletes_non_local_artifacts"] is False, "prune may not delete non-local artifacts")
+    assert_true(
+        "cleanup_prune_command_integrated" in output["diagnostic_bundle"]["dependency_status"],
+        "dependency status missing prune command integration",
+    )
+    assert_secret_free(output, "phase 9 prune")
 
 
 def check_clean_checkout_ci(status_payload: dict[str, Any]) -> None:
@@ -307,6 +376,7 @@ def main() -> int:
     check_clean_checkout_ci(status)
     check_redacted_logs()
     check_diagnostic_bundle_and_retention()
+    check_cleanup_prune_command()
     check_flake_evidence()
     print("Local Development Stack Phase 9 validation passed.")
     return 0
@@ -314,4 +384,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
