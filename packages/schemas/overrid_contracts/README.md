@@ -1,6 +1,6 @@
 # Overrid Contract Schemas
 
-This package contains the Phase 2 and Phase 3 CLI contract source and Rust
+This package contains the Phase 2 through Phase 5 CLI contract source and Rust
 projection for `SUB BUILD PLAN #2 - CLI`.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
@@ -18,3 +18,10 @@ records carry environment class, endpoint fingerprint, tenant/actor ids,
 credential namespace, allowed credential-reference classes, fixture allowance,
 confirmation policy, and schema pins. Credential references point to approved
 stores or signing agents and must not contain raw key material.
+
+Phase 5 bootstrap contracts define `phase1_bootstrap_command`,
+`signed_command_envelope`, `bootstrap_acceptance_record`,
+`manifest_bootstrap_ref`, and `synthetic_workload_pending_state`. These keep
+Phase 1 control-plane bootstrap commands on the SDK/Overgate path, require
+signature refs instead of key material for mutations, and preserve synthetic
+workloads as pending-only records without implying real execution.

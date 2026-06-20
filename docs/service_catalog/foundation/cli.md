@@ -81,6 +81,14 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - Capability gate: local capability discovery reports stale age, route availability, schema versions, phase support, and fail-closed behavior, with unavailable routes returning `not_available_in_phase` instead of private shortcuts.
 - Validation gate: `scripts/validate_cli_phase4.py` exercises schema/manifest alignment, Rust surfaces, real CLI JSON output, fixture parity, fail-closed capability output, redaction checks, and Cargo tests.
 
+## Phase 5 Implementation Gates
+
+- Bootstrap parser gate: `auth`, `tenant`, `identity`, `key`, `manifest`, and `workload` command groups plus trace, idempotency, expected-state, target, manifest, workload, and dry-run flags are Phase 1 bootstrap parser surface.
+- Signed envelope gate: mutating tenant, identity, key, manifest, and synthetic workload bootstrap commands build signed command envelopes only after profile, credential, SDK target, idempotency, and trace validation.
+- Manifest bootstrap gate: `manifest validate|submit|inspect` returns local validation and immutable manifest refs through `sdk_overgate_contract`, without direct registry shortcuts.
+- Synthetic workload gate: `workload submit|status|timeline` exposes pending-only synthetic workload state with `execution_implied:false`; real logs, cancel, result, and follow remain fail-closed phase-gated commands.
+- Validation gate: `scripts/validate_cli_phase5.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
+
 ## Validation
 
 - CLI can complete the [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) synthetic workload path.

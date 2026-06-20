@@ -161,6 +161,13 @@ def validate_contracts() -> None:
         "capability_snapshot",
         "command_context",
     }
+    expected_phase5_extensions = {
+        "phase1_bootstrap_command",
+        "signed_command_envelope",
+        "bootstrap_acceptance_record",
+        "manifest_bootstrap_ref",
+        "synthetic_workload_pending_state",
+    }
     actual_contracts = set(schema["properties"]["contracts"]["items"]["enum"])
     missing_phase2_contracts = expected_phase2_contracts - actual_contracts
     if missing_phase2_contracts:
@@ -171,6 +178,7 @@ def validate_contracts() -> None:
         expected_phase2_contracts
         | expected_phase3_extensions
         | expected_phase4_extensions
+        | expected_phase5_extensions
     )
     unexpected_contracts = actual_contracts - allowed_contracts
     if unexpected_contracts:

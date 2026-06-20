@@ -285,6 +285,16 @@ When a CLI command needs new platform behavior, update documentation in this ord
   - Output: `workload submit|status|timeline` for Phase 1 synthetic work.
   - Validation: End-to-end test proves signed workload command reaches pending queue state with complete Overwatch audit chain.
 
+### Phase 5 Gate Outputs
+
+| Gate | Artifact | Validation |
+| --- | --- | --- |
+| Bootstrap parser gate | `packages/cli/src/parser.rs` exposes `auth`, `tenant`, `identity`, `key`, `manifest`, and `workload` command groups plus `--trace-id`, `--idempotency-key`, `--expected-state`, `--target-ref`, manifest, workload, and dry-run flags. | Parser tests and `scripts/validate_cli_phase5.py` prove Phase 1 bootstrap command families parse while real workload execution commands remain phase-gated. |
+| Signed envelope gate | `packages/cli/src/runner.rs` builds `signed_command_envelope` payloads for mutating tenant, identity, key, manifest, and synthetic workload bootstrap commands after profile, credential, SDK target, trace, and idempotency checks. | Rust tests and the Phase 5 validator prove signature refs are rendered without key material, default idempotency is deterministic, explicit trace/idempotency/target values flow through, and admin-impacting key revocation requires `--reason`. |
+| Manifest bootstrap gate | `manifest validate|submit|inspect` returns local validation results and immutable `manifest_bootstrap_ref` values submitted through `sdk_overgate_contract`. | The Phase 5 validator exercises local manifest validation and signed manifest submission without direct Overregistry access. |
+| Synthetic workload gate | `workload submit|status|timeline` stops at `queue_state:"pending"`, renders `execution_implied:false`, and exposes timeline refs only; real logs/cancel/result/follow remain `not_available_in_phase`. | The Phase 5 validator checks pending-only state, waiting lifecycle metadata, timeline events, audit refs, and fail-closed real workload command output. |
+| Validation gate | `scripts/validate_cli_phase5.py` is wired into `scripts/validate_overrid.py` and checks docs, schema source, manifest, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests. | `python3 scripts/validate_cli_phase5.py`, `python3 scripts/validate_overrid.py`, and `docdexd run-tests --repo /Users/bekirdag/Documents/apps/overrid` must pass before Phase 5 is reported complete. |
+
 ## Phase 6: Signing, Idempotency, Retries, Traceability, And Error Decoding
 
 ### Work Items
