@@ -259,6 +259,33 @@ Additional SDS-level validation:
 7. Add Phase 0 smoke test integration.
 8. Add CI-friendly bounded startup and artifact export.
 
+## Phase-Gate Boundary Decisions
+
+Phase 1 of [SUB BUILD PLAN #4 - Local Development Stack](../../build_plan/sub_build_plan_004_local_development_stack.md) freezes the local-stack gate semantics before runtime stack implementation begins.
+
+Gate states:
+
+- `buildable_phase_0`: Phase 0 local lifecycle, deterministic reset/seed, local/test fixtures, loopback health, diagnostics, and smoke are the first build point.
+- `local_smoke_prerequisite`: Phase 1 may consume local fixtures and lifecycle support for the first signed tenant-scoped control-plane smoke path.
+- `owning_service_required`: Phase 2 node identity and Phase 3 execution-loop hooks require owning Overcell, Overpack, Oversched, Overlease, Overrun, and Overmeter contracts before local simulators can expand.
+- `planned_disabled`: Later service families remain documented but disabled in the local stack until their owning SDS/API contracts define local-test behavior.
+- `not_local_stack_owned`: Governance, compliance, migration, incident, and stewardship workflows are not local-stack-owned behavior.
+
+Boundary rules:
+
+- The local stack is not a deployment orchestrator, not a production control plane, not a payment runner, not a public-provider testbed, and not a shortcut around service contracts.
+- Direct storage, queue, object, event, or local file inspection is allowed only for reset, seed, health, and diagnostics.
+- PostgreSQL, Redis, NATS, Kafka, S3, MinIO, Vault, blockchain, NFT, pricing, revenue, and customer-count assumptions are rejected as local-stack product boundaries.
+- New local-stack behavior must update the owning service SDS/API first, then shared schemas when serialized, then the sub-build plan, service catalog, harness scenarios, and validation evidence.
+
+Resolved decisions carried into Phase 1:
+
+- Rust-owned embedded/local durable state behind Overbase-shaped and Overqueue-shaped contracts.
+- Filesystem-backed content-addressed Overstore stub with BLAKE3/content hashes, object manifests, local/test markers, deterministic reset, and redacted artifact bundles.
+- Exactly one local Overcell-like node simulator before Phase 2, limited to deterministic identity, heartbeat, capability report, health endpoint, fixture workload acceptance, and no-op handoff.
+- Deterministic loopback ports `18080`, `18081`, `18082`, `18083`, `18084`, and optional developer UI `18085`.
+- Reproducible Linux x86_64 clean-checkout CI target with repository-pinned Rust tooling, loopback networking, no external database/queue/object-store services, no ambient keychain, and no cloud credentials.
+
 ## Handoff And Downstream Use
 
 Phase 1 consumes the local stack to build the first signed control-plane path. The Integration Test Harness consumes it as the lifecycle manager for scenario tests.

@@ -74,6 +74,73 @@ The Local Development Stack is the executable Phase 0 foundation. It must start 
   - Output: Cross-document maintenance rule for local-stack expansion.
   - Validation: Review checklist rejects local-stack additions that invent service behavior without an owning SDS, contract, or phase gate.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Artifact | Required attachment | Phase 1 rule |
+| --- | --- | --- |
+| `docs/build_plan/sub_build_plan_004_local_development_stack.md` | This Phase 1 gate output plus the full ten-phase implementation sequence. | Remains the implementation-order document for SDS #4. |
+| `docs/sds/foundation/local_development_stack.md` | [SDS #4: Local Development Stack](../sds/foundation/local_development_stack.md) | Owns local-stack purpose, safety boundary, data model, command surface, resolved decisions, and validation obligations. |
+| `docs/service_catalog/foundation/local_development_stack.md` | [Local Development Stack service plan](../service_catalog/foundation/local_development_stack.md) | Owns service-catalog objective, first build phase, dependency summary, contracts, and handoff. |
+| `docs/build_plan/master_plan.md` | [Master build plan](master_plan.md) | Keeps first build point in master Phase 0 and prevents local-stack work from moving later services earlier. |
+| `docs/build_plan/service_catalog_alignment.md` | [Build-plan crosswalk](service_catalog_alignment.md) | Keeps SDS #4 aligned to Phase 0 with later simulator expansion gated by owning service phases. |
+| `docs/overrid_tech_stack_choice.md` | [Tech stack decision](../overrid_tech_stack_choice.md) | Keeps the local stack Rust-first with Overrid-shaped local stubs rather than conventional cloud product boundaries. |
+| `docs/planning/local_development_stack_phase_01_plan.md` | [Phase 1 implementation plan](../planning/local_development_stack_phase_01_plan.md) | Records the concrete Phase 1 work and validation plan. |
+| `docs/planning/local_development_stack_phase_01_progress.md` | [Phase 1 progress trail](../planning/local_development_stack_phase_01_progress.md) | Records status, evidence, blockers, and validation commands. |
+
+#### Frozen Local Stack Boundary
+
+The Local Development Stack is a development, CI, and Integration Test Harness surface. It is not a deployment orchestrator, not a production control plane, not a payment runner, not a public-provider testbed, and not a shortcut around service contracts.
+
+Direct storage, queue, object, event, or local file inspection is allowed only for reset, seed, health, and diagnostics. Runtime behavior must still flow through the owning Overrid contracts once those services exist. The local stack may launch embedded state, Overqueue-shaped durable jobs, an Overstore-shaped artifact stub, local diagnostic events, and exactly one local Overcell-like simulator, but it must not claim production authority for Overbase, Overqueue, Overstore, Overvault, Overwatch, Overcell, Overrun, Oversched, accounting, public-provider, federation, or governance behavior.
+
+Rejected Phase 1 shortcuts:
+
+- External production endpoints, public-provider resources, real payment providers, real cloud accounts, or model-provider credentials.
+- PostgreSQL, Redis, NATS, Kafka, S3, MinIO, Vault, blockchain, NFT, pricing, revenue, or customer-count assumptions as local-stack product boundaries.
+- Local-only fixture credentials accepted against seed, staging, production-like, federation, public-provider, or non-local profiles.
+- Silent port shifting, wildcard binding, unmarked reset targets, raw committed secrets, or diagnostics that expose secret material.
+
+#### First-Build And Expansion Gate Matrix
+
+| Master phase | Local-stack gate state | Allowed local-stack scope | Required blocker when unavailable |
+| --- | --- | --- | --- |
+| 0 | `buildable_phase_0` | Local lifecycle, deterministic reset/seed, local/test fixtures, loopback ports, health snapshots, diagnostics, and Phase 0 smoke. | `dependency.phase0_contract_missing` |
+| 1 | `local_smoke_prerequisite` | Fixtures and local lifecycle support for the first signed tenant-scoped control-plane smoke path. | `dependency.phase1_control_plane_unavailable` |
+| 2 | `owning_service_required` | Exactly one local Overcell-like simulator may expose deterministic identity, heartbeat, capabilities, and health only after the Phase 2 owner contracts are ready. | `dependency.overcell_contract_missing` |
+| 3 | `owning_service_required` | No-op execution handoff and pending-work smoke hooks only after Overpack, Oversched, Overlease, Overrun, and Overmeter contracts define the path. | `dependency.execution_loop_contract_missing` |
+| 4 | `planned_disabled` | Trust, policy, challenge, verification, classifier, and Overmesh simulations remain disabled unless the owning SDS/API defines local-test behavior. | `dependency.trust_policy_contract_missing` |
+| 5 | `planned_disabled` | ORU, Seal Ledger, Overmeter rollups, Overbill, grants, assets, payout, and disputes remain local/test fixtures only. | `dependency.accounting_contract_missing` |
+| 6 | `planned_disabled` | Product/adaptor local services remain disabled until adapter, SDK, CLI, and admin/client contracts define local-test behavior. | `dependency.product_integration_contract_missing` |
+| 7 | `planned_disabled` | Grid-resident backbone, failover, restore, package promotion, and migration drills stay outside Phase 1 local-stack authority. | `dependency.grid_resident_contract_missing` |
+| 8 | `planned_disabled` | Native Overbase, Overstore, Overvault, namespace, Overmesh route, and entitlement behavior must come from owning services, not local-stack shortcuts. | `dependency.native_storage_contract_missing` |
+| 9 | `planned_disabled` | Deployment graph, release strategy, and package validation simulations remain disabled without deployment-grid owner contracts. | `dependency.deployment_contract_missing` |
+| 10 | `planned_disabled` | Trusted federation and public-interest pool workflows remain disabled without federation owner contracts. | `dependency.federation_contract_missing` |
+| 11 | `planned_disabled` | Public-provider onboarding, public sandbox, fraud, reputation, and low-sensitivity pool behavior remain disabled. | `dependency.public_provider_contract_missing` |
+| 12 | `planned_disabled` | Native app, assistant, mobile, and public utility local fixtures remain disabled until client/app owner contracts exist. | `dependency.native_app_contract_missing` |
+| 13 | `not_local_stack_owned` | Governance, compliance, incident, reporting, migration, and threat-review workflows are not owned by the local stack. | `dependency.governance_contract_missing` |
+
+#### Resolved SDS Decision Checklist
+
+- Rust-owned embedded/local durable state is the only Phase 0 state boundary; candidate engines stay internal and must expose Overbase-shaped and Overqueue-shaped records.
+- Filesystem-backed content-addressed Overstore stub is the only Phase 0 artifact boundary; it uses BLAKE3/content hashes, object manifests, local/test markers, deterministic reset, and redacted artifact bundles.
+- Exactly one local Overcell-like node simulator is allowed before Phase 2; it provides deterministic identity, heartbeat, capability report, health endpoint, fixture workload acceptance, and no-op handoff only.
+- Deterministic loopback port range is reserved as API `18080`, worker health/metrics `18081`, node-agent simulator `18082`, object/artifact stub `18083`, local event/audit query `18084`, and optional developer UI `18085`.
+- Clean-checkout CI target is a reproducible Linux x86_64 local/test runner with repository-pinned Rust tooling, loopback networking, no external database/queue/object-store services, no ambient keychain, and no cloud credentials.
+
+#### Documentation Update Rule
+
+When a local profile adds a service, simulator, fixture family, smoke scenario, gate state, diagnostic event, command, or health field, update documents in this order:
+
+1. Update the owning service SDS/API or mark the capability `planned_disabled` with a stable blocker.
+2. Update the shared schema/package contract when the local-stack artifact is serialized or consumed by CLI, SDK, harness, CI, or docs-facing examples.
+3. Update this sub-build plan and the local development stack service-catalog entry.
+4. Update Integration Test Harness scenario manifests, fixtures, smoke paths, and validation evidence only after the owning contract exists.
+5. Update the Phase 1 progress trail with validation commands and blockers.
+
+Review rejects local-stack additions that invent service behavior without an owning SDS, API contract, phase gate, and focused validation evidence.
+
 ## Phase 2: Stack Schemas And Compatibility Contracts
 
 ### Work Items
