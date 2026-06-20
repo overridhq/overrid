@@ -151,6 +151,7 @@ def validate_fixture_code() -> None:
         "QuotaFixture",
         "FixtureAdmissionOutcome",
         "SigningKeyVariant",
+        "WrongKey",
         "TestSigningKeyFixture",
         "is_fixture_local_profile",
         "ResourceCardFixture",
@@ -171,6 +172,7 @@ def validate_fixture_code() -> None:
         "safety.fixture_key_outside_local",
         "safety.fixture_not_test_only",
         "signature.revoked_key",
+        "signature.wrong_key",
         "signature.wrong_tenant",
         "signature.expired_key",
         "signature.invalid",
@@ -204,6 +206,9 @@ def validate_fixture_code() -> None:
         "provider_payout_reachable",
         "accounting.test_usage_isolated",
         "safety.external_payment_reachable",
+        "validate_owning_services_available",
+        "accounting.owning_services_available",
+        "dependency.phase_contract_not_ready",
     ]:
         assert_contains(fixtures_rs, expected, HARNESS / "src/fixtures.rs")
 

@@ -356,6 +356,7 @@ pub enum SigningKeyVariant {
     Active,
     Rotated,
     Revoked,
+    WrongKey,
     WrongTenant,
     Expired,
     InvalidSignature,
@@ -368,6 +369,7 @@ impl SigningKeyVariant {
             Self::Active => "active",
             Self::Rotated => "rotated",
             Self::Revoked => "revoked",
+            Self::WrongKey => "wrong_key",
             Self::WrongTenant => "wrong_tenant",
             Self::Expired => "expired",
             Self::InvalidSignature => "invalid_signature",
@@ -425,6 +427,7 @@ impl TestSigningKeyFixture {
                 FixtureAdmissionOutcome::accepted("signature.accepted")
             }
             SigningKeyVariant::Revoked => FixtureAdmissionOutcome::blocked("signature.revoked_key"),
+            SigningKeyVariant::WrongKey => FixtureAdmissionOutcome::blocked("signature.wrong_key"),
             SigningKeyVariant::WrongTenant => {
                 FixtureAdmissionOutcome::blocked("signature.wrong_tenant")
             }
@@ -591,6 +594,21 @@ impl AccountingPolicyFixture {
         }
         FixtureAdmissionOutcome::accepted("accounting.test_usage_isolated")
     }
+
+    pub fn validate_owning_services_available(
+        &self,
+        available_service_refs: &[&str],
+    ) -> FixtureAdmissionOutcome {
+        let missing_owning_service = self.owning_service_refs.iter().any(|required| {
+            !available_service_refs
+                .iter()
+                .any(|available| *available == required.as_str())
+        });
+        if missing_owning_service {
+            return FixtureAdmissionOutcome::blocked("dependency.phase_contract_not_ready");
+        }
+        FixtureAdmissionOutcome::accepted("accounting.owning_services_available")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -643,6 +661,12 @@ impl FixtureLibrary {
                 &tenant.tenant_ref,
                 &builder_actor,
                 SigningKeyVariant::Expired,
+                seed,
+            ),
+            TestSigningKeyFixture::new(
+                &tenant.tenant_ref,
+                &builder_actor,
+                SigningKeyVariant::WrongKey,
                 seed,
             ),
             TestSigningKeyFixture::new(
@@ -940,6 +964,7 @@ mod tests {
 
         for (variant, reason_code) in [
             (SigningKeyVariant::Revoked, "signature.revoked_key"),
+            (SigningKeyVariant::WrongKey, "signature.wrong_key"),
             (SigningKeyVariant::WrongTenant, "signature.wrong_tenant"),
             (SigningKeyVariant::Expired, "signature.expired_key"),
             (SigningKeyVariant::InvalidSignature, "signature.invalid"),
@@ -985,8 +1010,21 @@ mod tests {
             FixtureAdmissionOutcome::accepted("accounting.test_usage_isolated")
         );
         assert_eq!(
-            fixture.budget_exhausted().validate_test_isolation(),
+            fixture.clone().budget_exhausted().validate_test_isolation(),
             FixtureAdmissionOutcome::blocked("policy.budget_exhausted")
+        );
+        assert_eq!(
+            fixture.validate_owning_services_available(&[
+                "service:overmeter",
+                "service:oru_account",
+                "service:seal_ledger",
+                "service:overbill",
+            ]),
+            FixtureAdmissionOutcome::accepted("accounting.owning_services_available")
+        );
+        assert_eq!(
+            fixture.validate_owning_services_available(&["service:overmeter"]),
+            FixtureAdmissionOutcome::blocked("dependency.phase_contract_not_ready")
         );
     }
 
