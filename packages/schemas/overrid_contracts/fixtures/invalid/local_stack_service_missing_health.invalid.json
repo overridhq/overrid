@@ -1,0 +1,20 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "service_definition": {
+    "service_id": "service:api",
+    "service_kind": "api",
+    "command": [
+      "cargo",
+      "run"
+    ],
+    "working_directory": "repo://.",
+    "env_refs": [],
+    "dependency_order": 1,
+    "depends_on": [],
+    "shutdown_behavior": "graceful_then_kill",
+    "log_target": "log://local_stack/api.log",
+    "restart_class": "required",
+    "local_only": true,
+    "test_only": true
+  }
+}

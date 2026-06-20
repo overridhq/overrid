@@ -1,0 +1,332 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "stack_profile": {
+    "profile_id": "profile:local_default",
+    "environment_class": "local",
+    "enabled_services": [
+      "service:api",
+      "service:worker",
+      "service:embedded_state",
+      "service:overqueue_jobs",
+      "service:overstore_stub",
+      "service:event_audit",
+      "service:node_agent_simulator"
+    ],
+    "required_phase_gates": [
+      "buildable_phase_0",
+      "local_smoke_prerequisite",
+      "owning_service_required"
+    ],
+    "service_dependencies": [
+      {
+        "service_id": "service:api",
+        "depends_on": [
+          "service:embedded_state",
+          "service:overqueue_jobs",
+          "service:overstore_stub"
+        ]
+      },
+      {
+        "service_id": "service:worker",
+        "depends_on": [
+          "service:overqueue_jobs",
+          "service:event_audit"
+        ]
+      }
+    ],
+    "fixture_set": "fixture:phase2_default_local",
+    "feature_flags": [
+      "feature:phase0_smoke",
+      "feature:deterministic_seed"
+    ],
+    "port_policy": "port_policy:reserved_18080_18085",
+    "volume_set": "volume_set:local_default",
+    "local_only": true,
+    "test_only": true,
+    "default_bind_host": "127.0.0.1",
+    "future_services_require_phase_gate": true
+  },
+  "service_definitions": [
+    {
+      "service_id": "service:embedded_state",
+      "service_kind": "embedded_state",
+      "command": [
+        "overrid-local-state",
+        "serve"
+      ],
+      "working_directory": "repo://packages/local_stack",
+      "env_refs": [
+        "env://OVERRID_LOCAL_STATE_DIR"
+      ],
+      "dependency_order": 1,
+      "depends_on": [],
+      "health_check": {
+        "kind": "file_marker",
+        "endpoint": "local-state://embedded_state/ready.marker",
+        "expected_state": "ready",
+        "timeout_ms": 30000
+      },
+      "shutdown_behavior": "drop_embedded_handle",
+      "log_target": "log://local_stack/embedded_state.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
+      "service_id": "service:api",
+      "service_kind": "api",
+      "command": [
+        "cargo",
+        "run",
+        "-p",
+        "overrid-local-api"
+      ],
+      "working_directory": "repo://.",
+      "env_refs": [
+        "env://OVERRID_LOCAL_PROFILE",
+        "env://OVERRID_LOCAL_API_PORT"
+      ],
+      "dependency_order": 4,
+      "depends_on": [
+        "service:embedded_state",
+        "service:overqueue_jobs"
+      ],
+      "health_check": {
+        "kind": "http",
+        "endpoint": "http://127.0.0.1:18080/healthz",
+        "expected_state": "ready",
+        "timeout_ms": 60000
+      },
+      "shutdown_behavior": "graceful_then_kill",
+      "log_target": "log://local_stack/api.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
+      "service_id": "service:worker",
+      "service_kind": "worker",
+      "command": [
+        "cargo",
+        "run",
+        "-p",
+        "overrid-local-worker"
+      ],
+      "working_directory": "repo://.",
+      "env_refs": [
+        "env://OVERRID_LOCAL_WORKER_HEALTH_PORT"
+      ],
+      "dependency_order": 5,
+      "depends_on": [
+        "service:overqueue_jobs",
+        "service:event_audit"
+      ],
+      "health_check": {
+        "kind": "http",
+        "endpoint": "http://127.0.0.1:18081/healthz",
+        "expected_state": "ready",
+        "timeout_ms": 60000
+      },
+      "shutdown_behavior": "graceful_then_kill",
+      "log_target": "log://local_stack/worker.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    }
+  ],
+  "port_registry": {
+    "registry_id": "port_registry:reserved_18080_18085",
+    "collision_policy": "fail_before_startup",
+    "bindings": [
+      {
+        "service_id": "service:api",
+        "port": 18080,
+        "bind_host": "127.0.0.1",
+        "purpose": "api_health_ready"
+      },
+      {
+        "service_id": "service:worker",
+        "port": 18081,
+        "bind_host": "127.0.0.1",
+        "purpose": "worker_health_metrics"
+      },
+      {
+        "service_id": "service:node_agent_simulator",
+        "port": 18082,
+        "bind_host": "127.0.0.1",
+        "purpose": "node_agent_simulator_health"
+      },
+      {
+        "service_id": "service:overstore_stub",
+        "port": 18083,
+        "bind_host": "127.0.0.1",
+        "purpose": "object_artifact_stub"
+      },
+      {
+        "service_id": "service:event_audit",
+        "port": 18084,
+        "bind_host": "127.0.0.1",
+        "purpose": "local_event_audit_query"
+      },
+      {
+        "service_id": "service:developer_ui",
+        "port": 18085,
+        "bind_host": "127.0.0.1",
+        "purpose": "optional_developer_ui"
+      }
+    ],
+    "local_only": true,
+    "test_only": true
+  },
+  "local_env_manifest": {
+    "manifest_id": "env_manifest:local_default",
+    "generated_env_target": "repo://.env.local",
+    "example_env_target": "repo://.env.example",
+    "variables": [
+      {
+        "name": "OVERRID_LOCAL_PROFILE",
+        "value_ref": "env://OVERRID_LOCAL_PROFILE",
+        "redacted": false,
+        "example_only": false
+      },
+      {
+        "name": "OVERRID_LOCAL_TEST_SECRET_REF",
+        "value_ref": "secret://local_stack/fixture_key_ref",
+        "redacted": true,
+        "example_only": false
+      }
+    ],
+    "redaction_policy": "secret_free_refs_only",
+    "contains_raw_secret": false,
+    "local_only": true,
+    "test_only": true
+  },
+  "volume_registry": {
+    "registry_id": "volume_set:local_default",
+    "volumes": [
+      {
+        "volume_id": "volume:embedded_state",
+        "path_ref": "local-state://embedded_state",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      },
+      {
+        "volume_id": "volume:logs",
+        "path_ref": "log://local_stack",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      }
+    ],
+    "local_only": true,
+    "test_only": true
+  },
+  "reset_plan": {
+    "plan_id": "reset_plan:local_default",
+    "trace_id": "trace_local_stack_phase2_reset",
+    "operations": [
+      {
+        "operation_id": "reset:embedded_state",
+        "target_ref": "local-state://embedded_state",
+        "requires_marker": true,
+        "marker_ref": "local-state://embedded_state/.overrid-local-test-state"
+      },
+      {
+        "operation_id": "reset:artifact_stub",
+        "target_ref": "artifact://local_stack",
+        "requires_marker": true,
+        "marker_ref": "artifact://local_stack/.overrid-local-test-state"
+      }
+    ],
+    "deterministic": true,
+    "requires_local_profile": true,
+    "local_only": true,
+    "test_only": true
+  },
+  "seed_manifest": {
+    "manifest_id": "seed_manifest:local_default",
+    "fixture_version": "fixture.local_stack.phase2.v1",
+    "deterministic_seed": "local_stack_phase2_seed_0001",
+    "tenant_refs": [
+      "tenant:local:alpha"
+    ],
+    "actor_refs": [
+      "actor:local:builder"
+    ],
+    "key_refs": [
+      "key:local:test_signing"
+    ],
+    "node_refs": [
+      "node:local:simulator_01"
+    ],
+    "manifest_refs": [
+      "manifest:local:noop"
+    ],
+    "package_refs": [
+      "package:local:noop"
+    ],
+    "workload_refs": [
+      "workload:local:noop"
+    ],
+    "local_oru_account_refs": [
+      "oru:local:test_account"
+    ],
+    "ledger_refs": [
+      "ledger:local:test_seal"
+    ],
+    "policy_context_refs": [
+      "policy:local:allow_smoke"
+    ],
+    "local_only": true,
+    "test_only": true
+  },
+  "health_snapshot": {
+    "snapshot_id": "health_snapshot:local_ready",
+    "schema_version": "local-development-stack.v0.1",
+    "profile_id": "profile:local_default",
+    "state": "ready",
+    "dependency_status": [
+      "dependency:embedded_state:ready",
+      "dependency:overqueue_jobs:ready"
+    ],
+    "service_health": [
+      {
+        "service_id": "service:api",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:api"
+      },
+      {
+        "service_id": "service:worker",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:worker"
+      }
+    ],
+    "redaction_summary": "secret_free",
+    "local_only": true,
+    "test_only": true
+  },
+  "local_secret_records": [
+    {
+      "secret_ref": "secret://local_stack/fixture_key_ref",
+      "secret_kind": "fixture_key",
+      "redaction_ref": "redaction:fixture_key_ref",
+      "raw_secret_present": false,
+      "local_only": true,
+      "test_only": true
+    }
+  ],
+  "local_diagnostic_events": [
+    {
+      "event_id": "event:local_stack:service_ready:api",
+      "event_type": "local_stack.service_ready",
+      "trace_id": "trace_local_stack_phase2_ready",
+      "service_id": "service:api",
+      "reason_code": "local_stack.service_ready",
+      "redaction_summary": "secret_free",
+      "contains_raw_secret": false,
+      "local_only": true,
+      "test_only": true
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "stack_profile": {
+    "profile_id": "profile:unsafe_public_bind",
+    "environment_class": "local",
+    "enabled_services": [
+      "service:api"
+    ],
+    "required_phase_gates": [
+      "buildable_phase_0"
+    ],
+    "service_dependencies": [],
+    "fixture_set": "fixture:unsafe",
+    "feature_flags": [],
+    "port_policy": "port_policy:reserved_18080_18085",
+    "volume_set": "volume_set:unsafe",
+    "local_only": true,
+    "test_only": true,
+    "default_bind_host": "0.0.0.0",
+    "future_services_require_phase_gate": true
+  }
+}

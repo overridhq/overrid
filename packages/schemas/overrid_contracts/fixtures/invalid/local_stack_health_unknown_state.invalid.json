@@ -1,0 +1,21 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "health_snapshot": {
+    "snapshot_id": "health_snapshot:unknown_state",
+    "schema_version": "local-development-stack.v0.1",
+    "profile_id": "profile:local_default",
+    "state": "paused",
+    "dependency_status": [],
+    "service_health": [
+      {
+        "service_id": "service:api",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:api"
+      }
+    ],
+    "redaction_summary": "secret_free",
+    "local_only": true,
+    "test_only": true
+  }
+}

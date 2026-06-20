@@ -1,0 +1,23 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "port_registry": {
+    "registry_id": "port_registry:collision",
+    "collision_policy": "fail_before_startup",
+    "bindings": [
+      {
+        "service_id": "service:api",
+        "port": 18080,
+        "bind_host": "127.0.0.1",
+        "purpose": "api_health_ready"
+      },
+      {
+        "service_id": "service:worker",
+        "port": 18080,
+        "bind_host": "127.0.0.1",
+        "purpose": "worker_health_metrics"
+      }
+    ],
+    "local_only": true,
+    "test_only": true
+  }
+}

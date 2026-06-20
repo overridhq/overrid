@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 pub const CONTRACT_SOURCE_ROOT: &str = "packages/schemas";
@@ -7,6 +8,9 @@ pub const CLI_SCHEMA_FAMILY: &str = "cli-command";
 pub const SUPPORTED_SCHEMA_VERSION: &str = "cli-command.v0.1";
 pub const INTEGRATION_HARNESS_SCHEMA_FAMILY: &str = "integration-harness";
 pub const SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION: &str = "integration-harness.v0.1";
+pub const LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY: &str = "local-development-stack";
+pub const SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION: &str =
+    "local-development-stack.v0.1";
 pub const GENERATED_CONTRACT_STATUS: &str = "rust_projection_from_json_schema_source";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +34,15 @@ pub fn integration_harness_contract_set() -> GeneratedContractSet {
     GeneratedContractSet {
         schema_family: INTEGRATION_HARNESS_SCHEMA_FAMILY,
         schema_version: SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        source_root: CONTRACT_SOURCE_ROOT,
+        projection_status: GENERATED_CONTRACT_STATUS,
+    }
+}
+
+pub fn local_development_stack_contract_set() -> GeneratedContractSet {
+    GeneratedContractSet {
+        schema_family: LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY,
+        schema_version: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
         source_root: CONTRACT_SOURCE_ROOT,
         projection_status: GENERATED_CONTRACT_STATUS,
     }
@@ -143,6 +156,23 @@ pub fn ensure_supported_integration_harness_schema_version(
         return Err(ContractError::UnsupportedSchemaVersion {
             provided: raw.to_owned(),
             supported: SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+        });
+    }
+    Ok(parsed)
+}
+
+pub fn ensure_supported_local_development_stack_schema_version(
+    raw: &str,
+) -> Result<SchemaVersion, ContractError> {
+    let parsed = SchemaVersion::parse(raw)?;
+    let supported = SchemaVersion::parse(SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION)?;
+    if parsed.family() != LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY
+        || parsed.major() != supported.major()
+        || parsed.minor() > supported.minor()
+    {
+        return Err(ContractError::UnsupportedSchemaVersion {
+            provided: raw.to_owned(),
+            supported: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
         });
     }
     Ok(parsed)
@@ -2894,6 +2924,684 @@ fn contains_raw_secret_marker(value: &str) -> bool {
         || lower.contains("raw_key")
 }
 
+pub const LOCAL_STACK_RESERVED_PORT_MIN: u16 = 18_080;
+pub const LOCAL_STACK_RESERVED_PORT_MAX: u16 = 18_085;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalStackHealthState {
+    NotStarted,
+    Starting,
+    Ready,
+    Degraded,
+    Failed,
+    Resetting,
+    Seeding,
+    RunningTests,
+}
+
+impl LocalStackHealthState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NotStarted => "not_started",
+            Self::Starting => "starting",
+            Self::Ready => "ready",
+            Self::Degraded => "degraded",
+            Self::Failed => "failed",
+            Self::Resetting => "resetting",
+            Self::Seeding => "seeding",
+            Self::RunningTests => "running_tests",
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Ready | Self::Degraded | Self::Failed)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalStackPhaseGateState {
+    BuildablePhase0,
+    LocalSmokePrerequisite,
+    OwningServiceRequired,
+    PlannedDisabled,
+    NotLocalStackOwned,
+}
+
+impl LocalStackPhaseGateState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BuildablePhase0 => "buildable_phase_0",
+            Self::LocalSmokePrerequisite => "local_smoke_prerequisite",
+            Self::OwningServiceRequired => "owning_service_required",
+            Self::PlannedDisabled => "planned_disabled",
+            Self::NotLocalStackOwned => "not_local_stack_owned",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackProfileContract {
+    pub schema_version: SchemaVersion,
+    pub profile_id: String,
+    pub environment_class: EnvironmentClass,
+    pub enabled_services: Vec<String>,
+    pub required_phase_gates: Vec<LocalStackPhaseGateState>,
+    pub local_only: bool,
+    pub test_only: bool,
+    pub default_bind_host: String,
+    pub future_services_require_phase_gate: bool,
+}
+
+impl LocalStackProfileContract {
+    pub fn local_default(profile_id: impl Into<String>) -> Result<Self, LocalStackContractError> {
+        let profile = Self {
+            schema_version: ensure_supported_local_development_stack_schema_version(
+                SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            )?,
+            profile_id: profile_id.into(),
+            environment_class: EnvironmentClass::Local,
+            enabled_services: vec![
+                "service:api".to_owned(),
+                "service:worker".to_owned(),
+                "service:embedded_state".to_owned(),
+            ],
+            required_phase_gates: vec![
+                LocalStackPhaseGateState::BuildablePhase0,
+                LocalStackPhaseGateState::LocalSmokePrerequisite,
+                LocalStackPhaseGateState::OwningServiceRequired,
+            ],
+            local_only: true,
+            test_only: true,
+            default_bind_host: "127.0.0.1".to_owned(),
+            future_services_require_phase_gate: true,
+        };
+        profile.validate()?;
+        Ok(profile)
+    }
+
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.profile_id, "profile id")?;
+        if !matches!(self.environment_class, EnvironmentClass::Local | EnvironmentClass::Ci) {
+            return Err(LocalStackContractError::UnsupportedEnvironment(
+                self.environment_class.as_str(),
+            ));
+        }
+        if self.enabled_services.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField(
+                "enabled service",
+            ));
+        }
+        if self.required_phase_gates.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("phase gate"));
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        ensure_loopback_bind_host(&self.default_bind_host)?;
+        for service in &self.enabled_services {
+            local_stack_require_non_empty(service, "enabled service")?;
+            if is_future_service_ref(service)
+                && !self
+                    .required_phase_gates
+                    .iter()
+                    .any(|gate| matches!(
+                        gate,
+                        LocalStackPhaseGateState::OwningServiceRequired
+                            | LocalStackPhaseGateState::PlannedDisabled
+                    ))
+            {
+                return Err(LocalStackContractError::FutureServiceMissingPhaseGate(
+                    service.clone(),
+                ));
+            }
+        }
+        if !self.future_services_require_phase_gate {
+            return Err(LocalStackContractError::FutureServiceMissingPhaseGate(
+                "future services".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackHealthCheck {
+    pub kind: String,
+    pub endpoint: String,
+    pub expected_state: LocalStackHealthState,
+    pub timeout_ms: u64,
+}
+
+impl LocalStackHealthCheck {
+    pub fn http(endpoint: impl Into<String>) -> Self {
+        Self {
+            kind: "http".to_owned(),
+            endpoint: endpoint.into(),
+            expected_state: LocalStackHealthState::Ready,
+            timeout_ms: 60_000,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.kind, "health check kind")?;
+        local_stack_require_non_empty(&self.endpoint, "health check endpoint")?;
+        if self.timeout_ms == 0 || self.timeout_ms > 600_000 {
+            return Err(LocalStackContractError::InvalidHealthCheck);
+        }
+        if !endpoint_is_loopback_or_local_ref(&self.endpoint) {
+            return Err(LocalStackContractError::NonLoopbackEndpoint(
+                self.endpoint.clone(),
+            ));
+        }
+        if contains_raw_secret_marker(&self.endpoint) {
+            return Err(LocalStackContractError::RawSecretInDiagnostic);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackServiceDefinitionContract {
+    pub service_id: String,
+    pub service_kind: String,
+    pub command: Vec<String>,
+    pub working_directory: String,
+    pub env_refs: Vec<String>,
+    pub dependency_order: Option<u16>,
+    pub depends_on: Vec<String>,
+    pub health_check: Option<LocalStackHealthCheck>,
+    pub shutdown_behavior: String,
+    pub log_target: String,
+    pub restart_class: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackServiceDefinitionContract {
+    pub fn local_api() -> Result<Self, LocalStackContractError> {
+        let service = Self {
+            service_id: "service:api".to_owned(),
+            service_kind: "api".to_owned(),
+            command: vec![
+                "cargo".to_owned(),
+                "run".to_owned(),
+                "-p".to_owned(),
+                "overrid-local-api".to_owned(),
+            ],
+            working_directory: "repo://.".to_owned(),
+            env_refs: vec!["env://OVERRID_LOCAL_API_PORT".to_owned()],
+            dependency_order: Some(4),
+            depends_on: vec!["service:embedded_state".to_owned()],
+            health_check: Some(LocalStackHealthCheck::http("http://127.0.0.1:18080/healthz")),
+            shutdown_behavior: "graceful_then_kill".to_owned(),
+            log_target: "log://local_stack/api.log".to_owned(),
+            restart_class: "required".to_owned(),
+            local_only: true,
+            test_only: true,
+        };
+        service.validate()?;
+        Ok(service)
+    }
+
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.service_id, "service id")?;
+        local_stack_require_non_empty(&self.service_kind, "service kind")?;
+        if self.command.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("command"));
+        }
+        local_stack_require_non_empty(&self.working_directory, "working directory")?;
+        if self.env_refs.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("env ref"));
+        }
+        if self.dependency_order.unwrap_or_default() == 0 {
+            return Err(LocalStackContractError::MissingServiceDependencyOrder);
+        }
+        self.health_check
+            .as_ref()
+            .ok_or(LocalStackContractError::MissingServiceHealthCheck)?
+            .validate()?;
+        local_stack_require_non_empty(&self.shutdown_behavior, "shutdown behavior")
+            .map_err(|_| LocalStackContractError::MissingServiceShutdownBehavior)?;
+        local_stack_require_non_empty(&self.log_target, "log target")
+            .map_err(|_| LocalStackContractError::MissingServiceLogTarget)?;
+        local_stack_require_non_empty(&self.restart_class, "restart class")?;
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackPortBinding {
+    pub service_id: String,
+    pub port: u16,
+    pub bind_host: String,
+    pub purpose: String,
+}
+
+impl LocalStackPortBinding {
+    pub fn new(
+        service_id: impl Into<String>,
+        port: u16,
+        purpose: impl Into<String>,
+    ) -> Self {
+        Self {
+            service_id: service_id.into(),
+            port,
+            bind_host: "127.0.0.1".to_owned(),
+            purpose: purpose.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.service_id, "service id")?;
+        local_stack_require_non_empty(&self.purpose, "port purpose")?;
+        ensure_loopback_bind_host(&self.bind_host)?;
+        if !(LOCAL_STACK_RESERVED_PORT_MIN..=LOCAL_STACK_RESERVED_PORT_MAX).contains(&self.port) {
+            return Err(LocalStackContractError::PortOutsideReservedRange(self.port));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackPortRegistry {
+    pub registry_id: String,
+    pub collision_policy: String,
+    pub bindings: Vec<LocalStackPortBinding>,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackPortRegistry {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.registry_id, "port registry id")?;
+        local_stack_require_non_empty(&self.collision_policy, "collision policy")?;
+        if self.bindings.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("port binding"));
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        let mut seen = BTreeSet::new();
+        for binding in &self.bindings {
+            binding.validate()?;
+            if !seen.insert(binding.port) {
+                return Err(LocalStackContractError::DuplicatePort(binding.port));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackVolumeRef {
+    pub volume_id: String,
+    pub path_ref: String,
+    pub resettable: bool,
+    pub local_test_state_marker: Option<String>,
+}
+
+impl LocalStackVolumeRef {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.volume_id, "volume id")?;
+        local_stack_require_non_empty(&self.path_ref, "volume path ref")?;
+        if self.resettable
+            && self
+                .local_test_state_marker
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .is_empty()
+        {
+            return Err(LocalStackContractError::ResetTargetMissingMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackVolumeRegistry {
+    pub registry_id: String,
+    pub volumes: Vec<LocalStackVolumeRef>,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackVolumeRegistry {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.registry_id, "volume registry id")?;
+        if self.volumes.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("volume"));
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        for volume in &self.volumes {
+            volume.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackResetOperation {
+    pub operation_id: String,
+    pub target_ref: String,
+    pub requires_marker: bool,
+    pub marker_ref: Option<String>,
+}
+
+impl LocalStackResetOperation {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.operation_id, "reset operation id")?;
+        local_stack_require_non_empty(&self.target_ref, "reset target ref")?;
+        if !self.requires_marker
+            || self
+                .marker_ref
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .is_empty()
+        {
+            return Err(LocalStackContractError::ResetTargetMissingMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackResetPlan {
+    pub plan_id: String,
+    pub operations: Vec<LocalStackResetOperation>,
+    pub deterministic: bool,
+    pub requires_local_profile: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackResetPlan {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.plan_id, "reset plan id")?;
+        if self.operations.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField(
+                "reset operation",
+            ));
+        }
+        if !self.deterministic || !self.requires_local_profile || !self.local_only || !self.test_only
+        {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        for operation in &self.operations {
+            operation.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackSeedManifest {
+    pub manifest_id: String,
+    pub fixture_version: String,
+    pub deterministic_seed: String,
+    pub fixture_refs: Vec<String>,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackSeedManifest {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.manifest_id, "seed manifest id")?;
+        local_stack_require_non_empty(&self.fixture_version, "fixture version")?;
+        local_stack_require_non_empty(&self.deterministic_seed, "deterministic seed")?;
+        if self.fixture_refs.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField("fixture ref"));
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::SeedManifestNotTestOnly);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackServiceHealth {
+    pub service_id: String,
+    pub state: LocalStackHealthState,
+    pub last_error: Option<String>,
+    pub health_check_ref: String,
+}
+
+impl LocalStackServiceHealth {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.service_id, "service health service id")?;
+        local_stack_require_non_empty(&self.health_check_ref, "health check ref")?;
+        if self
+            .last_error
+            .as_deref()
+            .is_some_and(contains_raw_secret_marker)
+        {
+            return Err(LocalStackContractError::RawSecretInDiagnostic);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackHealthSnapshot {
+    pub schema_version: SchemaVersion,
+    pub snapshot_id: String,
+    pub profile_id: String,
+    pub state: LocalStackHealthState,
+    pub service_health: Vec<LocalStackServiceHealth>,
+    pub redaction_summary: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalStackHealthSnapshot {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.snapshot_id, "health snapshot id")?;
+        local_stack_require_non_empty(&self.profile_id, "profile id")?;
+        if self.service_health.is_empty() {
+            return Err(LocalStackContractError::MissingRequiredField(
+                "service health",
+            ));
+        }
+        for service in &self.service_health {
+            service.validate()?;
+        }
+        if self.redaction_summary != "secret_free" {
+            return Err(LocalStackContractError::RawSecretInDiagnostic);
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSecretRecordContract {
+    pub secret_ref: String,
+    pub secret_kind: String,
+    pub redaction_ref: String,
+    pub raw_secret_present: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalSecretRecordContract {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.secret_ref, "secret ref")?;
+        local_stack_require_non_empty(&self.secret_kind, "secret kind")?;
+        local_stack_require_non_empty(&self.redaction_ref, "redaction ref")?;
+        if self.raw_secret_present || contains_raw_secret_marker(&self.secret_ref) {
+            return Err(LocalStackContractError::RawSecretInDiagnostic);
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalDiagnosticEventContract {
+    pub event_type: String,
+    pub trace_id: String,
+    pub service_id: String,
+    pub reason_code: String,
+    pub redaction_summary: String,
+    pub contains_raw_secret: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+impl LocalDiagnosticEventContract {
+    pub fn validate(&self) -> Result<(), LocalStackContractError> {
+        local_stack_require_non_empty(&self.event_type, "diagnostic event type")?;
+        local_stack_require_non_empty(&self.trace_id, "trace id")?;
+        local_stack_require_non_empty(&self.service_id, "service id")?;
+        local_stack_require_non_empty(&self.reason_code, "reason code")?;
+        if self.contains_raw_secret
+            || self.redaction_summary != "secret_free"
+            || contains_raw_secret_marker(&self.reason_code)
+        {
+            return Err(LocalStackContractError::RawSecretInDiagnostic);
+        }
+        if !self.local_only || !self.test_only {
+            return Err(LocalStackContractError::MissingLocalTestMarker);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LocalStackContractError {
+    UnsupportedSchemaVersion(ContractError),
+    MissingRequiredField(&'static str),
+    MissingLocalTestMarker,
+    UnsupportedEnvironment(&'static str),
+    NonLoopbackBindHost(String),
+    NonLoopbackEndpoint(String),
+    FutureServiceMissingPhaseGate(String),
+    MissingServiceDependencyOrder,
+    MissingServiceHealthCheck,
+    MissingServiceLogTarget,
+    MissingServiceShutdownBehavior,
+    InvalidHealthCheck,
+    DuplicatePort(u16),
+    PortOutsideReservedRange(u16),
+    ResetTargetMissingMarker,
+    SeedManifestNotTestOnly,
+    RawSecretInDiagnostic,
+}
+
+impl From<ContractError> for LocalStackContractError {
+    fn from(error: ContractError) -> Self {
+        Self::UnsupportedSchemaVersion(error)
+    }
+}
+
+impl fmt::Display for LocalStackContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedSchemaVersion(error) => error.fmt(formatter),
+            Self::MissingRequiredField(field) => write!(formatter, "{field} is required"),
+            Self::MissingLocalTestMarker => {
+                formatter.write_str("local/test marker is required")
+            }
+            Self::UnsupportedEnvironment(environment) => {
+                write!(formatter, "unsupported local-stack environment: {environment}")
+            }
+            Self::NonLoopbackBindHost(host) => {
+                write!(formatter, "bind host is not loopback: {host}")
+            }
+            Self::NonLoopbackEndpoint(endpoint) => {
+                write!(formatter, "endpoint is not loopback/local: {endpoint}")
+            }
+            Self::FutureServiceMissingPhaseGate(service) => {
+                write!(formatter, "future service lacks phase gate: {service}")
+            }
+            Self::MissingServiceDependencyOrder => {
+                formatter.write_str("service dependency order is required")
+            }
+            Self::MissingServiceHealthCheck => {
+                formatter.write_str("service health check is required")
+            }
+            Self::MissingServiceLogTarget => formatter.write_str("service log target is required"),
+            Self::MissingServiceShutdownBehavior => {
+                formatter.write_str("service shutdown behavior is required")
+            }
+            Self::InvalidHealthCheck => formatter.write_str("local health check is invalid"),
+            Self::DuplicatePort(port) => write!(formatter, "duplicate local stack port: {port}"),
+            Self::PortOutsideReservedRange(port) => {
+                write!(formatter, "local stack port is outside reserved range: {port}")
+            }
+            Self::ResetTargetMissingMarker => {
+                formatter.write_str("resettable local target must have a test-state marker")
+            }
+            Self::SeedManifestNotTestOnly => {
+                formatter.write_str("seed manifest must remain local/test only")
+            }
+            Self::RawSecretInDiagnostic => {
+                formatter.write_str("local stack diagnostic contains raw secret material")
+            }
+        }
+    }
+}
+
+impl std::error::Error for LocalStackContractError {}
+
+fn local_stack_require_non_empty(
+    value: &str,
+    field: &'static str,
+) -> Result<(), LocalStackContractError> {
+    if value.trim().is_empty() {
+        Err(LocalStackContractError::MissingRequiredField(field))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_loopback_bind_host(host: &str) -> Result<(), LocalStackContractError> {
+    if matches!(host, "127.0.0.1" | "localhost" | "::1") {
+        Ok(())
+    } else {
+        Err(LocalStackContractError::NonLoopbackBindHost(
+            host.to_owned(),
+        ))
+    }
+}
+
+fn endpoint_is_loopback_or_local_ref(endpoint: &str) -> bool {
+    endpoint.starts_with("http://127.0.0.1:")
+        || endpoint.starts_with("http://localhost:")
+        || endpoint.starts_with("http://[::1]:")
+        || endpoint.starts_with("local-state://")
+        || endpoint.starts_with("log://")
+        || endpoint.starts_with("artifact://")
+        || endpoint.starts_with("env://")
+        || endpoint.starts_with("fixture://")
+        || endpoint.starts_with("secret://")
+}
+
+fn is_future_service_ref(service_ref: &str) -> bool {
+    !matches!(
+        service_ref,
+        "service:api"
+            | "service:worker"
+            | "service:embedded_state"
+            | "service:overqueue_jobs"
+            | "service:overstore_stub"
+            | "service:event_audit"
+            | "service:node_agent_simulator"
+            | "service:developer_ui"
+    )
+}
+
 fn idempotency_component(value: &str) -> String {
     let mut rendered = value
         .chars()
@@ -3369,6 +4077,303 @@ mod tests {
         assert!(matches!(
             ensure_supported_integration_harness_schema_version(SUPPORTED_SCHEMA_VERSION),
             Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn exposes_local_stack_contract_projection_metadata() {
+        let set = local_development_stack_contract_set();
+        assert_eq!(set.schema_family, LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY);
+        assert_eq!(
+            set.schema_version,
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION
+        );
+        assert_eq!(set.source_root, CONTRACT_SOURCE_ROOT);
+        assert_eq!(set.projection_status, GENERATED_CONTRACT_STATUS);
+    }
+
+    #[test]
+    fn local_stack_schema_version_accepts_only_local_stack_family() {
+        let parsed = ensure_supported_local_development_stack_schema_version(
+            SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.family(), LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY);
+        assert_eq!(parsed.major(), 0);
+        assert_eq!(parsed.minor(), 1);
+        assert!(matches!(
+            ensure_supported_local_development_stack_schema_version("local-development-stack.v0.2"),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+        assert!(matches!(
+            ensure_supported_local_development_stack_schema_version(
+                SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION
+            ),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn local_stack_profile_rejects_non_loopback_and_future_service_without_gate() {
+        let mut profile = LocalStackProfileContract::local_default("profile:local_default").unwrap();
+        assert_eq!(profile.environment_class.as_str(), "local");
+        assert!(profile
+            .required_phase_gates
+            .iter()
+            .any(|gate| gate.as_str() == "owning_service_required"));
+
+        profile.default_bind_host = "0.0.0.0".to_owned();
+        assert!(matches!(
+            profile.validate(),
+            Err(LocalStackContractError::NonLoopbackBindHost(host)) if host == "0.0.0.0"
+        ));
+
+        let mut future_service = LocalStackProfileContract::local_default("profile:future").unwrap();
+        future_service.enabled_services = vec!["service:overvault".to_owned()];
+        future_service.required_phase_gates = vec![LocalStackPhaseGateState::BuildablePhase0];
+        assert!(matches!(
+            future_service.validate(),
+            Err(LocalStackContractError::FutureServiceMissingPhaseGate(service))
+                if service == "service:overvault"
+        ));
+
+        let mut missing_marker = LocalStackProfileContract::local_default("profile:missing_marker")
+            .unwrap();
+        missing_marker.local_only = false;
+        assert!(matches!(
+            missing_marker.validate(),
+            Err(LocalStackContractError::MissingLocalTestMarker)
+        ));
+    }
+
+    #[test]
+    fn local_stack_service_definition_requires_metadata_and_loopback_health() {
+        let service = LocalStackServiceDefinitionContract::local_api().unwrap();
+        assert_eq!(service.service_id, "service:api");
+        assert_eq!(service.dependency_order, Some(4));
+        service.validate().unwrap();
+
+        let mut missing_health = service.clone();
+        missing_health.health_check = None;
+        assert!(matches!(
+            missing_health.validate(),
+            Err(LocalStackContractError::MissingServiceHealthCheck)
+        ));
+
+        let mut missing_order = service.clone();
+        missing_order.dependency_order = None;
+        assert!(matches!(
+            missing_order.validate(),
+            Err(LocalStackContractError::MissingServiceDependencyOrder)
+        ));
+
+        let mut missing_log = service.clone();
+        missing_log.log_target.clear();
+        assert!(matches!(
+            missing_log.validate(),
+            Err(LocalStackContractError::MissingServiceLogTarget)
+        ));
+
+        let mut missing_shutdown = service.clone();
+        missing_shutdown.shutdown_behavior.clear();
+        assert!(matches!(
+            missing_shutdown.validate(),
+            Err(LocalStackContractError::MissingServiceShutdownBehavior)
+        ));
+
+        let mut non_loopback = service;
+        non_loopback.health_check = Some(LocalStackHealthCheck::http("http://192.0.2.4:18080/healthz"));
+        assert!(matches!(
+            non_loopback.validate(),
+            Err(LocalStackContractError::NonLoopbackEndpoint(endpoint))
+                if endpoint == "http://192.0.2.4:18080/healthz"
+        ));
+    }
+
+    #[test]
+    fn local_stack_port_registry_rejects_collisions_and_non_reserved_ports() {
+        let registry = LocalStackPortRegistry {
+            registry_id: "port_registry:reserved_18080_18085".to_owned(),
+            collision_policy: "fail_before_startup".to_owned(),
+            bindings: vec![
+                LocalStackPortBinding::new("service:api", 18_080, "api_health"),
+                LocalStackPortBinding::new("service:worker", 18_081, "worker_health"),
+            ],
+            local_only: true,
+            test_only: true,
+        };
+        registry.validate().unwrap();
+
+        let mut duplicate = registry.clone();
+        duplicate.bindings.push(LocalStackPortBinding::new(
+            "service:overstore_stub",
+            18_080,
+            "artifact_stub",
+        ));
+        assert!(matches!(
+            duplicate.validate(),
+            Err(LocalStackContractError::DuplicatePort(18_080))
+        ));
+
+        let mut outside_range = registry.clone();
+        outside_range.bindings[0].port = 18_090;
+        assert!(matches!(
+            outside_range.validate(),
+            Err(LocalStackContractError::PortOutsideReservedRange(18_090))
+        ));
+
+        let mut non_loopback = registry;
+        non_loopback.bindings[0].bind_host = "0.0.0.0".to_owned();
+        assert!(matches!(
+            non_loopback.validate(),
+            Err(LocalStackContractError::NonLoopbackBindHost(host)) if host == "0.0.0.0"
+        ));
+    }
+
+    #[test]
+    fn local_stack_reset_seed_secret_and_diagnostic_contracts_are_safe() {
+        let reset_plan = LocalStackResetPlan {
+            plan_id: "reset_plan:local_default".to_owned(),
+            operations: vec![LocalStackResetOperation {
+                operation_id: "reset:embedded_state".to_owned(),
+                target_ref: "local-state://embedded_state".to_owned(),
+                requires_marker: true,
+                marker_ref: Some("local-state://embedded_state/.overrid-local-test-state".to_owned()),
+            }],
+            deterministic: true,
+            requires_local_profile: true,
+            local_only: true,
+            test_only: true,
+        };
+        reset_plan.validate().unwrap();
+
+        let volume_registry = LocalStackVolumeRegistry {
+            registry_id: "volume_set:local_default".to_owned(),
+            volumes: vec![LocalStackVolumeRef {
+                volume_id: "volume:embedded_state".to_owned(),
+                path_ref: "local-state://embedded_state".to_owned(),
+                resettable: true,
+                local_test_state_marker: Some(".overrid-local-test-state".to_owned()),
+            }],
+            local_only: true,
+            test_only: true,
+        };
+        volume_registry.validate().unwrap();
+
+        let mut unmarked_volume = volume_registry.clone();
+        unmarked_volume.volumes[0].local_test_state_marker = None;
+        assert!(matches!(
+            unmarked_volume.validate(),
+            Err(LocalStackContractError::ResetTargetMissingMarker)
+        ));
+
+        let mut unmarked_reset = reset_plan.clone();
+        unmarked_reset.operations[0].marker_ref = None;
+        assert!(matches!(
+            unmarked_reset.validate(),
+            Err(LocalStackContractError::ResetTargetMissingMarker)
+        ));
+
+        let mut unsafe_seed = LocalStackSeedManifest {
+            manifest_id: "seed_manifest:local_default".to_owned(),
+            fixture_version: "fixture.local_stack.phase2.v1".to_owned(),
+            deterministic_seed: "local_stack_phase2_seed_0001".to_owned(),
+            fixture_refs: vec!["fixture:phase2_default_local".to_owned()],
+            local_only: true,
+            test_only: false,
+        };
+        assert!(matches!(
+            unsafe_seed.validate(),
+            Err(LocalStackContractError::SeedManifestNotTestOnly)
+        ));
+        unsafe_seed.test_only = true;
+        unsafe_seed.validate().unwrap();
+
+        let mut secret = LocalSecretRecordContract {
+            secret_ref: "secret://local_stack/fixture_key_ref".to_owned(),
+            secret_kind: "fixture_key".to_owned(),
+            redaction_ref: "redaction:fixture_key_ref".to_owned(),
+            raw_secret_present: false,
+            local_only: true,
+            test_only: true,
+        };
+        secret.validate().unwrap();
+        secret.raw_secret_present = true;
+        assert!(matches!(
+            secret.validate(),
+            Err(LocalStackContractError::RawSecretInDiagnostic)
+        ));
+
+        let mut diagnostic = LocalDiagnosticEventContract {
+            event_type: "local_stack.service_ready".to_owned(),
+            trace_id: "trace_local_stack_phase2_ready".to_owned(),
+            service_id: "service:api".to_owned(),
+            reason_code: "local_stack.service_ready".to_owned(),
+            redaction_summary: "secret_free".to_owned(),
+            contains_raw_secret: false,
+            local_only: true,
+            test_only: true,
+        };
+        diagnostic.validate().unwrap();
+        diagnostic.contains_raw_secret = true;
+        assert!(matches!(
+            diagnostic.validate(),
+            Err(LocalStackContractError::RawSecretInDiagnostic)
+        ));
+    }
+
+    #[test]
+    fn local_stack_health_states_cover_phase2_lifecycle() {
+        let states = [
+            LocalStackHealthState::NotStarted,
+            LocalStackHealthState::Starting,
+            LocalStackHealthState::Ready,
+            LocalStackHealthState::Degraded,
+            LocalStackHealthState::Failed,
+            LocalStackHealthState::Resetting,
+            LocalStackHealthState::Seeding,
+            LocalStackHealthState::RunningTests,
+        ];
+        assert_eq!(
+            states.map(LocalStackHealthState::as_str),
+            [
+                "not_started",
+                "starting",
+                "ready",
+                "degraded",
+                "failed",
+                "resetting",
+                "seeding",
+                "running_tests",
+            ]
+        );
+        assert!(LocalStackHealthState::Ready.is_terminal());
+        assert!(!LocalStackHealthState::Starting.is_terminal());
+
+        let mut snapshot = LocalStackHealthSnapshot {
+            schema_version: ensure_supported_local_development_stack_schema_version(
+                SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+            )
+            .unwrap(),
+            snapshot_id: "health_snapshot:local_ready".to_owned(),
+            profile_id: "profile:local_default".to_owned(),
+            state: LocalStackHealthState::Ready,
+            service_health: vec![LocalStackServiceHealth {
+                service_id: "service:api".to_owned(),
+                state: LocalStackHealthState::Ready,
+                last_error: None,
+                health_check_ref: "health:api".to_owned(),
+            }],
+            redaction_summary: "secret_free".to_owned(),
+            local_only: true,
+            test_only: true,
+        };
+        snapshot.validate().unwrap();
+        snapshot.service_health[0].last_error = Some("token=leaked".to_owned());
+        assert!(matches!(
+            snapshot.validate(),
+            Err(LocalStackContractError::RawSecretInDiagnostic)
         ));
     }
 

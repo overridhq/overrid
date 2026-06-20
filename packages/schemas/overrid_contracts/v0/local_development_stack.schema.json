@@ -1,0 +1,837 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.overrid.local/overrid_contracts/v0/local_development_stack.schema.json",
+  "title": "Overrid Local Development Stack Contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "#/$defs/schema_version"
+    },
+    "stack_profile": {
+      "$ref": "#/$defs/stack_profile"
+    },
+    "service_definition": {
+      "$ref": "#/$defs/service_definition"
+    },
+    "service_definitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/service_definition"
+      }
+    },
+    "port_registry": {
+      "$ref": "#/$defs/port_registry"
+    },
+    "local_env_manifest": {
+      "$ref": "#/$defs/local_env_manifest"
+    },
+    "volume_registry": {
+      "$ref": "#/$defs/volume_registry"
+    },
+    "reset_plan": {
+      "$ref": "#/$defs/reset_plan"
+    },
+    "seed_manifest": {
+      "$ref": "#/$defs/seed_manifest"
+    },
+    "health_snapshot": {
+      "$ref": "#/$defs/health_snapshot"
+    },
+    "local_secret_record": {
+      "$ref": "#/$defs/local_secret_record"
+    },
+    "local_secret_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/local_secret_record"
+      }
+    },
+    "local_diagnostic_event": {
+      "$ref": "#/$defs/local_diagnostic_event"
+    },
+    "local_diagnostic_events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/local_diagnostic_event"
+      }
+    }
+  },
+  "$defs": {
+    "schema_version": {
+      "const": "local-development-stack.v0.1"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_:-]+$"
+    },
+    "path_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(repo://|local-state://|log://|artifact://|env://|fixture://|secret://)[A-Za-z0-9_./:-]+$"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 8,
+      "pattern": "^trace_[A-Za-z0-9_:-]+$"
+    },
+    "environment_class": {
+      "enum": [
+        "local",
+        "ci"
+      ]
+    },
+    "phase_gate_state": {
+      "enum": [
+        "buildable_phase_0",
+        "local_smoke_prerequisite",
+        "owning_service_required",
+        "planned_disabled",
+        "not_local_stack_owned"
+      ]
+    },
+    "service_kind": {
+      "enum": [
+        "api",
+        "worker",
+        "embedded_state",
+        "overqueue_job_table",
+        "overstore_artifact_stub",
+        "local_event_audit_query",
+        "node_agent_simulator"
+      ]
+    },
+    "health_state": {
+      "enum": [
+        "not_started",
+        "starting",
+        "ready",
+        "degraded",
+        "failed",
+        "resetting",
+        "seeding",
+        "running_tests"
+      ]
+    },
+    "local_marker": {
+      "type": "boolean",
+      "const": true
+    },
+    "no_raw_secret": {
+      "type": "boolean",
+      "const": false
+    },
+    "stack_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "environment_class",
+        "enabled_services",
+        "required_phase_gates",
+        "service_dependencies",
+        "fixture_set",
+        "feature_flags",
+        "port_policy",
+        "volume_set",
+        "local_only",
+        "test_only",
+        "default_bind_host",
+        "future_services_require_phase_gate"
+      ],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "environment_class": {
+          "$ref": "#/$defs/environment_class"
+        },
+        "enabled_services": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "required_phase_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase_gate_state"
+          }
+        },
+        "service_dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "service_id",
+              "depends_on"
+            ],
+            "properties": {
+              "service_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            }
+          }
+        },
+        "fixture_set": {
+          "$ref": "#/$defs/ref"
+        },
+        "feature_flags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "port_policy": {
+          "$ref": "#/$defs/ref"
+        },
+        "volume_set": {
+          "$ref": "#/$defs/ref"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "default_bind_host": {
+          "enum": [
+            "127.0.0.1",
+            "localhost",
+            "::1"
+          ]
+        },
+        "future_services_require_phase_gate": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "service_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_id",
+        "service_kind",
+        "command",
+        "working_directory",
+        "env_refs",
+        "dependency_order",
+        "depends_on",
+        "health_check",
+        "shutdown_behavior",
+        "log_target",
+        "restart_class",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "service_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "service_kind": {
+          "$ref": "#/$defs/service_kind"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "working_directory": {
+          "$ref": "#/$defs/path_ref"
+        },
+        "env_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "dependency_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "health_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "endpoint",
+            "expected_state",
+            "timeout_ms"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "http",
+                "process",
+                "file_marker"
+              ]
+            },
+            "endpoint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "expected_state": {
+              "$ref": "#/$defs/health_state"
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600000
+            }
+          }
+        },
+        "shutdown_behavior": {
+          "enum": [
+            "graceful_then_kill",
+            "drop_embedded_handle",
+            "no_op"
+          ]
+        },
+        "log_target": {
+          "$ref": "#/$defs/path_ref"
+        },
+        "restart_class": {
+          "enum": [
+            "required",
+            "optional",
+            "never"
+          ]
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "port_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "collision_policy",
+        "bindings",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "registry_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "collision_policy": {
+          "const": "fail_before_startup"
+        },
+        "bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "service_id",
+              "port",
+              "bind_host",
+              "purpose"
+            ],
+            "properties": {
+              "service_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 18080,
+                "maximum": 18085
+              },
+              "bind_host": {
+                "enum": [
+                  "127.0.0.1",
+                  "localhost",
+                  "::1"
+                ]
+              },
+              "purpose": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "local_env_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "generated_env_target",
+        "example_env_target",
+        "variables",
+        "redaction_policy",
+        "contains_raw_secret",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "manifest_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "generated_env_target": {
+          "$ref": "#/$defs/path_ref"
+        },
+        "example_env_target": {
+          "$ref": "#/$defs/path_ref"
+        },
+        "variables": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value_ref",
+              "redacted",
+              "example_only"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^OVERRID_[A-Z0-9_]+$"
+              },
+              "value_ref": {
+                "$ref": "#/$defs/path_ref"
+              },
+              "redacted": {
+                "type": "boolean"
+              },
+              "example_only": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "redaction_policy": {
+          "const": "secret_free_refs_only"
+        },
+        "contains_raw_secret": {
+          "$ref": "#/$defs/no_raw_secret"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "volume_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "volumes",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "registry_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "volumes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "volume_id",
+              "path_ref",
+              "resettable",
+              "local_test_state_marker"
+            ],
+            "properties": {
+              "volume_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "path_ref": {
+                "$ref": "#/$defs/path_ref"
+              },
+              "resettable": {
+                "type": "boolean"
+              },
+              "local_test_state_marker": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "reset_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id",
+        "trace_id",
+        "operations",
+        "deterministic",
+        "requires_local_profile",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "plan_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_id",
+              "target_ref",
+              "requires_marker",
+              "marker_ref"
+            ],
+            "properties": {
+              "operation_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "target_ref": {
+                "$ref": "#/$defs/path_ref"
+              },
+              "requires_marker": {
+                "$ref": "#/$defs/local_marker"
+              },
+              "marker_ref": {
+                "$ref": "#/$defs/path_ref"
+              }
+            }
+          }
+        },
+        "deterministic": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "requires_local_profile": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "seed_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "fixture_version",
+        "deterministic_seed",
+        "tenant_refs",
+        "actor_refs",
+        "key_refs",
+        "node_refs",
+        "manifest_refs",
+        "package_refs",
+        "workload_refs",
+        "local_oru_account_refs",
+        "ledger_refs",
+        "policy_context_refs",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "manifest_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "fixture_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deterministic_seed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "pattern": "^tenant:"
+          }
+        },
+        "actor_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "pattern": "^actor:"
+          }
+        },
+        "key_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "pattern": "^key:"
+          }
+        },
+        "node_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^node:"
+          }
+        },
+        "manifest_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^manifest:"
+          }
+        },
+        "package_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^package:"
+          }
+        },
+        "workload_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^workload:"
+          }
+        },
+        "local_oru_account_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^oru:"
+          }
+        },
+        "ledger_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^ledger:"
+          }
+        },
+        "policy_context_refs": {
+          "type": "array",
+          "items": {
+            "pattern": "^policy:"
+          }
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "health_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "schema_version",
+        "profile_id",
+        "state",
+        "dependency_status",
+        "service_health",
+        "redaction_summary",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "state": {
+          "$ref": "#/$defs/health_state"
+        },
+        "dependency_status": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "service_health": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "service_id",
+              "state",
+              "last_error",
+              "health_check_ref"
+            ],
+            "properties": {
+              "service_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "state": {
+                "$ref": "#/$defs/health_state"
+              },
+              "last_error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "health_check_ref": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        },
+        "redaction_summary": {
+          "const": "secret_free"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "local_secret_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "secret_ref",
+        "secret_kind",
+        "redaction_ref",
+        "raw_secret_present",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "secret_ref": {
+          "$ref": "#/$defs/path_ref"
+        },
+        "secret_kind": {
+          "enum": [
+            "fixture_key",
+            "local_token",
+            "generated_env_value"
+          ]
+        },
+        "redaction_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "raw_secret_present": {
+          "$ref": "#/$defs/no_raw_secret"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    },
+    "local_diagnostic_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "trace_id",
+        "service_id",
+        "reason_code",
+        "redaction_summary",
+        "contains_raw_secret",
+        "local_only",
+        "test_only"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "event_type": {
+          "enum": [
+            "local_stack.start_requested",
+            "local_stack.service_starting",
+            "local_stack.service_ready",
+            "local_stack.reset_started",
+            "local_stack.seed_started",
+            "local_stack.seed_completed",
+            "local_stack.smoke_started",
+            "local_stack.smoke_completed",
+            "local_stack.failed"
+          ]
+        },
+        "trace_id": {
+          "$ref": "#/$defs/trace_id"
+        },
+        "service_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/ref"
+        },
+        "redaction_summary": {
+          "const": "secret_free"
+        },
+        "contains_raw_secret": {
+          "$ref": "#/$defs/no_raw_secret"
+        },
+        "local_only": {
+          "$ref": "#/$defs/local_marker"
+        },
+        "test_only": {
+          "$ref": "#/$defs/local_marker"
+        }
+      }
+    }
+  }
+}

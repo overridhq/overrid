@@ -1,0 +1,56 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "stack_profile": {
+    "profile_id": "profile:ci_smoke",
+    "environment_class": "ci",
+    "enabled_services": [
+      "service:api",
+      "service:worker",
+      "service:embedded_state",
+      "service:overqueue_jobs",
+      "service:overstore_stub"
+    ],
+    "required_phase_gates": [
+      "buildable_phase_0"
+    ],
+    "service_dependencies": [
+      {
+        "service_id": "service:api",
+        "depends_on": [
+          "service:embedded_state"
+        ]
+      }
+    ],
+    "fixture_set": "fixture:ci_smoke",
+    "feature_flags": [
+      "feature:ci_smoke",
+      "feature:bounded_startup"
+    ],
+    "port_policy": "port_policy:reserved_18080_18085",
+    "volume_set": "volume_set:ci_smoke",
+    "local_only": true,
+    "test_only": true,
+    "default_bind_host": "127.0.0.1",
+    "future_services_require_phase_gate": true
+  },
+  "health_snapshot": {
+    "snapshot_id": "health_snapshot:ci_not_started",
+    "schema_version": "local-development-stack.v0.1",
+    "profile_id": "profile:ci_smoke",
+    "state": "not_started",
+    "dependency_status": [
+      "dependency:clean_checkout:ready"
+    ],
+    "service_health": [
+      {
+        "service_id": "service:api",
+        "state": "not_started",
+        "last_error": null,
+        "health_check_ref": "health:api"
+      }
+    ],
+    "redaction_summary": "secret_free",
+    "local_only": true,
+    "test_only": true
+  }
+}

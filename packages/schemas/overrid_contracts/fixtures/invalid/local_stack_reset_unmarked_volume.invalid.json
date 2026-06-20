@@ -1,0 +1,32 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "volume_registry": {
+    "registry_id": "volume_set:unsafe",
+    "volumes": [
+      {
+        "volume_id": "volume:embedded_state",
+        "path_ref": "local-state://embedded_state",
+        "resettable": true,
+        "local_test_state_marker": ""
+      }
+    ],
+    "local_only": true,
+    "test_only": true
+  },
+  "reset_plan": {
+    "plan_id": "reset_plan:unsafe",
+    "trace_id": "trace_local_stack_phase2_reset",
+    "operations": [
+      {
+        "operation_id": "reset:embedded_state",
+        "target_ref": "local-state://embedded_state",
+        "requires_marker": false,
+        "marker_ref": "local-state://embedded_state/.overrid-local-test-state"
+      }
+    ],
+    "deterministic": true,
+    "requires_local_profile": true,
+    "local_only": true,
+    "test_only": true
+  }
+}

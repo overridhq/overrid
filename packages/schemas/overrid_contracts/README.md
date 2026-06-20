@@ -5,7 +5,9 @@ Phase 6 hardening contracts, Phase 7 execution contracts, Phase 8
 policy/package/accounting read contracts, Phase 9 product integration and CI
 automation contracts, Phase 10 release-readiness/security/handoff validation
 contracts, Integration Test Harness Phase 2 schema contracts, and the Rust
-projection for `SUB BUILD PLAN #2 - CLI` and shared harness contract checks.
+projection for `SUB BUILD PLAN #2 - CLI`, `SUB BUILD PLAN #3 - Integration
+Test Harness`, and `SUB BUILD PLAN #4 - Local Development Stack` contract
+checks.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
 slice. The Rust crate in `src/` is the initial generated/projection layer that
@@ -69,6 +71,16 @@ available/read-only/denied command availability, integration reliability,
 automation compatibility, and Phase 7/13 handoff gates. These records must keep
 SDK/Overgate-only routing and must not authorize high-risk operations before
 owning contracts exist.
+
+Local Development Stack Phase 2 contracts define `stack_profile`,
+`service_definition`, `port_registry`, `local_env_manifest`,
+`volume_registry`, `reset_plan`, `seed_manifest`, `health_snapshot`,
+`local_secret_record`, and `local_diagnostic_event`. These records keep SDS #4
+local stack contracts loopback-only, deterministic, local/test-scoped, and
+phase-gated before Phase 3 adds Rust lifecycle code. They reject wildcard or
+non-loopback endpoints, ungated future services, missing service metadata,
+duplicate or out-of-range local ports, unmarked reset targets, non-test seed
+fixtures, invalid health states, and diagnostics that expose raw secrets.
 
 Integration Test Harness Phase 2 contracts define `fixture_manifest`,
 `fixture_identity`, `fixture_key`, resource card refs, workload/package/local

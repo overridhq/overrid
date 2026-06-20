@@ -1,0 +1,26 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "seed_manifest": {
+    "manifest_id": "seed_manifest:unsafe",
+    "fixture_version": "fixture.local_stack.phase2.v1",
+    "deterministic_seed": "local_stack_phase2_seed_0001",
+    "tenant_refs": [
+      "tenant:local:alpha"
+    ],
+    "actor_refs": [
+      "actor:local:builder"
+    ],
+    "key_refs": [
+      "key:local:test_signing"
+    ],
+    "node_refs": [],
+    "manifest_refs": [],
+    "package_refs": [],
+    "workload_refs": [],
+    "local_oru_account_refs": [],
+    "ledger_refs": [],
+    "policy_context_refs": [],
+    "local_only": true,
+    "test_only": false
+  }
+}

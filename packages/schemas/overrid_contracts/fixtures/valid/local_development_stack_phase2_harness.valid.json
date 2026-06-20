@@ -1,0 +1,49 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "stack_profile": {
+    "profile_id": "profile:harness",
+    "environment_class": "local",
+    "enabled_services": [
+      "service:api",
+      "service:worker",
+      "service:event_audit",
+      "service:node_agent_simulator"
+    ],
+    "required_phase_gates": [
+      "buildable_phase_0",
+      "local_smoke_prerequisite",
+      "owning_service_required"
+    ],
+    "service_dependencies": [
+      {
+        "service_id": "service:node_agent_simulator",
+        "depends_on": [
+          "service:api"
+        ]
+      }
+    ],
+    "fixture_set": "fixture:harness_phase0",
+    "feature_flags": [
+      "feature:harness_lifecycle",
+      "feature:artifact_lookup",
+      "feature:diagnostic_export"
+    ],
+    "port_policy": "port_policy:reserved_18080_18085",
+    "volume_set": "volume_set:harness",
+    "local_only": true,
+    "test_only": true,
+    "default_bind_host": "localhost",
+    "future_services_require_phase_gate": true
+  },
+  "local_diagnostic_event": {
+    "event_id": "event:local_stack:smoke_started",
+    "event_type": "local_stack.smoke_started",
+    "trace_id": "trace_local_stack_harness_smoke",
+    "service_id": "service:api",
+    "reason_code": "local_stack.smoke_started",
+    "redaction_summary": "secret_free",
+    "contains_raw_secret": false,
+    "local_only": true,
+    "test_only": true
+  }
+}

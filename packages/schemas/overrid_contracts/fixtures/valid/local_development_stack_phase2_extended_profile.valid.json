@@ -1,0 +1,34 @@
+{
+  "schema_version": "local-development-stack.v0.1",
+  "stack_profile": {
+    "profile_id": "profile:phase2_extended_node",
+    "environment_class": "local",
+    "enabled_services": [
+      "service:api",
+      "service:worker",
+      "future:overcell_identity_simulator"
+    ],
+    "required_phase_gates": [
+      "buildable_phase_0",
+      "owning_service_required"
+    ],
+    "service_dependencies": [
+      {
+        "service_id": "future:overcell_identity_simulator",
+        "depends_on": [
+          "service:api"
+        ]
+      }
+    ],
+    "fixture_set": "fixture:phase2_node_identity",
+    "feature_flags": [
+      "feature:node_identity_blocked_until_owner_contract"
+    ],
+    "port_policy": "port_policy:reserved_18080_18085",
+    "volume_set": "volume_set:phase2_extended",
+    "local_only": true,
+    "test_only": true,
+    "default_bind_host": "::1",
+    "future_services_require_phase_gate": true
+  }
+}
