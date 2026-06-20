@@ -6,6 +6,7 @@ license.workspace = true
 description = "Deterministic Rust local development stack helpers for Overrid."
 
 [dependencies]
+blake3 = "1.5"
 overrid-contracts = { path = "../schemas/overrid_contracts" }
 
 [lib]
