@@ -15,6 +15,7 @@ use crate::manifests::{
     FixtureManifestRef, HarnessManifestCatalog, HarnessManifestLoader, ManifestLoadError,
     ScenarioManifestRef,
 };
+use crate::step_runners::{ScenarioStepExecutionContext, ScenarioStepResult, ScenarioStepRunner};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HarnessLifecycleState {
@@ -288,6 +289,8 @@ pub struct ScenarioListItem {
     pub tags: Vec<String>,
     pub required_services: Vec<String>,
     pub setup_fixture_refs: Vec<String>,
+    pub step_count: usize,
+    pub action_kinds: Vec<String>,
     pub source_path: String,
 }
 
@@ -311,6 +314,8 @@ pub struct HarnessCliOutput {
     pub diagnostic_refs: Vec<String>,
     pub smoke_refs: Vec<String>,
     pub event_refs: Vec<String>,
+    pub step_results: Vec<ScenarioStepResult>,
+    pub assertion_refs: Vec<String>,
     pub message: String,
 }
 
@@ -353,6 +358,8 @@ impl HarnessCliOutput {
                 "\"diagnostic_refs\":{},",
                 "\"smoke_refs\":{},",
                 "\"event_refs\":{},",
+                "\"step_results\":{},",
+                "\"assertion_refs\":{},",
                 "\"message\":\"{}\"",
                 "}}"
             ),
@@ -377,6 +384,8 @@ impl HarnessCliOutput {
             json_string_array(&self.diagnostic_refs),
             json_string_array(&self.smoke_refs),
             json_string_array(&self.event_refs),
+            step_results_json(&self.step_results),
+            json_string_array(&self.assertion_refs),
             json_escape(&self.message),
         )
     }
@@ -417,6 +426,18 @@ impl HarnessCliOutput {
             lines.push("events:".to_owned());
             for event_ref in &self.event_refs {
                 lines.push(format!("  {event_ref}"));
+            }
+        }
+        if !self.step_results.is_empty() {
+            lines.push("steps:".to_owned());
+            for step in &self.step_results {
+                lines.push(format!(
+                    "  {} {} {} {}",
+                    step.step_id,
+                    step.action_kind_str(),
+                    step.status.as_str(),
+                    step.reason_code
+                ));
             }
         }
         lines.push(format!(
@@ -479,6 +500,8 @@ impl HarnessRunner {
                     diagnostic_refs: Vec::new(),
                     smoke_refs: Vec::new(),
                     event_refs: Vec::new(),
+                    step_results: Vec::new(),
+                    assertion_refs: Vec::new(),
                     message: "scenario manifest catalog loaded".to_owned(),
                 }
             }
@@ -558,6 +581,8 @@ impl HarnessRunner {
                     context,
                     trace_root,
                     lifecycle,
+                    Vec::new(),
+                    Vec::new(),
                     report,
                 )
             }
@@ -594,6 +619,8 @@ impl HarnessRunner {
             diagnostic_refs: Vec::new(),
             smoke_refs: Vec::new(),
             event_refs: Vec::new(),
+            step_results: Vec::new(),
+            assertion_refs: Vec::new(),
             message: "artifact lookup returned deterministic bundle path".to_owned(),
         }
     }
@@ -616,12 +643,51 @@ impl HarnessRunner {
         let context = self.context_for_scenario(catalog, &scenario);
         let trace_root = self.trace_root_for(&context);
         let fixtures = self.fixtures_for_scenario(catalog, &scenario);
-        let report = LocalStackHarness::new(
+        let mut report = LocalStackHarness::new(
             self.options.profile.clone(),
             self.options.artifact_root.clone(),
         )
         .run_phase0_smoke(&scenario, &fixtures, &context.run_id, &trace_root);
-        let _ = context.test_run_record(report.status.clone());
+
+        let mut step_results = Vec::new();
+        let mut assertion_refs = Vec::new();
+        if report.status == HarnessRunStatus::Passed {
+            let available_services = report
+                .service_health
+                .iter()
+                .filter(|health| health.state == "ready")
+                .map(|health| health.service_id.clone())
+                .collect::<Vec<_>>();
+            let step_context = ScenarioStepExecutionContext::new(
+                &scenario,
+                context.run_id.clone(),
+                trace_root.clone(),
+                self.options.profile.clone(),
+                self.options.requested_phase,
+                available_services,
+            );
+            let step_report = ScenarioStepRunner::new().run_scenario(&scenario, &step_context);
+            report.event_refs.extend(step_report.event_refs);
+            report
+                .dependency_status
+                .extend(step_report.dependency_status);
+            if step_report.status != HarnessRunStatus::Passed {
+                report.status = step_report.status;
+                report.reason_code = step_report.reason_code;
+                report.reason_class = step_report.reason_class;
+                report.message = step_report.message;
+                report.artifacts = vec![ArtifactLocator::new(&self.options.artifact_root)
+                    .lookup(&context.run_id, ArtifactRetentionClass::FailureEvidence)];
+            } else {
+                report.reason_code = step_report.reason_code;
+                report.reason_class = step_report.reason_class;
+                report.message = step_report.message;
+            }
+            step_results = step_report.step_results;
+            assertion_refs = step_report.assertion_refs;
+        }
+
+        let _ = context.test_run_record(report.status);
         let lifecycle = local_stack_lifecycle(&report);
 
         self.output_from_local_stack_report(
@@ -630,6 +696,8 @@ impl HarnessRunner {
             context,
             trace_root,
             lifecycle,
+            step_results,
+            assertion_refs,
             report,
         )
     }
@@ -641,6 +709,8 @@ impl HarnessRunner {
         context: HarnessRunContext,
         trace_root: String,
         lifecycle: Vec<HarnessLifecycleState>,
+        step_results: Vec<ScenarioStepResult>,
+        assertion_refs: Vec<String>,
         report: LocalStackReport,
     ) -> HarnessCliOutput {
         HarnessCliOutput {
@@ -662,6 +732,8 @@ impl HarnessRunner {
             diagnostic_refs: report.diagnostic_refs,
             smoke_refs: report.smoke_refs,
             event_refs: report.event_refs,
+            step_results,
+            assertion_refs,
             message: report.message,
         }
     }
@@ -717,6 +789,8 @@ impl HarnessRunner {
             diagnostic_refs: Vec::new(),
             smoke_refs: Vec::new(),
             event_refs: Vec::new(),
+            step_results: Vec::new(),
+            assertion_refs: Vec::new(),
             message: message.to_owned(),
         }
     }
@@ -868,14 +942,24 @@ fn local_stack_lifecycle(report: &LocalStackReport) -> Vec<HarnessLifecycleState
 fn scenario_items(scenarios: Vec<ScenarioManifestRef>) -> Vec<ScenarioListItem> {
     scenarios
         .into_iter()
-        .map(|scenario| ScenarioListItem {
-            scenario_id: scenario.scenario_id,
-            master_phase: scenario.master_phase,
-            gate_class: scenario.gate_class,
-            tags: scenario.tags,
-            required_services: scenario.required_services,
-            setup_fixture_refs: scenario.setup_fixture_refs,
-            source_path: scenario.source_path,
+        .map(|scenario| {
+            let step_count = scenario.steps.len();
+            let action_kinds = scenario
+                .steps
+                .iter()
+                .map(|step| step.action_kind_str().to_owned())
+                .collect();
+            ScenarioListItem {
+                scenario_id: scenario.scenario_id,
+                master_phase: scenario.master_phase,
+                gate_class: scenario.gate_class,
+                tags: scenario.tags,
+                required_services: scenario.required_services,
+                setup_fixture_refs: scenario.setup_fixture_refs,
+                step_count,
+                action_kinds,
+                source_path: scenario.source_path,
+            }
         })
         .collect()
 }
@@ -893,6 +977,8 @@ fn scenarios_json(scenarios: &[ScenarioListItem]) -> String {
                     "\"tags\":{},",
                     "\"required_services\":{},",
                     "\"setup_fixture_refs\":{},",
+                    "\"step_count\":{},",
+                    "\"action_kinds\":{},",
                     "\"source_path\":\"{}\"",
                     "}}"
                 ),
@@ -902,7 +988,54 @@ fn scenarios_json(scenarios: &[ScenarioListItem]) -> String {
                 json_string_array(&scenario.tags),
                 json_string_array(&scenario.required_services),
                 json_string_array(&scenario.setup_fixture_refs),
+                scenario.step_count,
+                json_string_array(&scenario.action_kinds),
                 json_escape(&scenario.source_path),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", values.join(","))
+}
+
+fn step_results_json(step_results: &[ScenarioStepResult]) -> String {
+    let values = step_results
+        .iter()
+        .map(|step| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"step_id\":\"{}\",",
+                    "\"action_kind\":\"{}\",",
+                    "\"status\":\"{}\",",
+                    "\"reason_code\":\"{}\",",
+                    "\"reason_class\":\"{}\",",
+                    "\"expected_result_class\":\"{}\",",
+                    "\"exit_class\":\"{}\",",
+                    "\"duration_ms\":{},",
+                    "\"retry_class\":\"{}\",",
+                    "\"stdout_ref\":{},",
+                    "\"stderr_ref\":{},",
+                    "\"payload_ref\":{},",
+                    "\"assertion_refs\":{},",
+                    "\"artifact_refs\":{},",
+                    "\"dependency_status\":{}",
+                    "}}"
+                ),
+                json_escape(&step.step_id),
+                json_escape(step.action_kind_str()),
+                json_escape(step.status.as_str()),
+                json_escape(&step.reason_code),
+                json_escape(&step.reason_class),
+                json_escape(step.expected_result_class.as_str()),
+                json_escape(&step.exit_class),
+                step.duration_ms,
+                json_escape(&step.retry_class),
+                json_optional_string(step.stdout_ref.as_deref()),
+                json_optional_string(step.stderr_ref.as_deref()),
+                json_optional_string(step.payload_ref.as_deref()),
+                json_string_array(&step.assertion_refs),
+                json_string_array(&step.artifact_refs),
+                json_string_array(&step.dependency_status),
             )
         })
         .collect::<Vec<_>>();

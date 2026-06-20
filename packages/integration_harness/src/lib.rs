@@ -7,6 +7,7 @@ pub mod local_stack;
 pub mod manifests;
 pub mod phase_gate;
 pub mod runner;
+pub mod step_runners;
 
 pub use local_stack::{
     LocalStackHarness, LocalStackReport, LocalStackSnapshot, ServiceHealthSummary,
@@ -15,4 +16,8 @@ pub use local_stack::{
 pub use runner::{
     HarnessCliCommand, HarnessCliOutput, HarnessLifecycleRecorder, HarnessLifecycleState,
     HarnessRunContext, HarnessRunner, RunnerOptions,
+};
+pub use step_runners::{
+    ScenarioStepExecutionContext, ScenarioStepExecutionReport, ScenarioStepResult,
+    ScenarioStepRunner,
 };

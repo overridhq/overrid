@@ -4,8 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use overrid_contracts::{
-    FixtureKey, FixtureManifest, HarnessContractError, ScenarioActionKind, ScenarioManifest,
-    ScenarioStep, SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
+    FixtureKey, FixtureManifest, HarnessContractError, HarnessRunStatus, ScenarioActionKind,
+    ScenarioManifest, ScenarioStep, SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION,
 };
 
 use crate::fixtures::fixture_id_from_ref;
@@ -23,6 +23,37 @@ pub struct FixtureManifestRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScenarioStepRef {
+    pub step_id: String,
+    pub action_kind: ScenarioActionKind,
+    pub input_refs: Vec<String>,
+    pub timeout_ms: u64,
+    pub retry_expectation: String,
+    pub expected_result_class: HarnessRunStatus,
+    pub assertion_refs: Vec<String>,
+    pub cleanup_rule: String,
+}
+
+impl ScenarioStepRef {
+    pub fn action_kind_str(&self) -> &'static str {
+        self.action_kind.as_str()
+    }
+
+    fn to_contract_step(&self) -> ScenarioStep {
+        ScenarioStep {
+            step_id: self.step_id.clone(),
+            action_kind: self.action_kind,
+            input_refs: self.input_refs.clone(),
+            timeout_ms: self.timeout_ms,
+            retry_expectation: self.retry_expectation.clone(),
+            expected_result_class: self.expected_result_class,
+            assertion_refs: self.assertion_refs.clone(),
+            cleanup_rule: self.cleanup_rule.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScenarioManifestRef {
     pub scenario_id: String,
     pub master_phase: u8,
@@ -30,6 +61,7 @@ pub struct ScenarioManifestRef {
     pub tags: Vec<String>,
     pub required_services: Vec<String>,
     pub setup_fixture_refs: Vec<String>,
+    pub steps: Vec<ScenarioStepRef>,
     pub source_path: String,
 }
 
@@ -297,13 +329,15 @@ fn validate_manifest_document(
         });
     }
 
-    let step = ScenarioStep::new(
-        "step_manifest_loader",
-        ScenarioActionKind::Cli,
-        vec!["assertion:harness:manifest_valid".to_owned()],
-        30_000,
-    )?;
-    ScenarioManifest::new(&scenario_id, master_phase, vec![step], &schema_version)?;
+    let steps = extract_scenario_steps(path, text)?;
+    let contract_steps = steps
+        .iter()
+        .map(ScenarioStepRef::to_contract_step)
+        .collect::<Vec<_>>();
+    for step in &contract_steps {
+        step.validate()?;
+    }
+    ScenarioManifest::new(&scenario_id, master_phase, contract_steps, &schema_version)?;
 
     Ok(ValidatedManifestDocument {
         fixture: FixtureManifestRef {
@@ -320,9 +354,85 @@ fn validate_manifest_document(
             tags,
             required_services,
             setup_fixture_refs,
+            steps,
             source_path: path.to_owned(),
         },
     })
+}
+
+fn extract_scenario_steps(
+    path: &str,
+    text: &str,
+) -> Result<Vec<ScenarioStepRef>, ManifestLoadError> {
+    let step_objects = extract_object_array(text, "steps");
+    if step_objects.is_empty() {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field: "scenario step",
+        });
+    }
+
+    let mut steps = Vec::new();
+    for step_text in step_objects {
+        let step_id = extract_string_field(&step_text, "step_id").ok_or_else(|| {
+            ManifestLoadError::MissingField {
+                path: path.to_owned(),
+                field: "step_id",
+            }
+        })?;
+        let action_kind = extract_string_field(&step_text, "action_kind")
+            .ok_or_else(|| ManifestLoadError::MissingField {
+                path: path.to_owned(),
+                field: "action_kind",
+            })
+            .and_then(|raw| {
+                ScenarioActionKind::parse(&raw).map_err(ManifestLoadError::from)
+            })?;
+        let timeout_ms = extract_u64_field(&step_text, "timeout_ms").ok_or_else(|| {
+            ManifestLoadError::MissingField {
+                path: path.to_owned(),
+                field: "timeout_ms",
+            }
+        })?;
+        let retry_expectation = extract_string_field(&step_text, "retry_expectation")
+            .unwrap_or_else(|| "none".to_owned());
+        let expected_result_class = extract_string_field(&step_text, "expected_result_class")
+            .map(|raw| parse_harness_status(path, &raw))
+            .transpose()?
+            .unwrap_or(HarnessRunStatus::Passed);
+        let assertion_refs = extract_string_array(&step_text, "assertion_refs");
+        let cleanup_rule = extract_string_field(&step_text, "cleanup_rule")
+            .unwrap_or_else(|| "collect_artifacts_then_reset".to_owned());
+        let step = ScenarioStepRef {
+            step_id,
+            action_kind,
+            input_refs: extract_string_array(&step_text, "input_refs"),
+            timeout_ms,
+            retry_expectation,
+            expected_result_class,
+            assertion_refs,
+            cleanup_rule,
+        };
+        step.to_contract_step().validate()?;
+        steps.push(step);
+    }
+    Ok(steps)
+}
+
+fn parse_harness_status(
+    path: &str,
+    raw: &str,
+) -> Result<HarnessRunStatus, ManifestLoadError> {
+    match raw {
+        "planned" => Ok(HarnessRunStatus::Planned),
+        "running" => Ok(HarnessRunStatus::Running),
+        "passed" => Ok(HarnessRunStatus::Passed),
+        "failed" => Ok(HarnessRunStatus::Failed),
+        "blocked" => Ok(HarnessRunStatus::Blocked),
+        other => Err(ManifestLoadError::Contract(format!(
+            "{path}: invalid expected_result_class: {other}"
+        ))),
+    }
 }
 
 fn reject_unsafe_fields(path: &str, text: &str) -> Result<(), ManifestLoadError> {
@@ -449,6 +559,18 @@ fn extract_u8_field(text: &str, field: &str) -> Option<u8> {
     digits.parse::<u8>().ok()
 }
 
+fn extract_u64_field(text: &str, field: &str) -> Option<u64> {
+    let pattern = format!("\"{field}\"");
+    let start = text.find(&pattern)? + pattern.len();
+    let after_colon = text[start..].find(':')? + start + 1;
+    let digits = text[after_colon..]
+        .chars()
+        .skip_while(|ch| ch.is_ascii_whitespace())
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    digits.parse::<u64>().ok()
+}
+
 fn extract_string_array(text: &str, field: &str) -> Vec<String> {
     let pattern = format!("\"{field}\"");
     let Some(start) = text.find(&pattern).map(|index| index + pattern.len()) else {
@@ -486,6 +608,65 @@ fn extract_string_array(text: &str, field: &str) -> Vec<String> {
         index += ch.len_utf8();
     }
     values
+}
+
+fn extract_object_array(text: &str, field: &str) -> Vec<String> {
+    let pattern = format!("\"{field}\"");
+    let Some(start) = text.find(&pattern).map(|index| index + pattern.len()) else {
+        return Vec::new();
+    };
+    let Some(after_colon) = text[start..].find(':').map(|index| index + start + 1) else {
+        return Vec::new();
+    };
+    let Some(array_start) = text[after_colon..]
+        .find('[')
+        .map(|index| index + after_colon)
+    else {
+        return Vec::new();
+    };
+
+    let mut objects = Vec::new();
+    let mut depth = 0_i32;
+    let mut object_start = None;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (offset, ch) in text[array_start + 1..].char_indices() {
+        let index = array_start + 1 + offset;
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if in_string && ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        match ch {
+            '{' => {
+                if depth == 0 {
+                    object_start = Some(index);
+                }
+                depth += 1;
+            }
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    if let Some(start) = object_start.take() {
+                        objects.push(text[start..=index].to_owned());
+                    }
+                }
+            }
+            ']' if depth == 0 => break,
+            _ => {}
+        }
+    }
+    objects
 }
 
 fn boolean_field_is_true(text: &str, field: &str) -> bool {
@@ -529,6 +710,9 @@ mod tests {
         let catalog = HarnessManifestLoader::load_catalog_from_documents(&valid_pair()).unwrap();
         assert_eq!(catalog.scenarios[0].scenario_id, "scenario_phase0_smoke");
         assert_eq!(catalog.fixtures[0].fixture_id, "fixture_phase0_smoke");
+        assert_eq!(catalog.scenarios[0].steps.len(), 2);
+        assert_eq!(catalog.scenarios[0].steps[0].action_kind_str(), "cli");
+        assert_eq!(catalog.scenarios[0].steps[1].action_kind_str(), "assertion");
     }
 
     #[test]
