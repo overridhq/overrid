@@ -998,10 +998,7 @@ mod tests {
         }
 
         let default_status = parse_cli(["overrid", "dev"]).unwrap();
-        assert_eq!(
-            default_status.command,
-            Command::Dev(DevCommand::Status)
-        );
+        assert_eq!(default_status.command, Command::Dev(DevCommand::Status));
     }
 
     #[test]

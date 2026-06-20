@@ -26,10 +26,10 @@ use overrid_sdk::{
 
 use crate::build_metadata::{human_version_lines, version_info};
 use crate::parser::{
-    parse_cli, AuthCommand, Command, CredentialCommand, DevCommand, DisputeCommand,
-    GlobalOptions, IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand,
-    ManifestCommand, NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand,
-    ProfileCommand, ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
+    parse_cli, AuthCommand, Command, CredentialCommand, DevCommand, DisputeCommand, GlobalOptions,
+    IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand, ManifestCommand,
+    NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand, ProfileCommand,
+    ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";

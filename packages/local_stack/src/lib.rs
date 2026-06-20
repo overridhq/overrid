@@ -298,10 +298,11 @@ impl LocalStackManifest {
 
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, ManifestValidationError> {
         let path = path.as_ref();
-        let text = fs::read_to_string(path).map_err(|error| ManifestValidationError::ReadFailed {
-            path: path.display().to_string(),
-            message: error.to_string(),
-        })?;
+        let text =
+            fs::read_to_string(path).map_err(|error| ManifestValidationError::ReadFailed {
+                path: path.display().to_string(),
+                message: error.to_string(),
+            })?;
         let content = Self::validate_text(&text)?;
         Ok(Self {
             path: path.to_path_buf(),
@@ -339,6 +340,7 @@ impl LocalStackManifest {
             }
         }
 
+        let enabled_service_ids = extract_string_arrays_for_key(text, "enabled_services");
         let service_definitions = extract_array_section(text, "service_definitions")
             .ok_or(ManifestValidationError::MissingServiceDefinitions)?;
         let service_ids = extract_values_for_key(service_definitions, "service_id");
@@ -346,17 +348,20 @@ impl LocalStackManifest {
             return Err(ManifestValidationError::MissingServiceDefinitions);
         }
 
-        let mut seen = BTreeSet::new();
+        let mut defined_service_ids = BTreeSet::new();
         for service_id in &service_ids {
-            if !seen.insert(service_id.clone()) {
-                return Err(ManifestValidationError::DuplicateServiceId(service_id.clone()));
+            if !defined_service_ids.insert(service_id.clone()) {
+                return Err(ManifestValidationError::DuplicateServiceId(
+                    service_id.clone(),
+                ));
             }
         }
 
-        let dependency_ids =
-            extract_string_arrays_for_key(service_definitions, "depends_on");
+        let mut declared_dependency_ids = defined_service_ids.clone();
+        declared_dependency_ids.extend(enabled_service_ids);
+        let dependency_ids = extract_string_arrays_for_key(service_definitions, "depends_on");
         for dependency_id in &dependency_ids {
-            if !seen.contains(dependency_id) {
+            if !declared_dependency_ids.contains(dependency_id) {
                 return Err(ManifestValidationError::MissingDependency(
                     dependency_id.clone(),
                 ));
@@ -424,9 +429,9 @@ impl ManifestValidationError {
             | Self::IncompatibleSchemaVersion { .. }
             | Self::DuplicateServiceId(_)
             | Self::MissingDependency(_) => ExitCodeClass::Schema,
-            Self::MissingLocalMarkers | Self::MissingServiceDefinitions | Self::UnsafeEndpoint(_) => {
-                ExitCodeClass::Config
-            }
+            Self::MissingLocalMarkers
+            | Self::MissingServiceDefinitions
+            | Self::UnsafeEndpoint(_) => ExitCodeClass::Config,
         }
     }
 }
@@ -435,19 +440,38 @@ impl fmt::Display for ManifestValidationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ReadFailed { path, message } => {
-                write!(formatter, "failed to read local-stack manifest {path}: {message}")
+                write!(
+                    formatter,
+                    "failed to read local-stack manifest {path}: {message}"
+                )
             }
             Self::InvalidJson => formatter.write_str("local-stack manifest is not a JSON object"),
-            Self::MissingSchemaVersion => formatter.write_str("local-stack manifest schema_version is required"),
-            Self::IncompatibleSchemaVersion { provided, supported } => write!(
+            Self::MissingSchemaVersion => {
+                formatter.write_str("local-stack manifest schema_version is required")
+            }
+            Self::IncompatibleSchemaVersion {
+                provided,
+                supported,
+            } => write!(
                 formatter,
                 "local-stack manifest schema version {provided} is incompatible with {supported}"
             ),
-            Self::MissingLocalMarkers => formatter.write_str("local-stack manifest must be local_only and test_only"),
-            Self::MissingServiceDefinitions => formatter.write_str("local-stack manifest must define service_definitions"),
-            Self::DuplicateServiceId(service_id) => write!(formatter, "duplicate local-stack service id {service_id}"),
-            Self::MissingDependency(service_id) => write!(formatter, "local-stack dependency {service_id} is not defined"),
-            Self::UnsafeEndpoint(endpoint) => write!(formatter, "unsafe local-stack endpoint {endpoint}"),
+            Self::MissingLocalMarkers => {
+                formatter.write_str("local-stack manifest must be local_only and test_only")
+            }
+            Self::MissingServiceDefinitions => {
+                formatter.write_str("local-stack manifest must define service_definitions")
+            }
+            Self::DuplicateServiceId(service_id) => {
+                write!(formatter, "duplicate local-stack service id {service_id}")
+            }
+            Self::MissingDependency(service_id) => write!(
+                formatter,
+                "local-stack dependency {service_id} is not defined"
+            ),
+            Self::UnsafeEndpoint(endpoint) => {
+                write!(formatter, "unsafe local-stack endpoint {endpoint}")
+            }
         }
     }
 }
@@ -822,19 +846,21 @@ pub fn capabilities_for_phase(master_phase: u8) -> Vec<LocalServiceCapability> {
         .collect::<Vec<_>>();
 
     if master_phase > 0 {
-        capabilities.extend([
-            "service:overqueue_jobs",
-            "service:overstore_stub",
-            "service:event_audit",
-            "service:node_agent_simulator",
-        ]
-        .into_iter()
-        .map(|service_id| LocalServiceCapability {
-            service_id: service_id.to_owned(),
-            phase_gate: format!("phase_{master_phase}_blocked"),
-            available: false,
-            reason_code: "phase.local_service_unavailable".to_owned(),
-        }));
+        capabilities.extend(
+            [
+                "service:overqueue_jobs",
+                "service:overstore_stub",
+                "service:event_audit",
+                "service:node_agent_simulator",
+            ]
+            .into_iter()
+            .map(|service_id| LocalServiceCapability {
+                service_id: service_id.to_owned(),
+                phase_gate: format!("phase_{master_phase}_blocked"),
+                available: false,
+                reason_code: "phase.local_service_unavailable".to_owned(),
+            }),
+        );
     }
 
     capabilities
@@ -933,15 +959,36 @@ fn transition_allowed(previous: LocalCommandState, next: LocalCommandState) -> b
         Planned => matches!(next, PrerequisitesChecked | Blocked | Failed),
         PrerequisitesChecked => matches!(
             next,
-            Starting | Ready | Resetting | Seeding | Smoking | CollectingArtifacts | Stopped | Blocked | Failed
+            Starting
+                | Ready
+                | Resetting
+                | Seeding
+                | Smoking
+                | CollectingArtifacts
+                | Stopped
+                | Blocked
+                | Failed
         ),
         Starting => matches!(next, Ready | Blocked | Failed),
         Ready => matches!(
             next,
-            Resetting | Seeding | Smoking | CollectingArtifacts | Stopped | Completed | Blocked | Failed
+            Resetting
+                | Seeding
+                | Smoking
+                | CollectingArtifacts
+                | Stopped
+                | Completed
+                | Blocked
+                | Failed
         ),
-        Resetting => matches!(next, Seeding | CollectingArtifacts | Completed | Blocked | Failed),
-        Seeding => matches!(next, Smoking | CollectingArtifacts | Completed | Blocked | Failed),
+        Resetting => matches!(
+            next,
+            Seeding | CollectingArtifacts | Completed | Blocked | Failed
+        ),
+        Seeding => matches!(
+            next,
+            Smoking | CollectingArtifacts | Completed | Blocked | Failed
+        ),
         Smoking => matches!(next, CollectingArtifacts | Completed | Blocked | Failed),
         CollectingArtifacts => matches!(next, Completed | Blocked | Failed),
         Stopped => matches!(next, Starting | Completed | Blocked | Failed),
@@ -1220,7 +1267,9 @@ fn json_escape(value: &str) -> String {
 
 fn remediation_hint(reason_code: &str) -> &'static str {
     match reason_code {
-        "profile.not_local_test" => "select a local or CI test profile before running local-stack commands",
+        "profile.not_local_test" => {
+            "select a local or CI test profile before running local-stack commands"
+        }
         "phase.local_service_unavailable" => {
             "select phase 0 or wait until the requested phase service simulator is implemented"
         }
@@ -1441,7 +1490,9 @@ mod tests {
     #[test]
     fn impossible_transition_is_rejected() {
         let mut record = LocalCommandRecord::new();
-        record.push(LocalCommandState::PrerequisitesChecked).unwrap();
+        record
+            .push(LocalCommandState::PrerequisitesChecked)
+            .unwrap();
         record.push(LocalCommandState::Ready).unwrap();
         record.push(LocalCommandState::Completed).unwrap();
         let error = record.push(LocalCommandState::Starting).unwrap_err();

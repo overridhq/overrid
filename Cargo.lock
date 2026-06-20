@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "overrid-contracts",
  "overrid-integration-harness",
+ "overrid-local-stack",
  "overrid-sdk",
 ]
 
@@ -17,6 +18,13 @@ version = "0.1.0"
 
 [[package]]
 name = "overrid-integration-harness"
+version = "0.1.0"
+dependencies = [
+ "overrid-contracts",
+]
+
+[[package]]
+name = "overrid-local-stack"
 version = "0.1.0"
 dependencies = [
  "overrid-contracts",
