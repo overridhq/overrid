@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import socket
 import subprocess
 import sys
 from typing import Any
@@ -178,7 +179,10 @@ def check_local_stack_source() -> None:
         "render_env_manifest_json",
         "render_secret_records_json",
         "render_doctor_checks_json",
+        "detect_reserved_port_conflicts",
+        "render_port_conflicts_json",
         "port_registry:reserved_18080_18085",
+        "port_conflicts",
         "OVERRID_LOCAL_TEST_SECRET_REF",
         "doctor.unsafe_env_value",
         "doctor.schemas_stale",
@@ -246,13 +250,23 @@ def check_cli_json_outputs() -> None:
     assert_true(READY_DOCTOR_CODES.issubset(doctor_codes), "doctor ready codes missing")
     assert_true(all(check["state"] == "ready" for check in result["doctor_checks"]), "doctor should be ready")
 
-    port_conflict = run_cli_json(
-        ["dev", "start", "--json", "--profile", "local-port-conflict"],
-        expect_code=None,
-    )
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 18080))
+        listener.listen(1)
+        port_conflict = run_cli_json(["dev", "start", "--json"], expect_code=None)
     assert_true(port_conflict["ok"] is False, "port conflict should fail closed")
     assert_true(port_conflict["reason_code"] == "local_stack.port_conflict", "port conflict reason drifted")
     assert_true("starting" not in port_conflict["lifecycle"]["states"], "port conflict launched services")
+    conflicts = port_conflict["error"]["port_conflicts"]
+    assert_true(
+        any(
+            conflict["port"] == 18080
+            and conflict["bind_host"] == "127.0.0.1"
+            and conflict["reason_code"] == "local_stack.port_conflict"
+            for conflict in conflicts
+        ),
+        "real reserved-port conflict details missing",
+    )
     assert_true(
         any(
             check["check_id"] == "doctor:reserved_ports"

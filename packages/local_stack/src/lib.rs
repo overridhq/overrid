@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 use std::fmt;
 use std::fs;
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 
 use overrid_contracts::{
@@ -174,6 +175,13 @@ impl DevCommand {
     fn gates_unavailable_future_services(self) -> bool {
         matches!(self, Self::Start | Self::Restart | Self::Smoke)
     }
+
+    fn checks_reserved_ports(self) -> bool {
+        matches!(
+            self,
+            Self::Start | Self::Restart | Self::Smoke | Self::Doctor
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +195,7 @@ pub struct LocalStackOptions {
     pub wait: bool,
     pub follow: bool,
     pub dry_run: bool,
+    pub port_preflight: bool,
 }
 
 impl LocalStackOptions {
@@ -201,6 +210,7 @@ impl LocalStackOptions {
             wait: false,
             follow: false,
             dry_run: false,
+            port_preflight: true,
         }
     }
 }
@@ -238,6 +248,21 @@ impl LocalStackRunner {
         if let Some(profile_failure) = profile_backing_failure(&self.options.profile) {
             output.block(profile_failure);
             return output;
+        }
+
+        if self.options.port_preflight && command.checks_reserved_ports() {
+            let conflicts = detect_reserved_port_conflicts();
+            if !conflicts.is_empty() {
+                output.apply_port_conflicts(conflicts);
+                output.block(LocalStackFailure {
+                    reason_code: "local_stack.port_conflict",
+                    message: "one or more reserved local development ports are unavailable",
+                    exit_class: ExitCodeClass::Config,
+                    retry_class: RetryClass::OperatorReview,
+                    status: LocalStackStatus::Blocked,
+                });
+                return output;
+            }
         }
 
         if self.options.master_phase > 0 && command.gates_unavailable_future_services() {
@@ -745,6 +770,18 @@ pub struct ReservedPortBinding {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReservedPortConflict {
+    pub service_id: &'static str,
+    pub port: u16,
+    pub bind_host: &'static str,
+    pub purpose: &'static str,
+    pub endpoint_ref: &'static str,
+    pub reason_code: &'static str,
+    pub error_kind: &'static str,
+    pub os_error_code: Option<i32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LocalEnvVariable {
     pub name: &'static str,
     pub value_ref: &'static str,
@@ -786,6 +823,7 @@ pub struct LocalStackCommandOutput {
     pub capabilities: Vec<LocalServiceCapability>,
     pub service_health: Vec<LocalServiceHealth>,
     pub port_bindings: Vec<ReservedPortBinding>,
+    pub port_conflicts: Vec<ReservedPortConflict>,
     pub env_variables: Vec<LocalEnvVariable>,
     pub secret_records: Vec<LocalSecretRecord>,
     pub doctor_checks: Vec<LocalDoctorCheck>,
@@ -817,6 +855,7 @@ impl LocalStackCommandOutput {
             capabilities: capabilities_for_phase(options.master_phase),
             service_health,
             port_bindings: reserved_port_bindings(),
+            port_conflicts: Vec::new(),
             env_variables: local_env_variables(),
             secret_records: local_secret_records(),
             doctor_checks: doctor_checks_for_profile(&options.profile),
@@ -902,6 +941,7 @@ impl LocalStackCommandOutput {
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
                 "\"port_registry\":{},",
+                "\"port_conflicts\":{},",
                 "\"env_manifest\":{},",
                 "\"secret_records\":{},",
                 "\"doctor_checks\":{},",
@@ -925,6 +965,7 @@ impl LocalStackCommandOutput {
             json_escape(&self.manifest_path),
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             render_port_registry_json(&self.port_bindings),
+            render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
             render_secret_records_json(&self.secret_records),
             render_doctor_checks_json(&self.doctor_checks),
@@ -951,6 +992,7 @@ impl LocalStackCommandOutput {
                 "\"remediation_hint\":\"{}\",",
                 "\"topology_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
+                "\"port_conflicts\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -962,6 +1004,7 @@ impl LocalStackCommandOutput {
             json_escape(remediation_hint(&self.reason_code)),
             json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
             render_port_registry_json(&self.port_bindings),
+            render_port_conflicts_json(&self.port_conflicts),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -982,6 +1025,34 @@ impl LocalStackCommandOutput {
         self.exit_class = ExitCodeClass::Success;
         self.retry_class = RetryClass::NotRetryable;
         self
+    }
+
+    fn apply_port_conflicts(&mut self, conflicts: Vec<ReservedPortConflict>) {
+        for conflict in &conflicts {
+            if let Some(health) = self
+                .service_health
+                .iter_mut()
+                .find(|health| health.service_id == conflict.service_id)
+            {
+                health.state = "failed".to_owned();
+                health.reason_code = conflict.reason_code.to_owned();
+                health.endpoint_ref = conflict.endpoint_ref.to_owned();
+                health.bind_host = conflict.bind_host.to_owned();
+                health.port = Some(conflict.port);
+                health.loopback_only = is_loopback_host(conflict.bind_host);
+            } else {
+                self.service_health.push(LocalServiceHealth {
+                    service_id: conflict.service_id.to_owned(),
+                    state: "failed".to_owned(),
+                    endpoint_ref: conflict.endpoint_ref.to_owned(),
+                    bind_host: conflict.bind_host.to_owned(),
+                    port: Some(conflict.port),
+                    loopback_only: is_loopback_host(conflict.bind_host),
+                    reason_code: conflict.reason_code.to_owned(),
+                });
+            }
+        }
+        self.port_conflicts = conflicts;
     }
 
     fn block(&mut self, failure: LocalStackFailure) {
@@ -1100,6 +1171,52 @@ fn binding_for_service(service_id: &str) -> Option<ReservedPortBinding> {
 
 fn reserved_port_bindings() -> Vec<ReservedPortBinding> {
     RESERVED_PORT_BINDINGS.to_vec()
+}
+
+fn detect_reserved_port_conflicts() -> Vec<ReservedPortConflict> {
+    RESERVED_PORT_BINDINGS
+        .into_iter()
+        .filter_map(|binding| {
+            if !is_loopback_host(binding.bind_host) {
+                return Some(ReservedPortConflict {
+                    service_id: binding.service_id,
+                    port: binding.port,
+                    bind_host: binding.bind_host,
+                    purpose: binding.purpose,
+                    endpoint_ref: binding.endpoint_ref,
+                    reason_code: "local_stack.non_loopback_binding",
+                    error_kind: "non_loopback_binding",
+                    os_error_code: None,
+                });
+            }
+
+            match TcpListener::bind((binding.bind_host, binding.port)) {
+                Ok(listener) => {
+                    drop(listener);
+                    None
+                }
+                Err(error) => Some(ReservedPortConflict {
+                    service_id: binding.service_id,
+                    port: binding.port,
+                    bind_host: binding.bind_host,
+                    purpose: binding.purpose,
+                    endpoint_ref: binding.endpoint_ref,
+                    reason_code: "local_stack.port_conflict",
+                    error_kind: bind_error_kind(&error),
+                    os_error_code: error.raw_os_error(),
+                }),
+            }
+        })
+        .collect()
+}
+
+fn bind_error_kind(error: &std::io::Error) -> &'static str {
+    match error.kind() {
+        std::io::ErrorKind::AddrInUse => "address_in_use",
+        std::io::ErrorKind::AddrNotAvailable => "address_not_available",
+        std::io::ErrorKind::PermissionDenied => "permission_denied",
+        _ => "bind_failed",
+    }
 }
 
 fn local_env_variables() -> Vec<LocalEnvVariable> {
@@ -1625,6 +1742,37 @@ fn render_port_registry_json(bindings: &[ReservedPortBinding]) -> String {
     )
 }
 
+fn render_port_conflicts_json(conflicts: &[ReservedPortConflict]) -> String {
+    let rendered = conflicts
+        .iter()
+        .map(|conflict| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"port\":{},",
+                    "\"bind_host\":\"{}\",",
+                    "\"purpose\":\"{}\",",
+                    "\"endpoint_ref\":\"{}\",",
+                    "\"reason_code\":\"{}\",",
+                    "\"error_kind\":\"{}\",",
+                    "\"os_error_code\":{}",
+                    "}}"
+                ),
+                json_escape(conflict.service_id),
+                conflict.port,
+                json_escape(conflict.bind_host),
+                json_escape(conflict.purpose),
+                json_escape(conflict.endpoint_ref),
+                json_escape(conflict.reason_code),
+                json_escape(conflict.error_kind),
+                json_optional_i32(conflict.os_error_code),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn render_env_manifest_json(variables: &[LocalEnvVariable]) -> String {
     let rendered = variables
         .iter()
@@ -1735,6 +1883,12 @@ fn json_optional_u16(value: Option<u16>) -> String {
         .unwrap_or_else(|| "null".to_owned())
 }
 
+fn json_optional_i32(value: Option<i32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_owned())
+}
+
 fn json_escape(value: &str) -> String {
     let mut escaped = String::new();
     for character in value.chars() {
@@ -1802,6 +1956,12 @@ mod tests {
             .and_then(Path::parent)
             .expect("local-stack crate lives under packages/")
             .to_path_buf()
+    }
+
+    fn test_options() -> LocalStackOptions {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.port_preflight = false;
+        options
     }
 
     fn minimal_manifest() -> String {
@@ -1914,7 +2074,7 @@ mod tests {
 
     #[test]
     fn runs_smoke_lifecycle() {
-        let mut options = LocalStackOptions::new(repo_root());
+        let mut options = test_options();
         options.trace_id = "trace_smoke_test".to_owned();
         let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
         assert!(output.is_ok());
@@ -1937,7 +2097,7 @@ mod tests {
 
     #[test]
     fn selected_future_phase_blocks_smoke() {
-        let mut options = LocalStackOptions::new(repo_root());
+        let mut options = test_options();
         options.master_phase = 2;
         let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
         assert!(!output.is_ok());
@@ -1971,8 +2131,7 @@ mod tests {
 
     #[test]
     fn loopback_binding_metadata_is_captured_in_health() {
-        let output =
-            LocalStackRunner::new(LocalStackOptions::new(repo_root())).run(DevCommand::Doctor);
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Doctor);
         assert!(output.is_ok());
         let api = output
             .service_health
@@ -1989,8 +2148,7 @@ mod tests {
 
     #[test]
     fn env_manifest_and_secret_records_are_redacted() {
-        let output =
-            LocalStackRunner::new(LocalStackOptions::new(repo_root())).run(DevCommand::Status);
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
         assert!(output.is_ok());
         assert!(output
             .env_variables
@@ -2016,15 +2174,27 @@ mod tests {
     }
 
     #[test]
-    fn port_conflict_blocks_before_starting() {
-        let mut options = LocalStackOptions::new(repo_root());
-        options.profile = "local-port-conflict".to_owned();
+    fn occupied_reserved_port_blocks_before_starting() {
+        let _listener = match TcpListener::bind(("127.0.0.1", 18080)) {
+            Ok(listener) => Some(listener),
+            Err(_) => None,
+        };
+        let options = LocalStackOptions::new(repo_root());
         let output = LocalStackRunner::new(options).run(DevCommand::Start);
         assert!(!output.is_ok());
         assert_eq!(output.reason_code, "local_stack.port_conflict");
         assert_eq!(output.exit_class, ExitCodeClass::Config);
         assert!(output.lifecycle_strs().contains(&"prerequisites_checked"));
         assert!(!output.lifecycle_strs().contains(&"starting"));
+        assert!(output
+            .port_conflicts
+            .iter()
+            .any(|conflict| conflict.port == 18080
+                && conflict.bind_host == "127.0.0.1"
+                && conflict.reason_code == "local_stack.port_conflict"));
+        assert!(output
+            .error_json()
+            .contains("\"port_conflicts\":[{\"service_id\":\"service:api\""));
         assert!(output
             .doctor_checks
             .iter()
@@ -2033,7 +2203,7 @@ mod tests {
 
     #[test]
     fn doctor_failure_reason_codes_are_stable() {
-        let mut options = LocalStackOptions::new(repo_root());
+        let mut options = test_options();
         options.profile = "local-unsafe-env".to_owned();
         let output = LocalStackRunner::new(options).run(DevCommand::Doctor);
         assert!(!output.is_ok());
@@ -2052,7 +2222,7 @@ mod tests {
 
     #[test]
     fn rejects_non_local_profile() {
-        let mut options = LocalStackOptions::new(repo_root());
+        let mut options = test_options();
         options.profile = "seed".to_owned();
         let output = LocalStackRunner::new(options).run(DevCommand::Start);
         assert!(!output.is_ok());
@@ -2062,7 +2232,7 @@ mod tests {
 
     #[test]
     fn backing_service_failure_is_redacted() {
-        let mut options = LocalStackOptions::new(repo_root());
+        let mut options = test_options();
         options.profile = "local-health-timeout".to_owned();
         let output = LocalStackRunner::new(options).run(DevCommand::Start);
         assert!(!output.is_ok());
