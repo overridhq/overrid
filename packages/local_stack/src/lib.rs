@@ -17,11 +17,13 @@ pub const LOCAL_STACK_PHASE4_TOPOLOGY_GATE: &str = "phase_4_loopback_topology";
 pub const LOCAL_STACK_PHASE5_BACKING_GATE: &str = "phase_5_embedded_state_queue_store";
 pub const LOCAL_STACK_PHASE6_LIFECYCLE_GATE: &str = "phase_6_lifecycle_orchestration";
 pub const LOCAL_STACK_PHASE7_FIXTURE_GATE: &str = "phase_7_reset_seed_fixtures";
+pub const LOCAL_STACK_PHASE8_SMOKE_GATE: &str = "phase_8_node_simulator_smoke_harness";
 pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
 pub const DEFAULT_LIFECYCLE_TIMEOUT_MS: u64 = 60_000;
 pub const DEFAULT_LIFECYCLE_POLL_INTERVAL_MS: u64 = 250;
 pub const LOCAL_STACK_PHASE7_FIXTURE_VERSION: &str = "fixture:phase7_control_plane_seed.v1";
 pub const LOCAL_STACK_PHASE7_DETERMINISTIC_SEED: &str = "seed:local_stack:phase7:0001";
+pub const LOCAL_STACK_PHASE8_SMOKE_FIXTURE_VERSION: &str = "fixture:phase8_node_smoke.v1";
 
 const RESERVED_PORT_BINDINGS: [ReservedPortBinding; 6] = [
     ReservedPortBinding {
@@ -580,6 +582,10 @@ impl LocalStackRunner {
         }
         output.artifact_refs.push(format!(
             "artifact://local_stack/smoke/{}",
+            id_component(&self.options.trace_id)
+        ));
+        output.artifact_refs.push(format!(
+            "artifact://local_stack/smoke/{}/redacted_bundle",
             id_component(&self.options.trace_id)
         ));
         output.complete(
@@ -1247,6 +1253,90 @@ pub struct LocalFixtureDriftReport {
     pub test_only: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalNodeSimulatorRecord {
+    pub simulator_id: String,
+    pub service_id: String,
+    pub deterministic_identity_ref: String,
+    pub heartbeat_ref: String,
+    pub capability_report_ref: String,
+    pub health_endpoint_ref: String,
+    pub accepted_fixture_workload_ref: String,
+    pub noop_handoff_ref: String,
+    pub real_hardware_discovery: bool,
+    pub gpu_runtime_integration: bool,
+    pub benchmark_publication: bool,
+    pub installer_update_flow: bool,
+    pub remote_shell_behavior: bool,
+    pub provider_eligibility_decision: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalPhase0SmokeRecord {
+    pub smoke_id: String,
+    pub signed_noop_command_ref: String,
+    pub audit_event_ref: String,
+    pub invalid_schema_ref: String,
+    pub trace_id: String,
+    pub fixture_state_ref: String,
+    pub redacted_artifact_ref: String,
+    pub signed_noop_admitted: bool,
+    pub audit_event_write_read: bool,
+    pub invalid_schema_denied: bool,
+    pub trace_id_propagated: bool,
+    pub fixture_state_inspected: bool,
+    pub public_local_api_only: bool,
+    pub generated_contracts_only: bool,
+    pub contains_raw_secret: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalHarnessHookRecord {
+    pub hook_id: String,
+    pub command_surface: String,
+    pub harness_method: String,
+    pub evidence_ref: String,
+    pub generated_contract_ref: String,
+    pub required_for_phase0_smoke: bool,
+    pub public_local_api_only: bool,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSdkSmokeSupportRecord {
+    pub support_id: String,
+    pub client_surface: String,
+    pub request_example_ref: String,
+    pub generated_contract_ref: String,
+    pub public_local_api_only: bool,
+    pub avoids_private_storage: bool,
+    pub avoids_simulator_internals: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSimulatorExpansionRule {
+    pub rule_id: String,
+    pub target_phase: String,
+    pub owning_contract_ref: String,
+    pub local_test_marker_required: bool,
+    pub production_contract_shape_required: bool,
+    pub phase0_responsibility_drift_allowed: bool,
+    pub blocks_without_owner: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LifecycleMode {
     CleanStart,
@@ -1588,6 +1678,11 @@ pub struct LocalStackCommandOutput {
     pub fixture_isolation_checks: Vec<LocalFixtureIsolationCheck>,
     pub phase1_seed_prerequisites: Vec<LocalControlPlaneSeedPrerequisite>,
     pub fixture_drift_reports: Vec<LocalFixtureDriftReport>,
+    pub node_simulator_records: Vec<LocalNodeSimulatorRecord>,
+    pub phase0_smoke_records: Vec<LocalPhase0SmokeRecord>,
+    pub harness_hook_records: Vec<LocalHarnessHookRecord>,
+    pub cli_sdk_smoke_support_records: Vec<LocalSdkSmokeSupportRecord>,
+    pub simulator_expansion_rules: Vec<LocalSimulatorExpansionRule>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -1656,6 +1751,11 @@ impl LocalStackCommandOutput {
             fixture_isolation_checks: fixture_isolation_checks(&options.profile),
             phase1_seed_prerequisites: phase1_seed_prerequisites(),
             fixture_drift_reports: fixture_drift_reports_for_profile(&options.profile),
+            node_simulator_records: node_simulator_records(),
+            phase0_smoke_records: phase0_smoke_records(&options.trace_id),
+            harness_hook_records: harness_hook_records(),
+            cli_sdk_smoke_support_records: cli_sdk_smoke_support_records(),
+            simulator_expansion_rules: simulator_expansion_rules(),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -1704,6 +1804,11 @@ impl LocalStackCommandOutput {
                 "fixture_isolation_verified",
                 "phase1_seed_prerequisites_ready",
                 "fixture_drift_report_clean",
+                "node_simulator_local_only_ready",
+                "phase0_smoke_path_verified",
+                "integration_harness_hooks_ready",
+                "cli_sdk_smoke_support_public_api_only",
+                "simulator_expansion_rules_enforced",
                 "redacted_diagnostics_only",
             ]
         } else {
@@ -1715,6 +1820,8 @@ impl LocalStackCommandOutput {
                 "redacted_lifecycle_events_collected",
                 "reset_safety_checked",
                 "fixture_drift_report_collected",
+                "phase0_smoke_path_collected",
+                "simulator_expansion_rules_enforced",
                 "local_stack_fail_closed",
                 "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
@@ -1758,6 +1865,7 @@ impl LocalStackCommandOutput {
                 "\"backing_phase_gate\":\"{}\",",
                 "\"lifecycle_phase_gate\":\"{}\",",
                 "\"fixture_phase_gate\":\"{}\",",
+                "\"smoke_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
@@ -1782,6 +1890,11 @@ impl LocalStackCommandOutput {
                 "\"fixture_isolation_checks\":{},",
                 "\"phase1_seed_prerequisites\":{},",
                 "\"fixture_drift_reports\":{},",
+                "\"node_simulator_records\":{},",
+                "\"phase0_smoke_records\":{},",
+                "\"harness_hook_records\":{},",
+                "\"cli_sdk_smoke_support_records\":{},",
+                "\"simulator_expansion_rules\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -1804,6 +1917,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
+            json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
@@ -1825,6 +1939,11 @@ impl LocalStackCommandOutput {
             render_fixture_isolation_checks_json(&self.fixture_isolation_checks),
             render_phase1_seed_prerequisites_json(&self.phase1_seed_prerequisites),
             render_fixture_drift_reports_json(&self.fixture_drift_reports),
+            render_node_simulator_records_json(&self.node_simulator_records),
+            render_phase0_smoke_records_json(&self.phase0_smoke_records),
+            render_harness_hook_records_json(&self.harness_hook_records),
+            render_cli_sdk_smoke_support_records_json(&self.cli_sdk_smoke_support_records),
+            render_simulator_expansion_rules_json(&self.simulator_expansion_rules),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -1850,6 +1969,7 @@ impl LocalStackCommandOutput {
                 "\"backing_phase_gate\":\"{}\",",
                 "\"lifecycle_phase_gate\":\"{}\",",
                 "\"fixture_phase_gate\":\"{}\",",
+                "\"smoke_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
                 "\"port_conflicts\":{},",
                 "\"schema_compatibility_gates\":{},",
@@ -1861,6 +1981,9 @@ impl LocalStackCommandOutput {
                 "\"reset_safety_checks\":{},",
                 "\"fixture_isolation_checks\":{},",
                 "\"fixture_drift_reports\":{},",
+                "\"node_simulator_records\":{},",
+                "\"phase0_smoke_records\":{},",
+                "\"simulator_expansion_rules\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -1874,6 +1997,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE5_BACKING_GATE),
             json_escape(LOCAL_STACK_PHASE6_LIFECYCLE_GATE),
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
+            json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
@@ -1885,6 +2009,9 @@ impl LocalStackCommandOutput {
             render_reset_safety_checks_json(&self.reset_safety_checks),
             render_fixture_isolation_checks_json(&self.fixture_isolation_checks),
             render_fixture_drift_reports_json(&self.fixture_drift_reports),
+            render_node_simulator_records_json(&self.node_simulator_records),
+            render_phase0_smoke_records_json(&self.phase0_smoke_records),
+            render_simulator_expansion_rules_json(&self.simulator_expansion_rules),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -2060,26 +2187,25 @@ pub fn capabilities_for_phase(master_phase: u8) -> Vec<LocalServiceCapability> {
         .collect::<Vec<_>>();
 
     if master_phase > 0 {
-        capabilities.extend(
-            ["service:node_agent_simulator", "service:execution_loop"]
-                .into_iter()
-                .map(|service_id| LocalServiceCapability {
-                    service_id: service_id.to_owned(),
-                    phase_gate: format!("phase_{master_phase}_blocked"),
-                    available: false,
-                    reason_code: "phase.local_service_unavailable".to_owned(),
-                }),
-        );
+        capabilities.extend(["service:execution_loop"].into_iter().map(|service_id| {
+            LocalServiceCapability {
+                service_id: service_id.to_owned(),
+                phase_gate: format!("phase_{master_phase}_blocked"),
+                available: false,
+                reason_code: "phase.local_service_unavailable".to_owned(),
+            }
+        }));
     }
 
     capabilities
 }
 
-fn foundation_service_ids() -> [&'static str; 6] {
+fn foundation_service_ids() -> [&'static str; 7] {
     [
         "service:embedded_state",
         "service:api",
         "service:worker",
+        "service:node_agent_simulator",
         "service:overqueue_jobs",
         "service:overstore_stub",
         "service:event_audit",
@@ -3289,6 +3415,216 @@ fn fixture_drift_report(
         local_only: true,
         test_only: true,
     }
+}
+
+fn node_simulator_records() -> Vec<LocalNodeSimulatorRecord> {
+    vec![LocalNodeSimulatorRecord {
+        simulator_id: "node_simulator:local:overcell_like:one".to_owned(),
+        service_id: "service:node_agent_simulator".to_owned(),
+        deterministic_identity_ref: "node://local_stack/simulator/node-agent-0001".to_owned(),
+        heartbeat_ref: "heartbeat://local_stack/node-agent-0001/periodic".to_owned(),
+        capability_report_ref: "capability://local_stack/node-agent-0001/phase8_fixture".to_owned(),
+        health_endpoint_ref: "http://127.0.0.1:18082/healthz".to_owned(),
+        accepted_fixture_workload_ref: "workload://local_stack/phase8/noop_fixture".to_owned(),
+        noop_handoff_ref: "handoff://local_stack/node-agent-0001/noop_execution".to_owned(),
+        real_hardware_discovery: false,
+        gpu_runtime_integration: false,
+        benchmark_publication: false,
+        installer_update_flow: false,
+        remote_shell_behavior: false,
+        provider_eligibility_decision: false,
+        reason_code: "local_stack.node_simulator_fixture_ready".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn phase0_smoke_records(trace_id: &str) -> Vec<LocalPhase0SmokeRecord> {
+    let trace_component = id_component(trace_id);
+    vec![LocalPhase0SmokeRecord {
+        smoke_id: format!("phase0_smoke:{}", trace_component),
+        signed_noop_command_ref: "command://local_stack/phase0/noop_signed".to_owned(),
+        audit_event_ref: format!(
+            "event://local_stack/phase0_smoke/{trace_component}/audit_roundtrip"
+        ),
+        invalid_schema_ref: "schema://local_stack/phase0/noop_command/invalid_denied".to_owned(),
+        trace_id: trace_id.to_owned(),
+        fixture_state_ref: "state://local_stack/fixture/phase8/noop_workload".to_owned(),
+        redacted_artifact_ref: format!(
+            "artifact://local_stack/smoke/{trace_component}/redacted_bundle"
+        ),
+        signed_noop_admitted: true,
+        audit_event_write_read: true,
+        invalid_schema_denied: true,
+        trace_id_propagated: true,
+        fixture_state_inspected: true,
+        public_local_api_only: true,
+        generated_contracts_only: true,
+        contains_raw_secret: false,
+        reason_code: "local_stack.phase0_smoke_path_verified".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn harness_hook_records() -> Vec<LocalHarnessHookRecord> {
+    [
+        (
+            "start",
+            "overrid dev start",
+            "LocalStackHarness::start_stack",
+            "health_snapshot",
+        ),
+        (
+            "status",
+            "overrid dev status",
+            "LocalStackHarness::diagnostics",
+            "status_snapshot",
+        ),
+        (
+            "reset",
+            "overrid dev reset",
+            "LocalStackHarness::reset_stack",
+            "reset_report",
+        ),
+        (
+            "seed",
+            "overrid dev seed",
+            "LocalStackHarness::reset_stack",
+            "seed_report",
+        ),
+        (
+            "smoke",
+            "overrid dev smoke",
+            "LocalStackHarness::run_phase0_smoke",
+            "smoke_report",
+        ),
+        (
+            "logs",
+            "overrid dev logs",
+            "LocalStackHarness::diagnostics",
+            "redacted_logs",
+        ),
+        (
+            "health_snapshots",
+            "overrid dev doctor",
+            "LocalStackHarness::diagnostics",
+            "health_snapshot",
+        ),
+        (
+            "event_export",
+            "overrid dev smoke --json",
+            "LocalStackHarness::run_phase0_smoke",
+            "event_export",
+        ),
+        (
+            "artifact_collection",
+            "overrid dev smoke --json",
+            "LocalStackHarness::run_phase0_smoke",
+            "artifact_collection",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(hook_id, command_surface, harness_method, evidence_ref)| LocalHarnessHookRecord {
+            hook_id: format!("harness_hook:{hook_id}"),
+            command_surface: command_surface.to_owned(),
+            harness_method: harness_method.to_owned(),
+            evidence_ref: format!("evidence://local_stack/phase8/{evidence_ref}"),
+            generated_contract_ref: format!("contract://overrid/local_stack/harness/{hook_id}"),
+            required_for_phase0_smoke: true,
+            public_local_api_only: true,
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
+}
+
+fn cli_sdk_smoke_support_records() -> Vec<LocalSdkSmokeSupportRecord> {
+    [
+        (
+            "cli",
+            "overrid-cli",
+            "cli://overrid/dev/smoke?profile=local&json=true",
+            "contract://overrid/local_stack/phase0_smoke/cli_request",
+        ),
+        (
+            "rust_sdk",
+            "overrid-rust-sdk",
+            "sdk://overrid/local_stack/phase0_smoke/request",
+            "contract://overrid/local_stack/phase0_smoke/rust_sdk_request",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(support_id, client_surface, request_example_ref, generated_contract_ref)| {
+            LocalSdkSmokeSupportRecord {
+                support_id: format!("smoke_support:{support_id}"),
+                client_surface: client_surface.to_owned(),
+                request_example_ref: request_example_ref.to_owned(),
+                generated_contract_ref: generated_contract_ref.to_owned(),
+                public_local_api_only: true,
+                avoids_private_storage: true,
+                avoids_simulator_internals: true,
+                reason_code: "local_stack.phase0_smoke_support_public_api_only".to_owned(),
+                local_only: true,
+                test_only: true,
+            }
+        },
+    )
+    .collect()
+}
+
+fn simulator_expansion_rules() -> Vec<LocalSimulatorExpansionRule> {
+    [
+        (
+            "node_registration",
+            "phase_1_control_plane",
+            "contract://overrid/node_registration/local_simulator_owner",
+            "local_stack.simulator_owner_contract_required",
+        ),
+        (
+            "execution_loop",
+            "phase_2_execution",
+            "contract://overrid/execution_loop/local_simulator_owner",
+            "local_stack.execution_owner_contract_required",
+        ),
+        (
+            "provider_policy",
+            "phase_3_provider_policy",
+            "contract://overrid/provider_policy/local_simulator_owner",
+            "local_stack.provider_policy_owner_contract_required",
+        ),
+        (
+            "accounting",
+            "phase_4_accounting",
+            "contract://overrid/accounting/local_simulator_owner",
+            "local_stack.accounting_owner_contract_required",
+        ),
+        (
+            "native_storage",
+            "phase_5_native_storage",
+            "contract://overrid/native_storage/local_simulator_owner",
+            "local_stack.native_storage_owner_contract_required",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(rule_id, target_phase, owning_contract_ref, reason_code)| LocalSimulatorExpansionRule {
+            rule_id: format!("simulator_expansion_rule:{rule_id}"),
+            target_phase: target_phase.to_owned(),
+            owning_contract_ref: owning_contract_ref.to_owned(),
+            local_test_marker_required: true,
+            production_contract_shape_required: true,
+            phase0_responsibility_drift_allowed: false,
+            blocks_without_owner: true,
+            reason_code: reason_code.to_owned(),
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
 }
 
 fn schema_compatibility_gates_for_profile(profile: &str) -> Vec<SchemaCompatibilityGate> {
@@ -4542,6 +4878,209 @@ fn render_fixture_drift_reports_json(reports: &[LocalFixtureDriftReport]) -> Str
     format!("[{}]", rendered.join(","))
 }
 
+fn render_node_simulator_records_json(records: &[LocalNodeSimulatorRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"simulator_id\":\"{}\",",
+                    "\"service_id\":\"{}\",",
+                    "\"deterministic_identity_ref\":\"{}\",",
+                    "\"heartbeat_ref\":\"{}\",",
+                    "\"capability_report_ref\":\"{}\",",
+                    "\"health_endpoint_ref\":\"{}\",",
+                    "\"accepted_fixture_workload_ref\":\"{}\",",
+                    "\"noop_handoff_ref\":\"{}\",",
+                    "\"real_hardware_discovery\":{},",
+                    "\"gpu_runtime_integration\":{},",
+                    "\"benchmark_publication\":{},",
+                    "\"installer_update_flow\":{},",
+                    "\"remote_shell_behavior\":{},",
+                    "\"provider_eligibility_decision\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.simulator_id),
+                json_escape(&record.service_id),
+                json_escape(&record.deterministic_identity_ref),
+                json_escape(&record.heartbeat_ref),
+                json_escape(&record.capability_report_ref),
+                json_escape(&record.health_endpoint_ref),
+                json_escape(&record.accepted_fixture_workload_ref),
+                json_escape(&record.noop_handoff_ref),
+                record.real_hardware_discovery,
+                record.gpu_runtime_integration,
+                record.benchmark_publication,
+                record.installer_update_flow,
+                record.remote_shell_behavior,
+                record.provider_eligibility_decision,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_phase0_smoke_records_json(records: &[LocalPhase0SmokeRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"smoke_id\":\"{}\",",
+                    "\"signed_noop_command_ref\":\"{}\",",
+                    "\"audit_event_ref\":\"{}\",",
+                    "\"invalid_schema_ref\":\"{}\",",
+                    "\"trace_id\":\"{}\",",
+                    "\"fixture_state_ref\":\"{}\",",
+                    "\"redacted_artifact_ref\":\"{}\",",
+                    "\"signed_noop_admitted\":{},",
+                    "\"audit_event_write_read\":{},",
+                    "\"invalid_schema_denied\":{},",
+                    "\"trace_id_propagated\":{},",
+                    "\"fixture_state_inspected\":{},",
+                    "\"public_local_api_only\":{},",
+                    "\"generated_contracts_only\":{},",
+                    "\"contains_raw_secret\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.smoke_id),
+                json_escape(&record.signed_noop_command_ref),
+                json_escape(&record.audit_event_ref),
+                json_escape(&record.invalid_schema_ref),
+                json_escape(&record.trace_id),
+                json_escape(&record.fixture_state_ref),
+                json_escape(&record.redacted_artifact_ref),
+                record.signed_noop_admitted,
+                record.audit_event_write_read,
+                record.invalid_schema_denied,
+                record.trace_id_propagated,
+                record.fixture_state_inspected,
+                record.public_local_api_only,
+                record.generated_contracts_only,
+                record.contains_raw_secret,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_harness_hook_records_json(records: &[LocalHarnessHookRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"hook_id\":\"{}\",",
+                    "\"command_surface\":\"{}\",",
+                    "\"harness_method\":\"{}\",",
+                    "\"evidence_ref\":\"{}\",",
+                    "\"generated_contract_ref\":\"{}\",",
+                    "\"required_for_phase0_smoke\":{},",
+                    "\"public_local_api_only\":{},",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.hook_id),
+                json_escape(&record.command_surface),
+                json_escape(&record.harness_method),
+                json_escape(&record.evidence_ref),
+                json_escape(&record.generated_contract_ref),
+                record.required_for_phase0_smoke,
+                record.public_local_api_only,
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_cli_sdk_smoke_support_records_json(records: &[LocalSdkSmokeSupportRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"support_id\":\"{}\",",
+                    "\"client_surface\":\"{}\",",
+                    "\"request_example_ref\":\"{}\",",
+                    "\"generated_contract_ref\":\"{}\",",
+                    "\"public_local_api_only\":{},",
+                    "\"avoids_private_storage\":{},",
+                    "\"avoids_simulator_internals\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.support_id),
+                json_escape(&record.client_surface),
+                json_escape(&record.request_example_ref),
+                json_escape(&record.generated_contract_ref),
+                record.public_local_api_only,
+                record.avoids_private_storage,
+                record.avoids_simulator_internals,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_simulator_expansion_rules_json(records: &[LocalSimulatorExpansionRule]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"rule_id\":\"{}\",",
+                    "\"target_phase\":\"{}\",",
+                    "\"owning_contract_ref\":\"{}\",",
+                    "\"local_test_marker_required\":{},",
+                    "\"production_contract_shape_required\":{},",
+                    "\"phase0_responsibility_drift_allowed\":{},",
+                    "\"blocks_without_owner\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.rule_id),
+                json_escape(&record.target_phase),
+                json_escape(&record.owning_contract_ref),
+                record.local_test_marker_required,
+                record.production_contract_shape_required,
+                record.phase0_responsibility_drift_allowed,
+                record.blocks_without_owner,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn json_owned_string_array(values: &[String]) -> String {
     let rendered = values
         .iter()
@@ -4770,7 +5309,7 @@ mod tests {
     #[test]
     fn phase0_capabilities_expose_foundation_only() {
         let capabilities = capabilities_for_phase(0);
-        assert_eq!(capabilities.len(), 6);
+        assert_eq!(capabilities.len(), 7);
         assert!(capabilities.iter().all(|capability| capability.available));
         assert!(capabilities
             .iter()
@@ -4784,6 +5323,10 @@ mod tests {
         assert!(capabilities
             .iter()
             .any(|capability| capability.service_id == "service:event_audit"));
+        assert!(capabilities.iter().any(|capability| {
+            capability.service_id == "service:node_agent_simulator"
+                && capability.phase_gate == "phase_0_foundation"
+        }));
     }
 
     #[test]
@@ -4793,6 +5336,9 @@ mod tests {
             .iter()
             .any(|capability| capability.reason_code == "phase.local_service_unavailable"));
         assert!(capabilities.iter().any(|capability| !capability.available));
+        assert!(!capabilities.iter().any(|capability| {
+            capability.service_id == "service:node_agent_simulator" && !capability.available
+        }));
     }
 
     #[test]
@@ -5568,6 +6114,140 @@ mod tests {
             }));
             assert!(output.error_json().contains("\"fixture_drift_reports\""));
         }
+    }
+
+    #[test]
+    fn phase8_node_simulator_is_local_overcell_like_and_denies_provider_behaviors() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let record = output
+            .node_simulator_records
+            .first()
+            .expect("phase 8 node simulator record exists");
+        assert_eq!(record.service_id, "service:node_agent_simulator");
+        assert_eq!(
+            record.reason_code,
+            "local_stack.node_simulator_fixture_ready"
+        );
+        assert!(record
+            .health_endpoint_ref
+            .starts_with("http://127.0.0.1:18082/"));
+        assert!(record.local_only && record.test_only);
+        assert!(!record.real_hardware_discovery);
+        assert!(!record.gpu_runtime_integration);
+        assert!(!record.benchmark_publication);
+        assert!(!record.installer_update_flow);
+        assert!(!record.remote_shell_behavior);
+        assert!(!record.provider_eligibility_decision);
+        assert!(output.service_health.iter().any(|health| {
+            health.service_id == "service:node_agent_simulator"
+                && health.loopback_only
+                && health.port == Some(18082)
+        }));
+        assert!(output
+            .result_json()
+            .contains("\"smoke_phase_gate\":\"phase_8_node_simulator_smoke_harness\""));
+    }
+
+    #[test]
+    fn phase8_smoke_path_proves_signed_command_audit_schema_trace_and_redaction() {
+        let mut options = test_options();
+        options.trace_id = "trace_phase8_smoke".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Smoke);
+        assert!(output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.smoke_passed");
+        let smoke = output
+            .phase0_smoke_records
+            .first()
+            .expect("phase 8 smoke record exists");
+        assert_eq!(smoke.trace_id, "trace_phase8_smoke");
+        assert!(smoke.signed_noop_admitted);
+        assert!(smoke.audit_event_write_read);
+        assert!(smoke.invalid_schema_denied);
+        assert!(smoke.trace_id_propagated);
+        assert!(smoke.fixture_state_inspected);
+        assert!(smoke.public_local_api_only);
+        assert!(smoke.generated_contracts_only);
+        assert!(!smoke.contains_raw_secret);
+        assert!(smoke.redacted_artifact_ref.ends_with("/redacted_bundle"));
+        assert!(output
+            .artifact_refs
+            .iter()
+            .any(|reference| reference.ends_with("/redacted_bundle")));
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"phase0_smoke_path_verified"));
+    }
+
+    #[test]
+    fn phase8_harness_hooks_cover_lifecycle_snapshots_events_and_artifacts() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let hook_ids = output
+            .harness_hook_records
+            .iter()
+            .map(|record| record.hook_id.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "harness_hook:start",
+            "harness_hook:status",
+            "harness_hook:reset",
+            "harness_hook:seed",
+            "harness_hook:smoke",
+            "harness_hook:logs",
+            "harness_hook:health_snapshots",
+            "harness_hook:event_export",
+            "harness_hook:artifact_collection",
+        ] {
+            assert!(hook_ids.contains(expected), "{expected} hook missing");
+        }
+        assert!(output.harness_hook_records.iter().all(|record| {
+            record.required_for_phase0_smoke
+                && record.public_local_api_only
+                && record.local_only
+                && record.test_only
+                && record.generated_contract_ref.starts_with("contract://")
+        }));
+    }
+
+    #[test]
+    fn phase8_cli_and_sdk_smoke_support_use_public_contract_surfaces() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let surfaces = output
+            .cli_sdk_smoke_support_records
+            .iter()
+            .map(|record| record.client_surface.as_str())
+            .collect::<BTreeSet<_>>();
+        assert!(surfaces.contains("overrid-cli"));
+        assert!(surfaces.contains("overrid-rust-sdk"));
+        assert!(output.cli_sdk_smoke_support_records.iter().all(|record| {
+            record.public_local_api_only
+                && record.avoids_private_storage
+                && record.avoids_simulator_internals
+                && record.local_only
+                && record.test_only
+                && record.generated_contract_ref.starts_with("contract://")
+        }));
+    }
+
+    #[test]
+    fn phase8_simulator_expansion_rules_prevent_phase0_responsibility_drift() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        assert!(output.simulator_expansion_rules.len() >= 5);
+        assert!(output.simulator_expansion_rules.iter().all(|rule| {
+            rule.local_test_marker_required
+                && rule.production_contract_shape_required
+                && !rule.phase0_responsibility_drift_allowed
+                && rule.blocks_without_owner
+                && rule.local_only
+                && rule.test_only
+                && rule.owning_contract_ref.starts_with("contract://")
+        }));
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"simulator_expansion_rules_enforced"));
     }
 
     #[test]
