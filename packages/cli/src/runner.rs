@@ -1777,13 +1777,10 @@ fn render_workload_execution_result(
     globals: &GlobalOptions,
     context: &BootstrapContext,
 ) -> String {
-    let execution_state = workload_execution_state_for_command(command);
+    let execution_state = workload_execution_state_for_command(command, &context.target_ref);
     let states = workload_execution_states(execution_state);
-    let timeline = ExecutionTimeline::new(
-        context.target_ref.clone(),
-        states,
-        context.trace_id.clone(),
-    );
+    let timeline =
+        ExecutionTimeline::new(context.target_ref.clone(), states, context.trace_id.clone());
     let log_bundle = matches!(command, WorkloadCommand::Logs | WorkloadCommand::Follow)
         .then(|| ExecutionLogBundle::new(context.target_ref.clone(), context.trace_id.clone()));
     let result_ref = matches!(command, WorkloadCommand::Result | WorkloadCommand::Follow)
@@ -1893,6 +1890,9 @@ fn render_workload_execution_result(
                     "oversched_scheduler_ref",
                     "overlease_lease_ref",
                     "overrun_runner_ref",
+                    "overcell_node_heartbeat_ref",
+                    "overpack_package_ref",
+                    "overstore_result_state_ref",
                     "overwatch_trace_ref",
                 ],
                 &[CapabilityRoute {
@@ -2340,7 +2340,8 @@ fn render_bootstrap_extra_json(
                 } else {
                     WorkloadCommand::Timeline
                 };
-                let execution_state = workload_execution_state_for_command(command);
+                let execution_state =
+                    workload_execution_state_for_command(command, &context.target_ref);
                 let timeline = ExecutionTimeline::new(
                     context.target_ref.clone(),
                     workload_execution_states(execution_state),
@@ -2578,18 +2579,42 @@ fn node_state_for_ref(target_ref: &str, command: NodeCommand) -> NodeState {
     }
 }
 
-fn workload_execution_state_for_command(command: WorkloadCommand) -> WorkloadExecutionState {
+fn workload_execution_state_for_command(
+    command: WorkloadCommand,
+    target_ref: &str,
+) -> WorkloadExecutionState {
+    if matches!(command, WorkloadCommand::Cancel) {
+        return WorkloadExecutionState::Cancelled;
+    }
+
+    let normalized = target_ref.to_ascii_lowercase().replace('-', "_");
+    if normalized.contains("cancelled") || normalized.contains("canceled") {
+        return WorkloadExecutionState::Cancelled;
+    }
+    if normalized.contains("dead_letter") || normalized.contains("deadletter") {
+        return WorkloadExecutionState::DeadLettered;
+    }
+    if normalized.contains("timed_out") || normalized.contains("timeout") {
+        return WorkloadExecutionState::TimedOut;
+    }
+    if normalized.contains("failed") || normalized.contains("failure") {
+        return WorkloadExecutionState::Failed;
+    }
+
     match command {
-        WorkloadCommand::Cancel => WorkloadExecutionState::Cancelled,
+        WorkloadCommand::Cancel => unreachable!("cancel is handled before target-ref mapping"),
         WorkloadCommand::Status => WorkloadExecutionState::Running,
-        WorkloadCommand::Logs | WorkloadCommand::Timeline | WorkloadCommand::Result | WorkloadCommand::Follow => {
-            WorkloadExecutionState::Succeeded
-        }
+        WorkloadCommand::Logs
+        | WorkloadCommand::Timeline
+        | WorkloadCommand::Result
+        | WorkloadCommand::Follow => WorkloadExecutionState::Succeeded,
         WorkloadCommand::Submit => WorkloadExecutionState::Scheduled,
     }
 }
 
-fn workload_execution_states(terminal_state: WorkloadExecutionState) -> Vec<WorkloadExecutionState> {
+fn workload_execution_states(
+    terminal_state: WorkloadExecutionState,
+) -> Vec<WorkloadExecutionState> {
     let mut states = vec![
         WorkloadExecutionState::Scheduled,
         WorkloadExecutionState::Leased,
@@ -3061,7 +3086,9 @@ mod tests {
             .stdout
             .contains("\"phase_gate\":\"phase_3_private_execution_loop\""));
         assert!(logs.stdout.contains("\"execution_logs\""));
-        assert!(logs.stdout.contains("\"redaction_policy\":\"secret_free_refs_only\""));
+        assert!(logs
+            .stdout
+            .contains("\"redaction_policy\":\"secret_free_refs_only\""));
         assert!(logs.stdout.contains("\"bounded_streaming\":true"));
         assert!(logs.stdout.contains("\"direct_node_path_exposed\":false"));
         assert!(logs.stdout.contains("\"wait\":true"));
@@ -3069,7 +3096,13 @@ mod tests {
         assert!(logs.stdout.contains("\"poll_interval_ms\":500"));
 
         let follow_args = args_with(
-            &["workload", "follow", "--json", "--workload-ref", "workload_local"],
+            &[
+                "workload",
+                "follow",
+                "--json",
+                "--workload-ref",
+                "workload_local",
+            ],
             LOCAL_PROFILE_ARGS,
         );
         let follow = run_args(follow_args);
@@ -3085,7 +3118,13 @@ mod tests {
         assert!(follow.stdout.contains("\"overwatch:trace\""));
 
         let result_args = args_with(
-            &["workload", "result", "--json", "--workload-ref", "workload_local"],
+            &[
+                "workload",
+                "result",
+                "--json",
+                "--workload-ref",
+                "workload_local",
+            ],
             LOCAL_PROFILE_ARGS,
         );
         let result = run_args(result_args);
@@ -3115,7 +3154,42 @@ mod tests {
         assert!(cancel.stdout.contains("\"execution_state\":\"cancelled\""));
         assert!(cancel.stdout.contains("\"signed\":true"));
         assert!(cancel.stdout.contains("\"signature_ref\":\"sigref:"));
-        assert!(cancel.stdout.contains("\"audit_cli_bootstrap_workload_cancel\""));
+        assert!(cancel
+            .stdout
+            .contains("\"audit_cli_bootstrap_workload_cancel\""));
+
+        for (fixture_ref, expected_state, expected_reason) in [
+            ("workload_cancelled", "cancelled", "result.cancelled"),
+            ("workload_retryable_failed", "failed", "result.failed"),
+            ("workload_final_failed", "failed", "result.failed"),
+            ("workload_timed_out", "timed_out", "result.timed_out"),
+            (
+                "workload_dead_lettered",
+                "dead_lettered",
+                "result.dead_lettered",
+            ),
+        ] {
+            let state_args = args_with(
+                &[
+                    "workload",
+                    "status",
+                    "--json",
+                    "--workload-ref",
+                    fixture_ref,
+                ],
+                LOCAL_PROFILE_ARGS,
+            );
+            let state = run_args(state_args);
+            assert_eq!(state.exit_code, EXIT_SUCCESS);
+            assert!(state
+                .stdout
+                .contains(&format!("\"execution_state\":\"{expected_state}\"")));
+            assert!(state.stdout.contains(expected_reason));
+            assert!(state
+                .stdout
+                .contains("\"synthetic_workload_pending_state\""));
+            assert!(state.stdout.contains("\"execution_timeline\""));
+        }
     }
 
     #[test]

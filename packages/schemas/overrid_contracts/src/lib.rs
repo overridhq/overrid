@@ -885,11 +885,7 @@ impl WorkloadExecutionState {
     pub fn is_terminal(self) -> bool {
         matches!(
             self,
-            Self::Succeeded
-                | Self::Failed
-                | Self::Cancelled
-                | Self::TimedOut
-                | Self::DeadLettered
+            Self::Succeeded | Self::Failed | Self::Cancelled | Self::TimedOut | Self::DeadLettered
         )
     }
 }
@@ -968,9 +964,17 @@ impl ExecutionTimeline {
                     format!("trace:{workload_ref}:package"),
                 ),
                 ExecutionDiagnosticEvent::new(
-                    states.last().copied().unwrap_or(WorkloadExecutionState::Succeeded),
+                    states
+                        .last()
+                        .copied()
+                        .unwrap_or(WorkloadExecutionState::Succeeded),
                     "overstore:result-state-ref",
-                    "result.ref.available",
+                    result_state_reason_code(
+                        states
+                            .last()
+                            .copied()
+                            .unwrap_or(WorkloadExecutionState::Succeeded),
+                    ),
                     format!("trace:{workload_ref}:result_state"),
                 ),
             ],
@@ -980,6 +984,9 @@ impl ExecutionTimeline {
                 "oversched:scheduler".to_owned(),
                 "overlease:lease".to_owned(),
                 "overrun:runner".to_owned(),
+                "overcell:node-heartbeat".to_owned(),
+                "overpack:package".to_owned(),
+                "overstore:result-state-ref".to_owned(),
                 "overwatch:trace".to_owned(),
             ],
             workload_ref,
@@ -987,6 +994,19 @@ impl ExecutionTimeline {
             trace_id: trace_id.into(),
             direct_node_access: false,
         }
+    }
+}
+
+fn result_state_reason_code(state: WorkloadExecutionState) -> &'static str {
+    match state {
+        WorkloadExecutionState::Scheduled => "result.scheduled",
+        WorkloadExecutionState::Leased => "result.leased",
+        WorkloadExecutionState::Running => "result.pending",
+        WorkloadExecutionState::Succeeded => "result.ref.available",
+        WorkloadExecutionState::Failed => "result.failed",
+        WorkloadExecutionState::Cancelled => "result.cancelled",
+        WorkloadExecutionState::TimedOut => "result.timed_out",
+        WorkloadExecutionState::DeadLettered => "result.dead_lettered",
     }
 }
 
@@ -1804,6 +1824,33 @@ mod tests {
         assert!(timeline
             .owning_service_refs
             .contains(&"overwatch:trace".to_owned()));
+        assert!(timeline
+            .owning_service_refs
+            .contains(&"overcell:node-heartbeat".to_owned()));
+        assert!(timeline
+            .owning_service_refs
+            .contains(&"overpack:package".to_owned()));
+        assert!(timeline
+            .owning_service_refs
+            .contains(&"overstore:result-state-ref".to_owned()));
+        assert!(timeline
+            .diagnostic_events
+            .iter()
+            .any(|event| event.reason_code == "result.ref.available"));
+        let failed_timeline = ExecutionTimeline::new(
+            "workload_failed",
+            vec![
+                WorkloadExecutionState::Scheduled,
+                WorkloadExecutionState::Leased,
+                WorkloadExecutionState::Running,
+                WorkloadExecutionState::Failed,
+            ],
+            "trace_cli_local",
+        );
+        assert!(failed_timeline
+            .diagnostic_events
+            .iter()
+            .any(|event| event.reason_code == "result.failed"));
         assert!(!timeline.direct_node_access);
         assert_eq!(logs.redaction_policy, "secret_free_refs_only");
         assert!(logs.bounded_streaming);

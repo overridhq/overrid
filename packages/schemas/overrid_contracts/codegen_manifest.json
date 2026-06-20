@@ -12,7 +12,11 @@
   },
   "fixtures": {
     "valid": "packages/cli/fixtures/valid/version_output.valid.json",
-    "invalid": "packages/cli/fixtures/invalid/private_service_endpoint.invalid.json"
+    "invalid": "packages/cli/fixtures/invalid/private_service_endpoint.invalid.json",
+    "phase7_valid": [
+      "packages/cli/fixtures/valid/phase7_node_states.valid.json",
+      "packages/cli/fixtures/valid/phase7_workload_execution_states.valid.json"
+    ]
   },
   "phase3_contracts": [
     "environment_class",

@@ -1,0 +1,17 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "command_family": "node",
+  "phase_gate": "phase_2_seed_private_swarm",
+  "target_refs": {
+    "node_live": "live",
+    "node_stale": "stale",
+    "node_expired": "expired",
+    "node_draining": "draining",
+    "node_disabled": "disabled"
+  },
+  "required_flags": {
+    "credential_checked": true,
+    "direct_node_access": false,
+    "registered_via": "sdk_overgate_contract"
+  }
+}

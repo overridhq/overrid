@@ -1,0 +1,30 @@
+{
+  "schema_version": "cli-command.v0.1",
+  "command_family": "workload_execution",
+  "phase_gate": "phase_3_private_execution_loop",
+  "target_refs": {
+    "workload_local": "succeeded",
+    "workload_running": "running",
+    "workload_retryable_failed": "failed",
+    "workload_final_failed": "failed",
+    "workload_timed_out": "timed_out",
+    "workload_dead_lettered": "dead_lettered",
+    "workload_cancelled": "cancelled"
+  },
+  "required_refs": [
+    "overgate:execution-command",
+    "overqueue:workload-state",
+    "oversched:scheduler",
+    "overlease:lease",
+    "overrun:runner",
+    "overcell:node-heartbeat",
+    "overpack:package",
+    "overstore:result-state-ref",
+    "overwatch:trace"
+  ],
+  "required_flags": {
+    "contains_private_payload": false,
+    "direct_node_path_exposed": false,
+    "direct_object_store_path_exposed": false
+  }
+}

@@ -315,23 +315,23 @@ pub enum PlannedCommand {
 impl PlannedCommand {
     pub fn command_name(self) -> &'static str {
         match self {
-            Self::Node => "node",
-            Self::WorkloadExecution => "workload execution",
-            Self::Policy => "policy",
-            Self::Usage => "usage/receipt/dispute",
-            Self::Package => "package/deployment",
-            Self::Governance => "governance/incident/compliance",
+            PlannedCommand::Node => "node",
+            PlannedCommand::WorkloadExecution => "workload execution",
+            PlannedCommand::Policy => "policy",
+            PlannedCommand::Usage => "usage/receipt/dispute",
+            PlannedCommand::Package => "package/deployment",
+            PlannedCommand::Governance => "governance/incident/compliance",
         }
     }
 
     pub fn phase_gate(self) -> &'static str {
         match self {
-            Self::Node => "phase_2",
-            Self::WorkloadExecution => "phase_3",
-            Self::Policy => "phase_4",
-            Self::Usage => "phase_5_or_phase_6",
-            Self::Package => "phase_9",
-            Self::Governance => "phase_7_or_phase_13",
+            PlannedCommand::Node => "phase_2",
+            PlannedCommand::WorkloadExecution => "phase_3",
+            PlannedCommand::Policy => "phase_4",
+            PlannedCommand::Usage => "phase_5_or_phase_6",
+            PlannedCommand::Package => "phase_9",
+            PlannedCommand::Governance => "phase_7_or_phase_13",
         }
     }
 }
