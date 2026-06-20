@@ -14,6 +14,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 LOCAL_STACK_CARGO = Path("packages/local_stack/Cargo.toml")
 LOCAL_STACK_LIB = Path("packages/local_stack/src/lib.rs")
+DEFAULT_LOCAL_STACK_FIXTURE = Path(
+    "packages/schemas/overrid_contracts/fixtures/valid/local_development_stack_phase2_default_local.valid.json"
+)
 SUB_PLAN = Path("docs/build_plan/sub_build_plan_004_local_development_stack.md")
 PHASE_PLAN = Path("docs/planning/local_development_stack_phase_05_plan.md")
 PHASE_PROGRESS = Path("docs/planning/local_development_stack_phase_05_progress.md")
@@ -23,6 +26,7 @@ SUITE_VALIDATOR = Path("scripts/validate_overrid.py")
 REQUIRED_FILES = [
     LOCAL_STACK_CARGO,
     LOCAL_STACK_LIB,
+    DEFAULT_LOCAL_STACK_FIXTURE,
     SUB_PLAN,
     PHASE_PLAN,
     PHASE_PROGRESS,
@@ -48,6 +52,23 @@ COMPATIBILITY_SURFACES = {
     "overstore_artifact_manifest",
     "fixture_manifest",
     "service_endpoint",
+}
+REQUIRED_SERVICE_DEFINITIONS = {
+    "service:embedded_state": "embedded_state",
+    "service:overqueue_jobs": "overqueue_job_table",
+    "service:overstore_stub": "overstore_artifact_stub",
+    "service:event_audit": "local_event_audit_query",
+    "service:api": "api",
+    "service:worker": "worker",
+    "service:node_agent_simulator": "node_agent_simulator",
+}
+REQUIRED_VOLUME_IDS = {
+    "volume:embedded_state",
+    "volume:overqueue_jobs",
+    "volume:overstore_stub",
+    "volume:event_audit",
+    "volume:node_agent_simulator",
+    "volume:logs",
 }
 FORBIDDEN_PRODUCT_MARKERS = (
     "postgresql",
@@ -76,6 +97,13 @@ def read_text(path: Path) -> str:
     if not full_path.is_file():
         raise AssertionError(f"missing required file: {path}")
     return full_path.read_text(encoding="utf-8")
+
+
+def read_json(path: Path) -> Any:
+    try:
+        return json.loads(read_text(path))
+    except json.JSONDecodeError as error:
+        raise AssertionError(f"{path} is not valid JSON: {error}") from error
 
 
 def assert_true(condition: bool, message: str) -> None:
@@ -156,10 +184,20 @@ def check_docs_and_source() -> None:
     for expected in [
         "LOCAL_STACK_PHASE5_BACKING_GATE",
         "LocalStateRecord",
+        "LocalStateStore",
         "LocalQueueJobRecord",
+        "LocalQueueTable",
+        "LocalQueueIdempotencyOutcome",
         "LocalArtifactManifest",
+        "LocalArtifactStore",
         "LocalAuditQueryRecord",
+        "LocalAuditQueryFilter",
+        "LocalAuditEventStore",
         "SchemaCompatibilityGate",
+        "SchemaCompatibilityReport",
+        "submit_preview",
+        "verify_payload",
+        "blocking_surfaces_for_command",
         "render_local_state_records_json",
         "render_queue_job_records_json",
         "render_artifact_manifests_json",
@@ -172,6 +210,59 @@ def check_docs_and_source() -> None:
         "local_stack.schema_version_incompatible",
     ]:
         assert_contains(source, expected, LOCAL_STACK_LIB)
+
+
+def check_default_manifest_service_definitions() -> None:
+    fixture = read_json(DEFAULT_LOCAL_STACK_FIXTURE)
+    enabled_services = set(fixture["stack_profile"]["enabled_services"])
+    definitions = fixture["service_definitions"]
+    definition_by_id = {definition["service_id"]: definition for definition in definitions}
+
+    missing_definitions = enabled_services - set(definition_by_id)
+    assert_true(
+        not missing_definitions,
+        f"default local fixture enables services without definitions: {sorted(missing_definitions)}",
+    )
+
+    for service_id, service_kind in REQUIRED_SERVICE_DEFINITIONS.items():
+        assert_true(service_id in definition_by_id, f"{service_id} definition missing")
+        definition = definition_by_id[service_id]
+        assert_true(
+            definition["service_kind"] == service_kind,
+            f"{service_id} service kind drifted: {definition['service_kind']}",
+        )
+        assert_true(definition["local_only"] is True, f"{service_id} local marker missing")
+        assert_true(definition["test_only"] is True, f"{service_id} test marker missing")
+        health_endpoint = definition["health_check"]["endpoint"]
+        assert_true(
+            health_endpoint.startswith(
+                (
+                    "http://127.0.0.1:",
+                    "local-state://",
+                    "artifact://",
+                    "log://",
+                )
+            ),
+            f"{service_id} health endpoint is not local/test scoped: {health_endpoint}",
+        )
+
+    volume_ids = {volume["volume_id"] for volume in fixture["volume_registry"]["volumes"]}
+    assert_true(REQUIRED_VOLUME_IDS <= volume_ids, "default local volumes missing Phase 5 backing volumes")
+
+    dependency_status = set(fixture["health_snapshot"]["dependency_status"])
+    for expected in [
+        "dependency:overqueue_jobs:ready",
+        "dependency:overstore_stub:ready",
+        "dependency:event_audit:ready",
+        "dependency:node_agent_simulator:ready",
+    ]:
+        assert_true(expected in dependency_status, f"fixture health dependency missing {expected}")
+
+    health_services = {
+        service["service_id"] for service in fixture["health_snapshot"]["service_health"]
+    }
+    for service_id in REQUIRED_SERVICE_DEFINITIONS:
+        assert_true(service_id in health_services, f"fixture health missing {service_id}")
 
 
 def check_successful_cli_evidence() -> None:
@@ -326,6 +417,7 @@ def main() -> int:
     checks = [
         check_required_files,
         check_docs_and_source,
+        check_default_manifest_service_definitions,
         check_cargo_tests,
         check_successful_cli_evidence,
         check_schema_incompatibility_blocks_start_seed_and_smoke,

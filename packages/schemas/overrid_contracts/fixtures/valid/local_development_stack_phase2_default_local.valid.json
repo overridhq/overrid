@@ -73,6 +73,88 @@
       "test_only": true
     },
     {
+      "service_id": "service:overqueue_jobs",
+      "service_kind": "overqueue_job_table",
+      "command": [
+        "overrid-local-queue",
+        "serve"
+      ],
+      "working_directory": "repo://packages/local_stack",
+      "env_refs": [
+        "env://OVERRID_LOCAL_QUEUE_DIR"
+      ],
+      "dependency_order": 2,
+      "depends_on": [
+        "service:embedded_state"
+      ],
+      "health_check": {
+        "kind": "file_marker",
+        "endpoint": "local-state://overqueue_jobs/ready.marker",
+        "expected_state": "ready",
+        "timeout_ms": 30000
+      },
+      "shutdown_behavior": "drop_embedded_handle",
+      "log_target": "log://local_stack/overqueue_jobs.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
+      "service_id": "service:overstore_stub",
+      "service_kind": "overstore_artifact_stub",
+      "command": [
+        "overrid-local-overstore",
+        "serve"
+      ],
+      "working_directory": "repo://packages/local_stack",
+      "env_refs": [
+        "env://OVERRID_LOCAL_ARTIFACT_DIR"
+      ],
+      "dependency_order": 3,
+      "depends_on": [
+        "service:embedded_state"
+      ],
+      "health_check": {
+        "kind": "file_marker",
+        "endpoint": "artifact://local_stack/ready.marker",
+        "expected_state": "ready",
+        "timeout_ms": 30000
+      },
+      "shutdown_behavior": "drop_embedded_handle",
+      "log_target": "log://local_stack/overstore_stub.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
+      "service_id": "service:event_audit",
+      "service_kind": "local_event_audit_query",
+      "command": [
+        "overrid-local-event-audit",
+        "serve"
+      ],
+      "working_directory": "repo://packages/local_stack",
+      "env_refs": [
+        "env://OVERRID_LOCAL_EVENT_DIR"
+      ],
+      "dependency_order": 3,
+      "depends_on": [
+        "service:embedded_state",
+        "service:overqueue_jobs"
+      ],
+      "health_check": {
+        "kind": "file_marker",
+        "endpoint": "local-state://event_audit/ready.marker",
+        "expected_state": "ready",
+        "timeout_ms": 30000
+      },
+      "shutdown_behavior": "drop_embedded_handle",
+      "log_target": "log://local_stack/event_audit.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
       "service_id": "service:api",
       "service_kind": "api",
       "command": [
@@ -129,6 +211,36 @@
       },
       "shutdown_behavior": "graceful_then_kill",
       "log_target": "log://local_stack/worker.log",
+      "restart_class": "required",
+      "local_only": true,
+      "test_only": true
+    },
+    {
+      "service_id": "service:node_agent_simulator",
+      "service_kind": "node_agent_simulator",
+      "command": [
+        "overrid-local-node-simulator",
+        "serve"
+      ],
+      "working_directory": "repo://packages/local_stack",
+      "env_refs": [
+        "env://OVERRID_LOCAL_NODE_SIMULATOR_PORT"
+      ],
+      "dependency_order": 6,
+      "depends_on": [
+        "service:api",
+        "service:worker",
+        "service:overqueue_jobs",
+        "service:event_audit"
+      ],
+      "health_check": {
+        "kind": "http",
+        "endpoint": "http://127.0.0.1:18082/healthz",
+        "expected_state": "ready",
+        "timeout_ms": 60000
+      },
+      "shutdown_behavior": "graceful_then_kill",
+      "log_target": "log://local_stack/node_agent_simulator.log",
       "restart_class": "required",
       "local_only": true,
       "test_only": true
@@ -211,6 +323,30 @@
         "local_test_state_marker": ".overrid-local-test-state"
       },
       {
+        "volume_id": "volume:overqueue_jobs",
+        "path_ref": "local-state://overqueue_jobs",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      },
+      {
+        "volume_id": "volume:overstore_stub",
+        "path_ref": "artifact://local_stack",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      },
+      {
+        "volume_id": "volume:event_audit",
+        "path_ref": "local-state://event_audit",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      },
+      {
+        "volume_id": "volume:node_agent_simulator",
+        "path_ref": "local-state://node_agent_simulator",
+        "resettable": true,
+        "local_test_state_marker": ".overrid-local-test-state"
+      },
+      {
         "volume_id": "volume:logs",
         "path_ref": "log://local_stack",
         "resettable": true,
@@ -286,9 +422,18 @@
     "state": "ready",
     "dependency_status": [
       "dependency:embedded_state:ready",
-      "dependency:overqueue_jobs:ready"
+      "dependency:overqueue_jobs:ready",
+      "dependency:overstore_stub:ready",
+      "dependency:event_audit:ready",
+      "dependency:node_agent_simulator:ready"
     ],
     "service_health": [
+      {
+        "service_id": "service:embedded_state",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:embedded_state"
+      },
       {
         "service_id": "service:api",
         "state": "ready",
@@ -300,6 +445,30 @@
         "state": "ready",
         "last_error": null,
         "health_check_ref": "health:worker"
+      },
+      {
+        "service_id": "service:overqueue_jobs",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:overqueue_jobs"
+      },
+      {
+        "service_id": "service:overstore_stub",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:overstore_stub"
+      },
+      {
+        "service_id": "service:event_audit",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:event_audit"
+      },
+      {
+        "service_id": "service:node_agent_simulator",
+        "state": "ready",
+        "last_error": null,
+        "health_check_ref": "health:node_agent_simulator"
       }
     ],
     "redaction_summary": "secret_free",

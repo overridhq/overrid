@@ -256,9 +256,9 @@ impl LocalStackRunner {
         }
 
         if command.checks_schema_compatibility() {
-            let gates = schema_compatibility_gates_for_profile(&self.options.profile);
-            if gates.iter().any(|gate| !gate.compatible) {
-                output.apply_schema_compatibility_gates(gates);
+            let schema_report = SchemaCompatibilityReport::for_profile(&self.options.profile);
+            if !schema_report.is_compatible() {
+                output.apply_schema_compatibility_gates(schema_report.into_gates());
                 output.block(LocalStackFailure {
                     reason_code: "local_stack.schema_version_incompatible",
                     message: "local stack backing records use an incompatible schema version",
@@ -907,6 +907,302 @@ pub struct SchemaCompatibilityGate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStateStore {
+    records: Vec<LocalStateRecord>,
+}
+
+impl LocalStateStore {
+    pub fn new(records: Vec<LocalStateRecord>) -> Self {
+        Self { records }
+    }
+
+    pub fn default_local() -> Self {
+        Self::new(local_state_records())
+    }
+
+    pub fn records(&self) -> &[LocalStateRecord] {
+        &self.records
+    }
+
+    pub fn get(&self, record_id: &str) -> Option<&LocalStateRecord> {
+        self.records
+            .iter()
+            .find(|record| record.record_id == record_id)
+    }
+
+    pub fn by_kind(&self, record_kind: &str) -> Vec<&LocalStateRecord> {
+        self.records
+            .iter()
+            .filter(|record| record.record_kind == record_kind)
+            .collect()
+    }
+
+    pub fn contract_ref(&self, record_id: &str) -> Option<&'static str> {
+        self.get(record_id).map(|record| record.contract_ref)
+    }
+
+    pub fn schema_versions_compatible(&self) -> bool {
+        self.records
+            .iter()
+            .all(|record| record.schema_version == SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION)
+    }
+
+    pub fn all_overbase_shaped(&self) -> bool {
+        self.records.iter().all(|record| {
+            record.local_only
+                && record.test_only
+                && !record.external_database_semantics
+                && record.storage_boundary == "overbase_shaped_embedded_state"
+                && (record.contract_ref.starts_with("overbase://")
+                    || record.contract_ref.starts_with("local-state://"))
+        })
+    }
+}
+
+impl Default for LocalStateStore {
+    fn default() -> Self {
+        Self::default_local()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalQueueIdempotencyOutcome {
+    pub idempotency_key: String,
+    pub accepted: bool,
+    pub existing_job_id: Option<&'static str>,
+    pub reason_code: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalQueueTable {
+    jobs: Vec<LocalQueueJobRecord>,
+}
+
+impl LocalQueueTable {
+    pub fn new(jobs: Vec<LocalQueueJobRecord>) -> Self {
+        Self { jobs }
+    }
+
+    pub fn default_local() -> Self {
+        Self::new(local_queue_job_records())
+    }
+
+    pub fn jobs(&self) -> &[LocalQueueJobRecord] {
+        &self.jobs
+    }
+
+    pub fn submit_preview(&self, idempotency_key: &str) -> LocalQueueIdempotencyOutcome {
+        if let Some(existing) = self
+            .jobs
+            .iter()
+            .find(|job| job.idempotency_key == idempotency_key)
+        {
+            return LocalQueueIdempotencyOutcome {
+                idempotency_key: idempotency_key.to_owned(),
+                accepted: false,
+                existing_job_id: Some(existing.job_id),
+                reason_code: "local_stack.job_duplicate_idempotency_key",
+            };
+        }
+
+        LocalQueueIdempotencyOutcome {
+            idempotency_key: idempotency_key.to_owned(),
+            accepted: true,
+            existing_job_id: None,
+            reason_code: "local_stack.job_pending",
+        }
+    }
+
+    pub fn jobs_by_state(&self, state: &str) -> Vec<&LocalQueueJobRecord> {
+        self.jobs.iter().filter(|job| job.state == state).collect()
+    }
+
+    pub fn pending_jobs(&self) -> Vec<&LocalQueueJobRecord> {
+        self.jobs_by_state("pending")
+    }
+
+    pub fn retry_jobs(&self) -> Vec<&LocalQueueJobRecord> {
+        self.jobs_by_state("retry_scheduled")
+    }
+
+    pub fn dead_letter_jobs(&self) -> Vec<&LocalQueueJobRecord> {
+        self.jobs_by_state("dead_letter")
+    }
+
+    pub fn terminal_jobs(&self) -> Vec<&LocalQueueJobRecord> {
+        self.jobs.iter().filter(|job| job.terminal).collect()
+    }
+}
+
+impl Default for LocalQueueTable {
+    fn default() -> Self {
+        Self::default_local()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalArtifactStore {
+    manifests: Vec<LocalArtifactManifest>,
+}
+
+impl LocalArtifactStore {
+    pub fn new(manifests: Vec<LocalArtifactManifest>) -> Self {
+        Self { manifests }
+    }
+
+    pub fn default_local() -> Self {
+        Self::new(local_artifact_manifests())
+    }
+
+    pub fn manifests(&self) -> &[LocalArtifactManifest] {
+        &self.manifests
+    }
+
+    pub fn manifest_for_ref(&self, artifact_ref: &str) -> Option<&LocalArtifactManifest> {
+        self.manifests
+            .iter()
+            .find(|manifest| manifest.artifact_ref == artifact_ref)
+    }
+
+    pub fn verify_payload(&self, artifact_ref: &str, payload: &str) -> bool {
+        let Some(manifest) = self.manifest_for_ref(artifact_ref) else {
+            return false;
+        };
+        let content_hash = blake3_hex(payload.as_bytes());
+        manifest.hash_algorithm == "BLAKE3"
+            && manifest.content_hash == content_hash
+            && manifest.content_address == Self::content_address_for_payload(payload)
+            && manifest.byte_length == payload.len()
+            && manifest.filesystem_backed
+            && !manifest.external_object_store_boundary
+            && manifest.local_only
+            && manifest.test_only
+    }
+
+    pub fn resettable_manifests(&self) -> Vec<&LocalArtifactManifest> {
+        self.manifests
+            .iter()
+            .filter(|manifest| manifest.reset_safe)
+            .collect()
+    }
+
+    pub fn content_address_for_payload(payload: &str) -> String {
+        let content_hash = blake3_hex(payload.as_bytes());
+        format!("overstore://local_stub/blake3/{content_hash}")
+    }
+}
+
+impl Default for LocalArtifactStore {
+    fn default() -> Self {
+        Self::default_local()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LocalAuditQueryFilter<'a> {
+    pub trace_id: Option<&'a str>,
+    pub service_id: Option<&'a str>,
+    pub time_window_ref: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalAuditEventStore {
+    records: Vec<LocalAuditQueryRecord>,
+}
+
+impl LocalAuditEventStore {
+    pub fn new(records: Vec<LocalAuditQueryRecord>) -> Self {
+        Self { records }
+    }
+
+    pub fn default_local() -> Self {
+        Self::new(local_audit_query_records())
+    }
+
+    pub fn records(&self) -> &[LocalAuditQueryRecord] {
+        &self.records
+    }
+
+    pub fn query(&self, filter: LocalAuditQueryFilter<'_>) -> Vec<&LocalAuditQueryRecord> {
+        self.records
+            .iter()
+            .filter(|record| {
+                filter
+                    .trace_id
+                    .map(|trace_id| record.trace_id == trace_id)
+                    .unwrap_or(true)
+                    && filter
+                        .service_id
+                        .map(|service_id| record.service_id == service_id)
+                        .unwrap_or(true)
+                    && filter
+                        .time_window_ref
+                        .map(|time_window_ref| record.time_window_ref == time_window_ref)
+                        .unwrap_or(true)
+            })
+            .collect()
+    }
+
+    pub fn all_local_diagnostics_only(&self) -> bool {
+        self.records.iter().all(|record| {
+            record.local_diagnostic_event
+                && !record.production_overwatch_authority
+                && !record.contains_raw_secret
+                && record.redaction_summary == "secret_free"
+                && record.local_only
+                && record.test_only
+        })
+    }
+}
+
+impl Default for LocalAuditEventStore {
+    fn default() -> Self {
+        Self::default_local()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaCompatibilityReport {
+    gates: Vec<SchemaCompatibilityGate>,
+}
+
+impl SchemaCompatibilityReport {
+    pub fn for_profile(profile: &str) -> Self {
+        Self {
+            gates: schema_compatibility_gates_for_profile(profile),
+        }
+    }
+
+    pub fn gates(&self) -> &[SchemaCompatibilityGate] {
+        &self.gates
+    }
+
+    pub fn into_gates(self) -> Vec<SchemaCompatibilityGate> {
+        self.gates
+    }
+
+    pub fn is_compatible(&self) -> bool {
+        self.gates.iter().all(|gate| gate.compatible)
+    }
+
+    pub fn blocking_surfaces_for_command(&self, command: DevCommand) -> Vec<&'static str> {
+        self.gates
+            .iter()
+            .filter(|gate| {
+                !gate.compatible
+                    && match command {
+                        DevCommand::Start => gate.blocks_start,
+                        DevCommand::Seed => gate.blocks_seed,
+                        DevCommand::Smoke => gate.blocks_smoke,
+                        _ => false,
+                    }
+            })
+            .map(|gate| gate.surface)
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalStackCommandOutput {
     pub command_name: String,
     pub profile: String,
@@ -963,11 +1259,13 @@ impl LocalStackCommandOutput {
             env_variables: local_env_variables(),
             secret_records: local_secret_records(),
             doctor_checks: doctor_checks_for_profile(&options.profile),
-            local_state_records: local_state_records(),
-            queue_job_records: local_queue_job_records(),
-            artifact_manifests: local_artifact_manifests(),
-            audit_query_records: local_audit_query_records(),
-            schema_compatibility_gates: schema_compatibility_gates_for_profile(&options.profile),
+            local_state_records: LocalStateStore::default_local().records().to_vec(),
+            queue_job_records: LocalQueueTable::default_local().jobs().to_vec(),
+            artifact_manifests: LocalArtifactStore::default_local().manifests().to_vec(),
+            audit_query_records: LocalAuditEventStore::default_local().records().to_vec(),
+            schema_compatibility_gates: SchemaCompatibilityReport::for_profile(&options.profile)
+                .gates()
+                .to_vec(),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -2781,6 +3079,104 @@ mod tests {
     }
 
     #[test]
+    fn phase5_state_store_supports_contract_lookup() {
+        let store = LocalStateStore::default_local();
+        assert!(store.all_overbase_shaped());
+        assert!(store.schema_versions_compatible());
+        assert_eq!(
+            store.contract_ref("state:tenant:local_alpha"),
+            Some("overbase://local_state/tenants/tenant:local:alpha")
+        );
+        assert_eq!(store.by_kind("tenant").len(), 1);
+        assert_eq!(store.by_kind("schema_version").len(), 1);
+        assert!(store.get("state:missing").is_none());
+    }
+
+    #[test]
+    fn phase5_queue_table_reports_idempotency_and_terminal_sets() {
+        let table = LocalQueueTable::default_local();
+        let duplicate = table.submit_preview("idem:local_stack:phase5:smoke");
+        assert!(!duplicate.accepted);
+        assert_eq!(
+            duplicate.existing_job_id,
+            Some("job:local:phase5_smoke_pending")
+        );
+        assert_eq!(
+            duplicate.reason_code,
+            "local_stack.job_duplicate_idempotency_key"
+        );
+
+        let accepted = table.submit_preview("idem:local_stack:phase5:new");
+        assert!(accepted.accepted);
+        assert_eq!(accepted.existing_job_id, None);
+        assert_eq!(accepted.reason_code, "local_stack.job_pending");
+
+        assert_eq!(table.pending_jobs().len(), 1);
+        assert_eq!(table.retry_jobs().len(), 1);
+        assert_eq!(table.dead_letter_jobs().len(), 1);
+        assert_eq!(table.terminal_jobs().len(), 2);
+    }
+
+    #[test]
+    fn phase5_artifact_store_verifies_payload_hash() {
+        let store = LocalArtifactStore::default_local();
+        let artifact_ref = "artifact://local_stack/phase5/noop_payload";
+        let manifest = store
+            .manifest_for_ref(artifact_ref)
+            .expect("phase 5 artifact manifest exists");
+        assert_eq!(
+            manifest.content_address,
+            LocalArtifactStore::content_address_for_payload(local_artifact_payload())
+        );
+        assert!(store.verify_payload(artifact_ref, local_artifact_payload()));
+        assert!(!store.verify_payload(artifact_ref, "tampered"));
+        assert_eq!(store.resettable_manifests().len(), 1);
+    }
+
+    #[test]
+    fn phase5_audit_store_filters_by_trace_service_and_window() {
+        let store = LocalAuditEventStore::default_local();
+        assert!(store.all_local_diagnostics_only());
+
+        let queue_events = store.query(LocalAuditQueryFilter {
+            trace_id: Some("trace_local_stack_phase5_dead_letter"),
+            service_id: Some("service:overqueue_jobs"),
+            time_window_ref: Some("time_window:local_stack_phase5_queue"),
+        });
+        assert_eq!(queue_events.len(), 1);
+        assert_eq!(queue_events[0].event_type, "local_stack.job_dead_lettered");
+
+        assert!(store
+            .query(LocalAuditQueryFilter {
+                trace_id: Some("trace_missing"),
+                service_id: Some("service:overqueue_jobs"),
+                time_window_ref: None,
+            })
+            .is_empty());
+    }
+
+    #[test]
+    fn phase5_schema_report_blocks_start_seed_and_smoke() {
+        let report = SchemaCompatibilityReport::for_profile("local-stale-local-state-schema");
+        assert!(!report.is_compatible());
+        assert_eq!(
+            report.blocking_surfaces_for_command(DevCommand::Start),
+            vec!["local_state"]
+        );
+        assert_eq!(
+            report.blocking_surfaces_for_command(DevCommand::Seed),
+            vec!["local_state"]
+        );
+        assert_eq!(
+            report.blocking_surfaces_for_command(DevCommand::Smoke),
+            vec!["local_state"]
+        );
+        assert!(report
+            .blocking_surfaces_for_command(DevCommand::Status)
+            .is_empty());
+    }
+
+    #[test]
     fn phase5_local_state_records_are_overbase_shaped() {
         let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
         assert!(output.is_ok());
@@ -2880,8 +3276,8 @@ mod tests {
     }
 
     #[test]
-    fn phase5_schema_incompatibility_blocks_seed_and_smoke() {
-        for command in [DevCommand::Seed, DevCommand::Smoke] {
+    fn phase5_schema_incompatibility_blocks_start_seed_and_smoke() {
+        for command in [DevCommand::Start, DevCommand::Seed, DevCommand::Smoke] {
             let mut options = test_options();
             options.profile = "local-stale-local-state-schema".to_owned();
             let output = LocalStackRunner::new(options).run(command);
