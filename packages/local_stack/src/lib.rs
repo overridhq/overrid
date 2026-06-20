@@ -3478,7 +3478,7 @@ fn harness_hook_records() -> Vec<LocalHarnessHookRecord> {
         (
             "status",
             "overrid dev status",
-            "LocalStackHarness::diagnostics",
+            "LocalStackHarness::status_stack",
             "status_snapshot",
         ),
         (
@@ -3490,7 +3490,7 @@ fn harness_hook_records() -> Vec<LocalHarnessHookRecord> {
         (
             "seed",
             "overrid dev seed",
-            "LocalStackHarness::reset_stack",
+            "LocalStackHarness::seed_stack",
             "seed_report",
         ),
         (
@@ -3502,25 +3502,25 @@ fn harness_hook_records() -> Vec<LocalHarnessHookRecord> {
         (
             "logs",
             "overrid dev logs",
-            "LocalStackHarness::diagnostics",
+            "LocalStackHarness::logs",
             "redacted_logs",
         ),
         (
             "health_snapshots",
             "overrid dev doctor",
-            "LocalStackHarness::diagnostics",
+            "LocalStackHarness::health_snapshots",
             "health_snapshot",
         ),
         (
             "event_export",
             "overrid dev smoke --json",
-            "LocalStackHarness::run_phase0_smoke",
+            "LocalStackHarness::event_export",
             "event_export",
         ),
         (
             "artifact_collection",
             "overrid dev smoke --json",
-            "LocalStackHarness::run_phase0_smoke",
+            "LocalStackHarness::artifact_collection",
             "artifact_collection",
         ),
     ]
@@ -3580,33 +3580,33 @@ fn simulator_expansion_rules() -> Vec<LocalSimulatorExpansionRule> {
     [
         (
             "node_registration",
-            "phase_1_control_plane",
+            "phase_2_node_registration",
             "contract://overrid/node_registration/local_simulator_owner",
             "local_stack.simulator_owner_contract_required",
         ),
         (
             "execution_loop",
-            "phase_2_execution",
+            "phase_3_execution_loop",
             "contract://overrid/execution_loop/local_simulator_owner",
             "local_stack.execution_owner_contract_required",
         ),
         (
-            "provider_policy",
-            "phase_3_provider_policy",
-            "contract://overrid/provider_policy/local_simulator_owner",
-            "local_stack.provider_policy_owner_contract_required",
+            "policy",
+            "phase_4_policy",
+            "contract://overrid/policy/local_simulator_owner",
+            "local_stack.policy_owner_contract_required",
         ),
         (
             "accounting",
-            "phase_4_accounting",
+            "phase_5_accounting",
             "contract://overrid/accounting/local_simulator_owner",
             "local_stack.accounting_owner_contract_required",
         ),
         (
-            "native_storage",
-            "phase_5_native_storage",
-            "contract://overrid/native_storage/local_simulator_owner",
-            "local_stack.native_storage_owner_contract_required",
+            "storage_namespace",
+            "phase_8_storage_namespace",
+            "contract://overrid/storage_namespace/local_simulator_owner",
+            "local_stack.storage_namespace_owner_contract_required",
         ),
     ]
     .into_iter()
@@ -6201,6 +6201,33 @@ mod tests {
         ] {
             assert!(hook_ids.contains(expected), "{expected} hook missing");
         }
+        for (hook_id, harness_method) in [
+            ("harness_hook:start", "LocalStackHarness::start_stack"),
+            ("harness_hook:status", "LocalStackHarness::status_stack"),
+            ("harness_hook:reset", "LocalStackHarness::reset_stack"),
+            ("harness_hook:seed", "LocalStackHarness::seed_stack"),
+            ("harness_hook:smoke", "LocalStackHarness::run_phase0_smoke"),
+            ("harness_hook:logs", "LocalStackHarness::logs"),
+            (
+                "harness_hook:health_snapshots",
+                "LocalStackHarness::health_snapshots",
+            ),
+            (
+                "harness_hook:event_export",
+                "LocalStackHarness::event_export",
+            ),
+            (
+                "harness_hook:artifact_collection",
+                "LocalStackHarness::artifact_collection",
+            ),
+        ] {
+            let record = output
+                .harness_hook_records
+                .iter()
+                .find(|record| record.hook_id == hook_id)
+                .expect("phase 8 harness hook record exists");
+            assert_eq!(record.harness_method, harness_method);
+        }
         assert!(output.harness_hook_records.iter().all(|record| {
             record.required_for_phase0_smoke
                 && record.public_local_api_only
@@ -6236,6 +6263,23 @@ mod tests {
         let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
         assert!(output.is_ok());
         assert!(output.simulator_expansion_rules.len() >= 5);
+        let target_phases = output
+            .simulator_expansion_rules
+            .iter()
+            .map(|rule| rule.target_phase.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "phase_2_node_registration",
+            "phase_3_execution_loop",
+            "phase_4_policy",
+            "phase_5_accounting",
+            "phase_8_storage_namespace",
+        ] {
+            assert!(
+                target_phases.contains(expected),
+                "{expected} expansion rule missing"
+            );
+        }
         assert!(output.simulator_expansion_rules.iter().all(|rule| {
             rule.local_test_marker_required
                 && rule.production_contract_shape_required

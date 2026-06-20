@@ -13,6 +13,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 LOCAL_STACK_LIB = Path("packages/local_stack/src/lib.rs")
+HARNESS_LOCAL_STACK = Path("packages/integration_harness/src/local_stack.rs")
+SDK_LIB = Path("packages/sdk/src/lib.rs")
 SUB_PLAN = Path("docs/build_plan/sub_build_plan_004_local_development_stack.md")
 PHASE_PLAN = Path("docs/planning/local_development_stack_phase_08_plan.md")
 PHASE_PROGRESS = Path("docs/planning/local_development_stack_phase_08_progress.md")
@@ -21,6 +23,8 @@ SUITE_VALIDATOR = Path("scripts/validate_overrid.py")
 
 REQUIRED_FILES = [
     LOCAL_STACK_LIB,
+    HARNESS_LOCAL_STACK,
+    SDK_LIB,
     SUB_PLAN,
     PHASE_PLAN,
     PHASE_PROGRESS,
@@ -40,6 +44,24 @@ EXPECTED_HOOK_IDS = [
     "harness_hook:event_export",
     "harness_hook:artifact_collection",
 ]
+EXPECTED_HOOK_METHODS = {
+    "harness_hook:start": "LocalStackHarness::start_stack",
+    "harness_hook:status": "LocalStackHarness::status_stack",
+    "harness_hook:reset": "LocalStackHarness::reset_stack",
+    "harness_hook:seed": "LocalStackHarness::seed_stack",
+    "harness_hook:smoke": "LocalStackHarness::run_phase0_smoke",
+    "harness_hook:logs": "LocalStackHarness::logs",
+    "harness_hook:health_snapshots": "LocalStackHarness::health_snapshots",
+    "harness_hook:event_export": "LocalStackHarness::event_export",
+    "harness_hook:artifact_collection": "LocalStackHarness::artifact_collection",
+}
+EXPECTED_EXPANSION_RULES = {
+    "simulator_expansion_rule:node_registration": "phase_2_node_registration",
+    "simulator_expansion_rule:execution_loop": "phase_3_execution_loop",
+    "simulator_expansion_rule:policy": "phase_4_policy",
+    "simulator_expansion_rule:accounting": "phase_5_accounting",
+    "simulator_expansion_rule:storage_namespace": "phase_8_storage_namespace",
+}
 RAW_SECRET_MARKERS = (
     "password=",
     "token=",
@@ -121,6 +143,8 @@ def check_required_files() -> None:
 
 def check_docs_and_source() -> None:
     source = read_text(LOCAL_STACK_LIB)
+    harness_source = read_text(HARNESS_LOCAL_STACK)
+    sdk_source = read_text(SDK_LIB)
     sub_plan = read_text(SUB_PLAN)
     phase_plan = read_text(PHASE_PLAN)
     phase_progress = read_text(PHASE_PROGRESS)
@@ -170,6 +194,27 @@ def check_docs_and_source() -> None:
     ]:
         assert_contains(source, expected, LOCAL_STACK_LIB)
 
+    for expected in [
+        "pub fn status_stack",
+        "pub fn seed_stack",
+        "pub fn logs",
+        "pub fn health_snapshots",
+        "pub fn event_export",
+        "pub fn artifact_collection",
+        "phase8_named_hooks_expose_status_seed_logs_health_events_and_artifacts",
+    ]:
+        assert_contains(harness_source, expected, HARNESS_LOCAL_STACK)
+
+    for expected in [
+        "OverridSdkClient",
+        "build_request",
+        "validate_overgate_target",
+        "PRIVATE_SERVICE_TARGETS",
+        '"x-overrid-target"',
+        '"overgate"',
+    ]:
+        assert_contains(sdk_source, expected, SDK_LIB)
+
 
 def check_cargo_tests() -> None:
     run(["cargo", "test", "-p", "overrid-local-stack", "phase8"])
@@ -200,9 +245,14 @@ def check_node_simulator(status_payload: dict[str, Any]) -> None:
 
 def check_harness_and_support(status_payload: dict[str, Any]) -> None:
     result = status_payload["result"]
-    hook_ids = [record["hook_id"] for record in result["harness_hook_records"]]
+    hooks_by_id = {record["hook_id"]: record for record in result["harness_hook_records"]}
     for expected in EXPECTED_HOOK_IDS:
-        assert_true(expected in hook_ids, f"missing harness hook {expected}")
+        assert_true(expected in hooks_by_id, f"missing harness hook {expected}")
+    for hook_id, harness_method in EXPECTED_HOOK_METHODS.items():
+        assert_true(
+            hooks_by_id[hook_id]["harness_method"] == harness_method,
+            f"{hook_id} must route to {harness_method}",
+        )
     assert_true(
         all(
             record["required_for_phase0_smoke"] is True
@@ -228,6 +278,13 @@ def check_harness_and_support(status_payload: dict[str, Any]) -> None:
 
     rules = result["simulator_expansion_rules"]
     assert_true(len(rules) >= 5, "later simulator expansion rules missing")
+    rules_by_id = {rule["rule_id"]: rule for rule in rules}
+    for rule_id, target_phase in EXPECTED_EXPANSION_RULES.items():
+        assert_true(rule_id in rules_by_id, f"missing simulator expansion rule {rule_id}")
+        assert_true(
+            rules_by_id[rule_id]["target_phase"] == target_phase,
+            f"{rule_id} must target {target_phase}",
+        )
     assert_true(
         all(
             rule["local_test_marker_required"] is True

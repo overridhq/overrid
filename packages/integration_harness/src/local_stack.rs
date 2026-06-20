@@ -262,6 +262,10 @@ impl LocalStackHarness {
         }
     }
 
+    pub fn status_stack(&self, trace_root: &str) -> LocalStackSnapshot {
+        self.start_stack(trace_root)
+    }
+
     pub fn reset_stack(
         &self,
         fixtures: &[FixtureManifestRef],
@@ -308,6 +312,51 @@ impl LocalStackHarness {
             service_health: snapshot.service_health,
             dependency_status: snapshot.dependency_status,
             reset_refs,
+            seed_refs,
+            diagnostic_refs,
+            smoke_refs: Vec::new(),
+            event_refs,
+            artifacts,
+        }
+    }
+
+    pub fn seed_stack(
+        &self,
+        fixtures: &[FixtureManifestRef],
+        run_id: &str,
+        trace_root: &str,
+    ) -> LocalStackReport {
+        let snapshot = self.start_stack(trace_root);
+        if !snapshot.ready {
+            return self.start_blocked_report(snapshot, run_id, trace_root);
+        }
+
+        if let Some(report) =
+            self.reset_safety_blocked_report(snapshot.clone(), Vec::new(), run_id, trace_root)
+        {
+            return report;
+        }
+
+        let seed_refs = self.seed(fixtures);
+        let event_refs = self.lifecycle_event_refs(
+            snapshot.event_refs,
+            &["seed_started", "seed_completed"],
+            trace_root,
+        );
+        let (diagnostic_refs, artifacts) = self.diagnostics(
+            run_id,
+            trace_root,
+            ArtifactRetentionClass::PhaseGateEvidence,
+        );
+
+        LocalStackReport {
+            status: HarnessRunStatus::Passed,
+            reason_code: "run.passed".to_string(),
+            reason_class: "success".to_string(),
+            message: "Local/test stack deterministic seed completed".to_string(),
+            service_health: snapshot.service_health,
+            dependency_status: snapshot.dependency_status,
+            reset_refs: Vec::new(),
             seed_refs,
             diagnostic_refs,
             smoke_refs: Vec::new(),
@@ -385,6 +434,35 @@ impl LocalStackHarness {
             event_refs,
             artifacts,
         }
+    }
+
+    pub fn logs(&self, run_id: &str, trace_root: &str) -> Vec<String> {
+        let (diagnostic_refs, _) = self.diagnostics(
+            run_id,
+            trace_root,
+            ArtifactRetentionClass::PhaseGateEvidence,
+        );
+        diagnostic_refs
+            .into_iter()
+            .filter(|reference| reference.starts_with("artifact:logs:"))
+            .collect()
+    }
+
+    pub fn health_snapshots(&self, trace_root: &str) -> Vec<ServiceHealthSummary> {
+        self.start_stack(trace_root).service_health
+    }
+
+    pub fn event_export(&self, trace_root: &str) -> Vec<String> {
+        self.start_stack(trace_root).event_refs
+    }
+
+    pub fn artifact_collection(&self, run_id: &str, trace_root: &str) -> Vec<ArtifactSummary> {
+        let (_, artifacts) = self.diagnostics(
+            run_id,
+            trace_root,
+            ArtifactRetentionClass::PhaseGateEvidence,
+        );
+        artifacts
     }
 
     pub fn diagnostics(
@@ -631,5 +709,63 @@ impl LocalStackHarness {
                 .map(|event_name| format!("event:local_stack:{event_name}:{event_token}")),
         );
         event_refs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn phase8_named_hooks_expose_status_seed_logs_health_events_and_artifacts() {
+        let harness = LocalStackHarness::new("local", "target/test-artifacts");
+
+        let status = harness.status_stack("trace_phase8_status_hook");
+        assert!(status.ready);
+        assert!(status.service_health.iter().any(|health| {
+            health.service_id == "component:node_agent_simulator" && health.state == "ready"
+        }));
+
+        let seed_report = harness.seed_stack(&[], "run_phase8_seed_hook", "trace_phase8_seed_hook");
+        assert_eq!(seed_report.status, HarnessRunStatus::Passed);
+        assert!(seed_report.reset_refs.is_empty());
+        assert!(seed_report
+            .seed_refs
+            .iter()
+            .any(|reference| reference.contains(LOCAL_TEST_STATE_MARKER)));
+        assert!(seed_report
+            .event_refs
+            .iter()
+            .any(|reference| reference.contains("seed_completed")));
+
+        let logs = harness.logs("run_phase8_logs_hook", "trace_phase8_logs_hook");
+        assert_eq!(logs.len(), 1);
+        assert!(logs[0].starts_with("artifact:logs:"));
+        assert!(logs[0].ends_with(":redacted"));
+
+        let health = harness.health_snapshots("trace_phase8_health_hook");
+        assert!(health
+            .iter()
+            .any(|summary| summary.service_id == "component:node_agent_simulator"));
+
+        let events = harness.event_export("trace_phase8_event_hook");
+        assert!(events
+            .iter()
+            .any(|reference| reference.starts_with("event:local_stack:")));
+
+        let artifacts =
+            harness.artifact_collection("run_phase8_artifact_hook", "trace_phase8_artifact_hook");
+        assert!(!artifacts.is_empty());
+    }
+
+    #[test]
+    fn phase8_seed_hook_blocks_unmarked_state() {
+        let harness = LocalStackHarness::new("local-unmarked-state", "target/test-artifacts");
+        let report =
+            harness.seed_stack(&[], "run_phase8_seed_blocked", "trace_phase8_seed_blocked");
+
+        assert_eq!(report.status, HarnessRunStatus::Blocked);
+        assert_eq!(report.reason_code, "safety.unmarked_test_state");
+        assert!(report.seed_refs.is_empty());
     }
 }
