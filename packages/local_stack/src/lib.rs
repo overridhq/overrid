@@ -12,6 +12,122 @@ use overrid_contracts::{
 
 pub const DEFAULT_LOCAL_STACK_MANIFEST_PATH: &str = "packages/schemas/overrid_contracts/fixtures/valid/local_development_stack_phase2_default_local.valid.json";
 pub const LOCAL_STACK_PHASE_GATE: &str = "phase_3_local_development_stack";
+pub const LOCAL_STACK_PHASE4_TOPOLOGY_GATE: &str = "phase_4_loopback_topology";
+pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
+
+const RESERVED_PORT_BINDINGS: [ReservedPortBinding; 6] = [
+    ReservedPortBinding {
+        service_id: "service:api",
+        port: 18080,
+        bind_host: "127.0.0.1",
+        purpose: "api_health_ready",
+        endpoint_ref: "http://127.0.0.1:18080/healthz",
+    },
+    ReservedPortBinding {
+        service_id: "service:worker",
+        port: 18081,
+        bind_host: "127.0.0.1",
+        purpose: "worker_health_metrics",
+        endpoint_ref: "http://127.0.0.1:18081/healthz",
+    },
+    ReservedPortBinding {
+        service_id: "service:node_agent_simulator",
+        port: 18082,
+        bind_host: "127.0.0.1",
+        purpose: "node_agent_simulator_health",
+        endpoint_ref: "http://127.0.0.1:18082/healthz",
+    },
+    ReservedPortBinding {
+        service_id: "service:overstore_stub",
+        port: 18083,
+        bind_host: "127.0.0.1",
+        purpose: "object_artifact_stub",
+        endpoint_ref: "http://127.0.0.1:18083/healthz",
+    },
+    ReservedPortBinding {
+        service_id: "service:event_audit",
+        port: 18084,
+        bind_host: "127.0.0.1",
+        purpose: "local_event_audit_query",
+        endpoint_ref: "http://127.0.0.1:18084/healthz",
+    },
+    ReservedPortBinding {
+        service_id: "service:developer_ui",
+        port: 18085,
+        bind_host: "127.0.0.1",
+        purpose: "optional_developer_ui",
+        endpoint_ref: "http://127.0.0.1:18085/healthz",
+    },
+];
+
+const LOCAL_ENV_VARIABLES: [LocalEnvVariable; 2] = [
+    LocalEnvVariable {
+        name: "OVERRID_LOCAL_PROFILE",
+        value_ref: "env://OVERRID_LOCAL_PROFILE",
+        redacted: false,
+        example_only: false,
+    },
+    LocalEnvVariable {
+        name: "OVERRID_LOCAL_TEST_SECRET_REF",
+        value_ref: "secret://local_stack/fixture_key_ref",
+        redacted: true,
+        example_only: false,
+    },
+];
+
+const LOCAL_SECRET_RECORDS: [LocalSecretRecord; 1] = [LocalSecretRecord {
+    secret_ref: "secret://local_stack/fixture_key_ref",
+    secret_kind: "fixture_key",
+    redaction_ref: "redaction:fixture_key_ref",
+    local_only: true,
+    test_only: true,
+    raw_secret_present: false,
+}];
+
+const READY_DOCTOR_CHECKS: [LocalDoctorCheck; 7] = [
+    LocalDoctorCheck {
+        check_id: "doctor:rust_toolchain",
+        state: "ready",
+        reason_code: "doctor.rust_toolchain_ready",
+        remediation_hint: "install the repository-pinned Rust toolchain",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:repo_layout",
+        state: "ready",
+        reason_code: "doctor.repo_layout_ready",
+        remediation_hint: "run from a clean Overrid workspace checkout",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:schema_outputs",
+        state: "ready",
+        reason_code: "doctor.schemas_ready",
+        remediation_hint: "regenerate shared schema outputs",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:reserved_ports",
+        state: "ready",
+        reason_code: "doctor.ports_available",
+        remediation_hint: "free the reserved loopback port range 18080-18085",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:file_permissions",
+        state: "ready",
+        reason_code: "doctor.file_permissions_ready",
+        remediation_hint: "fix local stack volume and env file permissions",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:local_volume_markers",
+        state: "ready",
+        reason_code: "doctor.volume_markers_ready",
+        remediation_hint: "restore .overrid-local-test-state markers before reset",
+    },
+    LocalDoctorCheck {
+        check_id: "doctor:ci_runner",
+        state: "ready",
+        reason_code: "doctor.ci_runner_compatible",
+        remediation_hint: "use the reproducible Linux x86_64 local/test runner",
+    },
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DevCommand {
@@ -274,6 +390,9 @@ impl LocalStackRunner {
         mut output: LocalStackCommandOutput,
         manifest: &LocalStackManifest,
     ) -> LocalStackCommandOutput {
+        output
+            .push_state(LocalCommandState::CollectingArtifacts)
+            .expect("local-stack doctor artifact transition is valid");
         output.service_health = service_health_for_manifest(manifest);
         output.complete(
             LocalStackStatus::Completed,
@@ -610,7 +729,45 @@ pub struct LocalServiceHealth {
     pub service_id: String,
     pub state: String,
     pub endpoint_ref: String,
+    pub bind_host: String,
+    pub port: Option<u16>,
+    pub loopback_only: bool,
     pub reason_code: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReservedPortBinding {
+    pub service_id: &'static str,
+    pub port: u16,
+    pub bind_host: &'static str,
+    pub purpose: &'static str,
+    pub endpoint_ref: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalEnvVariable {
+    pub name: &'static str,
+    pub value_ref: &'static str,
+    pub redacted: bool,
+    pub example_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalSecretRecord {
+    pub secret_ref: &'static str,
+    pub secret_kind: &'static str,
+    pub redaction_ref: &'static str,
+    pub local_only: bool,
+    pub test_only: bool,
+    pub raw_secret_present: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalDoctorCheck {
+    pub check_id: &'static str,
+    pub state: &'static str,
+    pub reason_code: &'static str,
+    pub remediation_hint: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -628,6 +785,10 @@ pub struct LocalStackCommandOutput {
     pub lifecycle: LocalCommandRecord,
     pub capabilities: Vec<LocalServiceCapability>,
     pub service_health: Vec<LocalServiceHealth>,
+    pub port_bindings: Vec<ReservedPortBinding>,
+    pub env_variables: Vec<LocalEnvVariable>,
+    pub secret_records: Vec<LocalSecretRecord>,
+    pub doctor_checks: Vec<LocalDoctorCheck>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -655,6 +816,10 @@ impl LocalStackCommandOutput {
             lifecycle: LocalCommandRecord::new(),
             capabilities: capabilities_for_phase(options.master_phase),
             service_health,
+            port_bindings: reserved_port_bindings(),
+            env_variables: local_env_variables(),
+            secret_records: local_secret_records(),
+            doctor_checks: doctor_checks_for_profile(&options.profile),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -684,12 +849,17 @@ impl LocalStackCommandOutput {
                 "local_stack_manifest_valid",
                 "local_stack_profile_local_test",
                 "local_stack_loopback_only",
+                "local_stack_reserved_ports_checked",
+                "local_stack_env_manifest_redacted",
+                "local_stack_test_secrets_ref_only",
+                "local_stack_doctor_checks_ready",
                 "redacted_diagnostics_only",
             ]
         } else {
             vec![
                 "local_stack_manifest_checked",
                 "local_stack_fail_closed",
+                "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
             ]
         }
@@ -727,9 +897,14 @@ impl LocalStackCommandOutput {
                 "\"reason_code\":\"{}\",",
                 "\"schema_version\":\"{}\",",
                 "\"manifest_path\":\"{}\",",
+                "\"topology_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
+                "\"port_registry\":{},",
+                "\"env_manifest\":{},",
+                "\"secret_records\":{},",
+                "\"doctor_checks\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -748,6 +923,11 @@ impl LocalStackCommandOutput {
             json_escape(&self.reason_code),
             json_escape(SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION),
             json_escape(&self.manifest_path),
+            json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
+            render_port_registry_json(&self.port_bindings),
+            render_env_manifest_json(&self.env_variables),
+            render_secret_records_json(&self.secret_records),
+            render_doctor_checks_json(&self.doctor_checks),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -769,6 +949,9 @@ impl LocalStackCommandOutput {
                 "\"phase_gate\":\"{}\",",
                 "\"retry_class\":\"{}\",",
                 "\"remediation_hint\":\"{}\",",
+                "\"topology_phase_gate\":\"{}\",",
+                "\"port_registry\":{},",
+                "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
             ),
@@ -777,6 +960,9 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE_GATE),
             json_escape(self.retry_class.as_str()),
             json_escape(remediation_hint(&self.reason_code)),
+            json_escape(LOCAL_STACK_PHASE4_TOPOLOGY_GATE),
+            render_port_registry_json(&self.port_bindings),
+            render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
     }
@@ -801,6 +987,7 @@ impl LocalStackCommandOutput {
     fn block(&mut self, failure: LocalStackFailure) {
         self.push_state(LocalCommandState::Blocked)
             .expect("local-stack blocked transition is valid");
+        self.doctor_checks = doctor_checks_for_reason(failure.reason_code);
         self.ok = false;
         self.status = failure.status;
         self.reason_code = failure.reason_code.to_owned();
@@ -812,6 +999,7 @@ impl LocalStackCommandOutput {
     fn fail_from_manifest(&mut self, error: ManifestValidationError) {
         self.push_state(LocalCommandState::Failed)
             .expect("local-stack failed transition is valid");
+        self.doctor_checks = doctor_checks_for_reason(error.reason_code());
         self.ok = false;
         self.status = LocalStackStatus::Failed;
         self.reason_code = error.reason_code().to_owned();
@@ -873,17 +1061,7 @@ fn foundation_service_ids() -> [&'static str; 3] {
 fn foundation_service_health() -> Vec<LocalServiceHealth> {
     foundation_service_ids()
         .into_iter()
-        .map(|service_id| LocalServiceHealth {
-            service_id: service_id.to_owned(),
-            state: "ready".to_owned(),
-            endpoint_ref: match service_id {
-                "service:api" => "http://127.0.0.1:18080/healthz",
-                "service:worker" => "http://127.0.0.1:18081/healthz",
-                _ => "local-state://embedded_state/ready.marker",
-            }
-            .to_owned(),
-            reason_code: "local_stack.service_ready".to_owned(),
-        })
+        .map(service_health_record)
         .collect()
 }
 
@@ -891,20 +1069,138 @@ fn service_health_for_manifest(manifest: &LocalStackManifest) -> Vec<LocalServic
     manifest
         .service_ids
         .iter()
-        .map(|service_id| LocalServiceHealth {
-            service_id: service_id.clone(),
-            state: "ready".to_owned(),
-            endpoint_ref: if service_id == "service:api" {
-                "http://127.0.0.1:18080/healthz"
-            } else if service_id == "service:worker" {
-                "http://127.0.0.1:18081/healthz"
-            } else {
-                "local-state://embedded_state/ready.marker"
-            }
-            .to_owned(),
-            reason_code: "local_stack.service_ready".to_owned(),
-        })
+        .map(|service_id| service_health_record(service_id))
         .collect()
+}
+
+fn service_health_record(service_id: &str) -> LocalServiceHealth {
+    let binding = binding_for_service(service_id);
+    LocalServiceHealth {
+        service_id: service_id.to_owned(),
+        state: "ready".to_owned(),
+        endpoint_ref: binding
+            .map(|binding| binding.endpoint_ref.to_owned())
+            .unwrap_or_else(|| "local-state://embedded_state/ready.marker".to_owned()),
+        bind_host: binding
+            .map(|binding| binding.bind_host.to_owned())
+            .unwrap_or_else(|| "local".to_owned()),
+        port: binding.map(|binding| binding.port),
+        loopback_only: binding
+            .map(|binding| is_loopback_host(binding.bind_host))
+            .unwrap_or(true),
+        reason_code: "local_stack.service_ready".to_owned(),
+    }
+}
+
+fn binding_for_service(service_id: &str) -> Option<ReservedPortBinding> {
+    RESERVED_PORT_BINDINGS
+        .into_iter()
+        .find(|binding| binding.service_id == service_id)
+}
+
+fn reserved_port_bindings() -> Vec<ReservedPortBinding> {
+    RESERVED_PORT_BINDINGS.to_vec()
+}
+
+fn local_env_variables() -> Vec<LocalEnvVariable> {
+    LOCAL_ENV_VARIABLES.to_vec()
+}
+
+fn local_secret_records() -> Vec<LocalSecretRecord> {
+    LOCAL_SECRET_RECORDS.to_vec()
+}
+
+fn ready_doctor_checks() -> Vec<LocalDoctorCheck> {
+    READY_DOCTOR_CHECKS.to_vec()
+}
+
+fn doctor_checks_for_profile(profile: &str) -> Vec<LocalDoctorCheck> {
+    let normalized = profile.to_ascii_lowercase();
+    if normalized.contains("missing-runtime") {
+        return doctor_checks_for_reason("doctor.rust_toolchain_missing");
+    }
+    if normalized.contains("wrong-permissions") {
+        return doctor_checks_for_reason("doctor.file_permissions_invalid");
+    }
+    if normalized.contains("stale-schemas") {
+        return doctor_checks_for_reason("doctor.schemas_stale");
+    }
+    if normalized.contains("missing-profile") {
+        return doctor_checks_for_reason("doctor.profile_missing");
+    }
+    if normalized.contains("unsafe-env") {
+        return doctor_checks_for_reason("doctor.unsafe_env_value");
+    }
+    if normalized.contains("port-conflict") {
+        return doctor_checks_for_reason("local_stack.port_conflict");
+    }
+    ready_doctor_checks()
+}
+
+fn doctor_checks_for_reason(reason_code: &str) -> Vec<LocalDoctorCheck> {
+    let mut checks = ready_doctor_checks();
+    let failure = match reason_code {
+        "doctor.rust_toolchain_missing" => Some((
+            "doctor:rust_toolchain",
+            "doctor.rust_toolchain_missing",
+            "install the repository-pinned Rust toolchain",
+        )),
+        "doctor.file_permissions_invalid" => Some((
+            "doctor:file_permissions",
+            "doctor.file_permissions_invalid",
+            "fix local stack volume and env file permissions",
+        )),
+        "doctor.schemas_stale" | "manifest.schema_version_incompatible" => Some((
+            "doctor:schema_outputs",
+            "doctor.schemas_stale",
+            "regenerate shared schema outputs",
+        )),
+        "doctor.profile_missing" => Some((
+            "doctor:repo_layout",
+            "doctor.profile_missing",
+            "select an existing local or CI test profile",
+        )),
+        "doctor.unsafe_env_value" => Some((
+            "doctor:local_env_manifest",
+            "doctor.unsafe_env_value",
+            "remove unsafe or raw secret values from local env inputs",
+        )),
+        "local_stack.port_conflict" => Some((
+            "doctor:reserved_ports",
+            "local_stack.port_conflict",
+            "free the reserved loopback port range 18080-18085",
+        )),
+        "profile.not_local_test" => Some((
+            "doctor:profile_scope",
+            "profile.not_local_test",
+            "select a local or CI test profile before running local-stack commands",
+        )),
+        _ if reason_code.starts_with("manifest.") => Some((
+            "doctor:schema_outputs",
+            "manifest.validation_failed",
+            "fix the canonical local development stack manifest",
+        )),
+        _ => None,
+    };
+
+    if let Some((check_id, failed_reason_code, remediation_hint)) = failure {
+        if let Some(existing) = checks.iter_mut().find(|check| check.check_id == check_id) {
+            *existing = LocalDoctorCheck {
+                check_id,
+                state: "failed",
+                reason_code: failed_reason_code,
+                remediation_hint,
+            };
+        } else {
+            checks.push(LocalDoctorCheck {
+                check_id,
+                state: "failed",
+                reason_code: failed_reason_code,
+                remediation_hint,
+            });
+        }
+    }
+    checks
 }
 
 fn profile_blocker(profile: &str) -> Option<LocalStackFailure> {
@@ -926,6 +1222,51 @@ fn profile_blocker(profile: &str) -> Option<LocalStackFailure> {
 
 fn profile_backing_failure(profile: &str) -> Option<LocalStackFailure> {
     let normalized = profile.to_ascii_lowercase();
+    if normalized.contains("missing-runtime") {
+        return Some(LocalStackFailure {
+            reason_code: "doctor.rust_toolchain_missing",
+            message: "Rust toolchain prerequisite is missing",
+            exit_class: ExitCodeClass::Config,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    if normalized.contains("wrong-permissions") {
+        return Some(LocalStackFailure {
+            reason_code: "doctor.file_permissions_invalid",
+            message: "local stack file permissions are not safe for reset or env generation",
+            exit_class: ExitCodeClass::LocalIo,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    if normalized.contains("stale-schemas") {
+        return Some(LocalStackFailure {
+            reason_code: "doctor.schemas_stale",
+            message: "local stack schema generation outputs are stale",
+            exit_class: ExitCodeClass::Schema,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    if normalized.contains("missing-profile") {
+        return Some(LocalStackFailure {
+            reason_code: "doctor.profile_missing",
+            message: "selected local stack profile is missing",
+            exit_class: ExitCodeClass::Config,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
+    if normalized.contains("unsafe-env") {
+        return Some(LocalStackFailure {
+            reason_code: "doctor.unsafe_env_value",
+            message: "local env inputs contain unsafe or raw secret values",
+            exit_class: ExitCodeClass::Config,
+            retry_class: RetryClass::OperatorReview,
+            status: LocalStackStatus::Blocked,
+        });
+    }
     if normalized.contains("health-timeout")
         || normalized.contains("backing-services-unavailable")
         || normalized.contains("unavailable")
@@ -1190,6 +1531,10 @@ fn is_safe_endpoint(value: &str) -> bool {
         || lowered.contains("seed.overrid"))
 }
 
+fn is_loopback_host(value: &str) -> bool {
+    matches!(value, "127.0.0.1" | "localhost" | "::1")
+}
+
 fn render_capabilities_json(capabilities: &[LocalServiceCapability]) -> String {
     let rendered = capabilities
         .iter()
@@ -1223,13 +1568,147 @@ fn render_service_health_json(service_health: &[LocalServiceHealth]) -> String {
                     "\"service_id\":\"{}\",",
                     "\"state\":\"{}\",",
                     "\"endpoint_ref\":\"{}\",",
+                    "\"bind_host\":\"{}\",",
+                    "\"port\":{},",
+                    "\"loopback_only\":{},",
                     "\"reason_code\":\"{}\"",
                     "}}"
                 ),
                 json_escape(&health.service_id),
                 json_escape(&health.state),
                 json_escape(&health.endpoint_ref),
+                json_escape(&health.bind_host),
+                json_optional_u16(health.port),
+                health.loopback_only,
                 json_escape(&health.reason_code),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_port_registry_json(bindings: &[ReservedPortBinding]) -> String {
+    let rendered = bindings
+        .iter()
+        .map(|binding| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"service_id\":\"{}\",",
+                    "\"port\":{},",
+                    "\"bind_host\":\"{}\",",
+                    "\"purpose\":\"{}\",",
+                    "\"endpoint_ref\":\"{}\",",
+                    "\"loopback_only\":{}",
+                    "}}"
+                ),
+                json_escape(binding.service_id),
+                binding.port,
+                json_escape(binding.bind_host),
+                json_escape(binding.purpose),
+                json_escape(binding.endpoint_ref),
+                is_loopback_host(binding.bind_host),
+            )
+        })
+        .collect::<Vec<_>>();
+    format!(
+        concat!(
+            "{{",
+            "\"registry_id\":\"port_registry:reserved_18080_18085\",",
+            "\"collision_policy\":\"fail_before_startup\",",
+            "\"local_only\":true,",
+            "\"test_only\":true,",
+            "\"bindings\":[{}]",
+            "}}"
+        ),
+        rendered.join(","),
+    )
+}
+
+fn render_env_manifest_json(variables: &[LocalEnvVariable]) -> String {
+    let rendered = variables
+        .iter()
+        .map(|variable| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"name\":\"{}\",",
+                    "\"value_ref\":\"{}\",",
+                    "\"redacted\":{},",
+                    "\"example_only\":{}",
+                    "}}"
+                ),
+                json_escape(variable.name),
+                json_escape(variable.value_ref),
+                variable.redacted,
+                variable.example_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!(
+        concat!(
+            "{{",
+            "\"manifest_id\":\"env_manifest:local_default\",",
+            "\"generated_env_target\":\"repo://.env.local\",",
+            "\"example_env_target\":\"repo://{}\",",
+            "\"redaction_policy\":\"secret_free_refs_only\",",
+            "\"contains_raw_secret\":false,",
+            "\"example_values_include_raw_secrets\":false,",
+            "\"drift_check\":\"schema_checked_names_only\",",
+            "\"local_only\":true,",
+            "\"test_only\":true,",
+            "\"variables\":[{}]",
+            "}}"
+        ),
+        json_escape(LOCAL_STACK_ENV_EXAMPLE_PATH),
+        rendered.join(","),
+    )
+}
+
+fn render_secret_records_json(records: &[LocalSecretRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"secret_ref\":\"{}\",",
+                    "\"secret_kind\":\"{}\",",
+                    "\"redaction_ref\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{},",
+                    "\"raw_secret_present\":{}",
+                    "}}"
+                ),
+                json_escape(record.secret_ref),
+                json_escape(record.secret_kind),
+                json_escape(record.redaction_ref),
+                record.local_only,
+                record.test_only,
+                record.raw_secret_present,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_doctor_checks_json(checks: &[LocalDoctorCheck]) -> String {
+    let rendered = checks
+        .iter()
+        .map(|check| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"check_id\":\"{}\",",
+                    "\"state\":\"{}\",",
+                    "\"reason_code\":\"{}\",",
+                    "\"remediation_hint\":\"{}\"",
+                    "}}"
+                ),
+                json_escape(check.check_id),
+                json_escape(check.state),
+                json_escape(check.reason_code),
+                json_escape(check.remediation_hint),
             )
         })
         .collect::<Vec<_>>();
@@ -1245,6 +1724,12 @@ fn json_owned_string_array(values: &[String]) -> String {
 }
 
 fn json_optional_u64(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_owned())
+}
+
+fn json_optional_u16(value: Option<u16>) -> String {
     value
         .map(|value| value.to_string())
         .unwrap_or_else(|| "null".to_owned())
@@ -1459,6 +1944,110 @@ mod tests {
         assert_eq!(output.exit_class, ExitCodeClass::Phase);
         assert_eq!(output.reason_code, "phase.local_service_unavailable");
         assert!(output.lifecycle_strs().contains(&"blocked"));
+    }
+
+    #[test]
+    fn reserved_port_registry_matches_phase4_defaults() {
+        let bindings = reserved_port_bindings();
+        assert_eq!(bindings.len(), 6);
+        assert_eq!(
+            bindings
+                .iter()
+                .map(|binding| binding.port)
+                .collect::<Vec<_>>(),
+            vec![18080, 18081, 18082, 18083, 18084, 18085]
+        );
+        assert!(
+            bindings
+                .iter()
+                .all(|binding| binding.bind_host == "127.0.0.1"
+                    && is_loopback_host(binding.bind_host))
+        );
+        assert!(bindings
+            .iter()
+            .any(|binding| binding.service_id == "service:worker"
+                && binding.purpose == "worker_health_metrics"));
+    }
+
+    #[test]
+    fn loopback_binding_metadata_is_captured_in_health() {
+        let output =
+            LocalStackRunner::new(LocalStackOptions::new(repo_root())).run(DevCommand::Doctor);
+        assert!(output.is_ok());
+        let api = output
+            .service_health
+            .iter()
+            .find(|health| health.service_id == "service:api")
+            .expect("api health is present");
+        assert_eq!(api.bind_host, "127.0.0.1");
+        assert_eq!(api.port, Some(18080));
+        assert!(api.loopback_only);
+        assert!(output
+            .result_json()
+            .contains("\"topology_phase_gate\":\"phase_4_loopback_topology\""));
+    }
+
+    #[test]
+    fn env_manifest_and_secret_records_are_redacted() {
+        let output =
+            LocalStackRunner::new(LocalStackOptions::new(repo_root())).run(DevCommand::Status);
+        assert!(output.is_ok());
+        assert!(output
+            .env_variables
+            .iter()
+            .any(|variable| variable.name == "OVERRID_LOCAL_TEST_SECRET_REF"
+                && variable.redacted
+                && variable.value_ref.starts_with("secret://")));
+        assert!(output
+            .secret_records
+            .iter()
+            .all(|record| record.local_only && record.test_only && !record.raw_secret_present));
+        let rendered = output.result_json().to_ascii_lowercase();
+        assert!(rendered.contains("\"example_env_target\":\"repo://.env.example\""));
+        for forbidden in [
+            "password=",
+            "token=",
+            "api_key=",
+            "private key",
+            "-----begin",
+        ] {
+            assert!(!rendered.contains(forbidden));
+        }
+    }
+
+    #[test]
+    fn port_conflict_blocks_before_starting() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.profile = "local-port-conflict".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Start);
+        assert!(!output.is_ok());
+        assert_eq!(output.reason_code, "local_stack.port_conflict");
+        assert_eq!(output.exit_class, ExitCodeClass::Config);
+        assert!(output.lifecycle_strs().contains(&"prerequisites_checked"));
+        assert!(!output.lifecycle_strs().contains(&"starting"));
+        assert!(output
+            .doctor_checks
+            .iter()
+            .any(|check| check.check_id == "doctor:reserved_ports" && check.state == "failed"));
+    }
+
+    #[test]
+    fn doctor_failure_reason_codes_are_stable() {
+        let mut options = LocalStackOptions::new(repo_root());
+        options.profile = "local-unsafe-env".to_owned();
+        let output = LocalStackRunner::new(options).run(DevCommand::Doctor);
+        assert!(!output.is_ok());
+        assert_eq!(output.reason_code, "doctor.unsafe_env_value");
+        assert!(output
+            .error_json()
+            .contains("\"topology_phase_gate\":\"phase_4_loopback_topology\""));
+        assert!(
+            output
+                .doctor_checks
+                .iter()
+                .any(|check| check.reason_code == "doctor.unsafe_env_value"
+                    && check.state == "failed")
+        );
     }
 
     #[test]
