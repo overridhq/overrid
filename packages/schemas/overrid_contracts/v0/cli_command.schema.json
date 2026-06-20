@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/cli_command.schema.json",
   "title": "Overrid CLI Command Contracts",
-  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, Phase 1 bootstrap, seed private swarm node, real workload execution, Phase 8 policy/package/accounting read command shapes, and Phase 9 product integration/CI automation shapes defined by SUB BUILD PLAN #2 Phases 2 through 9.",
+  "description": "Canonical JSON Schema source for CLI command, profile, credential, signer handoff, lifecycle, exit registry, capability, output, error, trace, idempotency, diagnostic, Phase 1 bootstrap, seed private swarm node, real workload execution, Phase 8 policy/package/accounting read command shapes, Phase 9 product integration/CI automation shapes, and Phase 10 release-readiness/security/handoff validation shapes defined by SUB BUILD PLAN #2 Phases 2 through 10.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     },
     "contracts": {
       "type": "array",
-      "minItems": 39,
+      "minItems": 42,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -61,7 +61,10 @@
           "receipt_ledger_read",
           "dispute_read_model",
           "product_workflow_recipe",
-          "ci_automation_profile"
+          "ci_automation_profile",
+          "cli_security_review_report",
+          "cli_phase_availability_matrix",
+          "cli_release_readiness_report"
         ]
       }
     }
@@ -1632,6 +1635,211 @@
         }
       }
     },
+    "cli_phase_availability_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "phase_gate",
+        "availability",
+        "stable_reason_code",
+        "hidden_in_normal_help",
+        "direct_private_shortcut"
+      ],
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "phase_gate": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "availability": {
+          "enum": [
+            "available",
+            "read_only",
+            "denied"
+          ]
+        },
+        "stable_reason_code": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "hidden_in_normal_help": {
+          "type": "boolean"
+        },
+        "direct_private_shortcut": {
+          "const": false
+        }
+      }
+    },
+    "cli_phase_availability_matrix": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "$ref": "#/$defs/cli_phase_availability_record"
+      }
+    },
+    "cli_security_review_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewed_surfaces",
+        "redaction_probes",
+        "forbidden_output_markers",
+        "raw_keys_exposed",
+        "tokens_exposed",
+        "signatures_exposed",
+        "secrets_exposed",
+        "private_payloads_exposed",
+        "decrypted_content_exposed",
+        "unsafe_endpoints_allowed",
+        "cross_tenant_access_allowed"
+      ],
+      "properties": {
+        "reviewed_surfaces": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "redaction_probes": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "forbidden_output_markers": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "raw_keys_exposed": {
+          "const": false
+        },
+        "tokens_exposed": {
+          "const": false
+        },
+        "signatures_exposed": {
+          "const": false
+        },
+        "secrets_exposed": {
+          "const": false
+        },
+        "private_payloads_exposed": {
+          "const": false
+        },
+        "decrypted_content_exposed": {
+          "const": false
+        },
+        "unsafe_endpoints_allowed": {
+          "const": false
+        },
+        "cross_tenant_access_allowed": {
+          "const": false
+        }
+      }
+    },
+    "cli_release_readiness_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_snapshot_suite",
+        "help_snapshot_commands",
+        "exit_code_classes",
+        "reason_code_families",
+        "security_review_report",
+        "phase_availability_matrix",
+        "integration_validation_matrix",
+        "automation_compatibility_matrix",
+        "handoff_notes",
+        "release_ready",
+        "sdk_overgate_only",
+        "direct_private_shortcut",
+        "high_risk_phase7_phase13_enabled"
+      ],
+      "properties": {
+        "contract_snapshot_suite": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "help_snapshot_commands": {
+          "type": "array",
+          "minItems": 18,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "exit_code_classes": {
+          "type": "array",
+          "minItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "reason_code_families": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "security_review_report": {
+          "$ref": "#/$defs/cli_security_review_report"
+        },
+        "phase_availability_matrix": {
+          "$ref": "#/$defs/cli_phase_availability_matrix"
+        },
+        "integration_validation_matrix": {
+          "type": "array",
+          "minItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "automation_compatibility_matrix": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "handoff_notes": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "release_ready": {
+          "const": true
+        },
+        "sdk_overgate_only": {
+          "const": true
+        },
+        "direct_private_shortcut": {
+          "const": false
+        },
+        "high_risk_phase7_phase13_enabled": {
+          "const": false
+        }
+      }
+    },
     "output_envelope": {
       "type": "object",
       "additionalProperties": false,
@@ -1807,7 +2015,10 @@
         "receipt_ledger_read",
         "dispute_read_model",
         "product_workflow_recipe",
-        "ci_automation_profile"
+        "ci_automation_profile",
+        "cli_security_review_report",
+        "cli_phase_availability_matrix",
+        "cli_release_readiness_report"
       ]
     }
   ]

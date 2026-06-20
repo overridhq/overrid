@@ -1511,10 +1511,7 @@ impl ProductWorkflowRecipe {
                 .into_iter()
                 .map(str::to_owned)
                 .collect(),
-            safe_retry_patterns: safe_retry_patterns
-                .into_iter()
-                .map(str::to_owned)
-                .collect(),
+            safe_retry_patterns: safe_retry_patterns.into_iter().map(str::to_owned).collect(),
             submitted_via: "sdk_overgate_contract".to_owned(),
             sdk_overgate_only: true,
             authorized_refs_only: true,
@@ -1575,6 +1572,283 @@ impl CiAutomationProfile {
             secret_free_output: true,
             branch_on_exit_class: true,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliPhaseAvailabilityRecord {
+    pub command: String,
+    pub phase_gate: String,
+    pub availability: String,
+    pub stable_reason_code: String,
+    pub hidden_in_normal_help: bool,
+    pub direct_private_shortcut: bool,
+}
+
+impl CliPhaseAvailabilityRecord {
+    pub fn available(command: impl Into<String>, phase_gate: impl Into<String>) -> Self {
+        Self {
+            command: command.into(),
+            phase_gate: phase_gate.into(),
+            availability: "available".to_owned(),
+            stable_reason_code: "available".to_owned(),
+            hidden_in_normal_help: false,
+            direct_private_shortcut: false,
+        }
+    }
+
+    pub fn read_only(command: impl Into<String>, phase_gate: impl Into<String>) -> Self {
+        Self {
+            command: command.into(),
+            phase_gate: phase_gate.into(),
+            availability: "read_only".to_owned(),
+            stable_reason_code: "read_model_only".to_owned(),
+            hidden_in_normal_help: false,
+            direct_private_shortcut: false,
+        }
+    }
+
+    pub fn denied(command: impl Into<String>, phase_gate: impl Into<String>) -> Self {
+        Self {
+            command: command.into(),
+            phase_gate: phase_gate.into(),
+            availability: "denied".to_owned(),
+            stable_reason_code: "not_available_in_phase".to_owned(),
+            hidden_in_normal_help: true,
+            direct_private_shortcut: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliSecurityReviewReport {
+    pub reviewed_surfaces: Vec<String>,
+    pub redaction_probes: Vec<String>,
+    pub forbidden_output_markers: Vec<String>,
+    pub raw_keys_exposed: bool,
+    pub tokens_exposed: bool,
+    pub signatures_exposed: bool,
+    pub secrets_exposed: bool,
+    pub private_payloads_exposed: bool,
+    pub decrypted_content_exposed: bool,
+    pub unsafe_endpoints_allowed: bool,
+    pub cross_tenant_access_allowed: bool,
+}
+
+impl CliSecurityReviewReport {
+    pub fn new() -> Self {
+        Self {
+            reviewed_surfaces: [
+                "credential_storage",
+                "signer_handoff",
+                "file_permissions",
+                "environment_separation",
+                "debug_output",
+                "diagnostics",
+                "logs",
+                "execution_results",
+                "phase_handoff",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            redaction_probes: [
+                "raw_private_key",
+                "token",
+                "signature",
+                "secret",
+                "private_payload",
+                "decrypted_content",
+                "unsafe_endpoint",
+                "cross_tenant_access",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            forbidden_output_markers: [
+                "raw_private_key=",
+                "token=",
+                "signature=",
+                "secret=",
+                "private_payload=",
+                "decrypted_content=",
+                "http://overbase.",
+                "postgres://",
+                "redis://",
+                "s3://",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            raw_keys_exposed: false,
+            tokens_exposed: false,
+            signatures_exposed: false,
+            secrets_exposed: false,
+            private_payloads_exposed: false,
+            decrypted_content_exposed: false,
+            unsafe_endpoints_allowed: false,
+            cross_tenant_access_allowed: false,
+        }
+    }
+}
+
+impl Default for CliSecurityReviewReport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliReleaseReadinessReport {
+    pub contract_snapshot_suite: Vec<String>,
+    pub help_snapshot_commands: Vec<String>,
+    pub exit_code_classes: Vec<String>,
+    pub reason_code_families: Vec<String>,
+    pub security_review_report: CliSecurityReviewReport,
+    pub phase_availability_matrix: Vec<CliPhaseAvailabilityRecord>,
+    pub integration_validation_matrix: Vec<String>,
+    pub automation_compatibility_matrix: Vec<String>,
+    pub handoff_notes: Vec<String>,
+    pub release_ready: bool,
+    pub sdk_overgate_only: bool,
+    pub direct_private_shortcut: bool,
+    pub high_risk_phase7_phase13_enabled: bool,
+}
+
+impl CliReleaseReadinessReport {
+    pub fn new() -> Self {
+        Self {
+            contract_snapshot_suite: [
+                "schema_contracts",
+                "output_envelope",
+                "exit_code_registry",
+                "help_text",
+                "human_output",
+                "json_output",
+                "error_decode_records",
+                "backward_compatible_json",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            help_snapshot_commands: [
+                "version",
+                "doctor",
+                "profile",
+                "credential",
+                "auth",
+                "tenant",
+                "identity",
+                "key",
+                "manifest",
+                "node",
+                "workload",
+                "policy",
+                "package",
+                "usage",
+                "receipt",
+                "ledger",
+                "dispute",
+                "release-readiness",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            exit_code_classes: EXIT_CODE_REGISTRY
+                .iter()
+                .map(|exit_class| exit_class.as_str().to_owned())
+                .collect(),
+            reason_code_families: [
+                "not_available_in_phase",
+                "profile_validation_failed",
+                "credential_validation_failed",
+                "missing_profile_confirmation",
+                "missing_reason",
+                "policy.egress_denied",
+                "package.invalid",
+                "result.failed",
+                "budget.exhausted",
+                "transport.unavailable",
+                "timeout.waiting",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            security_review_report: CliSecurityReviewReport::new(),
+            phase_availability_matrix: vec![
+                CliPhaseAvailabilityRecord::available("version", "phase_4"),
+                CliPhaseAvailabilityRecord::available("doctor", "phase_4"),
+                CliPhaseAvailabilityRecord::available("profile", "phase_3"),
+                CliPhaseAvailabilityRecord::available("credential", "phase_3"),
+                CliPhaseAvailabilityRecord::available("auth", "phase_1"),
+                CliPhaseAvailabilityRecord::available("tenant", "phase_1"),
+                CliPhaseAvailabilityRecord::available("identity", "phase_1"),
+                CliPhaseAvailabilityRecord::available("key", "phase_1"),
+                CliPhaseAvailabilityRecord::available("manifest", "phase_1"),
+                CliPhaseAvailabilityRecord::available("node", "phase_7"),
+                CliPhaseAvailabilityRecord::available("workload", "phase_7"),
+                CliPhaseAvailabilityRecord::available("policy dry-run", "phase_8"),
+                CliPhaseAvailabilityRecord::available("package validate", "phase_8"),
+                CliPhaseAvailabilityRecord::read_only("usage show", "phase_8"),
+                CliPhaseAvailabilityRecord::read_only("receipt show", "phase_8"),
+                CliPhaseAvailabilityRecord::read_only("ledger inspect", "phase_8"),
+                CliPhaseAvailabilityRecord::read_only("dispute inspect", "phase_8"),
+                CliPhaseAvailabilityRecord::available("release-readiness", "phase_10"),
+                CliPhaseAvailabilityRecord::denied("deployment", "phase_9"),
+                CliPhaseAvailabilityRecord::denied(
+                    "governance/incident/compliance/migration",
+                    "phase_7_or_phase_13",
+                ),
+            ],
+            integration_validation_matrix: [
+                "tenant_setup",
+                "identity_key_lifecycle",
+                "manifest_submit",
+                "synthetic_workload",
+                "real_private_job",
+                "policy_dry_run",
+                "package_validation",
+                "usage_receipt_lookup",
+                "cancellation",
+                "timeout_retry",
+                "docdex_workflow",
+                "mcoda_workflow",
+                "codali_workflow",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            automation_compatibility_matrix: [
+                "stable_json_output",
+                "stable_human_output",
+                "exit_class_branching",
+                "trace_id_presence",
+                "audit_ref_presence",
+                "bounded_retry_timeout",
+                "ci_non_interactive_credentials",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            handoff_notes: [
+                "phase7_backbone_commands_remain_disabled_until_contracts_exist",
+                "phase13_governance_compliance_incident_migration_remain_disabled_until_contracts_exist",
+                "completion_does_not_authorize_high_risk_operations_early",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            release_ready: true,
+            sdk_overgate_only: true,
+            direct_private_shortcut: false,
+            high_risk_phase7_phase13_enabled: false,
+        }
+    }
+}
+
+impl Default for CliReleaseReadinessReport {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2385,7 +2659,9 @@ mod tests {
         assert!(docdex.sdk_overgate_only);
         assert!(docdex.authorized_refs_only);
         assert!(docdex.secret_free_json_output);
-        assert!(docdex.required_refs.contains(&"encrypted_index_ref".to_owned()));
+        assert!(docdex
+            .required_refs
+            .contains(&"encrypted_index_ref".to_owned()));
         assert!(!docdex.direct_internal_api_access);
         assert!(!docdex.direct_storage_access);
         assert!(!docdex.raw_http_required);
@@ -2437,6 +2713,42 @@ mod tests {
         assert!(profile
             .allowed_credential_ref_kinds
             .contains(&"mounted_secret_ref".to_owned()));
+    }
+
+    #[test]
+    fn phase10_release_readiness_report_keeps_handoff_gated_and_secret_free() {
+        let report = CliReleaseReadinessReport::new();
+
+        assert!(report.release_ready);
+        assert!(report.sdk_overgate_only);
+        assert!(!report.direct_private_shortcut);
+        assert!(!report.high_risk_phase7_phase13_enabled);
+        assert!(report
+            .contract_snapshot_suite
+            .contains(&"backward_compatible_json".to_owned()));
+        assert!(report
+            .exit_code_classes
+            .contains(&ExitCodeClass::Phase.as_str().to_owned()));
+        assert!(report
+            .reason_code_families
+            .contains(&"not_available_in_phase".to_owned()));
+        assert!(report
+            .integration_validation_matrix
+            .contains(&"real_private_job".to_owned()));
+        assert!(report
+            .automation_compatibility_matrix
+            .contains(&"ci_non_interactive_credentials".to_owned()));
+        assert!(!report.security_review_report.raw_keys_exposed);
+        assert!(!report.security_review_report.tokens_exposed);
+        assert!(!report.security_review_report.signatures_exposed);
+        assert!(!report.security_review_report.private_payloads_exposed);
+        assert!(report.phase_availability_matrix.iter().any(|record| {
+            record.command == "governance/incident/compliance/migration"
+                && record.availability == "denied"
+                && record.stable_reason_code == "not_available_in_phase"
+                && record.hidden_in_normal_help
+                && !record.direct_private_shortcut
+        }));
     }
 
     #[test]

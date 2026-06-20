@@ -22,6 +22,9 @@
     ],
     "phase9_valid": [
       "packages/cli/fixtures/valid/phase9_product_integration.valid.json"
+    ],
+    "phase10_valid": [
+      "packages/cli/fixtures/valid/phase10_release_readiness.valid.json"
     ]
   },
   "phase3_contracts": [
@@ -73,6 +76,11 @@
     "product_workflow_recipe",
     "ci_automation_profile"
   ],
+  "phase10_contracts": [
+    "cli_security_review_report",
+    "cli_phase_availability_matrix",
+    "cli_release_readiness_report"
+  ],
   "guardrails": [
     "JSON Schema is the docs-facing and fixture-facing source of truth.",
     "The Rust projection is consumed by the CLI and SDK but must not become contract authority.",
@@ -96,6 +104,10 @@
     "Phase 9 product integration workflows for Docdex, Mcoda, and Codali must route through CLI/SDK/Overgate recipes and authorized refs, not direct internal APIs.",
     "Phase 9 Mcoda product workflows must keep model, provider, resource, tool-boundary, budget, and usage metadata dynamic without hardcoded model, node, paid-service, raw HTTP, or private-storage assumptions.",
     "Phase 9 Codali product workflows must expose repository context, logs, artifacts, structured results, retry/repair boundaries, and per-agent-phase usage through authorized refs only.",
-    "Phase 9 CI automation profiles must use explicit ci profile kinds and short-lived or mounted credential refs with stable secret-free JSON output and no ambient persistent keychain defaults."
+    "Phase 9 CI automation profiles must use explicit ci profile kinds and short-lived or mounted credential refs with stable secret-free JSON output and no ambient persistent keychain defaults.",
+    "Phase 10 release-readiness output must validate contract snapshots, help text, exit classes, reason-code families, JSON/human output, and error decoding without changing earlier command contracts.",
+    "Phase 10 security validation must keep credential storage, signer handoff, diagnostics, logs, results, and handoff output secret-free with no raw keys, tokens, signatures, private payloads, decrypted content, unsafe endpoints, or cross-tenant shortcuts.",
+    "Phase 10 phase-availability validation must keep unavailable later services denied with stable not_available_in_phase reason codes and no private shortcuts.",
+    "Phase 10 Phase 7/13 handoff evidence must not authorize high-risk governance, compliance, incident, break-glass, migration, or backbone operations before owning contracts exist."
   ]
 }

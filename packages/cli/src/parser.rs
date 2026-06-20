@@ -392,6 +392,7 @@ impl IdempotencyCacheCommand {
 pub enum PlannedCommand {
     Package,
     Governance,
+    ReleaseReadiness,
 }
 
 impl PlannedCommand {
@@ -399,6 +400,7 @@ impl PlannedCommand {
         match self {
             PlannedCommand::Package => "deployment",
             PlannedCommand::Governance => "governance/incident/compliance",
+            PlannedCommand::ReleaseReadiness => "release-readiness",
         }
     }
 
@@ -406,6 +408,7 @@ impl PlannedCommand {
         match self {
             PlannedCommand::Package => "phase_9",
             PlannedCommand::Governance => "phase_7_or_phase_13",
+            PlannedCommand::ReleaseReadiness => "phase_10",
         }
     }
 }
@@ -616,6 +619,9 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "receipt" => receipt_command(tokens),
         "ledger" => ledger_command(tokens),
         "dispute" => dispute_command(tokens),
+        "release-readiness" | "readiness" | "phase10" | "phase-10" => {
+            Ok(Command::Planned(PlannedCommand::ReleaseReadiness))
+        }
         "deploy" | "deployment" => Ok(Command::Planned(PlannedCommand::Package)),
         "governance" | "incident" | "compliance" | "migration" => {
             Ok(Command::Planned(PlannedCommand::Governance))
@@ -1035,6 +1041,10 @@ mod tests {
         assert_eq!(
             parse_cli(["overrid", "deployment"]).unwrap().command,
             Command::Planned(PlannedCommand::Package)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "release-readiness"]).unwrap().command,
+            Command::Planned(PlannedCommand::ReleaseReadiness)
         );
     }
 }

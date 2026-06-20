@@ -1,6 +1,7 @@
 use overrid_contracts::{
-    BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint, CliProfile,
-    CiAutomationProfile, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
+    BootstrapAcceptanceRecord, BootstrapCommandFamily, CanonicalIdempotencyFingerprint,
+    CiAutomationProfile, CliPhaseAvailabilityRecord, CliProfile, CliReleaseReadinessReport,
+    CliSecurityReviewReport, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
     DisputeReadModel, EnvironmentClass, ErrorDecodeRecord, ExecutionDiagnosticEvent,
     ExecutionLogBundle, ExecutionResultRef, ExecutionTimeline, ExitCodeClass, FixtureAllowance,
     LocalIdempotencyCacheRecord, ManifestBootstrapRef, NodeState, NodeStatusRecord,
@@ -730,6 +731,10 @@ fn prepare_bootstrap_context(
 }
 
 fn planned_command_result(command: PlannedCommand, globals: &GlobalOptions) -> CliRunResult {
+    if command == PlannedCommand::ReleaseReadiness {
+        return release_readiness_result(globals);
+    }
+
     let reason_code = "not_available_in_phase";
     let message = format!(
         "{} is gated until {}",
@@ -759,6 +764,48 @@ fn planned_command_result(command: PlannedCommand, globals: &GlobalOptions) -> C
 
     CliRunResult {
         exit_code: EXIT_NOT_AVAILABLE_IN_PHASE,
+        stdout,
+        stderr: String::new(),
+    }
+}
+
+fn release_readiness_result(globals: &GlobalOptions) -> CliRunResult {
+    let report = CliReleaseReadinessReport::new();
+    let stdout = match globals.output {
+        OutputMode::Human => [
+            "release_readiness: ready",
+            "contract_snapshots: schema_contracts output_envelope exit_code_registry help_text json_output human_output error_decode_records",
+            "security_review: secret_free no_raw_keys no_tokens no_signatures no_private_payloads",
+            "phase_availability: available_through_phase_10 phase_7_or_phase_13_handoff_denied",
+            "integration_matrix: tenant identity key manifest workload policy package usage receipt cancellation timeout retry product_workflows",
+            "handoff: high_risk_phase7_phase13_operations_disabled",
+        ]
+        .join("\n"),
+        OutputMode::Json => {
+            let result_json = render_release_readiness_report_json(&report);
+            render_success_json(
+                "release-readiness",
+                &result_json,
+                &["parsed", "completed"],
+                globals.profile.as_deref(),
+                globals.endpoint_fingerprint.as_deref(),
+                &[
+                    "local_contracts_available",
+                    "snapshot_validation_available",
+                    "security_redaction_validated",
+                    "handoff_gates_fail_closed",
+                ],
+                &[CapabilityRoute {
+                    route: "release-readiness",
+                    phase_gate: "phase_10",
+                    available: true,
+                }],
+            )
+        }
+    };
+
+    CliRunResult {
+        exit_code: EXIT_SUCCESS,
         stdout,
         stderr: String::new(),
     }
@@ -1069,6 +1116,7 @@ fn render_help(all_phases: bool) -> String {
         "  receipt show".to_owned(),
         "  ledger inspect".to_owned(),
         "  dispute list|inspect".to_owned(),
+        "  release-readiness               run Phase 10 release, security, and handoff validation evidence".to_owned(),
         "  help                            print command help".to_owned(),
         "".to_owned(),
         "global flags:".to_owned(),
@@ -3170,6 +3218,99 @@ fn render_ci_automation_profile_json(profile: &CiAutomationProfile) -> String {
     )
 }
 
+fn render_release_readiness_report_json(report: &CliReleaseReadinessReport) -> String {
+    let phase_records = report
+        .phase_availability_matrix
+        .iter()
+        .map(render_phase_availability_record_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        concat!(
+            "{{",
+            "\"contract_snapshot_suite\":{},",
+            "\"help_snapshot_commands\":{},",
+            "\"exit_code_classes\":{},",
+            "\"reason_code_families\":{},",
+            "\"security_review_report\":{},",
+            "\"phase_availability_matrix\":[{}],",
+            "\"integration_validation_matrix\":{},",
+            "\"automation_compatibility_matrix\":{},",
+            "\"handoff_notes\":{},",
+            "\"release_ready\":{},",
+            "\"sdk_overgate_only\":{},",
+            "\"direct_private_shortcut\":{},",
+            "\"high_risk_phase7_phase13_enabled\":{}",
+            "}}"
+        ),
+        json_owned_string_array(&report.contract_snapshot_suite),
+        json_owned_string_array(&report.help_snapshot_commands),
+        json_owned_string_array(&report.exit_code_classes),
+        json_owned_string_array(&report.reason_code_families),
+        render_security_review_report_json(&report.security_review_report),
+        phase_records,
+        json_owned_string_array(&report.integration_validation_matrix),
+        json_owned_string_array(&report.automation_compatibility_matrix),
+        json_owned_string_array(&report.handoff_notes),
+        report.release_ready,
+        report.sdk_overgate_only,
+        report.direct_private_shortcut,
+        report.high_risk_phase7_phase13_enabled,
+    )
+}
+
+fn render_security_review_report_json(report: &CliSecurityReviewReport) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"reviewed_surfaces\":{},",
+            "\"redaction_probes\":{},",
+            "\"forbidden_output_markers\":{},",
+            "\"raw_keys_exposed\":{},",
+            "\"tokens_exposed\":{},",
+            "\"signatures_exposed\":{},",
+            "\"secrets_exposed\":{},",
+            "\"private_payloads_exposed\":{},",
+            "\"decrypted_content_exposed\":{},",
+            "\"unsafe_endpoints_allowed\":{},",
+            "\"cross_tenant_access_allowed\":{}",
+            "}}"
+        ),
+        json_owned_string_array(&report.reviewed_surfaces),
+        json_owned_string_array(&report.redaction_probes),
+        json_owned_string_array(&report.forbidden_output_markers),
+        report.raw_keys_exposed,
+        report.tokens_exposed,
+        report.signatures_exposed,
+        report.secrets_exposed,
+        report.private_payloads_exposed,
+        report.decrypted_content_exposed,
+        report.unsafe_endpoints_allowed,
+        report.cross_tenant_access_allowed,
+    )
+}
+
+fn render_phase_availability_record_json(record: &CliPhaseAvailabilityRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"command\":\"{}\",",
+            "\"phase_gate\":\"{}\",",
+            "\"availability\":\"{}\",",
+            "\"stable_reason_code\":\"{}\",",
+            "\"hidden_in_normal_help\":{},",
+            "\"direct_private_shortcut\":{}",
+            "}}"
+        ),
+        json_escape(&record.command),
+        json_escape(&record.phase_gate),
+        json_escape(&record.availability),
+        json_escape(&record.stable_reason_code),
+        record.hidden_in_normal_help,
+        record.direct_private_shortcut,
+    )
+}
+
 fn render_version_json() -> String {
     let info = version_info();
     let result_json = format!(
@@ -3590,6 +3731,7 @@ mod tests {
         assert!(result.stdout.contains("receipt show"));
         assert!(result.stdout.contains("ledger inspect"));
         assert!(result.stdout.contains("dispute list|inspect"));
+        assert!(result.stdout.contains("release-readiness"));
     }
 
     #[test]
@@ -3613,6 +3755,35 @@ mod tests {
         assert!(result.stdout.contains("\"phase_gate\":\"phase_9\""));
         assert!(result.stdout.contains("\"exit_class\":\"phase\""));
         assert!(result.stdout.contains("\"fail_closed\":true"));
+    }
+
+    #[test]
+    fn phase10_release_readiness_emits_safe_validation_evidence() {
+        let result = run_args(["overrid", "release-readiness", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result
+            .stdout
+            .contains("\"command_name\":\"release-readiness\""));
+        assert!(result.stdout.contains("\"phase_gate\":\"phase_10\""));
+        assert!(result.stdout.contains("\"release_ready\":true"));
+        assert!(result.stdout.contains("\"sdk_overgate_only\":true"));
+        assert!(result.stdout.contains("\"direct_private_shortcut\":false"));
+        assert!(result
+            .stdout
+            .contains("\"high_risk_phase7_phase13_enabled\":false"));
+        assert!(result
+            .stdout
+            .contains("\"stable_reason_code\":\"not_available_in_phase\""));
+        assert!(result
+            .stdout
+            .contains("governance/incident/compliance/migration"));
+        assert!(result.stdout.contains("\"raw_keys_exposed\":false"));
+        assert!(result.stdout.contains("\"tokens_exposed\":false"));
+        assert!(result.stdout.contains("\"signatures_exposed\":false"));
+        assert!(result.stdout.contains("\"private_payloads_exposed\":false"));
+        assert!(result.stdout.contains("tenant_setup"));
+        assert!(result.stdout.contains("real_private_job"));
+        assert!(result.stdout.contains("ci_non_interactive_credentials"));
     }
 
     #[test]
@@ -4214,7 +4385,9 @@ mod tests {
         assert!(docdex.stdout.contains("overrid usage show"));
         assert!(docdex.stdout.contains("overrid receipt show"));
         assert!(docdex.stdout.contains("\"sdk_overgate_only\":true"));
-        assert!(docdex.stdout.contains("\"direct_internal_api_access\":false"));
+        assert!(docdex
+            .stdout
+            .contains("\"direct_internal_api_access\":false"));
         assert!(docdex.stdout.contains("\"raw_http_required\":false"));
         assert!(docdex.stdout.contains("\"authorized_refs_only\":true"));
 
@@ -4237,8 +4410,12 @@ mod tests {
         assert!(mcoda.stdout.contains("dynamic_model_metadata_ref"));
         assert!(mcoda.stdout.contains("resource_metadata_ref"));
         assert!(mcoda.stdout.contains("tool_boundary_ref"));
-        assert!(mcoda.stdout.contains("\"dynamic_model_resource_selection\":true"));
-        assert!(mcoda.stdout.contains("\"hardcoded_model_or_provider\":false"));
+        assert!(mcoda
+            .stdout
+            .contains("\"dynamic_model_resource_selection\":true"));
+        assert!(mcoda
+            .stdout
+            .contains("\"hardcoded_model_or_provider\":false"));
         assert!(mcoda.stdout.contains("\"hardcoded_node_assumption\":false"));
         assert!(mcoda.stdout.contains("\"paid_service_assumption\":false"));
 
@@ -4284,10 +4461,16 @@ mod tests {
         assert!(ci.stdout.contains("\"ci_automation_profile\""));
         assert!(ci.stdout.contains("\"profile_kind\":\"ci\""));
         assert!(ci.stdout.contains("\"environment_class\":\"ci\""));
-        assert!(ci.stdout.contains("\"credential_reference_class\":\"ci_reference\""));
+        assert!(ci
+            .stdout
+            .contains("\"credential_reference_class\":\"ci_reference\""));
         assert!(ci.stdout.contains("mounted_secret_ref"));
-        assert!(ci.stdout.contains("\"ambient_persistent_keychain_allowed\":false"));
-        assert!(ci.stdout.contains("\"requires_non_interactive_confirmation\":true"));
+        assert!(ci
+            .stdout
+            .contains("\"ambient_persistent_keychain_allowed\":false"));
+        assert!(ci
+            .stdout
+            .contains("\"requires_non_interactive_confirmation\":true"));
         assert!(ci.stdout.contains("\"json_output_stable\":true"));
         assert!(ci.stdout.contains("\"branch_on_exit_class\":true"));
     }

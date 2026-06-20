@@ -2,8 +2,9 @@
 
 This package contains the Phase 5 Rust CLI bootstrap slice, Phase 6
 automation hardening, Phase 7 seed private swarm/execution command slice,
-Phase 8 policy/package/accounting read command slice, and Phase 9 product
-integration/automation hardening slice
+Phase 8 policy/package/accounting read command slice, Phase 9 product
+integration/automation hardening slice, and Phase 10 validation/release
+readiness handoff slice
 for `SUB BUILD PLAN #2 - CLI`.
 
 It is a Cargo workspace member and depends on the Rust contract projection in
@@ -53,3 +54,11 @@ or paid-service assumptions. CI automation outputs `ci_automation_profile`
 metadata for explicit `environment=ci` profiles, requiring short-lived or
 mounted credential refs, stable secret-free JSON, non-interactive behavior, and
 no ambient persistent keychain defaults.
+
+Phase 10 adds `release-readiness` as a local validation evidence command. It
+renders contract snapshot, help/output, exit-class, reason-code, security
+redaction, phase-availability, integration reliability, automation
+compatibility, and Phase 7/13 handoff evidence through the same stable output
+envelope. It does not enable deployment, governance, compliance, incident,
+break-glass, migration, or backbone operations early; those routes remain
+denied with `not_available_in_phase` until owning contracts exist.

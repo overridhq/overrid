@@ -3,7 +3,8 @@
 This package contains the Phase 2 through Phase 5 CLI contract source plus
 Phase 6 hardening contracts, Phase 7 execution contracts, Phase 8
 policy/package/accounting read contracts, Phase 9 product integration and CI
-automation contracts, and the Rust
+automation contracts, Phase 10 release-readiness/security/handoff validation
+contracts, and the Rust
 projection for `SUB BUILD PLAN #2 - CLI`.
 
 The JSON Schema files under `v0/` are the canonical docs-facing source for this
@@ -59,3 +60,12 @@ model/node/provider choices, or paid-service assumptions. CI automation
 profiles require explicit `profile_kind=ci`, short-lived or mounted credential
 refs, stable secret-free JSON, non-interactive confirmation behavior, and no
 ambient persistent keychain defaults.
+
+Phase 10 validation contracts define `cli_security_review_report`,
+`cli_phase_availability_matrix`, and `cli_release_readiness_report`. They lock
+release-readiness evidence for contract snapshots, help/output compatibility,
+exit-code classes, reason-code families, secret-free security review,
+available/read-only/denied command availability, integration reliability,
+automation compatibility, and Phase 7/13 handoff gates. These records must keep
+SDK/Overgate-only routing and must not authorize high-risk operations before
+owning contracts exist.

@@ -1,0 +1,305 @@
+{
+  "phase": "cli_phase_10",
+  "contracts": [
+    "cli_security_review_report",
+    "cli_phase_availability_matrix",
+    "cli_release_readiness_report"
+  ],
+  "contract_snapshot_suite": [
+    "schema_contracts",
+    "output_envelope",
+    "exit_code_registry",
+    "help_text",
+    "human_output",
+    "json_output",
+    "error_decode_records",
+    "backward_compatible_json"
+  ],
+  "help_snapshot_commands": [
+    "version",
+    "doctor",
+    "profile",
+    "credential",
+    "auth",
+    "tenant",
+    "identity",
+    "key",
+    "manifest",
+    "node",
+    "workload",
+    "policy",
+    "package",
+    "usage",
+    "receipt",
+    "ledger",
+    "dispute",
+    "release-readiness"
+  ],
+  "exit_code_classes": [
+    "success",
+    "usage",
+    "config",
+    "credential",
+    "schema",
+    "policy",
+    "phase",
+    "idempotency",
+    "transport",
+    "timeout",
+    "platform",
+    "local_io"
+  ],
+  "reason_code_families": [
+    "not_available_in_phase",
+    "profile_validation_failed",
+    "credential_validation_failed",
+    "missing_profile_confirmation",
+    "missing_reason",
+    "policy.egress_denied",
+    "package.invalid",
+    "result.failed",
+    "budget.exhausted",
+    "transport.unavailable",
+    "timeout.waiting"
+  ],
+  "security_review_report": {
+    "reviewed_surfaces": [
+      "credential_storage",
+      "signer_handoff",
+      "file_permissions",
+      "environment_separation",
+      "debug_output",
+      "diagnostics",
+      "logs",
+      "execution_results",
+      "phase_handoff"
+    ],
+    "redaction_probes": [
+      "raw_private_key",
+      "token",
+      "signature",
+      "secret",
+      "private_payload",
+      "decrypted_content",
+      "unsafe_endpoint",
+      "cross_tenant_access"
+    ],
+    "forbidden_output_markers": [
+      "raw_private_key=",
+      "token=",
+      "signature=",
+      "secret=",
+      "private_payload=",
+      "decrypted_content=",
+      "http://overbase.",
+      "postgres://",
+      "redis://",
+      "s3://"
+    ],
+    "raw_keys_exposed": false,
+    "tokens_exposed": false,
+    "signatures_exposed": false,
+    "secrets_exposed": false,
+    "private_payloads_exposed": false,
+    "decrypted_content_exposed": false,
+    "unsafe_endpoints_allowed": false,
+    "cross_tenant_access_allowed": false
+  },
+  "phase_availability_matrix": [
+    {
+      "command": "version",
+      "phase_gate": "phase_4",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "doctor",
+      "phase_gate": "phase_4",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "profile",
+      "phase_gate": "phase_3",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "credential",
+      "phase_gate": "phase_3",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "auth",
+      "phase_gate": "phase_1",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "tenant",
+      "phase_gate": "phase_1",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "identity",
+      "phase_gate": "phase_1",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "key",
+      "phase_gate": "phase_1",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "manifest",
+      "phase_gate": "phase_1",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "node",
+      "phase_gate": "phase_7",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "workload",
+      "phase_gate": "phase_7",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "policy dry-run",
+      "phase_gate": "phase_8",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "package validate",
+      "phase_gate": "phase_8",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "usage show",
+      "phase_gate": "phase_8",
+      "availability": "read_only",
+      "stable_reason_code": "read_model_only",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "receipt show",
+      "phase_gate": "phase_8",
+      "availability": "read_only",
+      "stable_reason_code": "read_model_only",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "ledger inspect",
+      "phase_gate": "phase_8",
+      "availability": "read_only",
+      "stable_reason_code": "read_model_only",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "dispute inspect",
+      "phase_gate": "phase_8",
+      "availability": "read_only",
+      "stable_reason_code": "read_model_only",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "release-readiness",
+      "phase_gate": "phase_10",
+      "availability": "available",
+      "stable_reason_code": "available",
+      "hidden_in_normal_help": false,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "deployment",
+      "phase_gate": "phase_9",
+      "availability": "denied",
+      "stable_reason_code": "not_available_in_phase",
+      "hidden_in_normal_help": true,
+      "direct_private_shortcut": false
+    },
+    {
+      "command": "governance/incident/compliance/migration",
+      "phase_gate": "phase_7_or_phase_13",
+      "availability": "denied",
+      "stable_reason_code": "not_available_in_phase",
+      "hidden_in_normal_help": true,
+      "direct_private_shortcut": false
+    }
+  ],
+  "integration_validation_matrix": [
+    "tenant_setup",
+    "identity_key_lifecycle",
+    "manifest_submit",
+    "synthetic_workload",
+    "real_private_job",
+    "policy_dry_run",
+    "package_validation",
+    "usage_receipt_lookup",
+    "cancellation",
+    "timeout_retry",
+    "docdex_workflow",
+    "mcoda_workflow",
+    "codali_workflow"
+  ],
+  "automation_compatibility_matrix": [
+    "stable_json_output",
+    "stable_human_output",
+    "exit_class_branching",
+    "trace_id_presence",
+    "audit_ref_presence",
+    "bounded_retry_timeout",
+    "ci_non_interactive_credentials"
+  ],
+  "handoff_notes": [
+    "phase7_backbone_commands_remain_disabled_until_contracts_exist",
+    "phase13_governance_compliance_incident_migration_remain_disabled_until_contracts_exist",
+    "completion_does_not_authorize_high_risk_operations_early"
+  ],
+  "guardrails": {
+    "release_ready": true,
+    "sdk_overgate_only": true,
+    "direct_private_shortcut": false,
+    "high_risk_phase7_phase13_enabled": false
+  }
+}

@@ -122,6 +122,14 @@ Basic commands in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_co
 - CI automation gate: explicit `environment=ci` profiles render `ci_automation_profile` with short-lived or mounted credential refs, stable secret-free JSON, non-interactive behavior, and no ambient persistent keychain defaults.
 - Validation gate: `scripts/validate_cli_phase9.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, Rust surfaces, emitted CLI JSON, redaction, and Cargo tests.
 
+## Phase 10 Implementation Gates
+
+- Release-readiness gate: `release-readiness` renders contract snapshot, help/output, exit-class, reason-code, integration, automation, and handoff evidence through the stable CLI envelope.
+- Security review gate: Phase 10 evidence covers credential storage, signer handoff, file permissions, environment separation, debug output, diagnostics, logs, and result redaction without raw keys, tokens, signatures, private payloads, decrypted content, unsafe endpoints, or cross-tenant shortcuts.
+- Availability matrix gate: commands available through Phases 1 through 6, read-only Phase 8 accounting commands, and current Phase 7 execution commands remain explicit, while unavailable deployment and Phase 7/13 governance/compliance/incident/migration/backbone routes fail closed with `not_available_in_phase`.
+- Handoff gate: Phase 10 completion does not authorize high-risk deployment, governance, compliance, incident, break-glass, migration, or backbone operations before owning contracts exist.
+- Validation gate: `scripts/validate_cli_phase10.py` is wired into `scripts/validate_overrid.py` and validates docs, schema source, manifest/fixture alignment, emitted CLI JSON, redaction, phase-gated denial behavior, and targeted Cargo tests.
+
 ## Validation
 
 - CLI can complete the [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md) synthetic workload path.
