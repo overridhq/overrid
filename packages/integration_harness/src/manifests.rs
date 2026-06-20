@@ -307,6 +307,10 @@ impl HarnessManifestLoader {
         let mut scenario_ids = BTreeSet::new();
 
         for (path, text) in documents {
+            if is_non_harness_contract_document(text) {
+                continue;
+            }
+
             let document = validate_manifest_document(path, text)?;
             if !scenario_ids.insert(document.scenario.scenario_id.clone()) {
                 return Err(ManifestLoadError::DuplicateScenarioId {
@@ -346,6 +350,13 @@ impl HarnessManifestLoader {
 struct ValidatedManifestDocument {
     fixture: FixtureManifestRef,
     scenario: ScenarioManifestRef,
+}
+
+fn is_non_harness_contract_document(text: &str) -> bool {
+    match extract_string_field(text, "schema_version") {
+        Some(schema_version) => !schema_version.starts_with("integration-harness."),
+        None => false,
+    }
 }
 
 fn validate_manifest_document(
@@ -795,6 +806,9 @@ mod tests {
     const VALID: &str = include_str!(
         "../../schemas/overrid_contracts/fixtures/valid/integration_harness_phase2.valid.json"
     );
+    const LOCAL_STACK: &str = include_str!(
+        "../../schemas/overrid_contracts/fixtures/valid/local_development_stack_phase2_ci_smoke.valid.json"
+    );
 
     fn valid_pair() -> [(&'static str, &'static str); 1] {
         [("valid.json", VALID)]
@@ -821,6 +835,19 @@ mod tests {
         assert_eq!(catalog.scenarios[0].steps.len(), 2);
         assert_eq!(catalog.scenarios[0].steps[0].action_kind_str(), "cli");
         assert_eq!(catalog.scenarios[0].steps[1].action_kind_str(), "assertion");
+    }
+
+    #[test]
+    fn skips_non_harness_contract_documents_in_shared_fixture_dir() {
+        let catalog = HarnessManifestLoader::load_catalog_from_documents(&[
+            ("valid.json", VALID),
+            ("local_stack.json", LOCAL_STACK),
+        ])
+        .unwrap();
+
+        assert_eq!(catalog.scenarios.len(), 1);
+        assert_eq!(catalog.fixtures.len(), 1);
+        assert_eq!(catalog.source_paths, vec!["valid.json".to_owned()]);
     }
 
     #[test]

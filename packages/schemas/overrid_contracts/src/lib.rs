@@ -9,8 +9,7 @@ pub const SUPPORTED_SCHEMA_VERSION: &str = "cli-command.v0.1";
 pub const INTEGRATION_HARNESS_SCHEMA_FAMILY: &str = "integration-harness";
 pub const SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION: &str = "integration-harness.v0.1";
 pub const LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY: &str = "local-development-stack";
-pub const SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION: &str =
-    "local-development-stack.v0.1";
+pub const SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION: &str = "local-development-stack.v0.1";
 pub const GENERATED_CONTRACT_STATUS: &str = "rust_projection_from_json_schema_source";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3021,7 +3020,10 @@ impl LocalStackProfileContract {
 
     pub fn validate(&self) -> Result<(), LocalStackContractError> {
         local_stack_require_non_empty(&self.profile_id, "profile id")?;
-        if !matches!(self.environment_class, EnvironmentClass::Local | EnvironmentClass::Ci) {
+        if !matches!(
+            self.environment_class,
+            EnvironmentClass::Local | EnvironmentClass::Ci
+        ) {
             return Err(LocalStackContractError::UnsupportedEnvironment(
                 self.environment_class.as_str(),
             ));
@@ -3041,14 +3043,13 @@ impl LocalStackProfileContract {
         for service in &self.enabled_services {
             local_stack_require_non_empty(service, "enabled service")?;
             if is_future_service_ref(service)
-                && !self
-                    .required_phase_gates
-                    .iter()
-                    .any(|gate| matches!(
+                && !self.required_phase_gates.iter().any(|gate| {
+                    matches!(
                         gate,
                         LocalStackPhaseGateState::OwningServiceRequired
                             | LocalStackPhaseGateState::PlannedDisabled
-                    ))
+                    )
+                })
             {
                 return Err(LocalStackContractError::FutureServiceMissingPhaseGate(
                     service.clone(),
@@ -3132,7 +3133,9 @@ impl LocalStackServiceDefinitionContract {
             env_refs: vec!["env://OVERRID_LOCAL_API_PORT".to_owned()],
             dependency_order: Some(4),
             depends_on: vec!["service:embedded_state".to_owned()],
-            health_check: Some(LocalStackHealthCheck::http("http://127.0.0.1:18080/healthz")),
+            health_check: Some(LocalStackHealthCheck::http(
+                "http://127.0.0.1:18080/healthz",
+            )),
             shutdown_behavior: "graceful_then_kill".to_owned(),
             log_target: "log://local_stack/api.log".to_owned(),
             restart_class: "required".to_owned(),
@@ -3181,11 +3184,7 @@ pub struct LocalStackPortBinding {
 }
 
 impl LocalStackPortBinding {
-    pub fn new(
-        service_id: impl Into<String>,
-        port: u16,
-        purpose: impl Into<String>,
-    ) -> Self {
+    pub fn new(service_id: impl Into<String>, port: u16, purpose: impl Into<String>) -> Self {
         Self {
             service_id: service_id.into(),
             port,
@@ -3219,7 +3218,9 @@ impl LocalStackPortRegistry {
         local_stack_require_non_empty(&self.registry_id, "port registry id")?;
         local_stack_require_non_empty(&self.collision_policy, "collision policy")?;
         if self.bindings.is_empty() {
-            return Err(LocalStackContractError::MissingRequiredField("port binding"));
+            return Err(LocalStackContractError::MissingRequiredField(
+                "port binding",
+            ));
         }
         if !self.local_only || !self.test_only {
             return Err(LocalStackContractError::MissingLocalTestMarker);
@@ -3329,7 +3330,10 @@ impl LocalStackResetPlan {
                 "reset operation",
             ));
         }
-        if !self.deterministic || !self.requires_local_profile || !self.local_only || !self.test_only
+        if !self.deterministic
+            || !self.requires_local_profile
+            || !self.local_only
+            || !self.test_only
         {
             return Err(LocalStackContractError::MissingLocalTestMarker);
         }
@@ -3510,11 +3514,12 @@ impl fmt::Display for LocalStackContractError {
         match self {
             Self::UnsupportedSchemaVersion(error) => error.fmt(formatter),
             Self::MissingRequiredField(field) => write!(formatter, "{field} is required"),
-            Self::MissingLocalTestMarker => {
-                formatter.write_str("local/test marker is required")
-            }
+            Self::MissingLocalTestMarker => formatter.write_str("local/test marker is required"),
             Self::UnsupportedEnvironment(environment) => {
-                write!(formatter, "unsupported local-stack environment: {environment}")
+                write!(
+                    formatter,
+                    "unsupported local-stack environment: {environment}"
+                )
             }
             Self::NonLoopbackBindHost(host) => {
                 write!(formatter, "bind host is not loopback: {host}")
@@ -3538,7 +3543,10 @@ impl fmt::Display for LocalStackContractError {
             Self::InvalidHealthCheck => formatter.write_str("local health check is invalid"),
             Self::DuplicatePort(port) => write!(formatter, "duplicate local stack port: {port}"),
             Self::PortOutsideReservedRange(port) => {
-                write!(formatter, "local stack port is outside reserved range: {port}")
+                write!(
+                    formatter,
+                    "local stack port is outside reserved range: {port}"
+                )
             }
             Self::ResetTargetMissingMarker => {
                 formatter.write_str("resettable local target must have a test-state marker")
@@ -4116,7 +4124,8 @@ mod tests {
 
     #[test]
     fn local_stack_profile_rejects_non_loopback_and_future_service_without_gate() {
-        let mut profile = LocalStackProfileContract::local_default("profile:local_default").unwrap();
+        let mut profile =
+            LocalStackProfileContract::local_default("profile:local_default").unwrap();
         assert_eq!(profile.environment_class.as_str(), "local");
         assert!(profile
             .required_phase_gates
@@ -4129,7 +4138,8 @@ mod tests {
             Err(LocalStackContractError::NonLoopbackBindHost(host)) if host == "0.0.0.0"
         ));
 
-        let mut future_service = LocalStackProfileContract::local_default("profile:future").unwrap();
+        let mut future_service =
+            LocalStackProfileContract::local_default("profile:future").unwrap();
         future_service.enabled_services = vec!["service:overvault".to_owned()];
         future_service.required_phase_gates = vec![LocalStackPhaseGateState::BuildablePhase0];
         assert!(matches!(
@@ -4138,8 +4148,8 @@ mod tests {
                 if service == "service:overvault"
         ));
 
-        let mut missing_marker = LocalStackProfileContract::local_default("profile:missing_marker")
-            .unwrap();
+        let mut missing_marker =
+            LocalStackProfileContract::local_default("profile:missing_marker").unwrap();
         missing_marker.local_only = false;
         assert!(matches!(
             missing_marker.validate(),
@@ -4183,7 +4193,9 @@ mod tests {
         ));
 
         let mut non_loopback = service;
-        non_loopback.health_check = Some(LocalStackHealthCheck::http("http://192.0.2.4:18080/healthz"));
+        non_loopback.health_check = Some(LocalStackHealthCheck::http(
+            "http://192.0.2.4:18080/healthz",
+        ));
         assert!(matches!(
             non_loopback.validate(),
             Err(LocalStackContractError::NonLoopbackEndpoint(endpoint))
@@ -4239,7 +4251,9 @@ mod tests {
                 operation_id: "reset:embedded_state".to_owned(),
                 target_ref: "local-state://embedded_state".to_owned(),
                 requires_marker: true,
-                marker_ref: Some("local-state://embedded_state/.overrid-local-test-state".to_owned()),
+                marker_ref: Some(
+                    "local-state://embedded_state/.overrid-local-test-state".to_owned(),
+                ),
             }],
             deterministic: true,
             requires_local_profile: true,
