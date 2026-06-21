@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-5"
+manifest_version = "2026-06-21.repository-layout-phase-6"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 5
+layout_phase = 6
 command_consumers = [
     "layout:check",
     "build",
@@ -65,6 +65,9 @@ accepted_dependency_groups = [
     "admin_ui_shell",
     "docs",
     "local_infra",
+    "control_plane_modules",
+    "node_agent_modules",
+    "docs_specs",
 ]
 accepted_lifecycle_states = [
     "scaffolded",
@@ -170,7 +173,70 @@ validation_artifacts = [
     "missing_test_target",
     "generated_file_committed",
     "secret_file_committed",
+    "schema_ref_missing",
+    "premature_service_split",
+    "split_review_missing",
+    "local_test_boundary_violation",
 ]
+
+[package_boundary_enforcement]
+phase_gate = "repository-layout-phase-6"
+states = [
+    "dependency_direction_groups_defined",
+    "shared_schema_dependency_paths_enforced",
+    "modular_control_plane_shape_preserved",
+    "split_review_criteria_defined",
+    "local_test_only_separation_enforced",
+]
+dependency_direction_groups = [
+    "contracts",
+    "sdk",
+    "cli",
+    "local_stack",
+    "integration_harness",
+    "admin_ui_shell",
+    "docs",
+    "local_infra",
+    "control_plane_modules",
+    "node_agent_modules",
+    "docs_specs",
+]
+shared_schema_dependency_source = "packages/schemas"
+rust_contract_projection = "packages/schemas/overrid_contracts"
+schema_ref_contract = "docs/specs/contract_authority.md"
+control_plane_default_shape = "single_modular_rust_process_through_phase_3"
+control_plane_path = "services/control-plane"
+node_agent_path = "services/node-agent"
+split_review_first_allowed_phase = 4
+grid_resident_split_review_phase = 7
+split_review_required_evidence = [
+    "api_load",
+    "failure_isolation",
+    "security_boundary",
+    "operational_pressure",
+    "grid_resident_backbone_pressure",
+]
+runtime_forbidden_dependency_groups = [
+    "integration_harness",
+    "local_stack",
+    "local_infra",
+    "admin_ui_shell",
+    "docs",
+]
+local_test_only_groups = [
+    "local_stack",
+    "integration_harness",
+    "local_infra",
+    "integration-tests",
+]
+violation_artifacts = [
+    "package_boundary_violation",
+    "schema_ref_missing",
+    "premature_service_split",
+    "split_review_missing",
+    "local_test_boundary_violation",
+]
+validation_script = "scripts/validate_repository_layout_phase6.py"
 
 [[root_commands]]
 name = "build"
@@ -304,6 +370,10 @@ outputs = [
     "missing_test_target",
     "generated_file_committed",
     "secret_file_committed",
+    "schema_ref_missing",
+    "premature_service_split",
+    "split_review_missing",
+    "local_test_boundary_violation",
 ]
 owning_tool = "overrid-cli"
 phase_gate = "phase_0"

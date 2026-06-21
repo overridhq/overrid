@@ -206,6 +206,10 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
             "missing_test_target",
             "generated_file_committed",
             "secret_file_committed",
+            "schema_ref_missing",
+            "premature_service_split",
+            "split_review_missing",
+            "local_test_boundary_violation",
         ],
         owning_tool: "overrid-cli",
         phase_gate: "phase_0",
@@ -224,6 +228,10 @@ const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
     "missing_test_target",
     "generated_file_committed",
     "secret_file_committed",
+    "schema_ref_missing",
+    "premature_service_split",
+    "split_review_missing",
+    "local_test_boundary_violation",
 ];
 
 pub fn main_entry<I, S>(args: I) -> i32
@@ -833,6 +841,41 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "package_boundaries_defined",
         "allowed_dependency_groups",
         "package_boundary_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase6_boundary_enforcement",
+        "[package_boundary_enforcement]",
+        "package_boundary_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "shared_schema_dependency_path",
+        "shared_schema_dependency_source = \"packages/schemas\"",
+        "schema_ref_missing",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "modular_control_plane_shape",
+        "single_modular_rust_process_through_phase_3",
+        "premature_service_split",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "split_review_criteria",
+        "split_review_first_allowed_phase = 4",
+        "split_review_missing",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "local_test_only_separation",
+        "runtime_forbidden_dependency_groups",
+        "local_test_boundary_violation",
     );
     push_manifest_contains(
         &mut records,
@@ -4729,6 +4772,30 @@ mod tests {
         assert!(result.stdout.contains("secret_file_committed"));
         assert!(result.stdout.contains("\"check\":\"secret_file_absence\""));
         assert!(!result.stdout.to_ascii_lowercase().contains("private key"));
+    }
+
+    #[test]
+    fn layout_check_emits_phase6_boundary_records() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        for check in [
+            "phase6_boundary_enforcement",
+            "shared_schema_dependency_path",
+            "modular_control_plane_shape",
+            "split_review_criteria",
+            "local_test_only_separation",
+        ] {
+            assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
+        }
+        for artifact in [
+            "schema_ref_missing",
+            "premature_service_split",
+            "split_review_missing",
+            "local_test_boundary_violation",
+        ] {
+            assert!(result.stdout.contains(artifact));
+        }
+        assert!(result.stdout.contains("\"validation_artifact_schema\""));
     }
 
     #[test]

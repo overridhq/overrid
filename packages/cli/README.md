@@ -24,6 +24,16 @@ harness surface. `overrid layout:check` runs the lightweight Repository Layout
 checks and emits `layout_check.passed` or `layout_check.failed` artifact refs
 without exposing secret values. Shell, Make, just, or npm aliases may only be thin wrappers around the Rust-owned command behavior.
 
+For `SUB BUILD PLAN #5 - Repository Layout` Phase 6, `overrid layout:check`
+also reports package-boundary evidence for `dependency_direction_groups_defined`,
+`shared_schema_dependency_paths_enforced`, `modular_control_plane_shape_preserved`,
+`split_review_criteria_defined`, and `local_test_only_separation_enforced`.
+The check keeps the CLI as a Rust-owned validator: it reports artifact refs such
+as `schema_ref_missing`, `premature_service_split`, `split_review_missing`, and
+`local_test_boundary_violation` without promoting local stack, integration
+harness, `infra/local`, fixture writers, integration artifacts, or docs files
+into runtime authority.
+
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust
 projection is consumed by this crate but is not the contract authority.

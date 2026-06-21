@@ -91,6 +91,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `validation_artifacts_defined`: `layout_check.passed`, `layout_check.failed`, `package_boundary_violation`, `missing_service_contract`, `missing_test_target`, `generated_file_committed`, and `secret_file_committed` are CI/build artifacts, not Overwatch events.
 - `phase5_validation_defined`: `scripts/validate_repository_layout_phase5.py` validates the Phase 5 docs, manifest root-command registry, Rust CLI parser/runner wiring, secret-free layout-check output, planning trail, and suite registration.
 
+## Phase 6 Implementation Gates
+
+- `dependency_direction_groups_defined`: `overrid.workspace.toml` records Phase 6 dependency groups for contracts, SDK, CLI, local/test helpers, docs/specs helpers, control-plane modules, and node-agent modules.
+- `shared_schema_dependency_paths_enforced`: service boundary objects must cite `packages/schemas`, `overrid-contracts`, or `docs/specs` before becoming cross-package or cross-service contracts.
+- `modular_control_plane_shape_preserved`: `services/control-plane` remains one modular Rust process through master Phase 3 by default, while domain internals remain modules/crates/contracts inside that boundary.
+- `split_review_criteria_defined`: service splits require measured API load, failure-isolation, security-boundary, operational, or grid-resident backbone pressure plus SDS/service-catalog/build-plan/spec updates.
+- `local_test_only_separation_enforced`: runtime-facing modules must not depend on integration harness internals, local stack internals, `infra/local`, fixture writers, integration artifacts, local simulator internals, or docs files as executable configuration.
+- `phase6_validation_defined`: `scripts/validate_repository_layout_phase6.py` validates Phase 6 docs, manifest boundary metadata, Rust CLI layout-check evidence, package/service README evidence, planning trail, suite registration, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -101,6 +110,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase3.py` verifies the root manifest, module records, inventory discovery, deterministic drift fixtures, planning evidence, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase4.py` verifies schema authority, generated/projection boundaries, optional Protobuf placement, service-contract template content, reason-code/event placement, and phase planning evidence.
 - `scripts/validate_repository_layout_phase5.py` verifies root command registry metadata, Rust-owned CLI wiring, `layout:check` output, validation artifact schema, command orchestration records, and Phase 5 planning evidence.
+- `scripts/validate_repository_layout_phase6.py` verifies dependency direction groups, shared-schema dependency paths, modular control-plane shape, split-review criteria, local/test-only separation, and Phase 6 planning evidence.
 
 ## Handoff
 

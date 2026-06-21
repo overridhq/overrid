@@ -475,6 +475,36 @@ Artifact records include reason code, path, owning phase, module id when availab
   - Output: Boundary rules for local-only and test-only modules.
   - Validation: Tests prove production-facing modules cannot depend on `infra/local`, test fixtures, integration artifact writers, or local simulator internals.
 
+### Phase 6 Gate Outputs
+
+#### Dependency Direction Groups
+
+The `dependency_direction_groups_defined` gate records dependency groups for `contracts`, `sdk`, `cli`, `local_stack`, `integration_harness`, `admin_ui_shell`, `docs`, `local_infra`, `control_plane_modules`, `node_agent_modules`, and `docs_specs`. Runtime-facing modules may consume `contracts` and later explicitly approved runtime modules, but they must not depend on local/test-only groups as authority.
+
+The workspace manifest must carry Phase 6 boundary metadata so `layout:check`, validators, and future CI can report package-boundary findings with deterministic reason codes instead of relying on ad hoc import review.
+
+#### Shared-Schema Dependency Enforcement
+
+The `shared_schema_dependency_paths_enforced` gate requires service API payloads, event payloads, command envelopes, fixture records, read models, and audit/error shapes to cite `packages/schemas`, `packages/schemas/overrid_contracts`, or `docs/specs` contract sources before implementation consumes them.
+
+Rust crates that exchange boundary objects must depend on the `overrid-contracts` projection or a later generated/validated projection from the same canonical schemas. Private structs may exist inside one module, but they must not become cross-service or cross-package public contracts.
+
+#### Modular Control-Plane Shape
+
+The `modular_control_plane_shape_preserved` gate keeps `services/control-plane` as one modular Rust process through master Phase 3 by default. Overgate, Overtenant, Overpass-lite, Overkey-lite, Overregistry, Overwatch, Overqueue, scheduler handoff, lease handoff, and metering interface code may be separate crates/modules/contracts inside that boundary, but this phase must not create independently deployable service folders for each domain.
+
+#### Split-Review Criteria
+
+The `split_review_criteria_defined` gate allows a future service split only when phase docs, SDS files, service-catalog entries, build-plan crosswalk rows, docs/specs contracts, and validation evidence show measured API load, failure-isolation, security-boundary, operational, or grid-resident backbone pressure. Phase 4+ may justify security/operational splits, and Phase 7 may justify protected grid-resident backbone splits.
+
+Split reviews that lack measured rationale produce `split_review_missing`; premature domain folders or deployable manifests produce `premature_service_split`.
+
+#### Local/Test-Only Separation
+
+The `local_test_only_separation_enforced` gate marks `local_stack`, `integration_harness`, `local_infra`, integration artifacts, fixture writers, and docs helpers as local/test-only unless an owning SDS later promotes a contract-backed adapter path. Runtime-facing modules must not import `infra/local`, integration artifact writers, local simulators, or docs files as executable configuration.
+
+Phase 6 layout artifacts include `package_boundary_violation`, `schema_ref_missing`, `premature_service_split`, `split_review_missing`, and `local_test_boundary_violation`.
+
 ## Phase 7: Generated Artifacts, Secrets, Local State, And Index Hygiene
 
 ### Work Items

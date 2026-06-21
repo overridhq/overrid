@@ -189,6 +189,20 @@ Gate states:
 
 Phase 5 validation records must include reason code, path, owning phase, module id when available, and artifact refs. Secret-file findings must never include raw secret values.
 
+## Phase 6 Package Boundary And Control-Plane Decisions
+
+Phase 6 turns package-boundary intent into validation metadata. It does not add runtime services, production configuration, deployment topology, or hidden service discovery.
+
+Gate states:
+
+- `dependency_direction_groups_defined`: `overrid.workspace.toml` records dependency direction groups for contracts, SDK, CLI, local stack, integration harness, admin UI shell, docs, local infrastructure, control-plane modules, node-agent modules, and docs/specs helpers.
+- `shared_schema_dependency_paths_enforced`: boundary objects for service APIs, events, commands, fixtures, read models, audit records, and errors must flow through `packages/schemas`, `overrid-contracts`, or documented `docs/specs` sources before consumers rely on them.
+- `modular_control_plane_shape_preserved`: `services/control-plane` remains one modular Rust process through master Phase 3 by default, with internal modules or crates for control-plane domains rather than premature deployable microservices.
+- `split_review_criteria_defined`: future service splits require measured API-load, failure-isolation, security-boundary, operational, or grid-resident backbone pressure plus updated SDS, service catalog, build-plan crosswalk, docs/specs contracts, and validation evidence.
+- `local_test_only_separation_enforced`: runtime-facing modules must not import integration harness internals, local-stack internals, `infra/local`, fixture writers, integration artifacts, local simulator internals, or docs files as executable configuration.
+
+Phase 6 validation artifacts include `package_boundary_violation`, `schema_ref_missing`, `premature_service_split`, `split_review_missing`, and `local_test_boundary_violation`. These are CI/build artifacts, not Overwatch runtime events.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.
@@ -202,6 +216,10 @@ It should produce validation artifacts:
 - `missing_test_target`
 - `generated_file_committed`
 - `secret_file_committed`
+- `schema_ref_missing`
+- `premature_service_split`
+- `split_review_missing`
+- `local_test_boundary_violation`
 
 These are CI/build artifacts, not Overwatch events. Integration tests may still exercise Overwatch through running services.
 

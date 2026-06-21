@@ -38,6 +38,10 @@ temp/
 docs/tubitak/
 docs/project_shares/
 docs/planning/
+!docs/planning/
+docs/planning/*
+!docs/planning/repository_layout_phase_06_plan.md
+!docs/planning/repository_layout_phase_06_progress.md
 docs/old_whitepaper.txt
 docs/**/progress.md
 docs/sds/service_sds_refinement_plan.md

@@ -19,3 +19,5 @@ Rules:
 - Generated code is never the source of truth.
 - TypeScript is allowed for web/client bindings and UI packages, not core grid/runtime authority.
 - Package additions require owner-layer, master-phase, contract refs, test targets, and docs links before they are accepted.
+- Repository Layout Phase 6 dependency direction groups keep `contracts` as the shared boundary path, `sdk` and `cli` as consumers, and `local_stack`, `integration_harness`, `local_infra`, fixture writers, and integration artifacts as local/test-only helpers.
+- Runtime-facing modules must not import local/test-only helpers or docs files as executable configuration; boundary payloads must cite `packages/schemas`, `overrid-contracts`, or `docs/specs`.
