@@ -14,6 +14,30 @@ pub use overrid_contracts::{
 
 pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 pub const DEFAULT_MAX_RETRIES: u8 = 2;
+pub const SDK_NAME: &str = "overrid-rust-sdk";
+pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const SDK_LANGUAGE_BINDING: &str = "rust";
+pub const SDK_CAPABILITY_PROFILE: &str = "phase1-control-plane-thin-client";
+pub const SDK_CURRENT_STABLE_MAJOR: u16 = 0;
+pub const SDK_PREVIOUS_STABLE_MAJOR: Option<u16> = None;
+pub const SDK_UNSUPPORTED_VERSION_REASON_CODE: &str = "unsupported_sdk_version";
+pub const SDK_UNSUPPORTED_SCHEMA_REASON_CODE: &str = "schema_version_unsupported";
+pub const SDK_DEPRECATION_BEHAVIOR: &str =
+    "support current stable major and previous stable major when present";
+pub const SDK_UPGRADE_GUIDANCE: &str =
+    "read Overgate capability profiles before using optional SDK helpers";
+pub const SDK_EMERGENCY_BREAK_POLICY: &str =
+    "security-critical breaks return stable unsupported reason codes";
+pub const SDK_SUPPORTED_SCHEMA_VERSIONS: &[&str] = &[SUPPORTED_SCHEMA_VERSION];
+pub const SDK_RELEASE_CHECKLIST_ITEMS: &[&str] = &[
+    "schema versions named",
+    "service capability profile named",
+    "deprecation behavior documented",
+    "upgrade guidance documented",
+    "security-critical emergency break handling documented",
+    "unsupported_sdk_version returned for unsafe SDK majors",
+    "schema_version_unsupported returned for unsafe schema versions",
+];
 
 const PRIVATE_SERVICE_TARGETS: &[&str] = &[
     "overbase",
@@ -70,6 +94,102 @@ impl ClientConfig {
             schema_version: SUPPORTED_SCHEMA_VERSION.to_owned(),
         })
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkCompatibilityMetadata {
+    pub sdk_name: &'static str,
+    pub sdk_version: &'static str,
+    pub current_stable_major: u16,
+    pub previous_stable_major: Option<u16>,
+    pub language_binding: &'static str,
+    pub supported_schema_versions: &'static [&'static str],
+    pub service_capability_profile: &'static str,
+    pub deprecation_behavior: &'static str,
+    pub upgrade_guidance: &'static str,
+    pub emergency_break_policy: &'static str,
+    pub unsupported_sdk_version_reason: &'static str,
+    pub unsupported_schema_version_reason: &'static str,
+}
+
+pub fn sdk_compatibility_metadata() -> SdkCompatibilityMetadata {
+    SdkCompatibilityMetadata {
+        sdk_name: SDK_NAME,
+        sdk_version: SDK_VERSION,
+        current_stable_major: SDK_CURRENT_STABLE_MAJOR,
+        previous_stable_major: SDK_PREVIOUS_STABLE_MAJOR,
+        language_binding: SDK_LANGUAGE_BINDING,
+        supported_schema_versions: SDK_SUPPORTED_SCHEMA_VERSIONS,
+        service_capability_profile: SDK_CAPABILITY_PROFILE,
+        deprecation_behavior: SDK_DEPRECATION_BEHAVIOR,
+        upgrade_guidance: SDK_UPGRADE_GUIDANCE,
+        emergency_break_policy: SDK_EMERGENCY_BREAK_POLICY,
+        unsupported_sdk_version_reason: SDK_UNSUPPORTED_VERSION_REASON_CODE,
+        unsupported_schema_version_reason: SDK_UNSUPPORTED_SCHEMA_REASON_CODE,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkReleaseChecklist {
+    pub metadata: SdkCompatibilityMetadata,
+    pub required_items: &'static [&'static str],
+}
+
+pub fn sdk_release_checklist() -> SdkReleaseChecklist {
+    SdkReleaseChecklist {
+        metadata: sdk_compatibility_metadata(),
+        required_items: SDK_RELEASE_CHECKLIST_ITEMS,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SdkCompatibilityRejection {
+    UnsupportedSdkVersion {
+        provided_major: u16,
+        current_stable_major: u16,
+        previous_stable_major: Option<u16>,
+        reason_code: &'static str,
+    },
+    UnsupportedSchemaVersion {
+        provided: String,
+        supported: &'static str,
+        reason_code: &'static str,
+    },
+}
+
+impl SdkCompatibilityRejection {
+    pub fn reason_code(&self) -> &'static str {
+        match self {
+            Self::UnsupportedSdkVersion { reason_code, .. } => reason_code,
+            Self::UnsupportedSchemaVersion { reason_code, .. } => reason_code,
+        }
+    }
+}
+
+pub fn check_sdk_compatibility(
+    sdk_major: u16,
+    schema_version: &str,
+) -> Result<SchemaVersion, SdkCompatibilityRejection> {
+    let metadata = sdk_compatibility_metadata();
+    let sdk_major_supported = sdk_major == metadata.current_stable_major
+        || metadata.previous_stable_major == Some(sdk_major);
+
+    if !sdk_major_supported {
+        return Err(SdkCompatibilityRejection::UnsupportedSdkVersion {
+            provided_major: sdk_major,
+            current_stable_major: metadata.current_stable_major,
+            previous_stable_major: metadata.previous_stable_major,
+            reason_code: SDK_UNSUPPORTED_VERSION_REASON_CODE,
+        });
+    }
+
+    ensure_supported_schema_version(schema_version).map_err(|_| {
+        SdkCompatibilityRejection::UnsupportedSchemaVersion {
+            provided: schema_version.to_owned(),
+            supported: SUPPORTED_SCHEMA_VERSION,
+            reason_code: SDK_UNSUPPORTED_SCHEMA_REASON_CODE,
+        }
+    })
 }
 
 pub fn retry_timeout_policy(
@@ -166,6 +286,10 @@ impl OverridSdkClient {
 
     pub fn schema_version(&self) -> &SchemaVersion {
         &self.schema_version
+    }
+
+    pub fn compatibility_metadata(&self) -> SdkCompatibilityMetadata {
+        sdk_compatibility_metadata()
     }
 
     pub fn build_request(
@@ -485,10 +609,87 @@ mod tests {
     }
 
     #[test]
+    fn sdk_compatibility_metadata_names_release_gate_values() {
+        let metadata = sdk_compatibility_metadata();
+        assert_eq!(metadata.sdk_name, SDK_NAME);
+        assert_eq!(metadata.language_binding, "rust");
+        assert_eq!(metadata.current_stable_major, SDK_CURRENT_STABLE_MAJOR);
+        assert_eq!(metadata.previous_stable_major, SDK_PREVIOUS_STABLE_MAJOR);
+        assert_eq!(
+            metadata.supported_schema_versions,
+            SDK_SUPPORTED_SCHEMA_VERSIONS
+        );
+        assert_eq!(
+            metadata.unsupported_sdk_version_reason,
+            "unsupported_sdk_version"
+        );
+        assert_eq!(
+            metadata.unsupported_schema_version_reason,
+            "schema_version_unsupported"
+        );
+        assert!(metadata
+            .service_capability_profile
+            .contains("phase1-control-plane"));
+        assert!(metadata.upgrade_guidance.contains("Overgate"));
+    }
+
+    #[test]
+    fn sdk_release_checklist_carries_required_phase1_gate_items() {
+        let checklist = sdk_release_checklist();
+        assert_eq!(checklist.metadata, sdk_compatibility_metadata());
+
+        for required in [
+            "schema versions named",
+            "service capability profile named",
+            "deprecation behavior documented",
+            "upgrade guidance documented",
+            "security-critical emergency break handling documented",
+            "unsupported_sdk_version returned for unsafe SDK majors",
+            "schema_version_unsupported returned for unsafe schema versions",
+        ] {
+            assert!(checklist.required_items.contains(&required));
+        }
+    }
+
+    #[test]
+    fn compatibility_check_rejects_unsafe_sdk_or_schema_without_downgrade() {
+        let accepted =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, SUPPORTED_SCHEMA_VERSION).unwrap();
+        assert_eq!(accepted.raw(), SUPPORTED_SCHEMA_VERSION);
+
+        let version_error =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR + 99, SUPPORTED_SCHEMA_VERSION)
+                .unwrap_err();
+        assert_eq!(
+            version_error.reason_code(),
+            SDK_UNSUPPORTED_VERSION_REASON_CODE
+        );
+        assert!(matches!(
+            version_error,
+            SdkCompatibilityRejection::UnsupportedSdkVersion { .. }
+        ));
+
+        let schema_error =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, "cli-command.v99.0").unwrap_err();
+        assert_eq!(
+            schema_error.reason_code(),
+            SDK_UNSUPPORTED_SCHEMA_REASON_CODE
+        );
+        assert!(matches!(
+            schema_error,
+            SdkCompatibilityRejection::UnsupportedSchemaVersion { .. }
+        ));
+    }
+
+    #[test]
     fn builds_overgate_only_request_metadata() {
         let config = ClientConfig::local_overgate("http://127.0.0.1:18080/overgate").unwrap();
         let client = OverridSdkClient::new(config).unwrap();
         let request = client.build_request("version", "trace_cli_phase2");
+        assert_eq!(
+            client.compatibility_metadata(),
+            sdk_compatibility_metadata()
+        );
         assert_eq!(request.operation, "version");
         assert_eq!(request.schema_version, SUPPORTED_SCHEMA_VERSION);
         assert!(request
