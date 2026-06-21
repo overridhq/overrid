@@ -71,13 +71,15 @@ Build the Phase 12 Overdesk desktop product from [SUB BUILD PLAN #84 - Overdesk 
 - Resource Sharing Rules for day/night schedules, exact hour windows, date windows, CPU/GPU/RAM/storage/network percentages, idle-only mode, bandwidth caps, thermal/battery safety, pause, drain, and emergency stop.
 - Access Rules for institutions, organizations, users, tags, purpose tags, private UUID allowlists, deny rules, expiry, periodic review, and Policy Dry-Run API previews.
 - Overrid Browser with `/hugo`-style address resolution through Universal Namespace Service, Overmesh route refs, Overgate/Overguard checks, tabs, bookmarks, history, trust markers, and Search/Directory fallback.
-- Embedded native app sessions for Messaging, Search, Personal AI Assistant, Social, Maps, Wallet, Workspace, Directory, Central AI stewardship, and Overasset views through owner-service route contracts.
+- Embedded native app sessions for Messaging, Search, Personal AI Assistant, Social, Maps, Wallet, Workspace, Directory, Native App Catalog, Identity/Profile, Namespace Manager, Central AI stewardship, and Overasset views through owner-service route contracts.
 - Wallet and Credits pages that create purchase intents through Wallet/Overbill/ORU/Seal Ledger without local ledger mutation or payment-secret storage.
 - Owned Apps dashboard with app credit usage, credit earnings, resource costs, visitors/source-safe analytics, deployment state, incidents, disputes, app assets, and app-owner exports.
 - Deploy New App wizard over Overpack manifests, Package Validator results, resource estimates, Overguard dry-runs, namespace binding, wallet precheck, Deployment Planner graphs, release strategies, health checks, and rollback requests.
 - Overasset inventory for owned operational assets, capacity rights, app/service ownership, namespace-bound rights, delegations, transfers, disputes, evidence refs, and app/resource bindings.
+- Privacy and Permissions Center, Overvault Secure Storage Center, Docdex/RAG Index Manager, Disputes and Appeals Center, Provider Earnings and Payout Center, Grants and Public-Interest Projects, and Audit/Receipts Timeline, each using owner-service projections and signed action drafts.
+- Node Fleet Manager, Developer Console, Release and Rollback Manager, and Governance Center for provider fleets, app development, rollout/rollback visibility, PIPs, stewardship reports, central-AI recommendations, security/compliance refs, incidents, backup/restore refs, and failover refs.
 
-Overdesk should be the default desktop entry point for users, providers, app owners, and builders. It must remain a client shell and orchestration surface, not a ledger authority, node authority, policy engine, search engine, message store, AI router, maps service, app deployment authority, or asset registry.
+Overdesk should be the default desktop entry point for users, providers, app owners, builders, institutions, and stewards. It must remain a client shell and orchestration surface, not a ledger authority, node authority, policy engine, search engine, message store, AI router, maps service, app deployment authority, vault authority, RAG authority, payout authority, release authority, governance authority, or asset registry.
 
 ## Workstream 4: Workspace And Office Suite
 

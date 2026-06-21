@@ -26,7 +26,7 @@
     {
       "gate": "phase_headings",
       "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
-      "required_marker": "## Phase 10: Validation, Documentation, And Downstream Handoff",
+      "required_marker": "## Phase 10: Validation, Documentation Alignment, And Downstream Handoff",
       "validation_method": "regex_structure_check",
       "passed": true,
       "runtime_authority": false
@@ -34,7 +34,7 @@
     {
       "gate": "work_item_structure",
       "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
-      "required_marker": "**10.5 Prepare downstream phase handoff**",
+      "required_marker": "**10.5 Prepare downstream phase handoff.**",
       "validation_method": "regex_structure_check",
       "passed": true,
       "runtime_authority": false

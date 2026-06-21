@@ -358,6 +358,7 @@ def validate_sdk_code_and_readme() -> None:
 
 
 def validate_structure_artifact() -> None:
+    sub_plan = read(SUB_PLAN)
     artifact = read_json(STRUCTURE_ARTIFACT)
     if artifact.get("artifact_id") != "sdk_phase10_structure_validation":
         raise AssertionError("wrong Phase 10 structure artifact id")
@@ -370,6 +371,10 @@ def validate_structure_artifact() -> None:
     for entry in gates:
         if entry["source_path"] != str(SUB_PLAN):
             raise AssertionError(f"structure gate source drifted: {entry['gate']}")
+        if entry["required_marker"] not in sub_plan:
+            raise AssertionError(
+                f"structure gate marker is not present in {SUB_PLAN}: {entry['gate']}"
+            )
         for key in ("passed",):
             if entry[key] is not True:
                 raise AssertionError(f"structure gate must keep {key}=true: {entry['gate']}")
@@ -401,6 +406,8 @@ def validate_alignment_artifact() -> None:
                 raise AssertionError(f"alignment item must keep {key}=true: {entry['domain']}")
         if entry["runtime_authority"] is not False:
             raise AssertionError(f"alignment item became runtime authority: {entry['domain']}")
+        source_path = Path(entry["source_path"])
+        assert_contains(read(source_path), entry["expected_marker"], source_path)
 
 
 def validate_downstream_handoff_artifact() -> None:

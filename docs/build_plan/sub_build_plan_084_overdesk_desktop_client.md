@@ -6,7 +6,7 @@ Attached SDS: [SDS #84 - Overdesk Desktop Client](../sds/native_apps/overdesk_de
 
 This sub-build plan turns SDS #84 into an implementation sequence for Overdesk, the installable desktop front face for Overrid.
 
-Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor, Overrid browser, native-app host, wallet/credit entry point, owned-app dashboard, deployment wizard, and Overasset inventory view. It must stay an ordinary Overrid client. It never becomes the authority for identity, policy, node capability, resource scheduling, usage measurement, accounting, app records, namespace truth, deployment finality, search ranking, messaging truth, map truth, AI routing, or asset ownership.
+Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor, Overrid browser, native-app host, wallet/credit entry point, owned-app dashboard, deployment wizard, Overasset inventory view, and desktop product surface for workspace, directory listings, app catalog, identity/profile, namespace management, privacy, vault, Docdex/RAG indexes, disputes, provider payouts, grants, activity receipts, node fleets, developer tools, release/rollback, and governance. It must stay an ordinary Overrid client. It never becomes the authority for identity, policy, node capability, resource scheduling, usage measurement, accounting, app records, namespace truth, deployment finality, search ranking, messaging truth, map truth, AI routing, vault secrets, RAG context, payout truth, release truth, governance truth, or asset ownership.
 
 ## Source Alignment
 
@@ -30,9 +30,9 @@ Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor
 | --- | --- | --- |
 | 1 | Master Phases 0, 1, 6, 8, 12, and 13 | Establish desktop shell contracts, generated bindings, identity/session refs, namespace awareness, local encrypted cache, diagnostics, and security gates. |
 | 2 | Master Phases 2, 3, 4, 5, 11, and 12 | Build Add This Computer onboarding, hardware discovery display, node health, resource sharing rules, access rules, and provider safety controls. |
-| 3 | Master Phases 8, 12, and 13 | Build Overrid Browser address resolution, namespace refs, route refs, tabs, bookmarks, and fallback behavior. |
-| 4 | Master Phases 5, 8, 12, and 13 | Embed native app pages, wallet, credits, owned apps, app analytics, and Overasset views through owner-service APIs. |
-| 5 | Master Phases 9, 12, and 13 | Build Deploy New App wizard over package validation, policy dry-run, deployment planning, namespace binding, wallet precheck, and release strategy. |
+| 3 | Master Phases 8, 12, and 13 | Build Overrid Browser address resolution, namespace refs, route refs, tabs, bookmarks, app catalog, identity/profile, namespace-manager, and fallback behavior. |
+| 4 | Master Phases 5, 8, 12, and 13 | Embed native app pages, wallet, credits, owned apps, app analytics, Overasset, privacy, vault, Docdex/RAG, disputes, payouts, grants, and activity views through owner-service APIs. |
+| 5 | Master Phases 9, 12, and 13 | Build Deploy New App wizard, node fleet manager, developer console, release/rollback manager, and governance center over package validation, policy dry-run, deployment planning, namespace binding, wallet precheck, release strategy, stewardship, incident, backup, failover, and PIP refs. |
 | 6 | Master Phase 12 with Phase 13 hardening | Harden offline behavior, local encryption, support bundles, app updates, platform packaging, accessibility, and operational readiness. |
 
 ## Tech Stack Guardrails
@@ -107,11 +107,11 @@ Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor
   - Validation: Clearing browsing data removes local state without changing namespace or owner-service truth.
 
 - **3.3 Implement embedded native-app session host.**
-  - Design: Open Messaging, Search, AI, Social, Maps, Wallet, Workspace, Directory, Central AI, and Overasset pages through owner-service route contracts.
+  - Design: Open Messaging, Search, AI, Social, Maps, Wallet, Workspace, Directory, Native App Catalog, Identity/Profile, Namespace Manager, Central AI, and Overasset pages through owner-service route contracts.
   - Output: `embedded_app_session`, native-app frame, app permission gates, error boundary, app-local usage refs, and replay links.
   - Validation: Owner-service permissions are checked before previews, snippets, private context, exact location, wallet data, or asset details are displayed.
 
-## Phase 4: Wallet, Credits, Owned Apps, And Assets
+## Phase 4: Wallet, Credits, Owned Apps, Assets, Privacy, And Public Utility Projections
 
 ### Work Items
 
@@ -135,7 +135,12 @@ Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor
   - Output: Asset list, asset detail, action drafts, export handoff, dispute handoff, and app/resource binding handoff.
   - Validation: Overasset remains the authority for ownership, delegation, transfer, hold, and dispute state.
 
-## Phase 5: Deploy New App Wizard
+- **4.5 Build privacy, vault, RAG, dispute, payout, grant, and activity surfaces.**
+  - Design: Display owner-service projections for permissions, vault grants, encrypted Docdex/RAG indexes, disputes/appeals, provider earnings/payouts, grants/public-interest projects, and activity/receipt timeline.
+  - Output: Privacy dashboard, Overvault view, RAG index manager, disputes center, provider earnings/payout center, grants center, activity timeline, action drafts, replay refs, and export handoffs.
+  - Validation: Overdesk never stores raw secrets, raw RAG context, fraud internals, payout truth, grant truth, or ledger truth; all mutating actions route to owner services.
+
+## Phase 5: Deployment, Fleet, Developer, Release, And Governance
 
 ### Work Items
 
@@ -153,6 +158,16 @@ Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor
   - Design: Choose namespace route, app route, visibility, release strategy, health checks, backup/restore refs, rollback plan, and deployment graph.
   - Output: Namespace selector, release strategy selector, deployment graph preview, final confirmation, launch monitor, and rollback request.
   - Validation: Deployment finality comes only from Deployment Planner, Release Strategy Service, Overgate, Overguard, Overregistry, Overmeter, and owner-service refs.
+
+- **5.4 Build Node Fleet Manager and Developer Console.**
+  - Design: Manage provider fleet projections, node health, bulk rule drafts, app projects, manifests, package validation, policy dry-runs, test environments, logs, namespace drafts, and deployment previews.
+  - Output: Fleet list, node detail, bulk action drafts, developer project list, manifest viewer, validation results, policy preview, log/replay links, and support bundle handoffs.
+  - Validation: Bulk node actions, package validation, and developer deployment actions remain signed owner-service requests.
+
+- **5.5 Build Release/Rollback Manager and Governance Center.**
+  - Design: Display release state, rollout state, health gates, rollback readiness, backup/restore refs, failover refs, PIPs, stewardship reports, central-AI recommendations, security/compliance reviews, incident summaries, and public correction paths.
+  - Output: Release list, release detail, rollback request draft, governance dashboard, PIP/report views, comment/review drafts, and publication/correction handoffs.
+  - Validation: Release, rollback, governance, publication, incident, and compliance truth remains with Release Strategy, Deployment Planner, Backup/Restore, Failover/Recovery, PIP Registry, Stewardship Reporting, Compliance Boundary, Security Review Tracker, Incident Response, and owner services.
 
 ## Phase 6: Offline, Security, Packaging, And Release
 
@@ -178,10 +193,10 @@ Overdesk is a desktop client shell, node-onboarding helper, resource-rule editor
 - Overdesk adds a computer to the network through normal owner-service APIs.
 - Resource sharing and access rules are visible, previewable, signed, and enforceable by owner services.
 - `/hugo` and other namespace inputs resolve through Universal Namespace Service and Overmesh or fail clearly.
-- Wallet, Credits, Owned Apps, Deploy, Assets, Messaging, Search, AI, Social, and Maps pages are reachable.
-- No page mutates accounting, deployment, node, asset, search, messaging, map, or AI truth directly.
+- Wallet, Credits, Owned Apps, Deploy, Assets, Messaging, Search, AI, Social, Maps, Workspace, Directory, App Catalog, Identity, Namespace, Privacy, Vault, RAG, Disputes, Provider, Grants, Activity, Fleet, Developer, Releases, and Governance pages are reachable.
+- No page mutates accounting, deployment, node, asset, search, messaging, map, AI, vault, RAG, payout, grant, release, governance, or identity truth directly.
 - Local cache, diagnostics, support bundle, payment handoff, and updater paths pass security review.
 
 ## Downstream Handoff
 
-After this plan exits, Overdesk becomes the primary desktop distribution surface for Overrid. Later work should add deeper native app features, institution-managed desktop fleets, app-owner growth tooling that stays privacy-safe, richer offline support, and public launch hardening through Phase 13 governance, compliance, incident, reporting, and scale processes.
+After this plan exits, Overdesk becomes the primary desktop distribution surface for Overrid. Later work should deepen native app features, institution-managed desktop fleets, app-owner growth tooling that stays privacy-safe, encrypted RAG/assistant workflows, release/governance participation, richer offline support, and public launch hardening through Phase 13 governance, compliance, incident, reporting, and scale processes.

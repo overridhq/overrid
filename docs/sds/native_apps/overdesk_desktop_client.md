@@ -93,7 +93,7 @@ The design risk is over-centralizing Overdesk. It must be a desktop shell and or
 - [Purpose Tag Registry](../federation_public/purpose_tag_registry.md), [Public Provider Onboarding](../federation_public/public_provider_onboarding.md), and [Fraud Control Service](../federation_public/fraud_control_service.md) for resource sharing constraints, public provider controls, and misuse detection.
 - [Personal AI Assistant](../ai_rag_model_routing/personal_ai_assistant.md), [AI Gateway Router](../ai_rag_model_routing/ai_gateway_router.md), [Central AI Service](../ai_rag_model_routing/central_ai_service.md), [ADES Enrichment Adapter](../ai_rag_model_routing/ades_enrichment_adapter.md), [Encrypted Docdex RAG Adapter](../ai_rag_model_routing/encrypted_docdex_rag_adapter.md), and [Lightweight Classifier](../ai_rag_model_routing/lightweight_classifier.md) for AI assistant, model routing, tool calls, RAG, entity extraction, and lightweight request classification.
 - Native apps: [Wallet and Usage Center](wallet_usage_center.md), [Messaging Center](messaging_center.md), [Search Engine](search_engine.md), [Social Photo/Video App](social_photo_video_app.md), [Maps and Navigation](maps_navigation.md), [Workspace and Office Suite](workspace_office_suite.md), [Directory Listings](directory_listings.md), and [Central AI Stewardship Interface](central_ai_stewardship_interface.md).
-- Governance and operations services: [Protocol Improvement Proposal Registry](../governance_ops/pip_registry.md), [Stewardship Reporting Service](../governance_ops/stewardship_reporting_service.md), [Compliance Boundary Service](../governance_ops/compliance_boundary_service.md), [Threat Modeling and Security Review Tracker](../governance_ops/threat_modeling_security_review_tracker.md), [Incident Response Service](../governance_ops/incident_response_service.md), [Backup and Restore Service](../governance_ops/backup_restore_service.md), and [Failover and Recovery Coordinator](../governance_ops/failover_recovery_coordinator.md) for governance, incident, release, backup, recovery, reporting, and compliance-facing desktop views.
+- Governance and operations services: [Protocol Improvement Proposal Registry](../governance_ops/pip_registry.md), [Stewardship Reporting Service](../governance_ops/stewardship_reporting_service.md), [Compliance Boundary Service](../governance_ops/compliance_boundary_service.md), [Threat Modeling and Security Review Tracker](../governance_ops/threat_modeling_security_review_tracker.md), [Incident Response Service](../governance_ops/incident_response_service.md), [Backup and Restore Service](../deployment_grid/backup_restore_service.md), and [Failover and Recovery Coordinator](../deployment_grid/failover_recovery_coordinator.md) for governance, incident, release, backup, recovery, reporting, and compliance-facing desktop views.
 - [SDK](../foundation/sdk.md), [CLI](../foundation/cli.md), [Shared Schema Package](../foundation/shared_schema_package.md), and [mSwarm Runtime Bridge](../adapters/mswarm_runtime_bridge.md) for generated contracts, signed calls, offline/local-first helpers, runtime session handoffs, and diagnostics.
 
 ## Owned Responsibilities
@@ -427,7 +427,240 @@ Authority boundary:
 
 - Overasset owns asset truth. Overdesk owns inventory display, filters, action drafts, and app-page handoffs.
 
-### Settings, Privacy, And Security
+### Workspace Page
+
+Purpose: desktop productivity surface for documents, tables, pages, files, comments, approvals, and AI-assisted work.
+
+Expected capabilities:
+
+- Workspace switcher for personal, organization, institution, app-owner, and delegated workspaces.
+- Document, table, page, folder, and object views with recent files, shared-with-me, offline-marked items, approvals, comments, versions, import/export, and search handoffs.
+- Explicit sharing and revocation controls with role, expiry, public/private link state, vault grant state, AI context eligibility, and audit refs.
+- AI assist entry points for summarizing, drafting, table cleanup, import review, and document Q&A only after context permission is granted.
+- Usage view for storage, export, AI assist, indexing, collaboration, and offline sync.
+
+Authority boundary:
+
+- Workspace and Office Suite owns workspace objects, editor sessions, versions, permissions, comments, approvals, import/export, and document truth. Overdesk owns route state, local cache policy, desktop notifications, and user-visible action drafts.
+
+### Directory Listings Page
+
+Purpose: local and public listing surface for marketplace-style discovery without ad-trap ranking.
+
+Expected capabilities:
+
+- Listings for local services, jobs, housing, events, community posts, organization pages, resource offers, university/public-interest pools, and app/service pages.
+- Create/edit listing drafts, listing media uploads, category/tag/purpose tag selection, locality scope, expiry, renewal, report, dispute, and moderation/appeal state.
+- Search, map, social, messaging, wallet, and namespace handoffs that preserve viewer permissions and source refs.
+- Transparent sorting and filtering by relevance, locality, freshness, category, trust markers, and public-interest status without paid-placement monopoly behavior.
+
+Authority boundary:
+
+- Directory Listings owns listing truth, visibility, moderation, ranking, disputes, and category policy. Overdesk owns desktop view state, drafts, cached cards, and handoffs.
+
+### App Store And Native App Catalog
+
+Purpose: discover, inspect, install/open, and review Overrid-native apps and service surfaces.
+
+Expected capabilities:
+
+- Catalog of native apps, public utilities, workspace tools, developer tools, institution apps, organization apps, and user-owned deployed apps.
+- App detail pages with owner refs, namespace refs, versions, permissions, data classes, credit usage model, resource usage, reviews, incidents, support links, privacy summary, and source/package refs where public.
+- Install/open/pin actions, update notices, permission review, app removal, default app selection, and app-to-app handoffs.
+- Safety labels for experimental, institution-only, private-beta, restricted, deprecated, disputed, suspended, or incident-affected apps.
+
+Authority boundary:
+
+- App owner services, Deployment Planner, Package Validator, Release Strategy Service, Universal Namespace Service, Overguard, and Overwatch own app records, deployability, package state, releases, policy, and incident truth. Overdesk owns catalog display, local pins, open sessions, and desktop update prompts.
+
+### Identity And Profile Center
+
+Purpose: manage the user's identities, profiles, organization scopes, public handles, and account-facing trust markers.
+
+Expected capabilities:
+
+- Personal profile, public profile, organization profile, institution profile, app-owner profile, delegated scope, and recovery/contact state.
+- Username/handle display, verified markers, profile fields, avatar/media refs, privacy visibility, blocked users, trusted devices, sessions, and credential-provider status.
+- Identity handoffs to Overpass, Overtenant, Overkey, Universal Namespace Service, Messaging Center, Directory Listings, and Wallet.
+- Account safety prompts for device revoke, session revoke, profile visibility changes, delegated role changes, and recovery changes.
+
+Authority boundary:
+
+- Overpass, Overtenant, Overkey, Universal Namespace Service, and owning profile services own identity, membership, key, credential, session, and profile truth. Overdesk owns desktop presentation and confirmation flows.
+
+### Namespace Manager
+
+Purpose: manage Overrid names, app routes, profile routes, directory routes, service aliases, and namespace disputes.
+
+Expected capabilities:
+
+- Owned names, requested names, delegated names, app-bound routes, organization aliases, service routes, route history, verification markers, and tombstone/dispute state.
+- Create/request/update namespace route drafts, bind names to apps or profiles, set public/private visibility, add route metadata, rotate route target refs, and release names where allowed.
+- Search fallback, directory fallback, conflict explanation, proof/evidence display, and dispute/appeal handoff.
+
+Authority boundary:
+
+- Universal Namespace Service owns normalized names, owner/target refs, delegation, transfer, route bindings, tombstones, verification markers, and disputes. Overdesk owns manager view state and action drafts.
+
+### Privacy And Permissions Center
+
+Purpose: give users one place to understand and revoke app permissions, data access, AI context grants, location grants, vault grants, notifications, and retention settings.
+
+Expected capabilities:
+
+- Permission inventory by app, service, device, workspace, message scope, location scope, RAG scope, vault scope, directory listing, social/media scope, and node/provider scope.
+- Revoke, expire, narrow, review, renew, and explain grants with immediate/queued owner-service status.
+- Data-use explanations, redaction classes, retention periods, audit refs, denied access attempts, and active high-risk permissions.
+- Privacy health checks and cleanup suggestions that do not auto-revoke without user confirmation unless owner-service policy requires it.
+
+Authority boundary:
+
+- Owner services, Overguard, Overpass, Overtenant, Overkey, Overvault, Wallet, Search, AI, Maps, Workspace, Messaging, and Social own permission truth. Overdesk owns consolidated display and signed revocation requests.
+
+### Overvault Secure Storage Center
+
+Purpose: desktop surface for private encrypted records, vault grants, recovery refs, and app secret storage visibility.
+
+Expected capabilities:
+
+- Vault item categories by account, app, organization, device, workspace, RAG index, deployment, credential ref, and backup/recovery ref.
+- Grant review, grant request, grant revoke, rotation status, sealed reference display, recovery status, and export/backup eligibility where allowed.
+- Warnings for expired, stale, unreviewed, high-risk, shared, disputed, unrecoverable, or incident-affected vault grants.
+- No plaintext secret display unless an owner-service flow explicitly requires a short-lived reveal and fresh credential verification.
+
+Authority boundary:
+
+- Overvault and Overkey own encryption, grants, sealed refs, recovery, and secret access. Overdesk owns safe projection, local encrypted cache policy, and action drafts.
+
+### Docdex And RAG Index Manager
+
+Purpose: connect encrypted Docdex indexes to the personal AI assistant, workspaces, repositories, and apps without leaking raw private context.
+
+Expected capabilities:
+
+- List personal, organization, repo, workspace, and app-scoped encrypted indexes with scope, freshness, embedding/index state, allowed models, RAG grants, and source refs.
+- Create/connect/sync/disconnect encrypted index refs, choose RAG eligibility, review model/tool permissions, and inspect redacted retrieval receipts.
+- Route requests through Personal AI Assistant, AI Gateway Router, Encrypted Docdex RAG Adapter, Lightweight Classifier, ADES Enrichment Adapter, and available model resources.
+- Display usage, freshness, denied-source counts, redaction decisions, and replay refs without storing raw private RAG context in Overdesk.
+
+Authority boundary:
+
+- Encrypted Docdex RAG Adapter, Personal AI Assistant, AI Gateway Router, owner repos/workspaces/apps, and permission services own index truth, routing, retrieval, and context access. Overdesk owns manager UI and explicit grants.
+
+### Disputes And Appeals Center
+
+Purpose: one desktop place for usage disputes, asset disputes, namespace disputes, moderation appeals, payout holds, provider complaints, fraud reports, and incident-linked appeals.
+
+Expected capabilities:
+
+- Case list by account, app, node, listing, namespace, asset, wallet receipt, provider earning, content moderation event, abuse report, or governance decision.
+- Case detail with status, evidence refs, receipts, affected services, deadlines, requested remedy, owner-service messages, appeal options, and public/private redaction class.
+- Create dispute/appeal drafts from wallet receipt, app analytics, asset detail, listing, namespace route, provider lease, message/report, or incident ref.
+- Timeline of owner-service updates and final decisions with replay and correction paths.
+
+Authority boundary:
+
+- Overclaim, Overasset, Wallet/Overbill/Seal Ledger, Directory, Social, Universal Namespace Service, Provider Payout Service, Incident Response Service, and owner services own dispute truth. Overdesk owns consolidated case display and draft handoffs.
+
+### Provider Earnings And Payout Center
+
+Purpose: show resource providers what their nodes earned, what is pending, what is held, and what can be paid out.
+
+Expected capabilities:
+
+- Provider earning summaries by node, device, organization, resource class, lease, workload class, time window, ORU dimension, gross usage, costs, holds, corrections, disputes, and payout state.
+- Payout method refs, tax/compliance requirement refs, minimum/hold state, payout schedule, payout history, failed payout state, and appeal/dispute links.
+- Node contribution analytics tied to Resource Sharing Rules and Node Fleet Manager.
+
+Authority boundary:
+
+- Provider Payout Service, Overmeter, Overmark, ORU Account Service, Seal Ledger, Overbill, Overclaim, Compliance Boundary Service, and owner services own earning, hold, payout, correction, and compliance truth. Overdesk owns display and signed payout-action drafts.
+
+### Grants And Public-Interest Projects
+
+Purpose: connect users, providers, builders, academics, institutions, and public projects to grants and central-AI/stewardship-funded work.
+
+Expected capabilities:
+
+- Grant catalog, active grants, sponsored credits, public-interest pools, academic/research projects, institution programs, donation/surplus-funded projects, eligibility, application status, and usage reports.
+- Apply, accept, renew, report progress, attach evidence refs, link apps/nodes/workspaces/listings/assets, and view grant receipts.
+- Central AI recommendation view with evidence, confidence, review status, public report links, and appeal/correction paths.
+
+Authority boundary:
+
+- Overgrant, Central AI Service, Central AI Stewardship Interface, Stewardship Reporting Service, ORU Account Service, Seal Ledger, Wallet, and owner services own grant truth and funding decisions. Overdesk owns desktop discovery, drafts, and status display.
+
+### Audit, Activity, And Receipts Timeline
+
+Purpose: give each actor a replayable, role-redacted timeline of important Overrid actions.
+
+Expected capabilities:
+
+- Timeline across wallet receipts, credit purchases, node leases, provider rule changes, permission grants/revokes, app opens, deployments, releases, namespace changes, vault grants, RAG retrieval receipts, disputes, payouts, grants, governance actions, support exports, and security prompts.
+- Filters by account, org, device, app, service, asset, namespace, time, risk class, receipt type, usage dimension, and redaction class.
+- Open replay, export user-visible receipts, report issue, open dispute, revoke permission, or jump to owner-service detail where authorized.
+
+Authority boundary:
+
+- Overwatch, owner services, Wallet, ORU, Seal Ledger, Overmeter, Overbill, Overguard, Overvault, AI Gateway, Deployment Planner, and governance services own event and receipt truth. Overdesk owns aggregation view and local filters.
+
+### Node Fleet Manager
+
+Purpose: manage more than one contributed computer from the same desktop product.
+
+Expected capabilities:
+
+- Fleet list by personal, organization, institution, lab, class, office, server room, GPU rig, or cloud/edge group.
+- Node health, hardware summary, resource sharing state, access rules, current leases, earnings, updates, incidents, benchmark freshness, pause/drain state, and policy denials.
+- Bulk rule drafts, staged updates, maintenance windows, tags, private UUID pools, institution scopes, and support bundle exports.
+
+Authority boundary:
+
+- Node Installer, Overcell, Hardware Discovery, Overregistry, Oververify, Overguard, Oversched, Overlease, Overrun, Overmeter, Overwatch, and Provider Payout Service own node, scheduling, execution, health, usage, and earning truth. Overdesk owns fleet display and signed bulk-action drafts.
+
+### Developer Console
+
+Purpose: make Overrid app development, integration, testing, and deployment reachable without turning Overdesk into a privileged admin tool.
+
+Expected capabilities:
+
+- Project list, app manifests, local dev environments, SDK/CLI links, package validation, policy dry-run, permissions, secrets refs, namespace route drafts, test fixtures, deployment previews, logs, and replay bundles.
+- Overpack build/import status, Package Validator results, Deployment Planner graph preview, release strategy preview, wallet/grant precheck, and app-owner handoff.
+- Developer diagnostics for local stack, generated contract version, API health, app sessions, test accounts, and redacted support bundles.
+
+Authority boundary:
+
+- SDK, CLI, Overpack, Package Validator, Deployment Planner, Release Strategy Service, Overguard, Overbase, Overstore, Overvault, Universal Namespace Service, and owner services own build/deploy authority. Overdesk owns developer UX and local diagnostics.
+
+### Release And Rollback Manager
+
+Purpose: let app owners and service owners see release state, staged rollouts, health gates, rollback readiness, and recovery refs.
+
+Expected capabilities:
+
+- Release list by app/service/environment, version, package ref, rollout strategy, health status, incident status, backup/restore readiness, rollback point, route state, and namespace binding.
+- Promote, pause, resume, rollback request, route-shift request, health gate review, migration link, backup/restore link, and support bundle handoff where the actor is authorized.
+- Clear explanations for blocked releases, unsafe rollbacks, stale backups, failed health checks, missing reviews, and compliance boundaries.
+
+Authority boundary:
+
+- Release Strategy Service, Deployment Planner, Backup and Restore Service, Failover and Recovery Coordinator, Overmesh, Overwatch, Package Validator, Compliance Boundary Service, and owner services own release and rollback authority. Overdesk owns display and signed action drafts.
+
+### Governance Center
+
+Purpose: expose protocol, stewardship, central-AI recommendation, incident, compliance, and public-interest governance surfaces to users and stewards.
+
+Expected capabilities:
+
+- Protocol Improvement Proposals, stewardship reports, public-interest funding reports, native-service surplus reports, central-AI recommendations, compliance boundary summaries, security review status, incident summaries, migration evidence, and public correction/retraction notices.
+- Read public reports, follow proposals, submit comments where allowed, view affected services, see required reviews, inspect redacted evidence, and open appeal/correction paths.
+- Steward views for assigned reviews, pending decisions, publication readiness, redaction status, conflict-of-interest markers, and required review coverage.
+
+Authority boundary:
+
+- PIP Registry, Stewardship Reporting Service, Central AI Service, Central AI Stewardship Interface, Compliance Boundary Service, Threat Modeling and Security Review Tracker, Incident Response Service, Migration Tooling, and owner services own governance truth. Overdesk owns user/steward desktop presentation and signed comment/review drafts.
+
+### Settings And Security
 
 Required settings:
 
@@ -460,6 +693,22 @@ Security rules:
 - `app_detail_view`: app refs, release refs, deployment refs, package refs, policy refs, usage/earning/cost refs, analytics refs, support inbox refs, and replay refs.
 - `deployment_wizard_session`: source refs, manifest refs, validation refs, resource estimate refs, policy dry-run refs, namespace refs, deployment graph refs, release refs, wallet precheck refs, and state.
 - `asset_inventory_view`: owner refs, asset refs, type filters, delegation refs, transfer refs, dispute refs, related app/resource refs, and display state.
+- `workspace_surface_view`: workspace refs, object refs, document/table/page refs, share refs, version refs, comment/approval refs, AI context grant refs, offline refs, and display state.
+- `directory_surface_view`: listing refs, category refs, locality refs, media refs, moderation refs, report/dispute refs, search/map/message handoff refs, and display state.
+- `app_catalog_view`: app refs, package refs, release refs, namespace refs, permission refs, usage model refs, incident refs, review/support refs, and local pin/open state.
+- `identity_profile_view`: identity refs, profile refs, tenant/org refs, handle refs, credential/session/device refs, visibility refs, recovery refs, and display state.
+- `namespace_manager_session`: namespace refs, route refs, target refs, verification refs, delegation refs, transfer refs, tombstone/dispute refs, and action draft state.
+- `privacy_permission_dashboard`: actor refs, app/service refs, permission grant refs, revocation refs, retention refs, AI/location/vault/RAG grant refs, denied-attempt refs, and review state.
+- `secure_storage_view`: vault item refs, grant refs, sealed reference refs, rotation refs, recovery refs, backup/export eligibility refs, and redacted display state.
+- `rag_index_connection`: index refs, owner/source refs, freshness refs, RAG grant refs, allowed model refs, retrieval receipt refs, redaction refs, and sync state.
+- `dispute_appeal_dashboard`: case refs, evidence refs, receipt refs, affected service refs, deadline refs, remedy refs, decision refs, and appeal state.
+- `provider_payout_view`: provider refs, node refs, earning refs, hold refs, correction refs, payout refs, compliance refs, tax/profile refs, and display state.
+- `grant_public_interest_view`: grant refs, project refs, eligibility refs, application refs, sponsored credit refs, usage report refs, stewardship refs, and display state.
+- `activity_timeline_view`: receipt refs, event refs, replay refs, service refs, redaction refs, filters, export refs, and dispute handoff refs.
+- `node_fleet_view`: fleet refs, node refs, health refs, rule refs, access refs, lease refs, earning refs, incident refs, update refs, and bulk action draft state.
+- `developer_console_session`: project refs, app refs, manifest refs, package validation refs, policy dry-run refs, deployment preview refs, namespace drafts, logs, and test environment refs.
+- `release_rollback_view`: release refs, rollout refs, health gate refs, package refs, backup refs, restore refs, rollback refs, route refs, incident refs, and action draft state.
+- `governance_center_view`: PIP refs, stewardship report refs, central-AI recommendation refs, compliance/security/incident refs, review refs, comment refs, publication refs, and display state.
 - `overdesk_notification_pref`: actor/org refs, notification classes, delivery prefs, quiet hours, redaction prefs, and state.
 - `overdesk_usage_ref`: desktop shell, node onboarding, resource-rule edit, access-policy edit, address resolution, native-app view, credit purchase, app analytics, deployment, asset view, diagnostic export, compute, storage, and bandwidth usage refs.
 
@@ -493,9 +742,40 @@ Overdesk APIs are desktop-client support APIs and gateway-facing client calls. T
 - `POST /overdesk/deployments/wizard/{session_id}/submit`: submits signed deployment intent through Deployment Planner.
 - `GET /overdesk/assets`: returns Overasset inventory projections.
 - `POST /overdesk/assets/{asset_id}/actions`: drafts or submits allowed delegation, revocation, transfer, bind, export, or dispute handoff actions.
+- `GET /overdesk/workspaces`: returns Workspace projections, recent objects, share state, offline state, and usage refs.
+- `POST /overdesk/workspaces/{workspace_id}/actions`: drafts allowed share, revoke, import, export, approval, AI-assist, or open-object handoffs.
+- `GET /overdesk/directory`: returns Directory Listing projections, filters, map/search handoffs, moderation state, and listing usage refs.
+- `POST /overdesk/directory/listings`: drafts or submits a listing create/update request through Directory Listings.
+- `GET /overdesk/catalog/apps`: returns Native App Catalog projections, app detail summaries, permission labels, usage labels, and release/incident state.
+- `POST /overdesk/catalog/apps/{app_id}/open`: opens, pins, updates, removes, or reviews an app through owner-service route contracts where authorized.
+- `GET /overdesk/identity-profile`: returns profile, identity, session, device, handle, visibility, and delegated-scope projections.
+- `POST /overdesk/identity-profile/actions`: drafts or submits profile, session, device, visibility, or delegated-scope actions through owner services.
+- `GET /overdesk/namespaces`: returns owned, delegated, requested, disputed, and app-bound namespace projections.
+- `POST /overdesk/namespaces/actions`: drafts or submits namespace create, bind, release, transfer, delegation, verification, or dispute handoffs.
+- `GET /overdesk/privacy-permissions`: returns permission, grant, retention, location, AI, RAG, vault, notification, and denied-access projections.
+- `POST /overdesk/privacy-permissions/actions`: drafts or submits revoke, narrow, expire, renew, review, or export-permission actions.
+- `GET /overdesk/vault`: returns Overvault-safe projections for vault items, grants, sealed refs, rotation, recovery, and backup eligibility.
+- `POST /overdesk/vault/actions`: drafts or submits grant, revoke, rotate, reveal-request, recovery, export, or backup handoffs.
+- `GET /overdesk/rag-indexes`: returns encrypted Docdex/RAG index projections, freshness, model eligibility, grants, and retrieval receipts.
+- `POST /overdesk/rag-indexes/actions`: drafts or submits connect, sync, disconnect, grant, revoke, or inspect-receipt actions.
+- `GET /overdesk/disputes`: returns disputes and appeals visible to the actor.
+- `POST /overdesk/disputes`: drafts or submits a dispute or appeal through the owning dispute service.
+- `GET /overdesk/provider/earnings`: returns provider earning, hold, correction, payout, compliance, and node-contribution projections.
+- `POST /overdesk/provider/payout-actions`: drafts or submits payout-method, payout-request, hold-appeal, correction, or export actions.
+- `GET /overdesk/grants`: returns grants, public-interest projects, sponsored credits, applications, and stewardship report refs.
+- `POST /overdesk/grants/actions`: drafts or submits grant apply, accept, renew, report, link-resource, or evidence actions.
+- `GET /overdesk/activity`: returns redacted activity, receipt, audit, replay, and export projections.
+- `GET /overdesk/fleet/nodes`: returns node fleet projections, health, rules, leases, earnings, incidents, and updates.
+- `POST /overdesk/fleet/actions`: drafts or submits allowed bulk rule, access, pause, drain, update, tag, or support-bundle actions.
+- `GET /overdesk/developer`: returns developer projects, manifests, validation refs, deployment previews, namespace drafts, logs, and local environment state.
+- `POST /overdesk/developer/actions`: drafts or submits package validate, policy dry-run, manifest update, namespace draft, test, or deployment-preview actions.
+- `GET /overdesk/releases`: returns release, rollout, health gate, rollback, backup/restore, route, migration, and incident projections.
+- `POST /overdesk/releases/actions`: drafts or submits release pause, resume, promote, rollback request, route-shift request, or health-review actions.
+- `GET /overdesk/governance`: returns PIP, stewardship, central-AI recommendation, compliance, security, incident, migration, and public-report projections.
+- `POST /overdesk/governance/actions`: drafts or submits allowed comment, follow, review, correction, appeal, or publication-review actions.
 - `GET /overdesk/replay/{record_id}`: reconstructs desktop flow, owner-service refs, usage refs, policy refs, and audit refs visible to the actor.
 
-Stable errors include `desktop_session_required`, `device_not_supported`, `installer_permission_denied`, `node_onboarding_denied`, `hardware_discovery_unavailable`, `benchmark_denied`, `resource_rule_invalid`, `access_policy_invalid`, `private_uuid_invalid`, `policy_preview_denied`, `namespace_not_found`, `route_denied`, `app_session_denied`, `wallet_precheck_failed`, `purchase_intent_denied`, `owned_app_not_visible`, `analytics_scope_denied`, `deployment_manifest_invalid`, `deployment_policy_denied`, `asset_not_visible`, `asset_action_denied`, `local_cache_unavailable`, and `overdesk_state_conflict`.
+Stable errors include `desktop_session_required`, `device_not_supported`, `installer_permission_denied`, `node_onboarding_denied`, `hardware_discovery_unavailable`, `benchmark_denied`, `resource_rule_invalid`, `access_policy_invalid`, `private_uuid_invalid`, `policy_preview_denied`, `namespace_not_found`, `route_denied`, `app_session_denied`, `wallet_precheck_failed`, `purchase_intent_denied`, `owned_app_not_visible`, `analytics_scope_denied`, `deployment_manifest_invalid`, `deployment_policy_denied`, `asset_not_visible`, `asset_action_denied`, `workspace_scope_denied`, `listing_action_denied`, `catalog_action_denied`, `profile_action_denied`, `namespace_action_denied`, `permission_action_denied`, `vault_action_denied`, `rag_index_action_denied`, `dispute_action_denied`, `payout_action_denied`, `grant_action_denied`, `activity_scope_denied`, `fleet_action_denied`, `developer_action_denied`, `release_action_denied`, `governance_action_denied`, `local_cache_unavailable`, and `overdesk_state_conflict`.
 
 ## Event Surface
 
@@ -519,6 +799,22 @@ Stable errors include `desktop_session_required`, `device_not_supported`, `insta
 - `overdesk.deployment_intent_submitted`
 - `overdesk.asset_inventory_viewed`
 - `overdesk.asset_action_submitted`
+- `overdesk.workspace_surface_opened`
+- `overdesk.directory_listing_action_submitted`
+- `overdesk.app_catalog_opened`
+- `overdesk.identity_profile_action_submitted`
+- `overdesk.namespace_action_submitted`
+- `overdesk.permission_action_submitted`
+- `overdesk.vault_action_submitted`
+- `overdesk.rag_index_action_submitted`
+- `overdesk.dispute_appeal_submitted`
+- `overdesk.provider_payout_action_submitted`
+- `overdesk.grant_action_submitted`
+- `overdesk.activity_timeline_viewed`
+- `overdesk.node_fleet_action_submitted`
+- `overdesk.developer_action_submitted`
+- `overdesk.release_action_submitted`
+- `overdesk.governance_action_submitted`
 - `overdesk.support_bundle_exported`
 - `overdesk.usage_emitted`
 
@@ -604,6 +900,35 @@ Events include actor refs, tenant/org refs, device refs, app refs, namespace ref
 4. User opens an asset detail page and reviews evidence refs, owner refs, expiry, rights, related apps/resources, and policy constraints.
 5. User drafts delegation, revocation, transfer, binding, export, or dispute action.
 6. Overasset and owner services validate and record authoritative state.
+
+### Use Workspace, Directory, Catalog, Identity, And Namespace Surfaces
+
+1. User opens Workspace, Directory, App Catalog, Identity, or Namespace from the shell or address bar.
+2. Overdesk resolves the selected account, organization, institution, app-owner, and delegated scope.
+3. Overdesk fetches a permission-safe projection from the owning service.
+4. User drafts the desired action: open document, share/revoke workspace access, create/edit listing, open/pin app, update profile visibility, or bind a namespace.
+5. Overdesk shows source refs, permission implications, usage refs, and denial/fallback paths.
+6. User confirms where the action is high-risk or mutating.
+7. Owner services record authoritative state and return audit/replay refs.
+
+### Manage Privacy, Vault, RAG, Disputes, Payouts, And Grants
+
+1. User opens Privacy, Vault, RAG, Disputes, Provider, or Grants.
+2. Overdesk builds a consolidated projection from owner services without copying raw private content, secrets, RAG context, or fraud internals.
+3. User reviews active grants, vault access, index connections, disputes, holds, payouts, grants, and public-interest project status.
+4. User drafts a revoke, rotate, connect, sync, dispute, appeal, payout, grant, or evidence-submission action.
+5. Overdesk runs local validation for missing fields and requests policy/precheck decisions where needed.
+6. User confirms signed action with affected account, service, refs, and rollback/dispute path.
+7. Owner services update authoritative state and Overdesk records view/update refs only.
+
+### Manage Activity, Fleet, Developer, Releases, And Governance
+
+1. User opens Activity, Fleet, Developer, Releases, or Governance.
+2. Overdesk fetches redacted projections for receipts, nodes, projects, releases, PIPs, reports, incidents, reviews, and central-AI recommendations.
+3. User filters by account, organization, device, app, namespace, service, risk class, or time window.
+4. User opens replay, exports receipts, creates bulk node-rule drafts, validates packages, previews deployments, requests release actions, follows PIPs, or submits comments/reviews where authorized.
+5. High-risk actions require fresh credential verification and owner-service prechecks.
+6. Owner services record final state; Overdesk keeps display state, replay refs, and local diagnostics.
 
 ## State Machines
 
@@ -758,16 +1083,18 @@ Deployment wizard lifecycle:
 ### Phase 3: Browser And Native App Host
 
 - Implement top address bar, namespace resolution, route resolution, tabs, bookmarks, history, trust markers, route-denied views, and search/directory fallback.
-- Embed initial Wallet, Messaging, Search, AI Assistant, Social, Maps, Workspace, Directory, Central AI, and Overasset app sessions through owner-service contracts.
+- Embed initial Wallet, Messaging, Search, AI Assistant, Social, Maps, Workspace, Directory, App Catalog, Identity/Profile, Namespace, Central AI, and Overasset app sessions through owner-service contracts.
 
-### Phase 4: Wallet, Credits, Owned Apps, And Assets
+### Phase 4: Wallet, Credits, Owned Apps, Assets, Privacy, And RAG
 
-- Implement Wallet page embedding, credit purchase intent flow, owned app dashboard, app detail analytics, app-owner exports, asset inventory, and asset action drafts.
-- Ensure all accounting and rights actions route to ORU, Seal Ledger, Overbill, Wallet, Provider Payout Service, Overmeter, Overclaim, and Overasset owner APIs.
+- Implement Wallet page embedding, credit purchase intent flow, owned app dashboard, app detail analytics, app-owner exports, asset inventory, Privacy and Permissions Center, Overvault Secure Storage Center, Docdex/RAG Index Manager, Disputes and Appeals Center, Provider Earnings and Payout Center, Grants and Public-Interest Projects, and Audit/Receipts Timeline.
+- Ensure all accounting, privacy, RAG, dispute, payout, grant, and rights actions route to ORU, Seal Ledger, Overbill, Wallet, Provider Payout Service, Overmeter, Overclaim, Overgrant, Overvault, AI Gateway/Docdex adapter, and Overasset owner APIs.
 
-### Phase 5: Deployment Wizard
+### Phase 5: Developer, Fleet, Deployment, Release, And Governance
 
 - Implement source selection, manifest validation, resource estimation, policy dry-run, namespace selection, wallet precheck, deployment graph preview, signed submission, monitor, rollback request, and support bundle.
+- Implement Node Fleet Manager, Developer Console, Release and Rollback Manager, and Governance Center projections and action drafts.
+- Keep developer, release, fleet, and governance actions behind owner-service checks, release gates, policy dry-runs, security/compliance refs, and replayable audit refs.
 
 ### Phase 6: Security, Offline, Packaging, And Release
 
@@ -779,11 +1106,12 @@ Deployment wizard lifecycle:
 - A provider can set day/night/hour schedules, resource percentages, idle-only behavior, and emergency pause.
 - A provider can restrict resource use by institutions, organizations, tags, purpose tags, users, and private UUIDs.
 - `/hugo` resolves through namespace/route/policy flow or shows a clear not-found/denied/fallback state.
-- Messaging, Search, AI, Social, Maps, Wallet, Credits, Owned Apps, Deploy, and Assets pages are reachable from the shell.
+- Messaging, Search, AI, Social, Maps, Workspace, Directory, App Catalog, Wallet, Credits, Owned Apps, Deploy, Assets, Identity, Namespace, Privacy, Vault, RAG, Disputes, Provider, Grants, Activity, Fleet, Developer, Releases, and Governance pages are reachable from the shell.
 - Credit buying creates a purchase intent and displays Overbill/ORU/Seal Ledger refs without local ledger mutation.
 - Owned app detail pages show credit usage, credit earnings, resource costs, visitors/source-safe analytics, deployment state, and disputes from owner-service refs.
 - Deployment wizard rejects invalid manifests, unsafe policies, insufficient wallet/precheck state, and unauthorized namespace use.
 - Overasset page displays asset inventory and routes all rights-changing actions to Overasset.
+- Privacy, Vault, RAG, Disputes, Provider, Grants, Activity, Fleet, Developer, Releases, and Governance pages display owner-service projections and route every mutating action through authoritative services.
 - Local cache can be cleared without corrupting authoritative state.
 - Support bundles are redacted and reviewed before export.
 
@@ -797,4 +1125,4 @@ Deployment wizard lifecycle:
 
 ## Handoff
 
-Overdesk is SDS #84 because it turns the existing Overrid service ecosystem into a usable desktop product. It should be built after the wallet, identity, node onboarding, policy, accounting, namespace, deployment, and native-app contracts are stable enough to expose through one client shell. The first product release should focus on joining the network, setting resource rules, browsing Overrid addresses, wallet/credits, messaging/search/AI, owned apps, deployment, and Overasset inventory, then expand each embedded native app as its owner service matures.
+Overdesk is SDS #84 because it turns the existing Overrid service ecosystem into a usable desktop product. It should be built after the wallet, identity, node onboarding, policy, accounting, namespace, deployment, and native-app contracts are stable enough to expose through one client shell. The first product release should focus on joining the network, setting resource rules, browsing Overrid addresses, wallet/credits, messaging/search/AI, workspace/directory/catalog, privacy/vault/RAG, owned apps, deployment, assets, disputes, payouts, grants, activity, fleet, developer, release, and governance views, then deepen each embedded surface as its owner service matures.

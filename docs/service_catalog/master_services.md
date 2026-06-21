@@ -1415,7 +1415,7 @@ First phase: Phase 6 or earlier if needed by native app runtime.
 
 ### Overdesk Desktop Client
 
-Purpose: Installable desktop front face for Overrid that lets users add a computer to the network, set resource sharing and access rules, browse Overrid addresses, use native apps, buy credits, inspect owned apps, deploy new apps, and manage Overasset-owned assets.
+Purpose: Installable desktop front face for Overrid that lets users add a computer to the network, set resource sharing and access rules, browse Overrid addresses, use native apps, buy credits, inspect owned apps, deploy new apps, manage Overasset-owned assets, and operate workspace, directory, app catalog, identity, namespace, privacy, vault, Docdex/RAG, dispute, payout, grant, activity, fleet, developer, release, and governance surfaces.
 
 Build:
 
@@ -1424,13 +1424,16 @@ Build:
 - Resource sharing rules for day/night/hour schedules, resource percentages, idle-only mode, caps, pause, drain, and emergency stop.
 - Access rules for institutions, organizations, users, tags, purpose tags, private UUID allowlists, deny rules, expiry, and dry-run previews.
 - Overrid browser for addresses such as `/hugo`, namespace resolution, route refs, tabs, bookmarks, and search/directory fallback.
-- Native app host for messaging, search, personal AI, social, maps, wallet, workspace, directory, central AI stewardship, and Overasset views.
+- Native app host for messaging, search, personal AI, social, maps, wallet, workspace, directory, app catalog, identity/profile, namespace, central AI stewardship, and Overasset views.
 - Credit purchase intent flow through Wallet, Overbill, ORU Account Service, and Seal Ledger.
 - Owned apps dashboard for credit usage, credit earnings, resource costs, visitors/source-safe analytics, deployments, incidents, and disputes.
 - Deploy New App wizard through Overpack, Package Validator, Policy Dry-Run API, Deployment Planner, namespace binding, wallet precheck, and Release Strategy Service.
 - Overasset inventory for owned rights, capacity claims, app/service ownership, delegations, transfers, disputes, and related resources.
+- Privacy and Permissions Center, Overvault Secure Storage Center, Docdex/RAG Index Manager, Disputes and Appeals Center, Provider Earnings and Payout Center, Grants and Public-Interest Projects, and Audit/Receipts Timeline through owner-service projections.
+- Node Fleet Manager and Developer Console for provider fleets, node health, package validation, policy dry-runs, local dev state, logs, namespace drafts, and deployment previews.
+- Release and Rollback Manager plus Governance Center for rollout state, health gates, backup/restore refs, failover refs, PIPs, stewardship reports, central-AI recommendations, incidents, security/compliance refs, and public correction paths.
 
-Interfaces: Overgate, Overpass, Overtenant, Overkey, Overwatch, Node Installer, Hardware Discovery, Overcell, Overguard, Policy Dry-Run API, Universal Namespace Service, Overmesh, Wallet and Usage Center, Overbill, ORU Account Service, Seal Ledger, Overasset, Deployment Planner, Package Validator, native apps.
+Interfaces: Overgate, Overpass, Overtenant, Overkey, Overwatch, Node Installer, Hardware Discovery, Overcell, Overguard, Policy Dry-Run API, Universal Namespace Service, Overmesh, Wallet and Usage Center, Overbill, ORU Account Service, Seal Ledger, Overasset, Overvault, Encrypted Docdex RAG Adapter, AI Gateway Router, Provider Payout Service, Overgrant, Deployment Planner, Package Validator, Release Strategy Service, Backup and Restore Service, Failover and Recovery Coordinator, Protocol Improvement Proposal Registry, Stewardship Reporting Service, Compliance Boundary Service, Threat Modeling and Security Review Tracker, Incident Response Service, native apps.
 
 First phase: Phase 12, with Phase 2/3 node onboarding dependencies and Phase 13 hardening.
 

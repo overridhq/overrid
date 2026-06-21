@@ -74,12 +74,12 @@ pub fn sdk_phase10_structure_validation() -> Vec<SdkPhase10StructureValidation> 
         ),
         structure_gate(
             SdkPhase10StructureGate::PhaseHeadings,
-            "## Phase 10: Validation, Documentation, And Downstream Handoff",
+            "## Phase 10: Validation, Documentation Alignment, And Downstream Handoff",
             "regex_structure_check",
         ),
         structure_gate(
             SdkPhase10StructureGate::WorkItemStructure,
-            "**10.5 Prepare downstream phase handoff**",
+            "**10.5 Prepare downstream phase handoff.**",
             "regex_structure_check",
         ),
         structure_gate(
