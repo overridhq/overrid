@@ -375,6 +375,11 @@ def validate_cli_wiring() -> None:
         "split_review_criteria",
         "local_test_only_separation",
         "layout_check_emits_phase6_boundary_records",
+        "layout_check_rejects_real_phase6_boundary_violations",
+        "dependency_direction_group",
+        "service_contract_root_not_deployable",
+        "internal_dependency_names",
+        "first_cargo_manifest_under",
         "single_modular_rust_process_through_phase_3",
         "runtime_forbidden_dependency_groups",
     ):

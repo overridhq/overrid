@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use overrid_contracts::{
@@ -877,6 +878,58 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "runtime_forbidden_dependency_groups",
         "local_test_boundary_violation",
     );
+    for (group, path, module_id, expected) in [
+        (
+            "contracts",
+            "packages/schemas/overrid_contracts/Cargo.toml",
+            Some("shared-schemas"),
+            &[][..],
+        ),
+        (
+            "sdk",
+            "packages/sdk/Cargo.toml",
+            Some("sdk"),
+            &["overrid-contracts"][..],
+        ),
+        (
+            "local_stack",
+            "packages/local_stack/Cargo.toml",
+            Some("local-stack"),
+            &["overrid-contracts"][..],
+        ),
+        (
+            "integration_harness",
+            "packages/integration_harness/Cargo.toml",
+            Some("integration-harness"),
+            &["overrid-contracts"][..],
+        ),
+        (
+            "cli",
+            "packages/cli/Cargo.toml",
+            Some("cli"),
+            &[
+                "overrid-contracts",
+                "overrid-integration-harness",
+                "overrid-local-stack",
+                "overrid-sdk",
+            ][..],
+        ),
+    ] {
+        push_internal_dependency_direction(
+            &mut records,
+            repo_root,
+            group,
+            path,
+            module_id,
+            expected,
+        );
+    }
+    for (path, module_id) in [
+        ("services/control-plane", Some("control-plane-root")),
+        ("services/node-agent", Some("node-agent-root")),
+    ] {
+        push_service_manifest_absence(&mut records, repo_root, path, module_id);
+    }
     push_manifest_contains(
         &mut records,
         repo_root,
@@ -942,6 +995,124 @@ fn push_manifest_contains(
         owning_phase: "phase_0",
         module_id: None,
     });
+}
+
+fn push_internal_dependency_direction(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    group: &'static str,
+    manifest_path: &str,
+    module_id: Option<&'static str>,
+    expected_dependencies: &[&str],
+) {
+    let expected = expected_dependencies
+        .iter()
+        .map(|dependency| (*dependency).to_owned())
+        .collect::<BTreeSet<_>>();
+    let actual = internal_dependency_names(&repo_root.join(manifest_path));
+    let passed = actual
+        .as_ref()
+        .map(|dependencies| dependencies == &expected)
+        .unwrap_or(false);
+    records.push(LayoutCheckRecord {
+        check_name: "dependency_direction_group",
+        status: if passed { "passed" } else { "failed" },
+        reason_code: if passed {
+            "dependency_direction_allowed"
+        } else {
+            "package_boundary_violation"
+        },
+        path: manifest_path.to_owned(),
+        owning_phase: "phase_0",
+        module_id,
+    });
+    if !passed && actual.is_ok() {
+        records.push(LayoutCheckRecord {
+            check_name: "dependency_direction_expected_group",
+            status: "failed",
+            reason_code: "package_boundary_violation",
+            path: group.to_owned(),
+            owning_phase: "phase_0",
+            module_id,
+        });
+    }
+}
+
+fn internal_dependency_names(manifest_path: &Path) -> std::io::Result<BTreeSet<String>> {
+    let manifest = std::fs::read_to_string(manifest_path)?;
+    let mut names = BTreeSet::new();
+    let mut in_dependencies = false;
+    for raw_line in manifest.lines() {
+        let line = raw_line.split('#').next().unwrap_or("").trim();
+        if line.starts_with('[') && line.ends_with(']') {
+            in_dependencies = line == "[dependencies]";
+            continue;
+        }
+        if !in_dependencies || line.is_empty() {
+            continue;
+        }
+        if let Some((name, _)) = line.split_once('=') {
+            let name = name.trim().trim_matches('"');
+            if name.starts_with("overrid-") {
+                names.insert(name.to_owned());
+            }
+        }
+    }
+    Ok(names)
+}
+
+fn push_service_manifest_absence(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    service_root: &str,
+    module_id: Option<&'static str>,
+) {
+    let first_manifest = first_cargo_manifest_under(repo_root, &repo_root.join(service_root));
+    records.push(LayoutCheckRecord {
+        check_name: "service_contract_root_not_deployable",
+        status: if first_manifest.is_none() {
+            "passed"
+        } else {
+            "failed"
+        },
+        reason_code: if first_manifest.is_none() {
+            "service_split_absent"
+        } else {
+            "premature_service_split"
+        },
+        path: first_manifest.unwrap_or_else(|| service_root.to_owned()),
+        owning_phase: "phase_0",
+        module_id,
+    });
+}
+
+fn first_cargo_manifest_under(repo_root: &Path, root: &Path) -> Option<String> {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let mut entries = std::fs::read_dir(&dir)
+            .ok()?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .collect::<Vec<_>>();
+        entries.sort();
+        for path in entries {
+            if path.is_file()
+                && path
+                    .file_name()
+                    .map(|name| name.to_string_lossy() == "Cargo.toml")
+                    .unwrap_or(false)
+            {
+                return path
+                    .strip_prefix(repo_root)
+                    .ok()
+                    .map(|relative| relative.to_string_lossy().replace('\\', "/"));
+            }
+            if path.is_dir() {
+                stack.push(path);
+            }
+        }
+    }
+    None
 }
 
 fn push_generated_specs_clean(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path) {
@@ -4649,6 +4820,13 @@ mod tests {
         values
     }
 
+    fn write_test_file(root: &Path, path: &str, content: &str) {
+        let full_path = root.join(path);
+        std::fs::create_dir_all(full_path.parent().expect("test file has parent"))
+            .expect("test parent directory should be created");
+        std::fs::write(full_path, content).expect("test file should be written");
+    }
+
     #[test]
     fn renders_human_version_metadata() {
         let result = run_args(["overrid", "version"]);
@@ -4784,6 +4962,8 @@ mod tests {
             "modular_control_plane_shape",
             "split_review_criteria",
             "local_test_only_separation",
+            "dependency_direction_group",
+            "service_contract_root_not_deployable",
         ] {
             assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
         }
@@ -4796,6 +4976,41 @@ mod tests {
             assert!(result.stdout.contains(artifact));
         }
         assert!(result.stdout.contains("\"validation_artifact_schema\""));
+    }
+
+    #[test]
+    fn layout_check_rejects_real_phase6_boundary_violations() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "overrid-phase6-layout-check-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        write_test_file(
+            &temp_root,
+            "packages/sdk/Cargo.toml",
+            "[package]\nname = \"overrid-sdk\"\n\n[dependencies]\n",
+        );
+        write_test_file(
+            &temp_root,
+            "services/control-plane/overgate/Cargo.toml",
+            "[package]\nname = \"overrid-overgate\"\n",
+        );
+
+        let records = collect_layout_check_records(&temp_root);
+        assert!(records.iter().any(|record| {
+            record.check_name == "dependency_direction_group"
+                && record.status == "failed"
+                && record.reason_code == "package_boundary_violation"
+                && record.path == "packages/sdk/Cargo.toml"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "service_contract_root_not_deployable"
+                && record.status == "failed"
+                && record.reason_code == "premature_service_split"
+                && record.path == "services/control-plane/overgate/Cargo.toml"
+        }));
+
+        std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
     }
 
     #[test]
