@@ -16,7 +16,8 @@ CLI and SDK code consume while later phases mature schema generation.
 Shared Schema Package Phase 2 contracts define `source_layout`,
 `typed_ref_primitive`, `lifecycle_primitives`, `privacy_class_rule`,
 `reason_code_entry`, and `correction_field`. These keep
-`packages/schemas` source roots separate from generated outputs, require common
+`packages/schemas` source roots separate from generated outputs, fixture roots,
+compatibility report roots, and internal binary projection roots, require common
 object references to be typed and version-aware, require mutating/external
 records to carry lifecycle primitives, classify privacy/data surfaces, and make
 reason-code/correction metadata stable before downstream services consume the

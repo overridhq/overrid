@@ -344,12 +344,16 @@ def check_text_surfaces() -> None:
         "`typed_ref_primitive`",
         "`lifecycle_primitives`",
         "`reason_code_entry`",
+        "compatibility report roots",
+        "internal binary projection roots",
     ]:
         assert_contains(contracts_readme, expected, CONTRACTS_README)
 
     schemas_readme = read_text(SCHEMAS_README)
     assert_contains(schemas_readme, "shared_schema_package.schema.json", SCHEMAS_README)
     assert_contains(schemas_readme, "typed refs", SCHEMAS_README)
+    assert_contains(schemas_readme, "compatibility-report roots", SCHEMAS_README)
+    assert_contains(schemas_readme, "internal binary projection roots", SCHEMAS_README)
 
     rust_projection = read_text(RUST_PROJECTION)
     for expected in [
@@ -361,6 +365,9 @@ def check_text_surfaces() -> None:
         "SharedSchemaPrivacyClass",
         "SharedSchemaReasonCodeEntry",
         "required_shared_schema_typed_refs",
+        "compatibility_report_roots",
+        "internal_binary_projection_roots",
+        "generated_in_source_directories",
     ]:
         assert_contains(rust_projection, expected, RUST_PROJECTION)
 

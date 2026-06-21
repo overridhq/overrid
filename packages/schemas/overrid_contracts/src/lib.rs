@@ -442,6 +442,9 @@ pub struct SharedSchemaPhase2Contract {
     pub source_roots: Vec<String>,
     pub generated_output_roots: Vec<String>,
     pub fixture_roots: Vec<String>,
+    pub compatibility_report_roots: Vec<String>,
+    pub internal_binary_projection_roots: Vec<String>,
+    pub generated_in_source_directories: bool,
     pub typed_ref_primitives: Vec<SharedSchemaTypedRefPrimitive>,
     pub lifecycle_primitives: SharedSchemaLifecyclePrimitives,
     pub privacy_classes: Vec<SharedSchemaPrivacyClass>,
@@ -468,6 +471,14 @@ impl SharedSchemaPhase2Contract {
                 "packages/schemas/overrid_contracts/fixtures/valid".to_owned(),
                 "packages/schemas/overrid_contracts/fixtures/invalid".to_owned(),
             ],
+            compatibility_report_roots: vec![
+                "packages/schemas/overrid_contracts/compatibility".to_owned(),
+                "docs/specs/generated".to_owned(),
+            ],
+            internal_binary_projection_roots: vec![
+                "packages/schemas/overrid_contracts/protobuf/internal".to_owned(),
+            ],
+            generated_in_source_directories: false,
             typed_ref_primitives: required_shared_schema_typed_refs(),
             lifecycle_primitives: SharedSchemaLifecyclePrimitives::phase2_default()?,
             privacy_classes: vec![
@@ -518,11 +529,39 @@ impl SharedSchemaPhase2Contract {
                 "packages/schemas/overrid_contracts/v0",
             ));
         }
+        if self.generated_in_source_directories {
+            return Err(SharedSchemaPackageContractError::GeneratedOutputInsideSource);
+        }
         if self.generated_output_roots.iter().any(|path| {
             path.starts_with("packages/schemas/overrid_contracts/v0/")
                 || path.ends_with(".schema.json")
         }) {
             return Err(SharedSchemaPackageContractError::GeneratedOutputInsideSource);
+        }
+        for required_root in [
+            "packages/schemas/overrid_contracts/compatibility",
+            "docs/specs/generated",
+        ] {
+            if !self
+                .compatibility_report_roots
+                .iter()
+                .any(|path| path == required_root)
+            {
+                return Err(
+                    SharedSchemaPackageContractError::MissingCompatibilityReportRoot(required_root),
+                );
+            }
+        }
+        if !self
+            .internal_binary_projection_roots
+            .iter()
+            .any(|path| path == "packages/schemas/overrid_contracts/protobuf/internal")
+        {
+            return Err(
+                SharedSchemaPackageContractError::MissingInternalBinaryProjectionRoot(
+                    "packages/schemas/overrid_contracts/protobuf/internal",
+                ),
+            );
         }
         for primitive in &self.typed_ref_primitives {
             primitive.validate()?;
@@ -764,6 +803,8 @@ pub fn required_shared_schema_typed_refs() -> Vec<SharedSchemaTypedRefPrimitive>
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
     GeneratedOutputInsideSource,
+    MissingCompatibilityReportRoot(&'static str),
+    MissingInternalBinaryProjectionRoot(&'static str),
     MissingPrimitiveName,
     MissingObjectFamily,
     UntypedRefPrimitive(String),
@@ -782,6 +823,12 @@ impl fmt::Display for SharedSchemaPackageContractError {
             Self::MissingSourceRoot(path) => write!(formatter, "missing source root: {path}"),
             Self::GeneratedOutputInsideSource => {
                 formatter.write_str("generated output is inside schema source")
+            }
+            Self::MissingCompatibilityReportRoot(path) => {
+                write!(formatter, "missing compatibility report root: {path}")
+            }
+            Self::MissingInternalBinaryProjectionRoot(path) => {
+                write!(formatter, "missing internal binary projection root: {path}")
             }
             Self::MissingPrimitiveName => formatter.write_str("primitive name is required"),
             Self::MissingObjectFamily => formatter.write_str("object family is required"),
@@ -4800,6 +4847,16 @@ mod tests {
         assert!(contract
             .fixture_roots
             .contains(&"packages/schemas/overrid_contracts/fixtures/valid".to_owned()));
+        assert!(contract
+            .compatibility_report_roots
+            .contains(&"packages/schemas/overrid_contracts/compatibility".to_owned()));
+        assert!(contract
+            .compatibility_report_roots
+            .contains(&"docs/specs/generated".to_owned()));
+        assert!(contract
+            .internal_binary_projection_roots
+            .contains(&"packages/schemas/overrid_contracts/protobuf/internal".to_owned()));
+        assert!(!contract.generated_in_source_directories);
 
         for family in REQUIRED_SHARED_SCHEMA_OBJECT_FAMILIES {
             assert!(contract.has_typed_ref_family(family), "missing {family}");
@@ -4815,6 +4872,14 @@ mod tests {
         let mut contract = SharedSchemaPhase2Contract::canonical().unwrap();
         contract.generated_output_roots =
             vec!["packages/schemas/overrid_contracts/v0/generated_types.rs".to_owned()];
+
+        assert_eq!(
+            contract.validate().unwrap_err(),
+            SharedSchemaPackageContractError::GeneratedOutputInsideSource
+        );
+
+        let mut contract = SharedSchemaPhase2Contract::canonical().unwrap();
+        contract.generated_in_source_directories = true;
 
         assert_eq!(
             contract.validate().unwrap_err(),
