@@ -31,6 +31,7 @@
           "key_ref",
           "tenant_ref",
           "actor_ref",
+          "secret_ref",
           "audit_ref"
         ],
         "required_fields": [
@@ -38,7 +39,10 @@
           "key_rotation",
           "revocation",
           "reason_code",
-          "trace_id"
+          "trace_id",
+          "correction_fields",
+          "sequence",
+          "privacy_class"
         ],
         "validation_rules": [
           {

@@ -1171,6 +1171,7 @@ pub fn shared_schema_phase3_contract_modules(
             &[
                 "membership",
                 "role_binding",
+                "delegated_access",
                 "quota_scope",
                 "suspension_state",
                 "catalog_visibility",
@@ -1254,6 +1255,7 @@ pub fn shared_schema_phase3_contract_modules(
                 "tenant_ref",
                 "actor_ref",
                 "subject_ref",
+                "policy_ref",
                 "evidence_ref",
                 "signature_ref",
             ],
@@ -1261,6 +1263,8 @@ pub fn shared_schema_phase3_contract_modules(
                 "event_id",
                 "source_service",
                 "subject_id",
+                "action",
+                "decision",
                 "sequence",
                 "occurred_time",
                 "privacy_class",
@@ -1293,6 +1297,8 @@ pub fn shared_schema_phase3_contract_modules(
             ],
             &[
                 "audit_id",
+                "source_service",
+                "subject_id",
                 "action",
                 "decision",
                 "sequence",
@@ -5804,10 +5810,21 @@ mod tests {
         assert!(api_error.has_required_field("retryability"));
         assert!(api_error.has_required_field("correction_fields"));
 
+        let tenant = contract.module("tenant").unwrap();
+        assert!(tenant.has_required_field("delegated_access"));
+        assert!(tenant.has_required_field("privacy_class"));
+
         let event = contract.module("event").unwrap();
+        assert!(event.has_required_ref("policy_ref"));
+        assert!(event.has_required_field("action"));
+        assert!(event.has_required_field("decision"));
         assert!(event.append_only_record);
         assert!(event.has_required_field("sequence"));
         assert!(event.has_required_field("privacy_class"));
+
+        let audit = contract.module("audit").unwrap();
+        assert!(audit.has_required_field("source_service"));
+        assert!(audit.has_required_field("subject_id"));
 
         let manifest = contract.module("workload_manifest").unwrap();
         assert!(manifest.typed_secret_refs_required);

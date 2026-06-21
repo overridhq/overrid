@@ -26,11 +26,13 @@
         "typed_secret_refs_required": false,
         "untyped_capability_blobs_allowed": false,
         "required_refs": [
+          "trace_ref",
           "audit_ref"
         ],
         "required_fields": [
           "retryability",
-          "schema_version"
+          "schema_version",
+          "privacy_class"
         ],
         "validation_rules": [
           {

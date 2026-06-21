@@ -50,6 +50,10 @@ INVALID_FIXTURES = {
     ): "manifest.secret_ref",
     Path(
         "packages/schemas/overrid_contracts/fixtures/invalid/"
+        "shared_schema_package_phase3_manifest_untyped_capability.invalid.json"
+    ): "manifest.untyped_capability_blob",
+    Path(
+        "packages/schemas/overrid_contracts/fixtures/invalid/"
         "shared_schema_package_phase3_queue_key_material.invalid.json"
     ): "credential.private_key_material",
 }
@@ -76,6 +80,170 @@ CATEGORY_KEYS = [
     "manifest_registry_modules",
     "queue_lease_credential_key_modules",
 ]
+MODULE_REQUIRED_REFS = {
+    "identity": {
+        "identity_ref",
+        "actor_ref",
+        "tenant_ref",
+        "organization_ref",
+        "audit_context_ref",
+    },
+    "tenant": {"tenant_ref", "actor_ref", "organization_ref", "audit_context_ref"},
+    "command": {"tenant_ref", "actor_ref", "credential_ref", "signature_ref"},
+    "api_error": {"trace_ref", "audit_ref"},
+    "event": {
+        "event_ref",
+        "tenant_ref",
+        "actor_ref",
+        "subject_ref",
+        "policy_ref",
+        "evidence_ref",
+        "signature_ref",
+    },
+    "audit": {
+        "audit_ref",
+        "tenant_ref",
+        "actor_ref",
+        "policy_ref",
+        "evidence_ref",
+        "signature_ref",
+    },
+    "workload_manifest": {
+        "workload_ref",
+        "tenant_ref",
+        "actor_ref",
+        "package_ref",
+        "secret_ref",
+        "policy_ref",
+        "schema_ref",
+    },
+    "resource_manifest": {"resource_manifest_ref", "node_ref", "policy_ref", "schema_ref", "secret_ref"},
+    "registry_metadata": {"package_ref", "capability_ref", "image_ref", "schema_ref", "policy_ref"},
+    "queue_and_lease": {
+        "queue_ref",
+        "lease_ref",
+        "tenant_ref",
+        "actor_ref",
+        "command_ref",
+        "dead_letter_ref",
+        "credential_ref",
+    },
+    "credential_key_metadata": {
+        "credential_ref",
+        "signer_ref",
+        "key_ref",
+        "tenant_ref",
+        "actor_ref",
+        "secret_ref",
+        "audit_ref",
+    },
+}
+MODULE_REQUIRED_FIELDS = {
+    "identity": {
+        "membership",
+        "role_binding",
+        "delegated_access",
+        "quota_scope",
+        "suspension_state",
+        "catalog_visibility",
+        "privacy_class",
+    },
+    "tenant": {
+        "membership",
+        "role_binding",
+        "delegated_access",
+        "quota_scope",
+        "suspension_state",
+        "catalog_visibility",
+        "privacy_class",
+    },
+    "command": {
+        "command_id",
+        "command_type",
+        "trace_id",
+        "idempotency_key",
+        "timestamp",
+        "schema_version",
+        "payload_type",
+        "payload_hash",
+        "signature_metadata",
+        "privacy_class",
+    },
+    "api_error": {
+        "reason_code",
+        "trace_id",
+        "retryability",
+        "correction_fields",
+        "schema_version",
+        "privacy_class",
+    },
+    "event": {
+        "event_id",
+        "source_service",
+        "subject_id",
+        "action",
+        "decision",
+        "sequence",
+        "occurred_time",
+        "privacy_class",
+        "schema_version",
+    },
+    "audit": {
+        "audit_id",
+        "source_service",
+        "subject_id",
+        "action",
+        "decision",
+        "sequence",
+        "occurred_time",
+        "privacy_class",
+        "schema_version",
+    },
+    "workload_manifest": {
+        "schema_version",
+        "resource_requirements",
+        "data_refs",
+        "network_intent",
+        "retry_policy",
+        "privacy_class",
+    },
+    "resource_manifest": {
+        "schema_version",
+        "capability_records",
+        "resource_requirements",
+        "data_refs",
+        "privacy_class",
+    },
+    "registry_metadata": {
+        "schema_version",
+        "capability_records",
+        "review_status",
+        "visibility",
+        "privacy_class",
+    },
+    "queue_and_lease": {
+        "trace_id",
+        "retry_policy",
+        "timeout_policy",
+        "heartbeat",
+        "cancellation",
+        "completion",
+        "reason_code",
+        "correction_fields",
+        "sequence",
+        "privacy_class",
+    },
+    "credential_key_metadata": {
+        "credential_metadata",
+        "key_rotation",
+        "revocation",
+        "reason_code",
+        "trace_id",
+        "correction_fields",
+        "sequence",
+        "privacy_class",
+    },
+}
 
 
 def load_json(path: Path) -> Any:
@@ -239,6 +407,13 @@ def validate_module(module: dict[str, Any]) -> list[str]:
         errors.append("credential.private_key_material")
     if module.get("untyped_capability_blobs_allowed") is not False:
         errors.append("manifest.untyped_capability_blob")
+
+    for required_ref in MODULE_REQUIRED_REFS.get(name, set()):
+        if not has_item(module, "required_refs", required_ref):
+            errors.append(f"{name}.required_ref.{required_ref}")
+    for required_field in MODULE_REQUIRED_FIELDS.get(name, set()):
+        if not has_item(module, "required_fields", required_field):
+            errors.append(f"{name}.required_field.{required_field}")
 
     if module.get("tenant_actor_refs_required") is True and not (
         has_item(module, "required_refs", "tenant_ref") and has_item(module, "required_refs", "actor_ref")

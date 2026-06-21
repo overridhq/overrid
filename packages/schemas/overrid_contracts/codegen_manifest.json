@@ -153,6 +153,7 @@
         "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_api_error_missing_reason_trace.invalid.json",
         "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_event_private_payload.invalid.json",
         "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_manifest_bad_secret_ref.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_manifest_untyped_capability.invalid.json",
         "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_queue_key_material.invalid.json"
       ]
     },

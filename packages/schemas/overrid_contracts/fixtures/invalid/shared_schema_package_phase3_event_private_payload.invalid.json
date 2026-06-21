@@ -30,12 +30,17 @@
           "tenant_ref",
           "actor_ref",
           "subject_ref",
-          "evidence_ref"
+          "policy_ref",
+          "evidence_ref",
+          "signature_ref"
         ],
         "required_fields": [
           "event_id",
           "source_service",
           "subject_id",
+          "action",
+          "decision",
+          "sequence",
           "occurred_time",
           "privacy_class",
           "schema_version"

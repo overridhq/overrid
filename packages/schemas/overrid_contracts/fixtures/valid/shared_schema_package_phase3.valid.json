@@ -43,7 +43,8 @@
           "delegated_access",
           "quota_scope",
           "suspension_state",
-          "catalog_visibility"
+          "catalog_visibility",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -102,9 +103,11 @@
         "required_fields": [
           "membership",
           "role_binding",
+          "delegated_access",
           "quota_scope",
           "suspension_state",
-          "catalog_visibility"
+          "catalog_visibility",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -161,7 +164,8 @@
           "schema_version",
           "payload_type",
           "payload_hash",
-          "signature_metadata"
+          "signature_metadata",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -212,7 +216,8 @@
           "trace_id",
           "retryability",
           "correction_fields",
-          "schema_version"
+          "schema_version",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -259,6 +264,7 @@
           "tenant_ref",
           "actor_ref",
           "subject_ref",
+          "policy_ref",
           "evidence_ref",
           "signature_ref"
         ],
@@ -266,6 +272,8 @@
           "event_id",
           "source_service",
           "subject_id",
+          "action",
+          "decision",
           "sequence",
           "occurred_time",
           "privacy_class",
@@ -319,6 +327,8 @@
         ],
         "required_fields": [
           "audit_id",
+          "source_service",
+          "subject_id",
           "action",
           "decision",
           "sequence",
@@ -380,7 +390,8 @@
           "resource_requirements",
           "data_refs",
           "network_intent",
-          "retry_policy"
+          "retry_policy",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -430,7 +441,8 @@
           "schema_version",
           "capability_records",
           "resource_requirements",
-          "data_refs"
+          "data_refs",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -480,7 +492,8 @@
           "schema_version",
           "capability_records",
           "review_status",
-          "visibility"
+          "visibility",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -538,7 +551,10 @@
           "heartbeat",
           "cancellation",
           "completion",
-          "reason_code"
+          "reason_code",
+          "correction_fields",
+          "sequence",
+          "privacy_class"
         ],
         "validation_rules": [
           {
@@ -594,7 +610,10 @@
           "key_rotation",
           "revocation",
           "reason_code",
-          "trace_id"
+          "trace_id",
+          "correction_fields",
+          "sequence",
+          "privacy_class"
         ],
         "validation_rules": [
           {
