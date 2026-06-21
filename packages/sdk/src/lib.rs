@@ -3,7 +3,8 @@
 use std::fmt;
 
 use overrid_contracts::{
-    ensure_supported_schema_version, ContractError, ProfileValidationError, SchemaVersion,
+    cli_contract_set, ensure_supported_schema_version, CapabilitySnapshot, ContractError,
+    GeneratedContractSet, IdempotencyRecord, ProfileValidationError, SchemaVersion, TraceContext,
     SUPPORTED_SCHEMA_VERSION,
 };
 pub use overrid_contracts::{
@@ -22,6 +23,14 @@ pub const SDK_CURRENT_STABLE_MAJOR: u16 = 0;
 pub const SDK_PREVIOUS_STABLE_MAJOR: Option<u16> = None;
 pub const SDK_UNSUPPORTED_VERSION_REASON_CODE: &str = "unsupported_sdk_version";
 pub const SDK_UNSUPPORTED_SCHEMA_REASON_CODE: &str = "schema_version_unsupported";
+pub const SDK_CAPABILITY_UNAVAILABLE_REASON_CODE: &str = "sdk_capability_unavailable";
+pub const SDK_PHASE2_CAPABILITY_PROFILE: &str = "phase2-contract-intake-local-data-model";
+pub const SDK_PHASE2_GENERATED_OUTPUT_PATH: &str = "packages/sdk/src/lib.rs";
+pub const SDK_CONTRACT_SCHEMA_PATH: &str =
+    "packages/schemas/overrid_contracts/v0/cli_command.schema.json";
+pub const SDK_CONTRACT_CODEGEN_MANIFEST_PATH: &str =
+    "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const SDK_CONTRACT_RUST_PROJECTION_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
 pub const SDK_DEPRECATION_BEHAVIOR: &str =
     "support current stable major and previous stable major when present";
 pub const SDK_UPGRADE_GUIDANCE: &str =
@@ -148,6 +157,193 @@ pub fn sdk_release_checklist() -> SdkReleaseChecklist {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SdkContractSourceKind {
+    JsonSchema,
+    CodegenManifest,
+    RustProjection,
+    DocsSpec,
+    Sds,
+    BuildPlan,
+}
+
+impl SdkContractSourceKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::JsonSchema => "json_schema",
+            Self::CodegenManifest => "codegen_manifest",
+            Self::RustProjection => "rust_projection",
+            Self::DocsSpec => "docs_spec",
+            Self::Sds => "sds",
+            Self::BuildPlan => "build_plan",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkContractIntakeEntry {
+    pub object_name: &'static str,
+    pub source_contract_name: &'static str,
+    pub source_path: &'static str,
+    pub source_kind: SdkContractSourceKind,
+    pub owning_phase: &'static str,
+    pub generated_output_path: &'static str,
+    pub schema_version: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkContractIntakeManifest {
+    pub contract_set: GeneratedContractSet,
+    pub entries: Vec<SdkContractIntakeEntry>,
+    pub generated_output_path: &'static str,
+    pub codegen_manifest_path: &'static str,
+    pub rust_projection_path: &'static str,
+    pub freshness_policy: &'static str,
+    pub version_metadata: SdkCompatibilityMetadata,
+}
+
+pub fn sdk_contract_intake_manifest() -> SdkContractIntakeManifest {
+    SdkContractIntakeManifest {
+        contract_set: cli_contract_set(),
+        generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+        codegen_manifest_path: SDK_CONTRACT_CODEGEN_MANIFEST_PATH,
+        rust_projection_path: SDK_CONTRACT_RUST_PROJECTION_PATH,
+        freshness_policy: "schema:check and SDK generation fail when generated output is newer than source contracts",
+        version_metadata: sdk_compatibility_metadata(),
+        entries: vec![
+            SdkContractIntakeEntry {
+                object_name: "sdk_config",
+                source_contract_name: "cli_profile",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "credential_ref",
+                source_contract_name: "credential_reference",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "request_context",
+                source_contract_name: "trace_context",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "signed_request",
+                source_contract_name: "signed_command_envelope",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "idempotency_entry",
+                source_contract_name: "local_idempotency_cache_record",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "overrid_error",
+                source_contract_name: "api_error",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "service_capability_profile",
+                source_contract_name: "capability_snapshot",
+                source_path: SDK_CONTRACT_SCHEMA_PATH,
+                source_kind: SdkContractSourceKind::JsonSchema,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "reason_codes_and_events",
+                source_contract_name: "api_error",
+                source_path: "docs/specs/reason_codes_and_events.md",
+                source_kind: SdkContractSourceKind::DocsSpec,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "contract_authority",
+                source_contract_name: "codegen_manifest",
+                source_path: "docs/specs/contract_authority.md",
+                source_kind: SdkContractSourceKind::DocsSpec,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "sdk_data_model",
+                source_contract_name: "SDK SDS Data Model",
+                source_path: "docs/sds/foundation/sdk.md",
+                source_kind: SdkContractSourceKind::Sds,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+            SdkContractIntakeEntry {
+                object_name: "phase_2_build_plan",
+                source_contract_name: "Phase 2: Contract Intake And Local Client Data Model",
+                source_path: "docs/build_plan/sub_build_plan_006_sdk.md",
+                source_kind: SdkContractSourceKind::BuildPlan,
+                owning_phase: "phase_2_contract_intake_and_local_client_data_model",
+                generated_output_path: SDK_PHASE2_GENERATED_OUTPUT_PATH,
+                schema_version: SUPPORTED_SCHEMA_VERSION,
+            },
+        ],
+    }
+}
+
+pub fn validate_contract_intake_manifest(
+    manifest: &SdkContractIntakeManifest,
+) -> Result<(), SdkError> {
+    if manifest.generated_output_path != SDK_PHASE2_GENERATED_OUTPUT_PATH {
+        return Err(SdkError::MissingRequiredField("generated output path"));
+    }
+    if manifest.codegen_manifest_path != SDK_CONTRACT_CODEGEN_MANIFEST_PATH {
+        return Err(SdkError::MissingRequiredField("codegen manifest path"));
+    }
+    if manifest.rust_projection_path != SDK_CONTRACT_RUST_PROJECTION_PATH {
+        return Err(SdkError::MissingRequiredField("rust projection path"));
+    }
+
+    for entry in &manifest.entries {
+        require_sdk_non_empty(entry.object_name, "contract object name")?;
+        require_sdk_non_empty(entry.source_contract_name, "source contract name")?;
+        require_sdk_non_empty(entry.source_path, "contract source path")?;
+        require_sdk_non_empty(entry.owning_phase, "owning phase")?;
+        require_sdk_non_empty(entry.generated_output_path, "generated output path")?;
+        if entry.generated_output_path != SDK_PHASE2_GENERATED_OUTPUT_PATH {
+            return Err(SdkError::MissingRequiredField(
+                "entry generated output path",
+            ));
+        }
+        check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, entry.schema_version)?;
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SdkCompatibilityRejection {
     UnsupportedSdkVersion {
@@ -210,6 +406,534 @@ pub fn check_sdk_compatibility(
     }
 
     Ok(parsed)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SdkFeatureFlag {
+    CommandEnvelopes,
+    SigningMetadata,
+    IdempotencyCache,
+    ErrorDecoding,
+    CapabilityNegotiation,
+    TestFixtures,
+}
+
+impl SdkFeatureFlag {
+    pub fn parse(raw: &str) -> Result<Self, SdkError> {
+        match raw {
+            "command_envelopes" => Ok(Self::CommandEnvelopes),
+            "signing_metadata" => Ok(Self::SigningMetadata),
+            "idempotency_cache" => Ok(Self::IdempotencyCache),
+            "error_decoding" => Ok(Self::ErrorDecoding),
+            "capability_negotiation" => Ok(Self::CapabilityNegotiation),
+            "test_fixtures" => Ok(Self::TestFixtures),
+            other => Err(SdkError::UnknownFeatureFlag(other.to_owned())),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CommandEnvelopes => "command_envelopes",
+            Self::SigningMetadata => "signing_metadata",
+            Self::IdempotencyCache => "idempotency_cache",
+            Self::ErrorDecoding => "error_decoding",
+            Self::CapabilityNegotiation => "capability_negotiation",
+            Self::TestFixtures => "test_fixtures",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkServiceCapabilityProfile {
+    pub profile_name: String,
+    pub supported_schema_versions: Vec<String>,
+    pub supported_sdk_majors: Vec<u16>,
+    pub signing: bool,
+    pub idempotency: bool,
+    pub dry_run: bool,
+    pub accounting: bool,
+}
+
+impl SdkServiceCapabilityProfile {
+    pub fn phase2_local() -> Self {
+        Self {
+            profile_name: SDK_PHASE2_CAPABILITY_PROFILE.to_owned(),
+            supported_schema_versions: SDK_SUPPORTED_SCHEMA_VERSIONS
+                .iter()
+                .map(|version| (*version).to_owned())
+                .collect(),
+            supported_sdk_majors: vec![SDK_CURRENT_STABLE_MAJOR],
+            signing: true,
+            idempotency: true,
+            dry_run: false,
+            accounting: false,
+        }
+    }
+
+    fn supports_schema(&self, schema_version: &str) -> bool {
+        self.supported_schema_versions
+            .iter()
+            .any(|version| version == schema_version)
+    }
+
+    fn supports_sdk_major(&self, sdk_major: u16) -> bool {
+        self.supported_sdk_majors.contains(&sdk_major)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkConfigInput {
+    pub environment: Option<EnvironmentClass>,
+    pub base_url: String,
+    pub timeout_ms: Option<u64>,
+    pub max_retries: Option<u8>,
+    pub feature_flags: Vec<String>,
+    pub default_tenant_id: Option<String>,
+    pub client_identity_ref: String,
+    pub credential_ref: CredentialReference,
+    pub service_capability_profile: SdkServiceCapabilityProfile,
+    pub live_endpoint_confirmed: bool,
+    pub test_fixtures_enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkConfigRecord {
+    pub endpoint: OvergateEndpoint,
+    pub environment: EnvironmentClass,
+    pub timeout_policy: RetryTimeoutPolicy,
+    pub feature_flags: Vec<SdkFeatureFlag>,
+    pub default_tenant_id: Option<String>,
+    pub client_identity_ref: String,
+    pub credential_ref: SdkCredentialReferenceRecord,
+    pub service_capability_profile: SdkServiceCapabilityProfile,
+    pub live_endpoint_confirmed: bool,
+    pub test_fixtures_enabled: bool,
+    pub schema_version: SchemaVersion,
+}
+
+impl SdkConfigRecord {
+    pub fn from_input(input: SdkConfigInput) -> Result<Self, SdkError> {
+        let environment = input.environment.ok_or(SdkError::MissingEnvironment)?;
+        if input.client_identity_ref.trim().is_empty() {
+            return Err(SdkError::MissingRequiredField("client identity reference"));
+        }
+        if input
+            .default_tenant_id
+            .as_ref()
+            .is_some_and(|tenant| tenant.trim().is_empty())
+        {
+            return Err(SdkError::MissingRequiredField("default tenant"));
+        }
+
+        let endpoint = OvergateEndpoint::parse(input.base_url, environment)?;
+        let feature_flags = input
+            .feature_flags
+            .iter()
+            .map(|flag| SdkFeatureFlag::parse(flag))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if matches!(
+            environment,
+            EnvironmentClass::Seed | EnvironmentClass::ProductionLike
+        ) && !input.live_endpoint_confirmed
+        {
+            return Err(SdkError::LiveEndpointConfirmationRequired {
+                environment: environment.as_str(),
+            });
+        }
+
+        let test_fixtures_requested = input.test_fixtures_enabled
+            || feature_flags
+                .iter()
+                .any(|flag| *flag == SdkFeatureFlag::TestFixtures);
+        if matches!(environment, EnvironmentClass::ProductionLike) && test_fixtures_requested {
+            return Err(SdkError::FixtureInProduction);
+        }
+
+        let schema_version =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, SUPPORTED_SCHEMA_VERSION)?;
+        if !input
+            .service_capability_profile
+            .supports_schema(schema_version.raw())
+        {
+            return Err(SdkError::CapabilityUnavailable {
+                helper: "sdk_config",
+                reason_code: SDK_CAPABILITY_UNAVAILABLE_REASON_CODE,
+            });
+        }
+
+        Ok(Self {
+            endpoint,
+            environment,
+            timeout_policy: retry_timeout_policy(input.max_retries, input.timeout_ms),
+            feature_flags,
+            default_tenant_id: input.default_tenant_id,
+            client_identity_ref: input.client_identity_ref,
+            credential_ref: SdkCredentialReferenceRecord::from_credential(&input.credential_ref)?,
+            service_capability_profile: input.service_capability_profile,
+            live_endpoint_confirmed: input.live_endpoint_confirmed,
+            test_fixtures_enabled: input.test_fixtures_enabled,
+            schema_version,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkCredentialReferenceRecord {
+    pub credential_id: String,
+    pub credential_class: CredentialReferenceClass,
+    pub namespace: String,
+    pub key_id: String,
+    pub redaction_class: &'static str,
+    pub stores_private_material: bool,
+    pub stores_bearer_token: bool,
+    pub revoked: bool,
+    pub expired: bool,
+}
+
+impl SdkCredentialReferenceRecord {
+    pub fn from_credential(credential: &CredentialReference) -> Result<Self, SdkError> {
+        require_sdk_non_empty(&credential.reference_id, "credential reference")?;
+        require_sdk_non_empty(&credential.namespace, "credential namespace")?;
+        require_sdk_non_empty(&credential.key_id, "credential key id")?;
+
+        for (field, value) in [
+            ("credential reference", credential.reference_id.as_str()),
+            ("credential namespace", credential.namespace.as_str()),
+            ("credential key id", credential.key_id.as_str()),
+        ] {
+            reject_secret_like_value(field, value)?;
+        }
+
+        Ok(Self {
+            credential_id: credential.reference_id.clone(),
+            credential_class: credential.class,
+            namespace: credential.namespace.clone(),
+            key_id: credential.key_id.clone(),
+            redaction_class: match credential.class {
+                CredentialReferenceClass::Fixture => "test_fixture_ref",
+                CredentialReferenceClass::CiReference => "ci_secret_ref",
+                _ => "credential_ref",
+            },
+            stores_private_material: false,
+            stores_bearer_token: false,
+            revoked: credential.revoked,
+            expired: credential.expired,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkRequestContextRecord {
+    pub actor_id: String,
+    pub tenant_id: String,
+    pub trace_context: TraceContext,
+    pub idempotency: IdempotencyRecord,
+    pub command_type: String,
+    pub caller_app_id: Option<String>,
+    pub timestamp_ms: u64,
+    pub schema_version: SchemaVersion,
+}
+
+impl SdkRequestContextRecord {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        actor_id: impl Into<String>,
+        tenant_id: impl Into<String>,
+        trace_id: impl Into<String>,
+        idempotency_key: impl Into<String>,
+        command_type: impl Into<String>,
+        caller_app_id: Option<String>,
+        timestamp_ms: u64,
+        schema_version: &str,
+    ) -> Result<Self, SdkError> {
+        let actor_id = actor_id.into();
+        let tenant_id = tenant_id.into();
+        let command_type = command_type.into();
+        require_sdk_non_empty(&actor_id, "actor id")?;
+        require_sdk_non_empty(&tenant_id, "tenant id")?;
+        require_sdk_non_empty(&command_type, "command type")?;
+        if timestamp_ms == 0 {
+            return Err(SdkError::MissingRequiredField("timestamp"));
+        }
+
+        let schema_version = check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, schema_version)?;
+        let trace_context = TraceContext::new(trace_id, schema_version.raw())?;
+        let idempotency =
+            IdempotencyRecord::new(idempotency_key, command_type.clone(), schema_version.raw())?;
+
+        Ok(Self {
+            actor_id,
+            tenant_id,
+            trace_context,
+            idempotency,
+            command_type,
+            caller_app_id,
+            timestamp_ms,
+            schema_version,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkSignedRequestRecord {
+    pub method: String,
+    pub path: String,
+    pub body_hash: String,
+    pub signature_metadata: String,
+    pub credential_id: String,
+    pub replay_window_ms: u64,
+    pub context: SdkRequestContextRecord,
+    pub stores_private_material: bool,
+    pub stores_bearer_token: bool,
+}
+
+impl SdkSignedRequestRecord {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        context: SdkRequestContextRecord,
+        credential_ref: &SdkCredentialReferenceRecord,
+        method: impl Into<String>,
+        path: impl Into<String>,
+        body_hash: impl Into<String>,
+        signature_metadata: impl Into<String>,
+        replay_window_ms: u64,
+    ) -> Result<Self, SdkError> {
+        let method = method.into();
+        let path = path.into();
+        let body_hash = body_hash.into();
+        let signature_metadata = signature_metadata.into();
+        require_sdk_non_empty(&method, "request method")?;
+        require_sdk_non_empty(&path, "request path")?;
+        require_sdk_non_empty(&body_hash, "body hash")?;
+        require_sdk_non_empty(&signature_metadata, "signature metadata")?;
+        if !body_hash.starts_with("hash_") {
+            return Err(SdkError::InvalidBodyHash(body_hash));
+        }
+        if replay_window_ms == 0 {
+            return Err(SdkError::MissingRequiredField("replay window"));
+        }
+        reject_secret_like_value("signature metadata", &signature_metadata)?;
+
+        Ok(Self {
+            method,
+            path,
+            body_hash,
+            signature_metadata,
+            credential_id: credential_ref.credential_id.clone(),
+            replay_window_ms,
+            context,
+            stores_private_material: false,
+            stores_bearer_token: false,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SdkCommandClass {
+    ReadOnly,
+    Phase1Mutating,
+    LongRunningWorkload,
+    SecuritySensitive,
+    AccountingReceiptOrDispute,
+}
+
+impl SdkCommandClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "read_only",
+            Self::Phase1Mutating => "phase1_mutating",
+            Self::LongRunningWorkload => "long_running_workload",
+            Self::SecuritySensitive => "security_sensitive",
+            Self::AccountingReceiptOrDispute => "accounting_receipt_or_dispute",
+        }
+    }
+
+    pub fn retention_ms(self) -> Option<u64> {
+        match self {
+            Self::ReadOnly => None,
+            Self::Phase1Mutating | Self::SecuritySensitive => Some(24 * 60 * 60 * 1_000),
+            Self::LongRunningWorkload => Some(7 * 24 * 60 * 60 * 1_000),
+            Self::AccountingReceiptOrDispute => Some(30 * 24 * 60 * 60 * 1_000),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkIdempotencyEntry {
+    pub command_class: SdkCommandClass,
+    pub idempotency_key: String,
+    pub command_type: String,
+    pub request_hash: String,
+    pub terminal_response_digest: Option<String>,
+    pub trace_id: String,
+    pub audit_refs: Vec<String>,
+    pub retry_class: RetryClass,
+    pub correction_fields: Vec<String>,
+    pub retention_ms: u64,
+    pub contains_raw_payload: bool,
+}
+
+impl SdkIdempotencyEntry {
+    #[allow(clippy::too_many_arguments)]
+    pub fn for_command_class(
+        command_class: SdkCommandClass,
+        context: &SdkRequestContextRecord,
+        request_hash: impl Into<String>,
+        terminal_response_digest: Option<String>,
+        audit_refs: Vec<String>,
+        retry_class: RetryClass,
+        correction_fields: Vec<String>,
+    ) -> Result<Option<Self>, SdkError> {
+        let Some(retention_ms) = command_class.retention_ms() else {
+            return Ok(None);
+        };
+        let request_hash = request_hash.into();
+        require_sdk_non_empty(&request_hash, "request hash")?;
+        if !request_hash.starts_with("hash_") {
+            return Err(SdkError::InvalidBodyHash(request_hash));
+        }
+
+        Ok(Some(Self {
+            command_class,
+            idempotency_key: context.idempotency.key.clone(),
+            command_type: context.command_type.clone(),
+            request_hash,
+            terminal_response_digest,
+            trace_id: context.trace_context.trace_id.clone(),
+            audit_refs,
+            retry_class,
+            correction_fields,
+            retention_ms,
+            contains_raw_payload: false,
+        }))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverridErrorRecord {
+    pub reason_code: String,
+    pub message: String,
+    pub trace_id: Option<String>,
+    pub audit_refs: Vec<String>,
+    pub retryable: bool,
+    pub retry_class: RetryClass,
+    pub correction_fields: Vec<String>,
+    pub dependency_name: Option<String>,
+    pub policy_refs: Vec<String>,
+    pub schema_version: SchemaVersion,
+}
+
+impl OverridErrorRecord {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        reason_code: impl Into<String>,
+        message: impl Into<String>,
+        trace_id: Option<String>,
+        audit_refs: Vec<String>,
+        retry_class: RetryClass,
+        correction_fields: Vec<String>,
+        dependency_name: Option<String>,
+        policy_refs: Vec<String>,
+        schema_version: &str,
+    ) -> Result<Self, SdkError> {
+        let reason_code = reason_code.into();
+        let message = message.into();
+        require_sdk_non_empty(&reason_code, "reason code")?;
+        require_sdk_non_empty(&message, "error message")?;
+        reject_secret_like_value("error message", &message)?;
+        if let Some(dependency_name) = dependency_name.as_deref() {
+            reject_secret_like_value("dependency name", dependency_name)?;
+        }
+
+        Ok(Self {
+            reason_code,
+            message,
+            trace_id,
+            audit_refs,
+            retryable: matches!(retry_class, RetryClass::SafeRetry | RetryClass::RetryAfter),
+            retry_class,
+            correction_fields,
+            dependency_name,
+            policy_refs,
+            schema_version: check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, schema_version)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SdkOptionalHelper {
+    CommandSubmission,
+    WorkloadSubmission,
+    PolicyDryRun,
+    AccountingReaders,
+}
+
+impl SdkOptionalHelper {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CommandSubmission => "command_submission",
+            Self::WorkloadSubmission => "workload_submission",
+            Self::PolicyDryRun => "policy_dry_run",
+            Self::AccountingReaders => "accounting_readers",
+        }
+    }
+
+    fn phase_gate(self) -> &'static str {
+        match self {
+            Self::PolicyDryRun => "phase_4_trust_policy_verification",
+            Self::AccountingReaders => "phase_5_metering_accounting",
+            Self::WorkloadSubmission => "phase_3_private_execution_loop",
+            Self::CommandSubmission => "phase_1_control_plane_bootstrap",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkCapabilityDecision {
+    pub helper: SdkOptionalHelper,
+    pub schema_version: SchemaVersion,
+    pub sdk_major: u16,
+    pub snapshot: CapabilitySnapshot,
+}
+
+pub fn negotiate_sdk_capability(
+    profile: &SdkServiceCapabilityProfile,
+    helper: SdkOptionalHelper,
+    schema_version: &str,
+    sdk_major: u16,
+) -> Result<SdkCapabilityDecision, SdkError> {
+    let schema_version = check_sdk_compatibility(sdk_major, schema_version)?;
+    let helper_supported = match helper {
+        SdkOptionalHelper::CommandSubmission => profile.signing && profile.idempotency,
+        SdkOptionalHelper::WorkloadSubmission => profile.signing && profile.idempotency,
+        SdkOptionalHelper::PolicyDryRun => profile.dry_run,
+        SdkOptionalHelper::AccountingReaders => profile.accounting,
+    };
+
+    if !profile.supports_sdk_major(sdk_major)
+        || !profile.supports_schema(schema_version.raw())
+        || !helper_supported
+    {
+        return Err(SdkError::CapabilityUnavailable {
+            helper: helper.as_str(),
+            reason_code: SDK_CAPABILITY_UNAVAILABLE_REASON_CODE,
+        });
+    }
+
+    Ok(SdkCapabilityDecision {
+        helper,
+        schema_version,
+        sdk_major,
+        snapshot: CapabilitySnapshot {
+            route: format!("sdk:{}", helper.as_str()),
+            available: true,
+            phase_gate: helper.phase_gate().to_owned(),
+            schema_versions: profile.supported_schema_versions.clone(),
+            stale_age_ms: 0,
+            fail_closed: true,
+        },
+    })
 }
 
 pub fn retry_timeout_policy(
@@ -437,11 +1161,32 @@ pub enum SdkError {
     PrivateServiceTarget(String),
     Contract(ContractError),
     Compatibility(SdkCompatibilityRejection),
+    MissingEnvironment,
+    MissingRequiredField(&'static str),
+    UnknownFeatureFlag(String),
+    LiveEndpointConfirmationRequired {
+        environment: &'static str,
+    },
+    FixtureInProduction,
+    SecretMaterialRejected {
+        field: &'static str,
+    },
+    InvalidBodyHash(String),
+    CapabilityUnavailable {
+        helper: &'static str,
+        reason_code: &'static str,
+    },
     Profile(ProfileValidationError),
     Credential(ProfileValidationError),
-    UnsafeEndpointOverride { environment: &'static str },
-    MissingExplicitProfile { environment: &'static str },
-    MissingProfileConfirmation { environment: &'static str },
+    UnsafeEndpointOverride {
+        environment: &'static str,
+    },
+    MissingExplicitProfile {
+        environment: &'static str,
+    },
+    MissingProfileConfirmation {
+        environment: &'static str,
+    },
     MissingReason,
 }
 
@@ -480,6 +1225,27 @@ impl fmt::Display for SdkError {
                     "{reason_code}: unsupported schema version {provided}; supported version is {supported}"
                 ),
             },
+            Self::MissingEnvironment => formatter.write_str("sdk_config environment is required"),
+            Self::MissingRequiredField(field) => write!(formatter, "{field} is required"),
+            Self::UnknownFeatureFlag(flag) => write!(formatter, "unknown SDK feature flag: {flag}"),
+            Self::LiveEndpointConfirmationRequired { environment } => write!(
+                formatter,
+                "live endpoint confirmation is required for {environment} SDK config"
+            ),
+            Self::FixtureInProduction => {
+                formatter.write_str("test fixtures cannot be enabled in production SDK config")
+            }
+            Self::SecretMaterialRejected { field } => {
+                write!(formatter, "{field} contains secret-like material")
+            }
+            Self::InvalidBodyHash(hash) => write!(formatter, "invalid body/request hash: {hash}"),
+            Self::CapabilityUnavailable {
+                helper,
+                reason_code,
+            } => write!(
+                formatter,
+                "{reason_code}: SDK helper is unavailable before safe network use: {helper}"
+            ),
             Self::Profile(error) => error.fmt(formatter),
             Self::Credential(error) => error.fmt(formatter),
             Self::UnsafeEndpointOverride { environment } => write!(
@@ -517,6 +1283,35 @@ impl From<ProfileValidationError> for SdkError {
     fn from(error: ProfileValidationError) -> Self {
         Self::Profile(error)
     }
+}
+
+fn require_sdk_non_empty(value: &str, field: &'static str) -> Result<(), SdkError> {
+    if value.trim().is_empty() {
+        return Err(SdkError::MissingRequiredField(field));
+    }
+    Ok(())
+}
+
+fn reject_secret_like_value(field: &'static str, value: &str) -> Result<(), SdkError> {
+    let lower = value.to_ascii_lowercase();
+    let contains_secret_like_marker = [
+        "-----begin",
+        "private_key",
+        "raw_secret",
+        "seed_phrase",
+        "bearer ",
+        "bearer_",
+        "token=",
+        "api_key=",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker));
+
+    if contains_secret_like_marker {
+        return Err(SdkError::SecretMaterialRejected { field });
+    }
+
+    Ok(())
 }
 
 pub fn validate_overgate_target(raw: &str) -> Result<(), SdkError> {
@@ -606,6 +1401,256 @@ mod tests {
             revoked: false,
             expired: false,
         }
+    }
+
+    fn phase2_config_input() -> SdkConfigInput {
+        SdkConfigInput {
+            environment: Some(EnvironmentClass::Local),
+            base_url: "http://127.0.0.1:18080/overgate".to_owned(),
+            timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+            max_retries: Some(DEFAULT_MAX_RETRIES),
+            feature_flags: vec![
+                "command_envelopes".to_owned(),
+                "signing_metadata".to_owned(),
+                "idempotency_cache".to_owned(),
+                "error_decoding".to_owned(),
+                "capability_negotiation".to_owned(),
+            ],
+            default_tenant_id: Some("tenant_local".to_owned()),
+            client_identity_ref: "client:overrid-sdk:local-dev".to_owned(),
+            credential_ref: fixture_credential(),
+            service_capability_profile: SdkServiceCapabilityProfile::phase2_local(),
+            live_endpoint_confirmed: false,
+            test_fixtures_enabled: false,
+        }
+    }
+
+    fn phase2_request_context() -> SdkRequestContextRecord {
+        SdkRequestContextRecord::new(
+            "actor_local",
+            "tenant_local",
+            "trace_sdk_phase2",
+            "idem_sdk_phase2",
+            "tenant create",
+            Some("app:phase2-test".to_owned()),
+            1_782_018_000_000,
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn phase2_contract_intake_manifest_names_authoritative_sources() {
+        let manifest = sdk_contract_intake_manifest();
+        validate_contract_intake_manifest(&manifest).unwrap();
+        assert_eq!(
+            manifest.contract_set.schema_version,
+            SUPPORTED_SCHEMA_VERSION
+        );
+        assert_eq!(
+            manifest.generated_output_path,
+            SDK_PHASE2_GENERATED_OUTPUT_PATH
+        );
+        assert_eq!(
+            manifest.codegen_manifest_path,
+            SDK_CONTRACT_CODEGEN_MANIFEST_PATH
+        );
+        assert!(manifest
+            .freshness_policy
+            .contains("generated output is newer than source contracts"));
+
+        for expected in [
+            ("sdk_config", "cli_profile"),
+            ("credential_ref", "credential_reference"),
+            ("request_context", "trace_context"),
+            ("signed_request", "signed_command_envelope"),
+            ("idempotency_entry", "local_idempotency_cache_record"),
+            ("overrid_error", "api_error"),
+            ("service_capability_profile", "capability_snapshot"),
+        ] {
+            assert!(manifest.entries.iter().any(|entry| {
+                entry.object_name == expected.0
+                    && entry.source_contract_name == expected.1
+                    && entry.source_path == SDK_CONTRACT_SCHEMA_PATH
+            }));
+        }
+    }
+
+    #[test]
+    fn phase2_config_accepts_explicit_local_overgate_contract() {
+        let config = SdkConfigRecord::from_input(phase2_config_input()).unwrap();
+        assert_eq!(config.environment, EnvironmentClass::Local);
+        assert_eq!(config.endpoint.raw(), "http://127.0.0.1:18080/overgate");
+        assert_eq!(config.schema_version.raw(), SUPPORTED_SCHEMA_VERSION);
+        assert!(config
+            .feature_flags
+            .contains(&SdkFeatureFlag::CapabilityNegotiation));
+        assert_eq!(config.credential_ref.redaction_class, "test_fixture_ref");
+        assert!(!config.credential_ref.stores_private_material);
+        assert!(!config.credential_ref.stores_bearer_token);
+    }
+
+    #[test]
+    fn phase2_config_rejects_missing_environment_and_unknown_flags() {
+        let mut missing_environment = phase2_config_input();
+        missing_environment.environment = None;
+        assert!(matches!(
+            SdkConfigRecord::from_input(missing_environment),
+            Err(SdkError::MissingEnvironment)
+        ));
+
+        let mut unknown_feature = phase2_config_input();
+        unknown_feature
+            .feature_flags
+            .push("surprise_flag".to_owned());
+        assert!(matches!(
+            SdkConfigRecord::from_input(unknown_feature),
+            Err(SdkError::UnknownFeatureFlag(flag)) if flag == "surprise_flag"
+        ));
+    }
+
+    #[test]
+    fn phase2_config_rejects_implicit_live_endpoint_and_production_fixtures() {
+        let mut live_without_confirmation = phase2_config_input();
+        live_without_confirmation.environment = Some(EnvironmentClass::ProductionLike);
+        live_without_confirmation.base_url = "https://overgate.production.overrid.local".to_owned();
+        assert!(matches!(
+            SdkConfigRecord::from_input(live_without_confirmation),
+            Err(SdkError::LiveEndpointConfirmationRequired {
+                environment: "production_like"
+            })
+        ));
+
+        let mut production_fixture = phase2_config_input();
+        production_fixture.environment = Some(EnvironmentClass::ProductionLike);
+        production_fixture.base_url = "https://overgate.production.overrid.local".to_owned();
+        production_fixture.live_endpoint_confirmed = true;
+        production_fixture.test_fixtures_enabled = true;
+        assert!(matches!(
+            SdkConfigRecord::from_input(production_fixture),
+            Err(SdkError::FixtureInProduction)
+        ));
+    }
+
+    #[test]
+    fn phase2_request_and_signed_records_preserve_refs_without_secret_material() {
+        let context = phase2_request_context();
+        assert_eq!(context.actor_id, "actor_local");
+        assert_eq!(context.tenant_id, "tenant_local");
+        assert_eq!(context.trace_context.trace_id, "trace_sdk_phase2");
+        assert_eq!(context.idempotency.key, "idem_sdk_phase2");
+
+        let credential_ref =
+            SdkCredentialReferenceRecord::from_credential(&fixture_credential()).unwrap();
+        let signed = SdkSignedRequestRecord::new(
+            context,
+            &credential_ref,
+            "POST",
+            "/commands",
+            "hash_0123456789abcdef",
+            "sigref:local-dev:key-1:tenant_create",
+            120_000,
+        )
+        .unwrap();
+        assert_eq!(signed.credential_id, "fixture://local-dev/key-1");
+        assert!(!signed.stores_private_material);
+        assert!(!signed.stores_bearer_token);
+    }
+
+    #[test]
+    fn phase2_credential_records_reject_secret_like_values() {
+        let mut credential = fixture_credential();
+        credential.key_id = "private_key_value".to_owned();
+        assert!(matches!(
+            SdkCredentialReferenceRecord::from_credential(&credential),
+            Err(SdkError::SecretMaterialRejected {
+                field: "credential key id"
+            })
+        ));
+    }
+
+    #[test]
+    fn phase2_idempotency_records_are_bounded_and_skip_read_only_cache() {
+        let context = phase2_request_context();
+        assert!(SdkIdempotencyEntry::for_command_class(
+            SdkCommandClass::ReadOnly,
+            &context,
+            "hash_0123456789abcdef",
+            None,
+            vec![],
+            RetryClass::NotRetryable,
+            vec![],
+        )
+        .unwrap()
+        .is_none());
+
+        let entry = SdkIdempotencyEntry::for_command_class(
+            SdkCommandClass::Phase1Mutating,
+            &context,
+            "hash_0123456789abcdef",
+            Some("digest_terminal_success".to_owned()),
+            vec!["audit:overwatch:phase2".to_owned()],
+            RetryClass::SafeRetry,
+            vec!["retry_after_ms".to_owned()],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(entry.command_class.as_str(), "phase1_mutating");
+        assert_eq!(entry.retention_ms, 24 * 60 * 60 * 1_000);
+        assert!(!entry.contains_raw_payload);
+        assert_eq!(entry.trace_id, "trace_sdk_phase2");
+    }
+
+    #[test]
+    fn phase2_error_records_preserve_reason_trace_audit_and_retryability() {
+        let error = OverridErrorRecord::new(
+            "policy_denied",
+            "policy denied this command",
+            Some("trace_sdk_phase2".to_owned()),
+            vec!["audit:overwatch:policy_denied".to_owned()],
+            RetryClass::NotRetryable,
+            vec!["change_policy_ref".to_owned()],
+            Some("overguard".to_owned()),
+            vec!["policy:seed:deny-egress".to_owned()],
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap();
+        assert_eq!(error.reason_code, "policy_denied");
+        assert_eq!(error.trace_id.as_deref(), Some("trace_sdk_phase2"));
+        assert_eq!(error.audit_refs.len(), 1);
+        assert!(!error.retryable);
+        assert_eq!(error.schema_version.raw(), SUPPORTED_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn phase2_capability_negotiation_fails_closed_before_unsafe_helpers() {
+        let profile = SdkServiceCapabilityProfile::phase2_local();
+        let accepted = negotiate_sdk_capability(
+            &profile,
+            SdkOptionalHelper::CommandSubmission,
+            SUPPORTED_SCHEMA_VERSION,
+            SDK_CURRENT_STABLE_MAJOR,
+        )
+        .unwrap();
+        assert!(accepted.snapshot.available);
+        assert!(accepted.snapshot.fail_closed);
+        assert_eq!(
+            accepted.snapshot.phase_gate,
+            "phase_1_control_plane_bootstrap"
+        );
+
+        assert!(matches!(
+            negotiate_sdk_capability(
+                &profile,
+                SdkOptionalHelper::PolicyDryRun,
+                SUPPORTED_SCHEMA_VERSION,
+                SDK_CURRENT_STABLE_MAJOR,
+            ),
+            Err(SdkError::CapabilityUnavailable {
+                helper: "policy_dry_run",
+                reason_code: SDK_CAPABILITY_UNAVAILABLE_REASON_CODE
+            })
+        ));
     }
 
     #[test]

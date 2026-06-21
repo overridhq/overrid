@@ -2638,6 +2638,18 @@ fn sdk_error_result(output: OutputMode, error: SdkError) -> CliRunResult {
         SdkError::PrivateServiceTarget(_) | SdkError::MissingOvergateTarget(_) => {
             (ExitCodeClass::Config, "invalid_overgate_endpoint")
         }
+        SdkError::MissingEnvironment => (ExitCodeClass::Config, "missing_environment"),
+        SdkError::MissingRequiredField(_) => (ExitCodeClass::Config, "missing_required_field"),
+        SdkError::UnknownFeatureFlag(_) => (ExitCodeClass::Config, "unknown_feature_flag"),
+        SdkError::LiveEndpointConfirmationRequired { .. } => {
+            (ExitCodeClass::Usage, "live_endpoint_confirmation_required")
+        }
+        SdkError::FixtureInProduction => (ExitCodeClass::Config, "fixture_in_production"),
+        SdkError::SecretMaterialRejected { .. } => {
+            (ExitCodeClass::Credential, "secret_material_rejected")
+        }
+        SdkError::InvalidBodyHash(_) => (ExitCodeClass::Schema, "invalid_body_hash"),
+        SdkError::CapabilityUnavailable { reason_code, .. } => (ExitCodeClass::Phase, reason_code),
         SdkError::UnsupportedScheme(_) => (ExitCodeClass::Config, "unsupported_endpoint_scheme"),
         SdkError::Compatibility(ref rejection) => (ExitCodeClass::Schema, rejection.reason_code()),
         SdkError::Contract(_) => (ExitCodeClass::Schema, "contract_validation_failed"),

@@ -25,3 +25,14 @@ The Phase 1 SDK gate is intentionally narrow:
 - Compatibility check: `OverridSdkClient::new()` uses `check_sdk_compatibility()` and accepts only named `SDK_SUPPORTED_SCHEMA_VERSIONS`; older or unnamed schema strings fail with `schema_version_unsupported` instead of silently downgrading.
 
 Later TypeScript/web, mobile, Python, Swift, or Kotlin bindings must be generated from the same contracts and pass shared fixture checks before release.
+
+## Phase 2 Contract Intake And Local Data Model
+
+The Phase 2 SDK gate keeps `packages/schemas` and docs/specs as contract authority:
+
+- Contract intake: `sdk_contract_intake_manifest()` names the canonical JSON Schema, codegen manifest, Rust projection, docs/specs, SDK SDS, owning phase, generated output path, schema version, and freshness policy.
+- Local config: `SdkConfigRecord::from_input()` requires an explicit environment, Overgate endpoint, timeout/retry policy, feature flags, client identity ref, credential ref, service capability profile, and live-endpoint confirmation for live profiles.
+- Production/test separation: unknown feature flags, implicit live endpoint use, and production fixture enablement fail before network use.
+- Request records: `SdkRequestContextRecord` and `SdkSignedRequestRecord` preserve actor id, tenant id, trace id, idempotency key, command type, schema version, credential id, signature metadata, body hash, timestamp, and replay window without raw private material or bearer tokens.
+- Idempotency and errors: `SdkIdempotencyEntry` applies command-class retention and skips read-only cache entries; `OverridErrorRecord` preserves reason codes, trace ids, audit refs, retryability, correction fields, dependency names, policy refs, and schema version.
+- Capability negotiation: `negotiate_sdk_capability()` checks service schema versions, SDK major support, signing, idempotency, policy dry-run, and accounting capability, returning `sdk_capability_unavailable` before unsafe optional helpers run.
