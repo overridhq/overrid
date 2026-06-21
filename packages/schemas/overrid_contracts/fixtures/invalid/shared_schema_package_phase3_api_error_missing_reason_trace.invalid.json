@@ -1,0 +1,50 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase3_contract_modules": {
+    "command_api_error_modules": [
+      {
+        "module_name": "api_error",
+        "module_family": "command_api_error",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #8 Overgate",
+        "downstream_consumers": [
+          "Overgate"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "redacted_diagnostic",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": false,
+        "append_only_record": false,
+        "reason_code_required": true,
+        "correction_shape_required": true,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "audit_ref"
+        ],
+        "required_fields": [
+          "retryability",
+          "schema_version"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "api_error.requires_reason_trace_retry_correction",
+            "reason_code": "api_error.reason_trace_required",
+            "correction_fields": [
+              "reason_code",
+              "trace_id",
+              "correction_fields"
+            ],
+            "enforcement": "require"
+          }
+        ]
+      }
+    ]
+  }
+}

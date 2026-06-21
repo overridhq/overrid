@@ -1,0 +1,58 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase3_contract_modules": {
+    "event_audit_modules": [
+      {
+        "module_name": "event",
+        "module_family": "event_audit",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #15 Overwatch",
+        "downstream_consumers": [
+          "Overwatch"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": false,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": true,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "event_ref",
+          "tenant_ref",
+          "actor_ref",
+          "subject_ref",
+          "evidence_ref"
+        ],
+        "required_fields": [
+          "event_id",
+          "source_service",
+          "subject_id",
+          "occurred_time",
+          "privacy_class",
+          "schema_version"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "event.append_only_privacy_classified",
+            "reason_code": "event.append_only_required",
+            "correction_fields": [
+              "sequence",
+              "privacy_class",
+              "evidence_ref"
+            ],
+            "enforcement": "preserve_append_only"
+          }
+        ]
+      }
+    ]
+  }
+}

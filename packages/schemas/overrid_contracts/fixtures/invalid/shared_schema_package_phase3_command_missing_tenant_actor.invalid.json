@@ -1,0 +1,57 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase3_contract_modules": {
+    "command_api_error_modules": [
+      {
+        "module_name": "command",
+        "module_family": "command_api_error",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #8 Overgate",
+        "downstream_consumers": [
+          "Overgate"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "credential_ref",
+          "signature_ref"
+        ],
+        "required_fields": [
+          "command_id",
+          "command_type",
+          "trace_id",
+          "idempotency_key",
+          "timestamp",
+          "schema_version",
+          "payload_type",
+          "payload_hash",
+          "signature_metadata"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "command.requires_signed_tenant_actor_envelope",
+            "reason_code": "command.envelope_incomplete",
+            "correction_fields": [
+              "tenant_ref",
+              "actor_ref"
+            ],
+            "enforcement": "require"
+          }
+        ]
+      }
+    ]
+  }
+}

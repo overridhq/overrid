@@ -799,6 +799,824 @@ pub fn required_shared_schema_typed_refs() -> Vec<SharedSchemaTypedRefPrimitive>
     ]
 }
 
+pub const REQUIRED_SHARED_SCHEMA_PHASE3_MODULES: &[&str] = &[
+    "identity",
+    "tenant",
+    "command",
+    "api_error",
+    "event",
+    "audit",
+    "workload_manifest",
+    "resource_manifest",
+    "registry_metadata",
+    "queue_and_lease",
+    "credential_key_metadata",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SharedSchemaPhase3ModuleFamily {
+    IdentityTenant,
+    CommandApiError,
+    EventAudit,
+    ManifestRegistry,
+    QueueLeaseCredentialKey,
+}
+
+impl SharedSchemaPhase3ModuleFamily {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::IdentityTenant => "identity_tenant",
+            Self::CommandApiError => "command_api_error",
+            Self::EventAudit => "event_audit",
+            Self::ManifestRegistry => "manifest_registry",
+            Self::QueueLeaseCredentialKey => "queue_lease_credential_key",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase3ContractRule {
+    pub rule_id: String,
+    pub reason_code: String,
+    pub correction_fields: Vec<String>,
+    pub enforcement: String,
+}
+
+impl SharedSchemaPhase3ContractRule {
+    pub fn new(
+        rule_id: impl Into<String>,
+        reason_code: impl Into<String>,
+        correction_fields: Vec<String>,
+        enforcement: impl Into<String>,
+    ) -> Self {
+        Self {
+            rule_id: rule_id.into(),
+            reason_code: reason_code.into(),
+            correction_fields,
+            enforcement: enforcement.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase3ContractError> {
+        if self.rule_id.trim().is_empty() {
+            return Err(SharedSchemaPhase3ContractError::MissingRuleId);
+        }
+        if !self.reason_code.contains('.') {
+            return Err(SharedSchemaPhase3ContractError::InvalidRuleReasonCode(
+                self.reason_code.clone(),
+            ));
+        }
+        if self.correction_fields.is_empty() {
+            return Err(
+                SharedSchemaPhase3ContractError::MissingRuleCorrectionFields(self.rule_id.clone()),
+            );
+        }
+        match self.enforcement.as_str() {
+            "require" | "reject" | "preserve_append_only" | "require_typed_ref" => Ok(()),
+            _ => Err(SharedSchemaPhase3ContractError::InvalidRuleEnforcement(
+                self.enforcement.clone(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase3ContractModule {
+    pub module_name: String,
+    pub module_family: SharedSchemaPhase3ModuleFamily,
+    pub schema_version: SchemaVersion,
+    pub owning_service_family: String,
+    pub downstream_consumers: Vec<String>,
+    pub source_of_truth: String,
+    pub rust_projection_non_authoritative: bool,
+    pub runtime_authority: String,
+    pub privacy_class: SharedSchemaPrivacyClass,
+    pub strict_unknown_field_rejection: bool,
+    pub raw_secret_values_allowed: bool,
+    pub private_key_material_allowed: bool,
+    pub tenant_actor_refs_required: bool,
+    pub append_only_record: bool,
+    pub reason_code_required: bool,
+    pub correction_shape_required: bool,
+    pub privacy_class_required: bool,
+    pub typed_secret_refs_required: bool,
+    pub untyped_capability_blobs_allowed: bool,
+    pub required_refs: Vec<String>,
+    pub required_fields: Vec<String>,
+    pub validation_rules: Vec<SharedSchemaPhase3ContractRule>,
+}
+
+impl SharedSchemaPhase3ContractModule {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        module_name: impl Into<String>,
+        module_family: SharedSchemaPhase3ModuleFamily,
+        owning_service_family: impl Into<String>,
+        downstream_consumers: Vec<String>,
+        privacy_class: SharedSchemaPrivacyClass,
+        tenant_actor_refs_required: bool,
+        append_only_record: bool,
+        reason_code_required: bool,
+        correction_shape_required: bool,
+        typed_secret_refs_required: bool,
+        required_refs: Vec<String>,
+        required_fields: Vec<String>,
+        validation_rules: Vec<SharedSchemaPhase3ContractRule>,
+    ) -> Result<Self, ContractError> {
+        Ok(Self {
+            module_name: module_name.into(),
+            module_family,
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            owning_service_family: owning_service_family.into(),
+            downstream_consumers,
+            source_of_truth: "json_schema".to_owned(),
+            rust_projection_non_authoritative: true,
+            runtime_authority: "owning_service".to_owned(),
+            privacy_class,
+            strict_unknown_field_rejection: true,
+            raw_secret_values_allowed: false,
+            private_key_material_allowed: false,
+            tenant_actor_refs_required,
+            append_only_record,
+            reason_code_required,
+            correction_shape_required,
+            privacy_class_required: true,
+            typed_secret_refs_required,
+            untyped_capability_blobs_allowed: false,
+            required_refs,
+            required_fields,
+            validation_rules,
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase3ContractError> {
+        if self.module_name.trim().is_empty() {
+            return Err(SharedSchemaPhase3ContractError::MissingModuleName);
+        }
+        if self.owning_service_family.trim().is_empty() || self.downstream_consumers.is_empty() {
+            return Err(SharedSchemaPhase3ContractError::MissingOwnership(
+                self.module_name.clone(),
+            ));
+        }
+        if self.source_of_truth != "json_schema"
+            || !self.rust_projection_non_authoritative
+            || self.runtime_authority != "owning_service"
+        {
+            return Err(SharedSchemaPhase3ContractError::AuthorityDrift(
+                self.module_name.clone(),
+            ));
+        }
+        if !self.strict_unknown_field_rejection {
+            return Err(
+                SharedSchemaPhase3ContractError::UnknownSensitiveFieldsAllowed(
+                    self.module_name.clone(),
+                ),
+            );
+        }
+        if self.raw_secret_values_allowed {
+            return Err(SharedSchemaPhase3ContractError::RawSecretValuesAllowed(
+                self.module_name.clone(),
+            ));
+        }
+        if self.private_key_material_allowed {
+            return Err(SharedSchemaPhase3ContractError::PrivateKeyMaterialAllowed(
+                self.module_name.clone(),
+            ));
+        }
+        if self.untyped_capability_blobs_allowed {
+            return Err(
+                SharedSchemaPhase3ContractError::UntypedCapabilityBlobAllowed(
+                    self.module_name.clone(),
+                ),
+            );
+        }
+        if self.tenant_actor_refs_required
+            && (!self.has_required_ref("tenant_ref") || !self.has_required_ref("actor_ref"))
+        {
+            return Err(SharedSchemaPhase3ContractError::MissingTenantActorRefs(
+                self.module_name.clone(),
+            ));
+        }
+        if self.append_only_record && !self.has_required_field("sequence") {
+            return Err(SharedSchemaPhase3ContractError::MissingAppendOnlySequence(
+                self.module_name.clone(),
+            ));
+        }
+        if self.privacy_class_required && !self.has_required_field("privacy_class") {
+            return Err(SharedSchemaPhase3ContractError::MissingPrivacyClassField(
+                self.module_name.clone(),
+            ));
+        }
+        if self.reason_code_required && !self.has_required_field("reason_code") {
+            return Err(SharedSchemaPhase3ContractError::MissingReasonCode(
+                self.module_name.clone(),
+            ));
+        }
+        if self.correction_shape_required && !self.has_required_field("correction_fields") {
+            return Err(SharedSchemaPhase3ContractError::MissingCorrectionShape(
+                self.module_name.clone(),
+            ));
+        }
+        if self.typed_secret_refs_required && !self.has_required_ref("secret_ref") {
+            return Err(SharedSchemaPhase3ContractError::MissingTypedSecretRef(
+                self.module_name.clone(),
+            ));
+        }
+        if self.module_name == "command" {
+            for field in [
+                "trace_id",
+                "idempotency_key",
+                "payload_hash",
+                "signature_metadata",
+            ] {
+                if !self.has_required_field(field) {
+                    return Err(SharedSchemaPhase3ContractError::IncompleteCommandEnvelope(
+                        field,
+                    ));
+                }
+            }
+        }
+        if self.module_name == "api_error" {
+            for field in [
+                "reason_code",
+                "trace_id",
+                "retryability",
+                "correction_fields",
+            ] {
+                if !self.has_required_field(field) {
+                    return Err(SharedSchemaPhase3ContractError::IncompleteApiError(field));
+                }
+            }
+        }
+        if self.module_name == "credential_key_metadata"
+            && (!self.has_required_field("key_rotation")
+                || !self.has_required_field("revocation")
+                || !self.has_required_ref("signer_ref"))
+        {
+            return Err(SharedSchemaPhase3ContractError::IncompleteCredentialKeyMetadata);
+        }
+        for rule in &self.validation_rules {
+            rule.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn has_required_ref(&self, required_ref: &str) -> bool {
+        self.required_refs.iter().any(|item| item == required_ref)
+    }
+
+    pub fn has_required_field(&self, required_field: &str) -> bool {
+        self.required_fields
+            .iter()
+            .any(|item| item == required_field)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase3Contract {
+    pub schema_version: SchemaVersion,
+    pub modules: Vec<SharedSchemaPhase3ContractModule>,
+}
+
+impl SharedSchemaPhase3Contract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            modules: shared_schema_phase3_contract_modules()?,
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase3ContractError> {
+        let module_names: BTreeSet<_> = self
+            .modules
+            .iter()
+            .map(|module| module.module_name.as_str())
+            .collect();
+        for required_module in REQUIRED_SHARED_SCHEMA_PHASE3_MODULES {
+            if !module_names.contains(required_module) {
+                return Err(SharedSchemaPhase3ContractError::MissingModule(
+                    required_module,
+                ));
+            }
+        }
+        for module in &self.modules {
+            module.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn module(&self, module_name: &str) -> Option<&SharedSchemaPhase3ContractModule> {
+        self.modules
+            .iter()
+            .find(|module| module.module_name == module_name)
+    }
+}
+
+pub fn shared_schema_phase3_contract_modules(
+) -> Result<Vec<SharedSchemaPhase3ContractModule>, ContractError> {
+    Ok(vec![
+        phase3_module(
+            "identity",
+            SharedSchemaPhase3ModuleFamily::IdentityTenant,
+            "SDS #10 Overpass and SDS #14 Overtenant",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            false,
+            false,
+            false,
+            false,
+            &[
+                "identity_ref",
+                "actor_ref",
+                "tenant_ref",
+                "organization_ref",
+                "audit_context_ref",
+            ],
+            &[
+                "membership",
+                "role_binding",
+                "delegated_access",
+                "quota_scope",
+                "suspension_state",
+                "catalog_visibility",
+                "privacy_class",
+            ],
+            &[(
+                "identity.requires_tenant_actor_audit_context",
+                "identity.tenant_actor_required",
+                &["tenant_ref", "actor_ref", "audit_context_ref"][..],
+                "require",
+            )],
+        )?,
+        phase3_module(
+            "tenant",
+            SharedSchemaPhase3ModuleFamily::IdentityTenant,
+            "SDS #14 Overtenant",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            false,
+            false,
+            false,
+            false,
+            &[
+                "tenant_ref",
+                "actor_ref",
+                "organization_ref",
+                "audit_context_ref",
+            ],
+            &[
+                "membership",
+                "role_binding",
+                "quota_scope",
+                "suspension_state",
+                "catalog_visibility",
+                "privacy_class",
+            ],
+            &[(
+                "tenant.requires_quota_and_catalog_visibility",
+                "tenant.scope_required",
+                &["quota_scope", "catalog_visibility"][..],
+                "require",
+            )],
+        )?,
+        phase3_module(
+            "command",
+            SharedSchemaPhase3ModuleFamily::CommandApiError,
+            "SDS #8 Overgate",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            false,
+            false,
+            false,
+            false,
+            &["tenant_ref", "actor_ref", "credential_ref", "signature_ref"],
+            &[
+                "command_id",
+                "command_type",
+                "trace_id",
+                "idempotency_key",
+                "timestamp",
+                "schema_version",
+                "payload_type",
+                "payload_hash",
+                "signature_metadata",
+                "privacy_class",
+            ],
+            &[(
+                "command.requires_signed_tenant_actor_envelope",
+                "command.envelope_incomplete",
+                &["tenant_ref", "actor_ref", "trace_id", "idempotency_key"][..],
+                "require",
+            )],
+        )?,
+        phase3_module(
+            "api_error",
+            SharedSchemaPhase3ModuleFamily::CommandApiError,
+            "SDS #8 Overgate",
+            SharedSchemaPrivacyClass::RedactedDiagnostic,
+            false,
+            false,
+            true,
+            true,
+            false,
+            &["trace_ref", "audit_ref"],
+            &[
+                "reason_code",
+                "trace_id",
+                "retryability",
+                "correction_fields",
+                "schema_version",
+                "privacy_class",
+            ],
+            &[(
+                "api_error.requires_reason_trace_retry_correction",
+                "api_error.reason_trace_required",
+                &["reason_code", "trace_id", "correction_fields"][..],
+                "require",
+            )],
+        )?,
+        phase3_module(
+            "event",
+            SharedSchemaPhase3ModuleFamily::EventAudit,
+            "SDS #15 Overwatch",
+            SharedSchemaPrivacyClass::RedactedDiagnostic,
+            true,
+            true,
+            false,
+            false,
+            false,
+            &[
+                "event_ref",
+                "tenant_ref",
+                "actor_ref",
+                "subject_ref",
+                "evidence_ref",
+                "signature_ref",
+            ],
+            &[
+                "event_id",
+                "source_service",
+                "subject_id",
+                "sequence",
+                "occurred_time",
+                "privacy_class",
+                "schema_version",
+            ],
+            &[(
+                "event.append_only_privacy_classified",
+                "event.append_only_required",
+                &["sequence", "privacy_class", "evidence_ref"][..],
+                "preserve_append_only",
+            )],
+        )?,
+        phase3_module(
+            "audit",
+            SharedSchemaPhase3ModuleFamily::EventAudit,
+            "SDS #15 Overwatch",
+            SharedSchemaPrivacyClass::RedactedDiagnostic,
+            true,
+            true,
+            false,
+            false,
+            false,
+            &[
+                "audit_ref",
+                "tenant_ref",
+                "actor_ref",
+                "policy_ref",
+                "evidence_ref",
+                "signature_ref",
+            ],
+            &[
+                "audit_id",
+                "action",
+                "decision",
+                "sequence",
+                "occurred_time",
+                "privacy_class",
+                "schema_version",
+            ],
+            &[(
+                "audit.append_only_no_private_payload",
+                "audit.private_payload_rejected",
+                &["privacy_class", "evidence_ref"][..],
+                "reject",
+            )],
+        )?,
+        phase3_module(
+            "workload_manifest",
+            SharedSchemaPhase3ModuleFamily::ManifestRegistry,
+            "SDS #24 Overpack",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            false,
+            false,
+            false,
+            true,
+            &[
+                "workload_ref",
+                "tenant_ref",
+                "actor_ref",
+                "package_ref",
+                "secret_ref",
+                "policy_ref",
+                "schema_ref",
+            ],
+            &[
+                "schema_version",
+                "resource_requirements",
+                "data_refs",
+                "network_intent",
+                "retry_policy",
+                "privacy_class",
+            ],
+            &[(
+                "workload_manifest.requires_typed_secret_refs",
+                "manifest.secret_ref_required",
+                &["secret_ref", "schema_version"][..],
+                "require_typed_ref",
+            )],
+        )?,
+        phase3_module(
+            "resource_manifest",
+            SharedSchemaPhase3ModuleFamily::ManifestRegistry,
+            "SDS #24 Overpack and SDS #26 Oversched",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            false,
+            false,
+            false,
+            false,
+            true,
+            &[
+                "resource_manifest_ref",
+                "node_ref",
+                "policy_ref",
+                "schema_ref",
+                "secret_ref",
+            ],
+            &[
+                "schema_version",
+                "capability_records",
+                "resource_requirements",
+                "data_refs",
+                "privacy_class",
+            ],
+            &[(
+                "resource_manifest.rejects_untyped_capabilities",
+                "manifest.untyped_capability_rejected",
+                &["capability_records"][..],
+                "reject",
+            )],
+        )?,
+        phase3_module(
+            "registry_metadata",
+            SharedSchemaPhase3ModuleFamily::ManifestRegistry,
+            "SDS #12 Overregistry",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            false,
+            false,
+            false,
+            false,
+            false,
+            &[
+                "package_ref",
+                "capability_ref",
+                "image_ref",
+                "schema_ref",
+                "policy_ref",
+            ],
+            &[
+                "schema_version",
+                "capability_records",
+                "review_status",
+                "visibility",
+                "privacy_class",
+            ],
+            &[(
+                "registry_metadata_no_public_private_internals",
+                "registry.private_internal_rejected",
+                &["visibility", "schema_ref"][..],
+                "reject",
+            )],
+        )?,
+        phase3_module(
+            "queue_and_lease",
+            SharedSchemaPhase3ModuleFamily::QueueLeaseCredentialKey,
+            "SDS #11 Overqueue and SDS #21 Overlease",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+            true,
+            true,
+            false,
+            &[
+                "queue_ref",
+                "lease_ref",
+                "tenant_ref",
+                "actor_ref",
+                "command_ref",
+                "dead_letter_ref",
+                "credential_ref",
+            ],
+            &[
+                "trace_id",
+                "retry_policy",
+                "timeout_policy",
+                "heartbeat",
+                "cancellation",
+                "completion",
+                "reason_code",
+                "correction_fields",
+                "sequence",
+                "privacy_class",
+            ],
+            &[(
+                "queue_lease_preserves_trace_and_terminal_refs",
+                "queue_lease.trace_required",
+                &["trace_id", "queue_ref", "lease_ref"][..],
+                "preserve_append_only",
+            )],
+        )?,
+        phase3_module(
+            "credential_key_metadata",
+            SharedSchemaPhase3ModuleFamily::QueueLeaseCredentialKey,
+            "SDS #9 Overkey",
+            SharedSchemaPrivacyClass::EncryptedPrivate,
+            true,
+            true,
+            true,
+            true,
+            true,
+            &[
+                "credential_ref",
+                "signer_ref",
+                "key_ref",
+                "tenant_ref",
+                "actor_ref",
+                "secret_ref",
+                "audit_ref",
+            ],
+            &[
+                "credential_metadata",
+                "key_rotation",
+                "revocation",
+                "reason_code",
+                "trace_id",
+                "correction_fields",
+                "sequence",
+                "privacy_class",
+            ],
+            &[(
+                "credential_key_metadata_refs_only",
+                "credential.private_key_material_rejected",
+                &["credential_ref", "signer_ref", "secret_ref"][..],
+                "reject",
+            )],
+        )?,
+    ])
+}
+
+#[allow(clippy::too_many_arguments)]
+fn phase3_module(
+    module_name: &str,
+    module_family: SharedSchemaPhase3ModuleFamily,
+    owning_service_family: &str,
+    privacy_class: SharedSchemaPrivacyClass,
+    tenant_actor_refs_required: bool,
+    append_only_record: bool,
+    reason_code_required: bool,
+    correction_shape_required: bool,
+    typed_secret_refs_required: bool,
+    required_refs: &[&str],
+    required_fields: &[&str],
+    rules: &[(&str, &str, &[&str], &str)],
+) -> Result<SharedSchemaPhase3ContractModule, ContractError> {
+    SharedSchemaPhase3ContractModule::new(
+        module_name,
+        module_family,
+        owning_service_family,
+        vec![
+            "Shared Schema Package".to_owned(),
+            "CLI".to_owned(),
+            "SDK".to_owned(),
+            "Integration Test Harness".to_owned(),
+        ],
+        privacy_class,
+        tenant_actor_refs_required,
+        append_only_record,
+        reason_code_required,
+        correction_shape_required,
+        typed_secret_refs_required,
+        required_refs
+            .iter()
+            .map(|item| (*item).to_owned())
+            .collect(),
+        required_fields
+            .iter()
+            .map(|item| (*item).to_owned())
+            .collect(),
+        rules
+            .iter()
+            .map(|(rule_id, reason_code, correction_fields, enforcement)| {
+                SharedSchemaPhase3ContractRule::new(
+                    *rule_id,
+                    *reason_code,
+                    correction_fields
+                        .iter()
+                        .map(|item| (*item).to_owned())
+                        .collect(),
+                    *enforcement,
+                )
+            })
+            .collect(),
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase3ContractError {
+    MissingModule(&'static str),
+    MissingModuleName,
+    MissingOwnership(String),
+    AuthorityDrift(String),
+    UnknownSensitiveFieldsAllowed(String),
+    RawSecretValuesAllowed(String),
+    PrivateKeyMaterialAllowed(String),
+    UntypedCapabilityBlobAllowed(String),
+    MissingTenantActorRefs(String),
+    MissingAppendOnlySequence(String),
+    MissingPrivacyClassField(String),
+    MissingReasonCode(String),
+    MissingCorrectionShape(String),
+    MissingTypedSecretRef(String),
+    IncompleteCommandEnvelope(&'static str),
+    IncompleteApiError(&'static str),
+    IncompleteCredentialKeyMetadata,
+    MissingRuleId,
+    InvalidRuleReasonCode(String),
+    MissingRuleCorrectionFields(String),
+    InvalidRuleEnforcement(String),
+}
+
+impl fmt::Display for SharedSchemaPhase3ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingModule(module) => write!(formatter, "missing Phase 3 module: {module}"),
+            Self::MissingModuleName => formatter.write_str("module name is required"),
+            Self::MissingOwnership(module) => write!(formatter, "missing ownership: {module}"),
+            Self::AuthorityDrift(module) => write!(formatter, "authority drift: {module}"),
+            Self::UnknownSensitiveFieldsAllowed(module) => {
+                write!(formatter, "unknown sensitive fields allowed: {module}")
+            }
+            Self::RawSecretValuesAllowed(module) => {
+                write!(formatter, "raw secret values allowed: {module}")
+            }
+            Self::PrivateKeyMaterialAllowed(module) => {
+                write!(formatter, "private key material allowed: {module}")
+            }
+            Self::UntypedCapabilityBlobAllowed(module) => {
+                write!(formatter, "untyped capability blobs allowed: {module}")
+            }
+            Self::MissingTenantActorRefs(module) => {
+                write!(formatter, "missing tenant/actor refs: {module}")
+            }
+            Self::MissingAppendOnlySequence(module) => {
+                write!(formatter, "missing append-only sequence: {module}")
+            }
+            Self::MissingPrivacyClassField(module) => {
+                write!(formatter, "missing privacy class field: {module}")
+            }
+            Self::MissingReasonCode(module) => write!(formatter, "missing reason code: {module}"),
+            Self::MissingCorrectionShape(module) => {
+                write!(formatter, "missing correction shape: {module}")
+            }
+            Self::MissingTypedSecretRef(module) => {
+                write!(formatter, "missing typed secret ref: {module}")
+            }
+            Self::IncompleteCommandEnvelope(field) => {
+                write!(formatter, "incomplete command envelope field: {field}")
+            }
+            Self::IncompleteApiError(field) => write!(formatter, "incomplete API error: {field}"),
+            Self::IncompleteCredentialKeyMetadata => {
+                formatter.write_str("incomplete credential/key metadata")
+            }
+            Self::MissingRuleId => formatter.write_str("rule id is required"),
+            Self::InvalidRuleReasonCode(code) => write!(formatter, "invalid rule reason: {code}"),
+            Self::MissingRuleCorrectionFields(rule) => {
+                write!(formatter, "missing rule correction fields: {rule}")
+            }
+            Self::InvalidRuleEnforcement(enforcement) => {
+                write!(formatter, "invalid rule enforcement: {enforcement}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase3ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -4953,6 +5771,156 @@ mod tests {
             reason.validate(),
             Err(SharedSchemaPackageContractError::MissingCorrectionFields(code))
                 if code == "schema.unsupported_version"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase3_contract_covers_phase0_phase1_modules() {
+        let contract = SharedSchemaPhase3Contract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for module in REQUIRED_SHARED_SCHEMA_PHASE3_MODULES {
+            assert!(contract.module(module).is_some(), "missing {module}");
+        }
+
+        let command = contract.module("command").unwrap();
+        assert_eq!(
+            command.module_family,
+            SharedSchemaPhase3ModuleFamily::CommandApiError
+        );
+        assert!(command.has_required_ref("tenant_ref"));
+        assert!(command.has_required_ref("actor_ref"));
+        assert!(command.has_required_field("trace_id"));
+        assert!(command.has_required_field("idempotency_key"));
+        assert!(command.has_required_field("payload_hash"));
+        assert!(command.has_required_field("signature_metadata"));
+        assert!(!command.raw_secret_values_allowed);
+        assert!(!command.private_key_material_allowed);
+        assert!(command.strict_unknown_field_rejection);
+
+        let api_error = contract.module("api_error").unwrap();
+        assert!(api_error.has_required_field("reason_code"));
+        assert!(api_error.has_required_field("trace_id"));
+        assert!(api_error.has_required_field("retryability"));
+        assert!(api_error.has_required_field("correction_fields"));
+
+        let event = contract.module("event").unwrap();
+        assert!(event.append_only_record);
+        assert!(event.has_required_field("sequence"));
+        assert!(event.has_required_field("privacy_class"));
+
+        let manifest = contract.module("workload_manifest").unwrap();
+        assert!(manifest.typed_secret_refs_required);
+        assert!(manifest.has_required_ref("secret_ref"));
+        assert!(!manifest.untyped_capability_blobs_allowed);
+
+        let credential = contract.module("credential_key_metadata").unwrap();
+        assert!(credential.has_required_ref("signer_ref"));
+        assert!(credential.has_required_ref("secret_ref"));
+        assert!(credential.has_required_field("key_rotation"));
+        assert!(credential.has_required_field("revocation"));
+    }
+
+    #[test]
+    fn shared_schema_phase3_rejects_authority_or_security_drift() {
+        let mut command = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("command")
+            .unwrap()
+            .clone();
+        command.required_refs.retain(|item| item != "tenant_ref");
+        assert!(matches!(
+            command.validate(),
+            Err(SharedSchemaPhase3ContractError::MissingTenantActorRefs(module))
+                if module == "command"
+        ));
+
+        let mut identity = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("identity")
+            .unwrap()
+            .clone();
+        identity.raw_secret_values_allowed = true;
+        assert!(matches!(
+            identity.validate(),
+            Err(SharedSchemaPhase3ContractError::RawSecretValuesAllowed(module))
+                if module == "identity"
+        ));
+
+        let mut event = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("event")
+            .unwrap()
+            .clone();
+        event.strict_unknown_field_rejection = false;
+        assert!(matches!(
+            event.validate(),
+            Err(SharedSchemaPhase3ContractError::UnknownSensitiveFieldsAllowed(module))
+                if module == "event"
+        ));
+
+        let mut manifest = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("workload_manifest")
+            .unwrap()
+            .clone();
+        manifest.required_refs.retain(|item| item != "secret_ref");
+        assert!(matches!(
+            manifest.validate(),
+            Err(SharedSchemaPhase3ContractError::MissingTypedSecretRef(module))
+                if module == "workload_manifest"
+        ));
+
+        let mut credential = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("credential_key_metadata")
+            .unwrap()
+            .clone();
+        credential.private_key_material_allowed = true;
+        assert!(matches!(
+            credential.validate(),
+            Err(SharedSchemaPhase3ContractError::PrivateKeyMaterialAllowed(module))
+                if module == "credential_key_metadata"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase3_rejects_incomplete_api_error_and_append_only_modules() {
+        let mut api_error = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("api_error")
+            .unwrap()
+            .clone();
+        api_error.required_fields.retain(|item| item != "trace_id");
+        assert!(matches!(
+            api_error.validate(),
+            Err(SharedSchemaPhase3ContractError::IncompleteApiError(field))
+                if field == "trace_id"
+        ));
+
+        let mut audit = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("audit")
+            .unwrap()
+            .clone();
+        audit.required_fields.retain(|item| item != "sequence");
+        assert!(matches!(
+            audit.validate(),
+            Err(SharedSchemaPhase3ContractError::MissingAppendOnlySequence(module))
+                if module == "audit"
+        ));
+
+        let mut credential = SharedSchemaPhase3Contract::canonical()
+            .unwrap()
+            .module("credential_key_metadata")
+            .unwrap()
+            .clone();
+        credential
+            .required_fields
+            .retain(|item| item != "revocation");
+        assert!(matches!(
+            credential.validate(),
+            Err(SharedSchemaPhase3ContractError::IncompleteCredentialKeyMetadata)
         ));
     }
 

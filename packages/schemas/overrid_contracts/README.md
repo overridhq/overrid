@@ -23,6 +23,16 @@ records to carry lifecycle primitives, classify privacy/data surfaces, and make
 reason-code/correction metadata stable before downstream services consume the
 package.
 
+Shared Schema Package Phase 3 contracts define the first Phase 0 and Phase 1
+contract modules: `identity`, `tenant`, `command`, `api_error`, `event`,
+`audit`, `workload_manifest`, `resource_manifest`, `registry_metadata`,
+`queue_and_lease`, and `credential_key_metadata`. These module records require
+tenant/actor refs for mutating command paths, stable trace/idempotency fields,
+reason-coded API errors with correction shapes, append-only privacy-classified
+events and audit records, typed secret refs in manifests, ref-only queue and
+lease state, and credential/key metadata without raw secrets or private key
+material.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

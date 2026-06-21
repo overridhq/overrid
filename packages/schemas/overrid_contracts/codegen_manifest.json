@@ -98,6 +98,72 @@
       "Reason-code entries must be documented, Rust-first enum sources with retryability, correction fields, dependency names, policy refs, audit refs, and unsupported-version metadata."
     ]
   },
+  "shared_schema_package_phase3": {
+    "schema_family": "shared-schema-package",
+    "schema_version": "shared-schema-package.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package",
+      "downstream_consumers": [
+        "Shared Schema Package",
+        "CLI",
+        "SDK",
+        "Integration Test Harness",
+        "Local Development Stack",
+        "Phase 1 control-plane services",
+        "Rust contract tests",
+        "Schema validators"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers using SDS #7 Phase 3 with owning Phase 1 service review",
+      "consumer_notes": "Phase 3 contract-module metadata for identity/tenant, command/API error, event/audit, manifest/registry, and queue/lease/credential/key shapes. JSON Schema remains the authority and Rust projection stays non-authoritative."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "non_authoritative": true
+    },
+    "contracts": [
+      "identity",
+      "tenant",
+      "command",
+      "api_error",
+      "event",
+      "audit",
+      "workload_manifest",
+      "resource_manifest",
+      "registry_metadata",
+      "queue_and_lease",
+      "credential_key_metadata",
+      "phase3_contract_module",
+      "phase3_contract_rule"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase3.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_command_missing_tenant_actor.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_identity_raw_secret.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_api_error_missing_reason_trace.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_event_private_payload.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_manifest_bad_secret_ref.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase3_queue_key_material.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Identity and tenant module records require tenant, actor, organization, role, delegation, quota, suspension, catalog visibility, and audit-context refs while rejecting raw secrets or credential values.",
+      "Command envelopes require tenant id, actor id, command type, trace id, idempotency key, timestamp, schema version, payload type, payload hash, and signature metadata; API errors require reason code, trace id, retryability, and correction shape.",
+      "Event and audit module records are append-only, privacy-classified, evidence-linked, and reject raw private payload leakage.",
+      "Manifest and registry module records require schema versions, typed secret refs, policy refs, resource/data refs, retry policy, and reject untyped capability blobs or private package internals as public schema authority.",
+      "Queue, lease, credential, and key metadata stays ref-only and must preserve trace, tenant, actor, command, retry, timeout, cancellation, completion, heartbeat, signer, rotation, and revocation metadata without private key material."
+    ]
+  },
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",

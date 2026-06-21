@@ -1,0 +1,614 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase3_contract_modules": {
+    "identity_tenant_modules": [
+      {
+        "module_name": "identity",
+        "module_family": "identity_tenant",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #10 Overpass and SDS #14 Overtenant",
+        "downstream_consumers": [
+          "Overgate",
+          "Overpass",
+          "Overtenant",
+          "Overwatch",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "identity_ref",
+          "actor_ref",
+          "tenant_ref",
+          "organization_ref",
+          "audit_context_ref"
+        ],
+        "required_fields": [
+          "membership",
+          "role_binding",
+          "delegated_access",
+          "quota_scope",
+          "suspension_state",
+          "catalog_visibility"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "identity.requires_tenant_actor_audit_context",
+            "reason_code": "identity.tenant_actor_required",
+            "correction_fields": [
+              "tenant_ref",
+              "actor_ref",
+              "audit_context_ref"
+            ],
+            "enforcement": "require"
+          },
+          {
+            "rule_id": "identity.rejects_raw_secret_values",
+            "reason_code": "identity.raw_secret_rejected",
+            "correction_fields": [
+              "secret_ref"
+            ],
+            "enforcement": "reject"
+          }
+        ]
+      },
+      {
+        "module_name": "tenant",
+        "module_family": "identity_tenant",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #14 Overtenant",
+        "downstream_consumers": [
+          "Overgate",
+          "Overtenant",
+          "Overregistry",
+          "Overwatch",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "tenant_ref",
+          "actor_ref",
+          "organization_ref",
+          "audit_context_ref"
+        ],
+        "required_fields": [
+          "membership",
+          "role_binding",
+          "quota_scope",
+          "suspension_state",
+          "catalog_visibility"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "tenant.requires_quota_and_catalog_visibility",
+            "reason_code": "tenant.scope_required",
+            "correction_fields": [
+              "quota_scope",
+              "catalog_visibility"
+            ],
+            "enforcement": "require"
+          }
+        ]
+      }
+    ],
+    "command_api_error_modules": [
+      {
+        "module_name": "command",
+        "module_family": "command_api_error",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #8 Overgate",
+        "downstream_consumers": [
+          "Overgate",
+          "Overqueue",
+          "Overwatch",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "tenant_ref",
+          "actor_ref",
+          "credential_ref",
+          "signature_ref"
+        ],
+        "required_fields": [
+          "command_id",
+          "command_type",
+          "trace_id",
+          "idempotency_key",
+          "timestamp",
+          "schema_version",
+          "payload_type",
+          "payload_hash",
+          "signature_metadata"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "command.requires_signed_tenant_actor_envelope",
+            "reason_code": "command.envelope_incomplete",
+            "correction_fields": [
+              "tenant_ref",
+              "actor_ref",
+              "trace_id",
+              "idempotency_key",
+              "payload_hash"
+            ],
+            "enforcement": "require"
+          }
+        ]
+      },
+      {
+        "module_name": "api_error",
+        "module_family": "command_api_error",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #8 Overgate",
+        "downstream_consumers": [
+          "Overgate",
+          "CLI",
+          "SDK",
+          "Integration Test Harness"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "redacted_diagnostic",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": false,
+        "append_only_record": false,
+        "reason_code_required": true,
+        "correction_shape_required": true,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "trace_ref",
+          "audit_ref"
+        ],
+        "required_fields": [
+          "reason_code",
+          "trace_id",
+          "retryability",
+          "correction_fields",
+          "schema_version"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "api_error.requires_reason_trace_retry_correction",
+            "reason_code": "api_error.reason_trace_required",
+            "correction_fields": [
+              "reason_code",
+              "trace_id",
+              "correction_fields"
+            ],
+            "enforcement": "require"
+          }
+        ]
+      }
+    ],
+    "event_audit_modules": [
+      {
+        "module_name": "event",
+        "module_family": "event_audit",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #15 Overwatch",
+        "downstream_consumers": [
+          "Overwatch",
+          "Overgate",
+          "Overqueue",
+          "Integration Test Harness"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "redacted_diagnostic",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": true,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "event_ref",
+          "tenant_ref",
+          "actor_ref",
+          "subject_ref",
+          "evidence_ref",
+          "signature_ref"
+        ],
+        "required_fields": [
+          "event_id",
+          "source_service",
+          "subject_id",
+          "sequence",
+          "occurred_time",
+          "privacy_class",
+          "schema_version"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "event.append_only_privacy_classified",
+            "reason_code": "event.append_only_required",
+            "correction_fields": [
+              "sequence",
+              "privacy_class",
+              "evidence_ref"
+            ],
+            "enforcement": "preserve_append_only"
+          }
+        ]
+      },
+      {
+        "module_name": "audit",
+        "module_family": "event_audit",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #15 Overwatch",
+        "downstream_consumers": [
+          "Overwatch",
+          "Overgate",
+          "Overkey",
+          "Integration Test Harness"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "redacted_diagnostic",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": true,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "audit_ref",
+          "tenant_ref",
+          "actor_ref",
+          "policy_ref",
+          "evidence_ref",
+          "signature_ref"
+        ],
+        "required_fields": [
+          "audit_id",
+          "action",
+          "decision",
+          "sequence",
+          "occurred_time",
+          "privacy_class",
+          "schema_version"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "audit.append_only_no_private_payload",
+            "reason_code": "audit.private_payload_rejected",
+            "correction_fields": [
+              "privacy_class",
+              "evidence_ref"
+            ],
+            "enforcement": "reject"
+          }
+        ]
+      }
+    ],
+    "manifest_registry_modules": [
+      {
+        "module_name": "workload_manifest",
+        "module_family": "manifest_registry",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #24 Overpack",
+        "downstream_consumers": [
+          "Overpack",
+          "Oversched",
+          "Overrun",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": true,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "workload_ref",
+          "tenant_ref",
+          "actor_ref",
+          "package_ref",
+          "secret_ref",
+          "policy_ref",
+          "schema_ref"
+        ],
+        "required_fields": [
+          "schema_version",
+          "resource_requirements",
+          "data_refs",
+          "network_intent",
+          "retry_policy"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "workload_manifest.requires_typed_secret_refs",
+            "reason_code": "manifest.secret_ref_required",
+            "correction_fields": [
+              "secret_ref",
+              "schema_version"
+            ],
+            "enforcement": "require_typed_ref"
+          }
+        ]
+      },
+      {
+        "module_name": "resource_manifest",
+        "module_family": "manifest_registry",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #24 Overpack and SDS #26 Oversched",
+        "downstream_consumers": [
+          "Overpack",
+          "Oversched",
+          "Overlease",
+          "Overrun"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": false,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": true,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "resource_manifest_ref",
+          "node_ref",
+          "policy_ref",
+          "schema_ref",
+          "secret_ref"
+        ],
+        "required_fields": [
+          "schema_version",
+          "capability_records",
+          "resource_requirements",
+          "data_refs"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "resource_manifest.rejects_untyped_capabilities",
+            "reason_code": "manifest.untyped_capability_rejected",
+            "correction_fields": [
+              "capability_records"
+            ],
+            "enforcement": "reject"
+          }
+        ]
+      },
+      {
+        "module_name": "registry_metadata",
+        "module_family": "manifest_registry",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #12 Overregistry",
+        "downstream_consumers": [
+          "Overregistry",
+          "Overgate",
+          "Overpack",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": false,
+        "append_only_record": false,
+        "reason_code_required": false,
+        "correction_shape_required": false,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "package_ref",
+          "capability_ref",
+          "image_ref",
+          "schema_ref",
+          "policy_ref"
+        ],
+        "required_fields": [
+          "schema_version",
+          "capability_records",
+          "review_status",
+          "visibility"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "registry_metadata_no_public_private_internals",
+            "reason_code": "registry.private_internal_rejected",
+            "correction_fields": [
+              "visibility",
+              "schema_ref"
+            ],
+            "enforcement": "reject"
+          }
+        ]
+      }
+    ],
+    "queue_lease_credential_key_modules": [
+      {
+        "module_name": "queue_and_lease",
+        "module_family": "queue_lease_credential_key",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #11 Overqueue and SDS #21 Overlease",
+        "downstream_consumers": [
+          "Overqueue",
+          "Overlease",
+          "Overgate",
+          "Oversched",
+          "Overwatch"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "tenant_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": true,
+        "reason_code_required": true,
+        "correction_shape_required": true,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": false,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "queue_ref",
+          "lease_ref",
+          "tenant_ref",
+          "actor_ref",
+          "command_ref",
+          "dead_letter_ref",
+          "credential_ref"
+        ],
+        "required_fields": [
+          "trace_id",
+          "retry_policy",
+          "timeout_policy",
+          "heartbeat",
+          "cancellation",
+          "completion",
+          "reason_code"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "queue_lease_preserves_trace_and_terminal_refs",
+            "reason_code": "queue_lease.trace_required",
+            "correction_fields": [
+              "trace_id",
+              "queue_ref",
+              "lease_ref"
+            ],
+            "enforcement": "preserve_append_only"
+          }
+        ]
+      },
+      {
+        "module_name": "credential_key_metadata",
+        "module_family": "queue_lease_credential_key",
+        "schema_version": "shared-schema-package.v0.1",
+        "owning_service_family": "SDS #9 Overkey",
+        "downstream_consumers": [
+          "Overkey",
+          "Overgate",
+          "Overqueue",
+          "Overwatch",
+          "CLI",
+          "SDK"
+        ],
+        "source_of_truth": "json_schema",
+        "rust_projection_non_authoritative": true,
+        "runtime_authority": "owning_service",
+        "privacy_class": "encrypted_private",
+        "strict_unknown_field_rejection": true,
+        "raw_secret_values_allowed": false,
+        "private_key_material_allowed": false,
+        "tenant_actor_refs_required": true,
+        "append_only_record": true,
+        "reason_code_required": true,
+        "correction_shape_required": true,
+        "privacy_class_required": true,
+        "typed_secret_refs_required": true,
+        "untyped_capability_blobs_allowed": false,
+        "required_refs": [
+          "credential_ref",
+          "signer_ref",
+          "key_ref",
+          "tenant_ref",
+          "actor_ref",
+          "secret_ref",
+          "audit_ref"
+        ],
+        "required_fields": [
+          "credential_metadata",
+          "key_rotation",
+          "revocation",
+          "reason_code",
+          "trace_id"
+        ],
+        "validation_rules": [
+          {
+            "rule_id": "credential_key_metadata_refs_only",
+            "reason_code": "credential.private_key_material_rejected",
+            "correction_fields": [
+              "credential_ref",
+              "signer_ref",
+              "secret_ref"
+            ],
+            "enforcement": "reject"
+          }
+        ]
+      }
+    ]
+  }
+}

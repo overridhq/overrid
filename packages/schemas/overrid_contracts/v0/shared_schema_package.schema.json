@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout, common identifiers, lifecycle primitives, privacy classes, and reason-code/correction primitives.",
+  "title": "Shared Schema Package Phase 2 And Phase 3 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives and Phase 3 Phase 0/1 contract modules.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -47,6 +47,9 @@
       "items": {
         "$ref": "#/$defs/reason_code_entry"
       }
+    },
+    "phase3_contract_modules": {
+      "$ref": "#/$defs/phase3_contract_modules"
     }
   },
   "$defs": {
@@ -396,6 +399,216 @@
         },
         "rust_first_enum_source": {
           "const": true
+        }
+      }
+    },
+    "phase3_contract_modules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_tenant_modules",
+        "command_api_error_modules",
+        "event_audit_modules",
+        "manifest_registry_modules",
+        "queue_lease_credential_key_modules"
+      ],
+      "properties": {
+        "identity_tenant_modules": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_module"
+          }
+        },
+        "command_api_error_modules": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_module"
+          }
+        },
+        "event_audit_modules": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_module"
+          }
+        },
+        "manifest_registry_modules": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_module"
+          }
+        },
+        "queue_lease_credential_key_modules": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_module"
+          }
+        }
+      }
+    },
+    "phase3_contract_module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_name",
+        "module_family",
+        "schema_version",
+        "owning_service_family",
+        "downstream_consumers",
+        "source_of_truth",
+        "rust_projection_non_authoritative",
+        "runtime_authority",
+        "privacy_class",
+        "strict_unknown_field_rejection",
+        "raw_secret_values_allowed",
+        "private_key_material_allowed",
+        "tenant_actor_refs_required",
+        "append_only_record",
+        "reason_code_required",
+        "correction_shape_required",
+        "privacy_class_required",
+        "typed_secret_refs_required",
+        "untyped_capability_blobs_allowed",
+        "required_refs",
+        "required_fields",
+        "validation_rules"
+      ],
+      "properties": {
+        "module_name": {
+          "enum": [
+            "identity",
+            "tenant",
+            "command",
+            "api_error",
+            "event",
+            "audit",
+            "workload_manifest",
+            "resource_manifest",
+            "registry_metadata",
+            "queue_and_lease",
+            "credential_key_metadata"
+          ]
+        },
+        "module_family": {
+          "enum": [
+            "identity_tenant",
+            "command_api_error",
+            "event_audit",
+            "manifest_registry",
+            "queue_lease_credential_key"
+          ]
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "owning_service_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "downstream_consumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "source_of_truth": {
+          "const": "json_schema"
+        },
+        "rust_projection_non_authoritative": {
+          "const": true
+        },
+        "runtime_authority": {
+          "const": "owning_service"
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "strict_unknown_field_rejection": {
+          "const": true
+        },
+        "raw_secret_values_allowed": {
+          "const": false
+        },
+        "private_key_material_allowed": {
+          "const": false
+        },
+        "tenant_actor_refs_required": {
+          "type": "boolean"
+        },
+        "append_only_record": {
+          "type": "boolean"
+        },
+        "reason_code_required": {
+          "type": "boolean"
+        },
+        "correction_shape_required": {
+          "type": "boolean"
+        },
+        "privacy_class_required": {
+          "type": "boolean"
+        },
+        "typed_secret_refs_required": {
+          "type": "boolean"
+        },
+        "untyped_capability_blobs_allowed": {
+          "const": false
+        },
+        "required_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "required_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "validation_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase3_contract_rule"
+          }
+        }
+      }
+    },
+    "phase3_contract_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "reason_code",
+        "correction_fields",
+        "enforcement"
+      ],
+      "properties": {
+        "rule_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "correction_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "enforcement": {
+          "enum": [
+            "require",
+            "reject",
+            "preserve_append_only",
+            "require_typed_ref"
+          ]
         }
       }
     }

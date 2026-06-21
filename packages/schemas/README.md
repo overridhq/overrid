@@ -23,6 +23,7 @@ Rules:
 - Each schema family keeps a `codegen_manifest.json` that names canonical schema paths, fixture roots, generated or projected output paths, source-of-truth status, and validation target.
 - Top-level and nested manifest entries that name canonical schema sources or phase-gated schema artifacts must carry `schema_ownership` metadata.
 - `packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json` defines the Phase 2 layout and common primitive contract for approved source roots, generated-output roots, fixture roots, compatibility-report roots, internal binary projection roots, typed refs, lifecycle/idempotency fields, privacy classes, and reason-code/correction metadata.
+- The same Shared Schema Package schema defines Phase 3 contract-module metadata for identity/tenant, command/API error, event/audit, manifest/registry, and queue/lease/credential/key module groups. These modules are schema definitions only; runtime authority stays with the owning Overrid services.
 
 ## Schema Ownership Metadata
 
