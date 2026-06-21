@@ -1,0 +1,79 @@
+{
+  "artifact_id": "sdk_phase9_typescript_web_binding_manifest",
+  "phase": "sdk_phase_09",
+  "capability_profile": "phase9-typescript-web-product-integration-hardening",
+  "artifact_path": "packages/sdk/bindings/phase9/typescript_web_binding_manifest.valid.json",
+  "schema_version": "overrid.v0",
+  "rust_sdk_name": "overrid-rust-sdk",
+  "rust_sdk_version": "0.1.0",
+  "rust_language_binding": "rust",
+  "language_target": "typescript_web",
+  "source_contract_authority": [
+    "packages/schemas/overrid_contracts",
+    "packages/sdk/fixtures/phase8/golden_cross_language_corpus.valid.json"
+  ],
+  "generated_from_shared_contracts": true,
+  "passes_phase8_golden_corpus": true,
+  "request_envelope_matches_rust": true,
+  "error_objects_match_rust": true,
+  "idempotency_matches_rust": true,
+  "browser_surface_only": true,
+  "runtime_authority": false,
+  "handwritten_public_objects_allowed": false,
+  "bindings": [
+    {
+      "name": "phase9_ts_web_models",
+      "kind": "models",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/models.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    },
+    {
+      "name": "phase9_ts_web_validators",
+      "kind": "validators",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/validators.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    },
+    {
+      "name": "phase9_ts_web_error_objects",
+      "kind": "error_objects",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/errors.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    },
+    {
+      "name": "phase9_ts_web_request_helpers",
+      "kind": "request_helpers",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/request_helpers.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    },
+    {
+      "name": "phase9_ts_web_manifest_helpers",
+      "kind": "manifest_helpers",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/manifest_helpers.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    },
+    {
+      "name": "phase9_ts_web_idempotency_helpers",
+      "kind": "idempotency_helpers",
+      "output_path": "packages/sdk/bindings/typescript_web/generated/idempotency_helpers.ts",
+      "source_contract_path": "packages/schemas/overrid_contracts",
+      "generated_from_shared_contracts": true,
+      "runtime_authority": false,
+      "handwritten_public_objects_allowed": false
+    }
+  ]
+}

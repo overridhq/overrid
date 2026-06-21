@@ -3,6 +3,7 @@
 use std::fmt;
 
 pub mod accounting;
+pub mod bindings;
 pub mod command;
 pub mod fixtures;
 pub mod generated;
@@ -11,6 +12,7 @@ pub mod signing;
 pub mod workload;
 
 pub use accounting::*;
+pub use bindings::*;
 pub use command::*;
 pub use fixtures::*;
 pub use generated::*;

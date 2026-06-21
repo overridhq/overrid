@@ -1,0 +1,138 @@
+{
+  "artifact_id": "sdk_phase9_binding_readiness_gates",
+  "phase": "sdk_phase_09",
+  "artifact_path": "packages/sdk/bindings/phase9/binding_readiness_gates.valid.json",
+  "schema_version": "overrid.v0",
+  "mobile_owner_phase": "phase12_mobile_sdk",
+  "mobile_extension_interfaces": [
+    {
+      "name": "phase9_mobile_session_refresh_primitive",
+      "kind": "session_refresh_primitive",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    },
+    {
+      "name": "phase9_mobile_secure_storage_adapter_interface",
+      "kind": "secure_storage_adapter_interface",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    },
+    {
+      "name": "phase9_mobile_offline_queue_interface",
+      "kind": "offline_queue_interface",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    },
+    {
+      "name": "phase9_mobile_sync_cursor_primitive",
+      "kind": "sync_cursor_primitive",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    },
+    {
+      "name": "phase9_mobile_conflict_state_primitive",
+      "kind": "conflict_state_primitive",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    },
+    {
+      "name": "phase9_mobile_redacted_diagnostics_hook",
+      "kind": "redacted_diagnostics_hook",
+      "extension_point_only": true,
+      "owner_phase": "phase12_mobile_sdk",
+      "foundation_sdk_implements_runtime": false,
+      "provides_default_offline_queue": false,
+      "owns_os_secure_storage": false,
+      "owns_push_registration": false,
+      "owns_background_behavior": false,
+      "owns_media_upload_state": false
+    }
+  ],
+  "binding_readiness_gates": [
+    {
+      "target": "typescript_web",
+      "schema_compatibility_required": true,
+      "golden_request_envelope_required": true,
+      "generated_error_objects_required": true,
+      "cross_language_contract_tests_required": true,
+      "no_handwritten_public_objects_required": true,
+      "release_blocking": true,
+      "matches_rust_behavior_required": true,
+      "mobile_sdk_phase12_gate": false
+    },
+    {
+      "target": "swift_ios",
+      "schema_compatibility_required": true,
+      "golden_request_envelope_required": true,
+      "generated_error_objects_required": true,
+      "cross_language_contract_tests_required": true,
+      "no_handwritten_public_objects_required": true,
+      "release_blocking": true,
+      "matches_rust_behavior_required": true,
+      "mobile_sdk_phase12_gate": true
+    },
+    {
+      "target": "kotlin_android",
+      "schema_compatibility_required": true,
+      "golden_request_envelope_required": true,
+      "generated_error_objects_required": true,
+      "cross_language_contract_tests_required": true,
+      "no_handwritten_public_objects_required": true,
+      "release_blocking": true,
+      "matches_rust_behavior_required": true,
+      "mobile_sdk_phase12_gate": true
+    },
+    {
+      "target": "python",
+      "schema_compatibility_required": true,
+      "golden_request_envelope_required": true,
+      "generated_error_objects_required": true,
+      "cross_language_contract_tests_required": true,
+      "no_handwritten_public_objects_required": true,
+      "release_blocking": true,
+      "matches_rust_behavior_required": true,
+      "mobile_sdk_phase12_gate": false
+    },
+    {
+      "target": "other",
+      "schema_compatibility_required": true,
+      "golden_request_envelope_required": true,
+      "generated_error_objects_required": true,
+      "cross_language_contract_tests_required": true,
+      "no_handwritten_public_objects_required": true,
+      "release_blocking": true,
+      "matches_rust_behavior_required": true,
+      "mobile_sdk_phase12_gate": false
+    }
+  ]
+}

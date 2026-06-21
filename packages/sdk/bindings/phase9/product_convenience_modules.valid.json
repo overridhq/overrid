@@ -1,0 +1,196 @@
+{
+  "artifact_id": "sdk_phase9_product_convenience_modules",
+  "phase": "sdk_phase_09",
+  "artifact_path": "packages/sdk/bindings/phase9/product_convenience_modules.valid.json",
+  "schema_version": "overrid.v0",
+  "boundary_profile": "overgate_admin_public_api_only",
+  "allowed_api_families": [
+    "/v1/overgate/",
+    "/v1/admin/",
+    "/v1/control-plane/",
+    "/v1/accounting/"
+  ],
+  "adapter_ui_safety": {
+    "generated_client_required": true,
+    "uses_overgate_admin_api_only": true,
+    "privileged_internal_endpoints_allowed": false,
+    "private_key_storage_allowed": false,
+    "hidden_service_shortcuts_allowed": false,
+    "direct_worker_storage_api_allowed": false,
+    "browser_runtime_authority": false,
+    "redacted_diagnostics_required": true
+  },
+  "required_failure_cases": [
+    "successful_job",
+    "retryable_failure",
+    "final_failure",
+    "cancellation",
+    "timeout",
+    "policy_denial",
+    "budget_exhaustion",
+    "node_disconnect",
+    "disputed_usage"
+  ],
+  "modules": [
+    {
+      "module_name": "phase9_docdex_encrypted_rag_jobs",
+      "product_kind": "docdex_encrypted_rag",
+      "feature_flag": "phase9.product.docdex_encrypted_rag",
+      "helpers": [
+        "build_docdex_encrypted_rag_job",
+        "submit_job",
+        "read_status",
+        "cancel_job",
+        "read_results",
+        "read_usage_receipt"
+      ],
+      "public_routes": [
+        "/v1/overgate/workloads",
+        "/v1/control-plane/workloads/status",
+        "/v1/control-plane/workloads/cancellations",
+        "/v1/control-plane/workloads/results",
+        "/v1/accounting/usage-rollups",
+        "/v1/accounting/usage-receipts"
+      ],
+      "failure_cases": [
+        "successful_job",
+        "retryable_failure",
+        "final_failure",
+        "cancellation",
+        "timeout",
+        "policy_denial",
+        "budget_exhaustion",
+        "node_disconnect",
+        "disputed_usage"
+      ],
+      "capability_checks_required": true,
+      "uses_overgate_admin_api_only": true,
+      "authorized_refs_only": true,
+      "service_returned_usage_receipts_only": true,
+      "bypasses_internal_services": false,
+      "stores_private_keys": false,
+      "direct_storage_access": false,
+      "hardcoded_model_or_provider": false,
+      "paid_service_assumption": false
+    },
+    {
+      "module_name": "phase9_mcoda_agent_workloads",
+      "product_kind": "mcoda_agent_workload",
+      "feature_flag": "phase9.product.mcoda_agent_workload",
+      "helpers": [
+        "build_mcoda_agent_workload",
+        "submit_job",
+        "read_status",
+        "cancel_job",
+        "read_results",
+        "read_usage_receipt"
+      ],
+      "public_routes": [
+        "/v1/overgate/workloads",
+        "/v1/control-plane/workloads/status",
+        "/v1/control-plane/workloads/cancellations",
+        "/v1/control-plane/workloads/results",
+        "/v1/accounting/usage-rollups",
+        "/v1/accounting/usage-receipts"
+      ],
+      "failure_cases": [
+        "successful_job",
+        "retryable_failure",
+        "final_failure",
+        "cancellation",
+        "timeout",
+        "policy_denial",
+        "budget_exhaustion",
+        "node_disconnect",
+        "disputed_usage"
+      ],
+      "capability_checks_required": true,
+      "uses_overgate_admin_api_only": true,
+      "authorized_refs_only": true,
+      "service_returned_usage_receipts_only": true,
+      "bypasses_internal_services": false,
+      "stores_private_keys": false,
+      "direct_storage_access": false,
+      "hardcoded_model_or_provider": false,
+      "paid_service_assumption": false
+    },
+    {
+      "module_name": "phase9_codali_code_agent_workloads",
+      "product_kind": "codali_code_agent",
+      "feature_flag": "phase9.product.codali_code_agent",
+      "helpers": [
+        "build_codali_code_agent_workload",
+        "submit_job",
+        "read_status",
+        "cancel_job",
+        "read_results",
+        "read_usage_receipt"
+      ],
+      "public_routes": [
+        "/v1/overgate/workloads",
+        "/v1/control-plane/workloads/status",
+        "/v1/control-plane/workloads/cancellations",
+        "/v1/control-plane/workloads/results",
+        "/v1/accounting/usage-rollups",
+        "/v1/accounting/usage-receipts"
+      ],
+      "failure_cases": [
+        "successful_job",
+        "retryable_failure",
+        "final_failure",
+        "cancellation",
+        "timeout",
+        "policy_denial",
+        "budget_exhaustion",
+        "node_disconnect",
+        "disputed_usage"
+      ],
+      "capability_checks_required": true,
+      "uses_overgate_admin_api_only": true,
+      "authorized_refs_only": true,
+      "service_returned_usage_receipts_only": true,
+      "bypasses_internal_services": false,
+      "stores_private_keys": false,
+      "direct_storage_access": false,
+      "hardcoded_model_or_provider": false,
+      "paid_service_assumption": false
+    },
+    {
+      "module_name": "phase9_package_validation",
+      "product_kind": "package_validation",
+      "feature_flag": "phase9.product.package_validation",
+      "helpers": [
+        "validate_package",
+        "read_status",
+        "read_failure_case",
+        "read_usage_receipt"
+      ],
+      "public_routes": [
+        "/v1/overgate/packages/validate",
+        "/v1/control-plane/workloads/status",
+        "/v1/accounting/usage-rollups",
+        "/v1/accounting/usage-receipts"
+      ],
+      "failure_cases": [
+        "successful_job",
+        "retryable_failure",
+        "final_failure",
+        "cancellation",
+        "timeout",
+        "policy_denial",
+        "budget_exhaustion",
+        "node_disconnect",
+        "disputed_usage"
+      ],
+      "capability_checks_required": true,
+      "uses_overgate_admin_api_only": true,
+      "authorized_refs_only": true,
+      "service_returned_usage_receipts_only": true,
+      "bypasses_internal_services": false,
+      "stores_private_keys": false,
+      "direct_storage_access": false,
+      "hardcoded_model_or_provider": false,
+      "paid_service_assumption": false
+    }
+  ]
+}
