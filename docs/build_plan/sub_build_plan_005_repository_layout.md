@@ -159,6 +159,40 @@ Any accepted layout change must update the numbered SDS, service catalog entry, 
   - Output: Specs directory contract and allowed generated-specs subpath.
   - Validation: Docs validation confirms service contracts live under docs/specs or documented SDS/service-catalog locations and generated specs stay out of hand-authored sources.
 
+### Phase 2 Gate Outputs
+
+#### Phase 2 Directory Contract Matrix
+
+| Path | Owner | Gate state | Rule |
+| --- | --- | --- | --- |
+| `services` | Runtime service source roots | `top_level_contracts_scaffolded` | Owns service code roots only after an SDS-backed build phase creates them; not hidden discovery or production config. |
+| `services/control-plane` | Initial control-plane process | `service_path_rules_defined` | One modular Rust API/worker process through Phase 3 unless measured pressure justifies a split. |
+| `services/node-agent` | Overcell node agent and simulator | `service_path_rules_defined` | Owns node-agent and simulator code only when seed private swarm phases start. |
+| `packages/schemas` | Contract source of truth | `package_path_rules_defined` | Canonical JSON Schema owns human-readable contracts; generated bindings are consumers. |
+| `packages/sdk` | Rust SDK first | `package_path_rules_defined` | SDK code is generated or validated from shared contracts and must preserve SDK/Overgate routing. |
+| `packages/cli` | Rust CLI | `package_path_rules_defined` | CLI remains a Rust package using shared contracts, signing, idempotency, trace propagation, and stable JSON output. |
+| `infra/local` | Local development stack contracts | `local_infra_test_paths_defined` | Describes Overrid-shaped loopback local state, job tables, artifact stubs, service definitions, and profiles. |
+| `tests/integration` | Cross-service scenarios | `local_infra_test_paths_defined` | Owns scenario manifests and ignored run artifacts; runtime services must not import test-only helpers. |
+| `docs/specs` | Protocol and service contracts | `specs_contract_defined` | Owns hand-authored protocol, schema, API, service-contract, reason-code, event-contract, audit, and validation specs. |
+
+#### Service Path Ownership
+
+The `services/control-plane` path is the initial modular Rust control-plane process boundary, not a signal to split every future subsystem into deployable services. It may contain domain modules/crates once later phases implement Overpass-lite, Overtenant, Overkey-lite, Overgate, Overregistry, Overwatch, and Overqueue, but it remains one process through Phase 3 by default.
+
+The `services/node-agent` path is reserved for Overcell node agent and simulator code. It must not bypass Overgate, Overmesh, Overlease, Overrun, Overmeter, or Overwatch contracts with direct private storage, queue, or artifact access.
+
+#### Package Path Ownership
+
+`packages/schemas`, `packages/sdk`, and `packages/cli` are required Phase 0 package roots. Package acceptance requires ownership metadata in README or manifest form, contract refs where required, and test-target declarations once executable code exists. TypeScript or generated bindings may exist for UI/client surfaces, but generated code is never the source of truth and TypeScript is not the core runtime authority.
+
+#### Local Infrastructure And Integration Test Paths
+
+`infra/local` tracks source-controlled local profiles and service definitions while local state, local job tables, object/artifact stub outputs, logs, and temporary chunks remain ignored. `tests/integration` tracks scenario manifests and source fixtures while generated run artifacts remain ignored unless a later acceptance path explicitly promotes redacted fixtures.
+
+#### Specs Placement Contract
+
+`docs/specs` is reserved for hand-authored protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact documents. `docs/specs/generated` is the allowed generated-specs subpath and is ignored by default. Docs/specs files are citeable contracts, not runtime configuration or hidden service discovery.
+
 ## Phase 3: Workspace Manifest And Module Inventory
 
 ### Work Items

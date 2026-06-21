@@ -114,6 +114,20 @@ Required directory contracts:
 - `docs/service_catalog`: per-service implementation plans.
 - `docs/sds`: master and per-service design specifications.
 
+## Phase 2 Workspace Shape Decisions
+
+Phase 2 turns the required directory contracts into source-controlled workspace-shape evidence without adding runtime service behavior.
+
+Gate states:
+
+- `top_level_contracts_scaffolded`: `services`, `packages`, `infra`, `tests`, `docs/specs`, `docs/build_plan`, `docs/service_catalog`, and `docs/sds` exist as predictable top-level contracts.
+- `service_path_rules_defined`: `services/control-plane` owns the initial modular Rust control-plane process boundary and `services/node-agent` owns the future Overcell node-agent/simulator boundary.
+- `package_path_rules_defined`: `packages/schemas`, `packages/sdk`, and `packages/cli` have explicit ownership rules, with schemas as contract authority and generated code as consumer output.
+- `local_infra_test_paths_defined`: `infra/local` and `tests/integration` separate source-controlled local/test contracts from ignored state, job-table, artifact, and run-output paths.
+- `specs_contract_defined`: `docs/specs` owns protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact docs, while `docs/specs/generated` is ignored generated output.
+
+Phase 2 does not introduce Cargo service crates, runtime endpoints, production configuration loading from docs, deployment orchestration, or hidden discovery. It records path ownership so later phases can add Rust code, specs, schemas, tests, and local-stack wiring through layout-change governance.
+
 Required command contracts:
 
 - `build`: compile/check all implemented packages.

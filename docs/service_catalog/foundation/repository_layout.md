@@ -56,12 +56,21 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `resolved_decision_carried`: Rust-owned command registry, modular control-plane process through Phase 3, language-neutral `packages/schemas` authority, generated/local ignore rules, and minimal `overrid.workspace.toml` manifest remain fixed decisions.
 - `governance_required`: layout additions, generated paths, service boundary changes, deprecations, and removals move through `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, `accepted`, `deprecated`, and `removed` states as applicable.
 
+## Phase 2 Implementation Gates
+
+- `top_level_contracts_scaffolded`: `services`, `packages`, `infra`, `tests`, `docs/specs`, `docs/build_plan`, `docs/service_catalog`, and `docs/sds` exist as Phase 0 workspace-shape contracts.
+- `service_path_rules_defined`: `services/control-plane` remains the modular Rust control-plane process boundary through Phase 3 by default, and `services/node-agent` is reserved for Overcell node-agent and simulator code.
+- `package_path_rules_defined`: `packages/schemas`, `packages/sdk`, and `packages/cli` have explicit ownership rules, with schemas as contract authority, SDK as Rust-first generated/validated client layer, and CLI as Rust operator tooling.
+- `local_infra_test_paths_defined`: `infra/local` owns Overrid-shaped local profiles and service definitions, while `tests/integration` owns cross-service scenarios; local state, job tables, artifact stubs, integration artifacts, and run outputs are ignored by default.
+- `specs_contract_defined`: `docs/specs` owns hand-authored protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact docs; `docs/specs/generated` is ignored generated output.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
 - Root commands can discover packages and tests.
 - New service stubs can be added without inventing a new layout.
 - `scripts/validate_repository_layout_phase1.py` verifies Phase 1 attachment, boundary, master-phase, resolved-decision, governance, and Markdown-link evidence.
+- `scripts/validate_repository_layout_phase2.py` verifies Phase 2 directory contracts, ownership READMEs, ignored local/generated markers, planning evidence, and Markdown-link evidence.
 
 ## Handoff
 
