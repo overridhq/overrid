@@ -9,10 +9,10 @@ use overrid_contracts::{
 
 pub const SDK_PHASE4_CAPABILITY_PROFILE: &str = "phase4-command-pipeline-idempotency-retry-errors";
 pub const SDK_PHASE4_COMMAND_ROUTE: &str = "/v1/overgate/commands";
-pub const SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS: u64 = 15 * 60 * 1_000;
+pub const SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS: u64 = 2 * 60 * 60 * 1_000;
 pub const SDK_PHASE4_PHASE1_TERMINAL_RETENTION_MS: u64 = 24 * 60 * 60 * 1_000;
 pub const SDK_PHASE4_WORKLOAD_REF_RETENTION_MS: u64 = 7 * 24 * 60 * 60 * 1_000;
-pub const SDK_PHASE4_SECURITY_SENSITIVE_RETENTION_MS: u64 = 4 * 60 * 60 * 1_000;
+pub const SDK_PHASE4_SECURITY_SENSITIVE_RETENTION_MS: u64 = SDK_PHASE4_PHASE1_TERMINAL_RETENTION_MS;
 pub const SDK_PHASE4_CLEANUP_CONTROL: &str = "expiry_sweep_and_dev_reset";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +69,7 @@ pub struct SdkCommandBuildInput {
     pub idempotency_key: String,
     pub trace_id: String,
     pub timestamp_ms: u64,
+    pub command_deadline_at_ms: Option<u64>,
     pub signature_ref: String,
     pub schema_version: String,
     pub command_class: SdkCommandClass,
@@ -78,6 +79,7 @@ pub struct SdkCommandBuildInput {
 pub struct SdkCommandEnvelope {
     pub envelope: SignedCommandEnvelope,
     pub timestamp_ms: u64,
+    pub command_deadline_at_ms: Option<u64>,
     pub schema_version: String,
     pub canonical_payload: String,
     pub payload_hash: String,
@@ -98,6 +100,9 @@ pub fn build_command(input: SdkCommandBuildInput) -> Result<SdkCommandEnvelope, 
     require_phase4_non_empty(&input.signature_ref, "signature ref")?;
     if input.timestamp_ms == 0 {
         return Err(SdkError::MissingRequiredField("timestamp"));
+    }
+    if input.command_deadline_at_ms == Some(0) {
+        return Err(SdkError::MissingRequiredField("command deadline"));
     }
     let schema_version = check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, &input.schema_version)?;
     let canonical_payload = input.payload.canonical_payload();
@@ -126,10 +131,12 @@ pub fn build_command(input: SdkCommandBuildInput) -> Result<SdkCommandEnvelope, 
             &envelope.tenant_id,
             &envelope.actor_id,
             input.timestamp_ms,
+            input.command_deadline_at_ms,
             &payload_hash,
         ),
         envelope,
         timestamp_ms: input.timestamp_ms,
+        command_deadline_at_ms: input.command_deadline_at_ms,
         schema_version: schema_version.raw().to_owned(),
         canonical_payload,
         payload_hash,
@@ -492,11 +499,20 @@ pub struct SdkIdempotencyCachePolicy {
     pub read_only_cached: bool,
     pub terminal_retention_ms: Option<u64>,
     pub in_flight_retry_retention_ms: u64,
+    pub command_deadline_at_ms: Option<u64>,
     pub user_clearable: bool,
     pub cleanup_control: &'static str,
 }
 
 pub fn phase4_idempotency_policy(command_class: SdkCommandClass) -> SdkIdempotencyCachePolicy {
+    phase4_idempotency_policy_with_deadline(command_class, 0, None)
+}
+
+pub fn phase4_idempotency_policy_with_deadline(
+    command_class: SdkCommandClass,
+    command_timestamp_ms: u64,
+    command_deadline_at_ms: Option<u64>,
+) -> SdkIdempotencyCachePolicy {
     let terminal_retention_ms = match command_class {
         SdkCommandClass::ReadOnly => None,
         SdkCommandClass::Phase1Mutating => Some(SDK_PHASE4_PHASE1_TERMINAL_RETENTION_MS),
@@ -511,10 +527,24 @@ pub fn phase4_idempotency_policy(command_class: SdkCommandClass) -> SdkIdempoten
         command_class,
         read_only_cached: false,
         terminal_retention_ms,
-        in_flight_retry_retention_ms: SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS,
+        in_flight_retry_retention_ms: phase4_in_flight_retry_retention_ms(
+            command_timestamp_ms,
+            command_deadline_at_ms,
+        ),
+        command_deadline_at_ms,
         user_clearable: true,
         cleanup_control: SDK_PHASE4_CLEANUP_CONTROL,
     }
+}
+
+pub fn phase4_in_flight_retry_retention_ms(
+    command_timestamp_ms: u64,
+    command_deadline_at_ms: Option<u64>,
+) -> u64 {
+    command_deadline_at_ms
+        .map(|deadline_ms| deadline_ms.saturating_sub(command_timestamp_ms))
+        .unwrap_or(SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS)
+        .min(SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -535,7 +565,11 @@ pub fn evaluate_idempotency_cache(
     response: &SdkOvergateResponse,
     existing: Option<&SdkIdempotencyCacheDecision>,
 ) -> Result<SdkIdempotencyCacheDecision, SdkError> {
-    let policy = phase4_idempotency_policy(command.command_class);
+    let policy = phase4_idempotency_policy_with_deadline(
+        command.command_class,
+        command.timestamp_ms,
+        command.command_deadline_at_ms,
+    );
     if matches!(command.command_class, SdkCommandClass::ReadOnly) {
         return Ok(SdkIdempotencyCacheDecision {
             status: SdkIdempotencyCacheStatus::SkipReadOnly,
@@ -765,9 +799,10 @@ fn phase4_headers(
     tenant_id: &str,
     actor_id: &str,
     timestamp_ms: u64,
+    command_deadline_at_ms: Option<u64>,
     payload_hash: &str,
 ) -> Vec<(String, String)> {
-    vec![
+    let mut headers = vec![
         (
             "x-overrid-schema-version".to_owned(),
             schema_version.to_owned(),
@@ -804,7 +839,14 @@ fn phase4_headers(
             "x-overrid-generated-contract-revision".to_owned(),
             SDK_PHASE3_GENERATED_CONTRACT_REVISION.to_owned(),
         ),
-    ]
+    ];
+    if let Some(command_deadline_at_ms) = command_deadline_at_ms {
+        headers.push((
+            "x-overrid-command-deadline-at-ms".to_owned(),
+            command_deadline_at_ms.to_string(),
+        ));
+    }
+    headers
 }
 
 fn require_phase4_non_empty(value: &str, field: &'static str) -> Result<(), SdkError> {
@@ -836,6 +878,9 @@ mod tests {
     use crate::ClientConfig;
     use overrid_contracts::SUPPORTED_SCHEMA_VERSION;
 
+    const PHASE4_TIMESTAMP_MS: u64 = 1_782_021_000_000;
+    const PHASE4_COMMAND_DEADLINE_AT_MS: u64 = PHASE4_TIMESTAMP_MS + 30 * 60 * 1_000;
+
     fn phase4_payload() -> SdkCommandPayload {
         SdkCommandPayload::new(
             "tenant.create",
@@ -859,7 +904,8 @@ mod tests {
             reason: Some("phase4 test".to_owned()),
             idempotency_key: "idem_phase4".to_owned(),
             trace_id: "trace_phase4".to_owned(),
-            timestamp_ms: 1_782_021_000_000,
+            timestamp_ms: PHASE4_TIMESTAMP_MS,
+            command_deadline_at_ms: Some(PHASE4_COMMAND_DEADLINE_AT_MS),
             signature_ref: "sigref:local-dev:key-1:tenant_create".to_owned(),
             schema_version: SUPPORTED_SCHEMA_VERSION.to_owned(),
             command_class: SdkCommandClass::Phase1Mutating,
@@ -899,6 +945,14 @@ mod tests {
             "x-overrid-sdk-capability-profile".to_owned(),
             SDK_PHASE4_CAPABILITY_PROFILE.to_owned()
         )));
+        assert_eq!(
+            command.command_deadline_at_ms,
+            Some(PHASE4_COMMAND_DEADLINE_AT_MS)
+        );
+        assert!(command.headers.contains(&(
+            "x-overrid-command-deadline-at-ms".to_owned(),
+            PHASE4_COMMAND_DEADLINE_AT_MS.to_string()
+        )));
 
         let mut missing_timestamp = SdkCommandBuildInput {
             family: BootstrapCommandFamily::Tenant,
@@ -912,6 +966,7 @@ mod tests {
             idempotency_key: "idem_phase4".to_owned(),
             trace_id: "trace_phase4".to_owned(),
             timestamp_ms: 0,
+            command_deadline_at_ms: Some(PHASE4_COMMAND_DEADLINE_AT_MS),
             signature_ref: "sigref:local-dev:key-1:tenant_create".to_owned(),
             schema_version: SUPPORTED_SCHEMA_VERSION.to_owned(),
             command_class: SdkCommandClass::Phase1Mutating,
@@ -920,8 +975,14 @@ mod tests {
             build_command(missing_timestamp.clone()),
             Err(SdkError::MissingRequiredField("timestamp"))
         ));
-        missing_timestamp.command_class = SdkCommandClass::ReadOnly;
         missing_timestamp.timestamp_ms = 1;
+        missing_timestamp.command_deadline_at_ms = Some(0);
+        assert!(matches!(
+            build_command(missing_timestamp.clone()),
+            Err(SdkError::MissingRequiredField("command deadline"))
+        ));
+        missing_timestamp.command_class = SdkCommandClass::ReadOnly;
+        missing_timestamp.command_deadline_at_ms = Some(PHASE4_COMMAND_DEADLINE_AT_MS);
         assert!(matches!(
             build_command(missing_timestamp),
             Err(SdkError::MissingRequiredField("mutating command class"))
@@ -972,10 +1033,7 @@ mod tests {
             retry_decision.status,
             SdkIdempotencyCacheStatus::StoreInFlightRetry
         );
-        assert_eq!(
-            retry_decision.retention_ms,
-            Some(SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS)
-        );
+        assert_eq!(retry_decision.retention_ms, Some(30 * 60 * 1_000));
         assert!(retry_decision.terminal_response_digest.is_none());
         assert!(retry_decision.user_clearable);
 
@@ -1014,6 +1072,41 @@ mod tests {
         assert_eq!(
             phase4_idempotency_policy(SdkCommandClass::SecuritySensitive).terminal_retention_ms,
             Some(SDK_PHASE4_SECURITY_SENSITIVE_RETENTION_MS)
+        );
+        assert_eq!(
+            SDK_PHASE4_SECURITY_SENSITIVE_RETENTION_MS,
+            SDK_PHASE4_PHASE1_TERMINAL_RETENTION_MS
+        );
+        assert_eq!(
+            phase4_in_flight_retry_retention_ms(
+                PHASE4_TIMESTAMP_MS,
+                Some(PHASE4_COMMAND_DEADLINE_AT_MS)
+            ),
+            30 * 60 * 1_000
+        );
+        assert_eq!(
+            phase4_in_flight_retry_retention_ms(
+                PHASE4_TIMESTAMP_MS,
+                Some(PHASE4_TIMESTAMP_MS + 3 * 60 * 60 * 1_000)
+            ),
+            SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS
+        );
+        assert_eq!(
+            phase4_in_flight_retry_retention_ms(PHASE4_TIMESTAMP_MS, Some(PHASE4_TIMESTAMP_MS - 1)),
+            0
+        );
+        let capped_policy = phase4_idempotency_policy_with_deadline(
+            SdkCommandClass::Phase1Mutating,
+            PHASE4_TIMESTAMP_MS,
+            Some(PHASE4_TIMESTAMP_MS + 3 * 60 * 60 * 1_000),
+        );
+        assert_eq!(
+            capped_policy.in_flight_retry_retention_ms,
+            SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS
+        );
+        assert_eq!(
+            capped_policy.command_deadline_at_ms,
+            Some(PHASE4_TIMESTAMP_MS + 3 * 60 * 60 * 1_000)
         );
 
         let cleared = clear_phase4_idempotency_cache("idem_phase4").unwrap();

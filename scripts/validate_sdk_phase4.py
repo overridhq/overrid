@@ -42,6 +42,8 @@ REQUIRED_PHASE4_SYMBOLS = [
     "SdkCommandLifecycleState",
     "SdkIdempotencyCachePolicy",
     "phase4_idempotency_policy",
+    "phase4_idempotency_policy_with_deadline",
+    "phase4_in_flight_retry_retention_ms",
     "SdkIdempotencyCacheDecision",
     "evaluate_idempotency_cache",
     "clear_phase4_idempotency_cache",
@@ -180,8 +182,10 @@ def validate_sdk_code_and_readme() -> None:
     for expected in [
         "x-overrid-idempotency-key",
         "x-overrid-command-timestamp-ms",
+        "x-overrid-command-deadline-at-ms",
         "x-overrid-payload-hash",
         "x-overrid-target",
+        "command_deadline_at_ms",
         "SDK_PHASE4_CAPABILITY_PROFILE",
         "stable_phase4_hash",
         "BootstrapAcceptanceRecord",
@@ -199,8 +203,26 @@ def validate_sdk_code_and_readme() -> None:
         "`evaluate_idempotency_cache()`",
         "`classify_phase4_retry()`",
         "`decode_stable_overrid_error()`",
+        "shorter of the absolute command deadline or the 2-hour SDK cap",
+        "security-sensitive terminal digests for 24 hours with no raw payload retention",
     ]:
         assert_contains(readme, expected, SDK_README)
+    if "SDK_PHASE4_IN_FLIGHT_RETRY_RETENTION_MS: u64 = 2 * 60 * 60 * 1_000" not in command:
+        raise AssertionError(f"{SDK_COMMAND} must cap in-flight retry retention at 2 hours")
+    if not re.search(
+        r"SDK_PHASE4_SECURITY_SENSITIVE_RETENTION_MS:\s*u64\s*=\s*SDK_PHASE4_PHASE1_TERMINAL_RETENTION_MS",
+        command,
+    ):
+        raise AssertionError(
+            f"{SDK_COMMAND} must keep security-sensitive terminal digests for the Phase 1 24-hour window"
+        )
+    if not re.search(
+        r"phase4_idempotency_policy_with_deadline\(\s*command\.command_class,\s*command\.timestamp_ms,\s*command\.command_deadline_at_ms,\s*\)",
+        command,
+    ):
+        raise AssertionError(
+            f"{SDK_COMMAND} must evaluate idempotency with the command timestamp and absolute deadline"
+        )
 
 
 def validate_tech_stack_alignment() -> None:
