@@ -50,9 +50,11 @@ audit, policy, usage, ORU, Seal Ledger, Overasset, dispute, and namespace
 ownership families reject unknown fields by default; extension maps are allowed
 only for explicitly low-risk metadata with namespace prefixes, typed values,
 privacy class, and compatibility class. Rust projection checks run through
-`SharedSchemaPhase5ValidationContract::canonical().validate()` and diagnostics
-must fail closed before sentinel private material can appear in generated docs,
-compatibility reports, fixture reports, logs, or validation output.
+`SharedSchemaPhase5ValidationContract::canonical().validate()`, the generated
+reason-code registry is exposed through the Rust
+`list_reason_codes(domain)` helper, and diagnostics must fail closed before
+sentinel private material can appear in generated docs, compatibility reports,
+fixture reports, logs, or validation output.
 
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,

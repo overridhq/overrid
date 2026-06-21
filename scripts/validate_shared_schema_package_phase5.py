@@ -371,6 +371,7 @@ def check_text_surfaces() -> None:
         "Shared Schema Package Phase 5",
         "SharedSchemaPhase5ValidationContract",
         "reject unknown fields",
+        "list_reason_codes(domain)",
         "sentinel private material",
     ]:
         assert_contains(contracts_readme, expected, CONTRACTS_README)
@@ -384,6 +385,7 @@ def check_text_surfaces() -> None:
         "SharedSchemaPhase5ReasonCodeRegistry",
         "SharedSchemaPhase5RedactionDiagnostic",
         "REQUIRED_SHARED_SCHEMA_PHASE5_REASON_DOMAINS",
+        "list_reason_codes",
     ]:
         assert_contains(rust_projection, expected, RUST_PROJECTION)
 

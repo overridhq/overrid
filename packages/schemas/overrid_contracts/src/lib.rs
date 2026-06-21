@@ -2871,6 +2871,14 @@ pub fn phase5_reason_code_registries() -> Vec<SharedSchemaPhase5ReasonCodeRegist
     ]
 }
 
+pub fn list_reason_codes(domain: &str) -> Vec<String> {
+    phase5_reason_code_registries()
+        .into_iter()
+        .find(|registry| registry.domain == domain)
+        .map(|registry| registry.reason_codes)
+        .unwrap_or_default()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPhase5ContractError {
     UnknownSensitiveFieldsAllowed,
@@ -7451,6 +7459,30 @@ mod tests {
         assert!(contract
             .source_hash_inputs
             .contains(&PHASE5_TECH_STACK_SOURCE.to_owned()));
+    }
+
+    #[test]
+    fn shared_schema_phase5_lists_reason_codes_by_domain() {
+        let validation_codes = list_reason_codes("validation");
+        assert_eq!(
+            validation_codes.len(),
+            REQUIRED_SHARED_SCHEMA_PHASE5_VALIDATION_REASON_CODES.len()
+        );
+        assert!(validation_codes.contains(&"schema.unknown_sensitive_field".to_owned()));
+        assert!(validation_codes.contains(&"schema.diagnostic_secret_leak".to_owned()));
+
+        for domain in REQUIRED_SHARED_SCHEMA_PHASE5_REASON_DOMAINS {
+            assert!(
+                !list_reason_codes(domain).is_empty(),
+                "missing Phase 5 reason codes for domain {domain}"
+            );
+        }
+    }
+
+    #[test]
+    fn shared_schema_phase5_reason_code_lookup_returns_empty_for_unknown_domain() {
+        assert!(list_reason_codes("unknown").is_empty());
+        assert!(list_reason_codes("").is_empty());
     }
 
     #[test]
