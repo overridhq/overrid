@@ -4,6 +4,7 @@ use std::fmt;
 
 pub mod accounting;
 pub mod command;
+pub mod fixtures;
 pub mod generated;
 pub mod read;
 pub mod signing;
@@ -11,6 +12,7 @@ pub mod workload;
 
 pub use accounting::*;
 pub use command::*;
+pub use fixtures::*;
 pub use generated::*;
 use overrid_contracts::{
     cli_contract_set, ensure_supported_schema_version, ContractError, GeneratedContractSet,

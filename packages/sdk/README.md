@@ -94,3 +94,14 @@ The Phase 7 SDK gate adds read-only accounting helper descriptors while keeping 
 - Dispute and correction refs: `decode_dispute_reference_view()` and `build_accounting_error_surface()` surface dispute refs, correction refs, challenge windows, provider payout hold refs, refund refs, and denied-settlement reason refs without masking them behind generic errors.
 - Ref preservation: `verify_accounting_refs_unchanged()` rejects SDK rewrites of Overmeter, ORU Account Service, Seal Ledger, Overbill, Overgrant, Overasset, policy, and audit refs.
 - Accounting authority boundary: `sdk_phase7_authority_review()` and `validate_phase7_authority_review()` reject direct payment-provider calls, embedded charge tables, client-side settlement decisions, and SDK mutation of accounting state.
+
+## Phase 8 Fixtures, Contract Tests, And Validation Artifacts
+
+The Phase 8 SDK gate makes fixture and validation evidence explicit while keeping it local/test-only:
+
+- Local fixtures: `sdk_phase8_local_fixture_corpus()` and `validate_phase8_local_fixture_corpus()` cover tenants, actors, credential refs, command envelopes, manifests, signature refs, idempotency entries, errors, usage refs, and audit refs with deterministic seeds, reset markers, redaction profiles, and no production defaults.
+- Fixture artifacts: `packages/sdk/fixtures/phase8/local_sdk_fixture_set.valid.json`, `golden_cross_language_corpus.valid.json`, and `validation_artifacts_manifest.valid.json` are source-controlled evidence inputs checked by `validate_phase8_fixture_artifact_files()`.
+- Contract tests: `sdk_phase8_contract_tests()` and `validate_phase8_contract_tests()` describe signed command submission, duplicate idempotency, stable error preservation, and status-read checks against public Overgate/control-plane routes; missing local-stack owner services are recorded as blockers instead of replaced by internal service mocks.
+- Golden fixtures: `sdk_phase8_golden_fixtures()` and `validate_phase8_golden_fixtures()` gate request envelopes, canonical signing inputs, response errors, manifest validation, idempotency behavior, and redaction behavior. Rust must pass first; TypeScript/web and later bindings remain blocked until they pass the same corpus.
+- Security checks: `sdk_phase8_security_redaction_checks()` and `validate_phase8_security_redaction_checks()` cover production/test separation, fake signer isolation, secret-ref redaction, request-body rejection, signature-value rejection, private payload log rejection, credential lifecycle failures, unsupported schemas, and unsafe downgrade attempts.
+- Validation artifacts: `sdk_phase8_validation_artifacts()` and `validate_phase8_validation_artifacts()` describe schema generation, contract tests, signing golden checks, idempotency behavior, redaction checks, compatibility checks, and docs alignment as CI/build evidence. These artifacts are Docdex-indexable progress evidence, not Overwatch runtime events.

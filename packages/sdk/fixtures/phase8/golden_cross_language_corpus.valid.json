@@ -1,0 +1,63 @@
+{
+  "corpus_id": "sdk_phase8_golden_cross_language_corpus",
+  "schema_version": "overrid.v0",
+  "sdk_name": "overrid-rust-sdk",
+  "sdk_version": "0.1.0",
+  "language_binding": "rust",
+  "rust_required": true,
+  "typescript_web_release_blocked_until_pass": true,
+  "later_bindings_blocked_until_pass": true,
+  "redaction_profile": "phase8_redacted_test_fixture_refs_only",
+  "cases": [
+    {
+      "case_name": "golden_request_envelope",
+      "kind": "request_envelope",
+      "tenant_id": "tenant:local-fixture",
+      "actor_id": "actor:local-developer",
+      "trace_id": "trace:sdk-phase8-golden",
+      "idempotency_key": "idem:sdk-phase8-golden",
+      "payload_hash": "hash_phase8_request_envelope"
+    },
+    {
+      "case_name": "golden_canonical_signing_input",
+      "kind": "canonical_signing_input",
+      "method": "POST",
+      "path": "/v1/overgate/commands",
+      "credential_ref": "credential_ref:redacted-local-fixture",
+      "body_hash": "hash_phase8_canonical_body",
+      "signature_ref": "signature_ref:redacted-ed25519-fixture"
+    },
+    {
+      "case_name": "golden_response_error",
+      "kind": "response_error",
+      "reason_code": "schema_version_unsupported",
+      "trace_id": "trace:sdk-phase8-golden",
+      "audit_refs": ["overwatch:audit-fixture"],
+      "correction_fields": ["schema_version"]
+    },
+    {
+      "case_name": "golden_manifest_validation",
+      "kind": "manifest_validation",
+      "manifest_ref": "manifest:synthetic-cpu-batch",
+      "policy_refs": ["policy:local-fixture"],
+      "egress": "deny_all",
+      "runtime_acceptance_claimed": false
+    },
+    {
+      "case_name": "golden_idempotency_case",
+      "kind": "idempotency_case",
+      "idempotency_key": "idem:sdk-phase8-golden",
+      "request_hash": "hash_phase8_request_envelope",
+      "terminal_digest": "digest_phase8_terminal",
+      "retry_class": "not_retryable"
+    },
+    {
+      "case_name": "golden_redaction_case",
+      "kind": "redaction_case",
+      "credential_ref": "credential_ref:redacted-local-fixture",
+      "signature_ref": "signature_ref:redacted-ed25519-fixture",
+      "payload": "redacted",
+      "artifact_safe": true
+    }
+  ]
+}

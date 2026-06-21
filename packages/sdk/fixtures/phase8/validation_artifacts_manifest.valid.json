@@ -1,0 +1,45 @@
+{
+  "manifest_id": "sdk_phase8_validation_artifacts_manifest",
+  "capability_profile": "phase8-fixtures-contract-tests-validation-artifacts",
+  "schema_version": "overrid.v0",
+  "docdex_index_expected": true,
+  "overwatch_runtime_event": false,
+  "progress_evidence_required": true,
+  "artifacts": [
+    {
+      "name": "phase8_schema_generation_artifact",
+      "kind": "schema_generation",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_contract_test_artifact",
+      "kind": "contract_tests",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_signing_golden_artifact",
+      "kind": "signing_golden_checks",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_idempotency_artifact",
+      "kind": "idempotency_behavior",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_redaction_artifact",
+      "kind": "redaction_checks",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_compatibility_artifact",
+      "kind": "compatibility_checks",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    },
+    {
+      "name": "phase8_docs_alignment_artifact",
+      "kind": "docs_alignment",
+      "retention_rule": "keep latest CI artifact plus progress evidence"
+    }
+  ]
+}

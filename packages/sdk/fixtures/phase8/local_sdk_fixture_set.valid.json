@@ -1,0 +1,64 @@
+{
+  "corpus_id": "sdk_phase8_local_fixture_corpus",
+  "schema_version": "overrid.v0",
+  "environment": "local",
+  "test_only": true,
+  "deterministic_seed": "sdk-phase8-local-seed-v0",
+  "reset_marker": "local-dev-resettable-fixture-set",
+  "redaction_profile": "phase8_redacted_test_fixture_refs_only",
+  "production_default": false,
+  "contains_private_material": false,
+  "contains_raw_payload": false,
+  "fixtures": [
+    {
+      "fixture_id": "tenant_local_fixture",
+      "kind": "tenant",
+      "value_ref": "tenant:local-fixture"
+    },
+    {
+      "fixture_id": "actor_local_developer",
+      "kind": "actor",
+      "value_ref": "actor:local-developer"
+    },
+    {
+      "fixture_id": "credential_redacted_fixture_ref",
+      "kind": "credential",
+      "value_ref": "credential_ref:redacted-local-fixture"
+    },
+    {
+      "fixture_id": "command_envelope_fixture",
+      "kind": "command_envelope",
+      "value_ref": "command:submit-synthetic-workload"
+    },
+    {
+      "fixture_id": "manifest_fixture",
+      "kind": "manifest",
+      "value_ref": "manifest:synthetic-cpu-batch"
+    },
+    {
+      "fixture_id": "signature_fixture_ref",
+      "kind": "signature",
+      "value_ref": "signature_ref:redacted-ed25519-fixture"
+    },
+    {
+      "fixture_id": "idempotency_fixture",
+      "kind": "idempotency_entry",
+      "value_ref": "idempotency:sdk-phase8-command"
+    },
+    {
+      "fixture_id": "error_fixture",
+      "kind": "error",
+      "value_ref": "error:unsupported_schema_version"
+    },
+    {
+      "fixture_id": "usage_ref_fixture",
+      "kind": "usage_ref",
+      "value_ref": "overmeter:usage-rollup-fixture"
+    },
+    {
+      "fixture_id": "audit_ref_fixture",
+      "kind": "audit_ref",
+      "value_ref": "overwatch:audit-fixture"
+    }
+  ]
+}
