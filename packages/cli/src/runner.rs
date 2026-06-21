@@ -237,6 +237,11 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
             "ci_command_sequence_violation",
             "validation_evidence_missing",
             "artifact_consumer_violation",
+            "sub_build_plan_structure_violation",
+            "tech_stack_alignment_violation",
+            "master_plan_alignment_violation",
+            "source_document_alignment_violation",
+            "downstream_handoff_violation",
         ],
         owning_tool: "overrid-cli",
         phase_gate: "phase_0",
@@ -5517,7 +5522,7 @@ mod tests {
     }
 
     #[test]
-    fn command_registry_lists_phase5_semantic_root_commands() {
+    fn command_registry_lists_semantic_root_commands_and_layout_artifacts() {
         let result = run_args(["overrid", "command-registry", "--json"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
         assert!(result
@@ -5542,6 +5547,9 @@ mod tests {
             .stdout
             .contains("\"machine_readable_result_envelope\":true"));
         assert!(result.stdout.contains("\"owning_tool\":\"overrid-cli\""));
+        for artifact in LAYOUT_VALIDATION_ARTIFACTS {
+            assert!(result.stdout.contains(artifact));
+        }
     }
 
     #[test]
