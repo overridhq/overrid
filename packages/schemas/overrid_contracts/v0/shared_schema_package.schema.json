@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 5 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, and Phase 5 strict validation metadata.",
+  "title": "Shared Schema Package Phase 2 Through Phase 5 Contracts Plus Phase 6 Fixture Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, and Phase 6 deterministic fixture/golden/artifact metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -56,6 +56,9 @@
     },
     "phase5_validation_contract": {
       "$ref": "#/$defs/phase5_validation_contract"
+    },
+    "phase6_fixture_contract": {
+      "$ref": "#/$defs/phase6_fixture_contract"
     }
   },
   "$defs": {
@@ -1298,6 +1301,393 @@
         },
         "validator_entrypoint": {
           "const": "SharedSchemaPhase5ValidationContract::canonical().validate()"
+        },
+        "non_authoritative": {
+          "const": true
+        }
+      }
+    },
+    "phase6_fixture_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_fixture_builders",
+        "invalid_fixture_builders",
+        "golden_envelope_fixtures",
+        "local_stack_contract",
+        "integration_harness_contract",
+        "validation_artifacts",
+        "source_hash_inputs",
+        "rust_projection"
+      ],
+      "properties": {
+        "valid_fixture_builders": {
+          "type": "array",
+          "minItems": 14,
+          "items": {
+            "$ref": "#/$defs/phase6_valid_fixture_builder"
+          }
+        },
+        "invalid_fixture_builders": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "$ref": "#/$defs/phase6_invalid_fixture_builder"
+          }
+        },
+        "golden_envelope_fixtures": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase6_golden_envelope_fixture"
+          }
+        },
+        "local_stack_contract": {
+          "$ref": "#/$defs/phase6_local_stack_contract"
+        },
+        "integration_harness_contract": {
+          "$ref": "#/$defs/phase6_integration_harness_contract"
+        },
+        "validation_artifacts": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/phase6_validation_artifact"
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_projection": {
+          "$ref": "#/$defs/phase6_rust_projection"
+        }
+      }
+    },
+    "phase6_fixture_family": {
+      "enum": [
+        "primitive",
+        "identity",
+        "tenant",
+        "command",
+        "api_error",
+        "event",
+        "audit",
+        "manifest",
+        "resource",
+        "queue",
+        "lease",
+        "usage",
+        "policy",
+        "key_metadata"
+      ]
+    },
+    "phase6_negative_case": {
+      "enum": [
+        "unsupported_version",
+        "unknown_field",
+        "missing_envelope",
+        "privacy_missing",
+        "malformed_ref",
+        "stale_reason_code",
+        "migration_needed",
+        "deprecated_payload"
+      ]
+    },
+    "phase6_golden_envelope_family": {
+      "enum": [
+        "command",
+        "event",
+        "audit",
+        "usage",
+        "ledger",
+        "api_error"
+      ]
+    },
+    "phase6_validation_artifact_kind": {
+      "enum": [
+        "schema_lint",
+        "generated_output_diff",
+        "fixture_pass_fail_counts",
+        "redaction_check",
+        "compatibility_report"
+      ]
+    },
+    "phase6_valid_fixture_builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_family",
+        "builder_name",
+        "deterministic_seed",
+        "schema_ref",
+        "stable_from_clean_checkout",
+        "consumers",
+        "privacy_defaults",
+        "production_credentials_allowed",
+        "private_payload_defaults_allowed",
+        "expected_reason_codes"
+      ],
+      "properties": {
+        "fixture_family": {
+          "$ref": "#/$defs/phase6_fixture_family"
+        },
+        "builder_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "deterministic_seed": {
+          "type": "string",
+          "pattern": "^fixture-seed:"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "stable_from_clean_checkout": {
+          "const": true
+        },
+        "consumers": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "enum": [
+              "integration_harness",
+              "sdk",
+              "cli",
+              "service_contract_tests",
+              "local_stack",
+              "rust_contract_tests"
+            ]
+          }
+        },
+        "privacy_defaults": {
+          "const": "redacted_refs_only"
+        },
+        "production_credentials_allowed": {
+          "const": false
+        },
+        "private_payload_defaults_allowed": {
+          "const": false
+        },
+        "expected_reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        }
+      }
+    },
+    "phase6_invalid_fixture_builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_name",
+        "case_kind",
+        "payload_family",
+        "stable_reason_code",
+        "ambiguous_parser_error_allowed",
+        "migration_metadata_required"
+      ],
+      "properties": {
+        "case_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "case_kind": {
+          "$ref": "#/$defs/phase6_negative_case"
+        },
+        "payload_family": {
+          "$ref": "#/$defs/phase6_fixture_family"
+        },
+        "stable_reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "ambiguous_parser_error_allowed": {
+          "const": false
+        },
+        "migration_metadata_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "phase6_golden_envelope_fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envelope_family",
+        "fixture_path",
+        "round_trip_targets",
+        "stable_field_order",
+        "field_loss_allowed",
+        "ordering_drift_allowed",
+        "error_shape_changes_allowed"
+      ],
+      "properties": {
+        "envelope_family": {
+          "$ref": "#/$defs/phase6_golden_envelope_family"
+        },
+        "fixture_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "round_trip_targets": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "enum": [
+              "rust",
+              "cli",
+              "sdk",
+              "future_typescript_web_projection"
+            ]
+          }
+        },
+        "stable_field_order": {
+          "const": true
+        },
+        "field_loss_allowed": {
+          "const": false
+        },
+        "ordering_drift_allowed": {
+          "const": false
+        },
+        "error_shape_changes_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase6_local_stack_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sds_ref",
+        "fixture_bundle_path",
+        "resettable",
+        "deterministic_state",
+        "test_only_marker_required",
+        "production_data_enabled",
+        "production_credentials_allowed",
+        "raw_secret_defaults_allowed"
+      ],
+      "properties": {
+        "sds_ref": {
+          "const": "SDS #4 Local Development Stack"
+        },
+        "fixture_bundle_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "resettable": {
+          "const": true
+        },
+        "deterministic_state": {
+          "const": true
+        },
+        "test_only_marker_required": {
+          "const": true
+        },
+        "production_data_enabled": {
+          "const": false
+        },
+        "production_credentials_allowed": {
+          "const": false
+        },
+        "raw_secret_defaults_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase6_integration_harness_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sds_ref",
+        "fixture_bundle_path",
+        "reuses_fixture_builders",
+        "production_credentials_allowed",
+        "private_payload_defaults_allowed",
+        "stable_reason_codes_required",
+        "redaction_required"
+      ],
+      "properties": {
+        "sds_ref": {
+          "const": "SDS #3 Integration Test Harness"
+        },
+        "fixture_bundle_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "reuses_fixture_builders": {
+          "const": true
+        },
+        "production_credentials_allowed": {
+          "const": false
+        },
+        "private_payload_defaults_allowed": {
+          "const": false
+        },
+        "stable_reason_codes_required": {
+          "const": true
+        },
+        "redaction_required": {
+          "const": true
+        }
+      }
+    },
+    "phase6_validation_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_kind",
+        "path",
+        "generated_by",
+        "non_authoritative",
+        "overwatch_runtime_event",
+        "redaction_checked",
+        "docdex_index_expected"
+      ],
+      "properties": {
+        "artifact_kind": {
+          "$ref": "#/$defs/phase6_validation_artifact_kind"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "generated_by": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "non_authoritative": {
+          "const": true
+        },
+        "overwatch_runtime_event": {
+          "const": false
+        },
+        "redaction_checked": {
+          "const": true
+        },
+        "docdex_index_expected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "phase6_rust_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "validator_entrypoint",
+        "non_authoritative"
+      ],
+      "properties": {
+        "path": {
+          "const": "packages/schemas/overrid_contracts/src/lib.rs"
+        },
+        "validator_entrypoint": {
+          "const": "SharedSchemaPhase6FixtureContract::canonical().validate()"
         },
         "non_authoritative": {
           "const": true

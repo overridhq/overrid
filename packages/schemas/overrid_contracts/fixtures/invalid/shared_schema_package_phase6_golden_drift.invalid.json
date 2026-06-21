@@ -1,0 +1,17 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase6_fixture_contract": {
+    "golden_envelope_fixtures": [
+      {
+        "envelope_family": "command",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.command",
+        "round_trip_targets": ["rust", "cli", "sdk"],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": true,
+        "error_shape_changes_allowed": false
+      }
+    ]
+  }
+}

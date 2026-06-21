@@ -25,6 +25,8 @@ Rules:
 - `packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json` defines the Phase 2 layout and common primitive contract for approved source roots, generated-output roots, fixture roots, compatibility-report roots, internal binary projection roots, typed refs, lifecycle/idempotency fields, privacy classes, and reason-code/correction metadata.
 - The same Shared Schema Package schema defines Phase 3 contract-module metadata for identity/tenant, command/API error, event/audit, manifest/registry, and queue/lease/credential/key module groups. These modules are schema definitions only; runtime authority stays with the owning Overrid services.
 - Shared Schema Package Phase 4 defines Rust-first generation toolchain metadata, deterministic generation command contracts, Rust projection output metadata, generated documentation trace metadata, TypeScript/web blocked-until rules, and internal-only Protobuf boundaries.
+- Shared Schema Package Phase 5 defines strict validation defaults, parse helpers, envelope assertions, reason-code registries, and redaction diagnostics for sensitive schema families.
+- Shared Schema Package Phase 6 defines fixture builders, golden envelope fixtures, SDS #3 integration-harness reuse, SDS #4 local-stack reset bundles, and non-authoritative validation artifact metadata.
 
 ## Schema Ownership Metadata
 

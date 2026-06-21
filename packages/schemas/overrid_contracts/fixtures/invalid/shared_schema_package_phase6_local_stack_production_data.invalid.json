@@ -1,0 +1,16 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase6_fixture_contract": {
+    "local_stack_contract": {
+      "sds_ref": "SDS #4 Local Development Stack",
+      "fixture_bundle_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#local_stack_fixture_bundle",
+      "resettable": true,
+      "deterministic_state": true,
+      "test_only_marker_required": true,
+      "production_data_enabled": true,
+      "production_credentials_allowed": false,
+      "raw_secret_defaults_allowed": false
+    }
+  }
+}

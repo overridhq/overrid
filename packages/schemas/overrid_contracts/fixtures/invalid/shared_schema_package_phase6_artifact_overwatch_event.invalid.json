@@ -1,0 +1,17 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase6_fixture_contract": {
+    "validation_artifacts": [
+      {
+        "artifact_kind": "schema_lint",
+        "path": "artifacts/shared-schema-phase6/schema-lint.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": true,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      }
+    ]
+  }
+}

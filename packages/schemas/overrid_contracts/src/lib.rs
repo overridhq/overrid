@@ -2957,6 +2957,681 @@ impl fmt::Display for SharedSchemaPhase5ContractError {
 
 impl std::error::Error for SharedSchemaPhase5ContractError {}
 
+pub const PHASE6_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE6_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE6_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE6_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE6_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE6_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase6.py";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE6_FIXTURE_FAMILIES: &[&str] = &[
+    "primitive",
+    "identity",
+    "tenant",
+    "command",
+    "api_error",
+    "event",
+    "audit",
+    "manifest",
+    "resource",
+    "queue",
+    "lease",
+    "usage",
+    "policy",
+    "key_metadata",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE6_NEGATIVE_CASES: &[&str] = &[
+    "unsupported_version",
+    "unknown_field",
+    "missing_envelope",
+    "privacy_missing",
+    "malformed_ref",
+    "stale_reason_code",
+    "migration_needed",
+    "deprecated_payload",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE6_GOLDEN_ENVELOPES: &[&str] =
+    &["command", "event", "audit", "usage", "ledger", "api_error"];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE6_ARTIFACT_KINDS: &[&str] = &[
+    "schema_lint",
+    "generated_output_diff",
+    "fixture_pass_fail_counts",
+    "redaction_check",
+    "compatibility_report",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6ValidFixtureBuilder {
+    pub fixture_family: String,
+    pub builder_name: String,
+    pub deterministic_seed: String,
+    pub schema_ref: String,
+    pub stable_from_clean_checkout: bool,
+    pub consumers: Vec<String>,
+    pub privacy_defaults: String,
+    pub production_credentials_allowed: bool,
+    pub private_payload_defaults_allowed: bool,
+    pub expected_reason_codes: Vec<String>,
+}
+
+impl SharedSchemaPhase6ValidFixtureBuilder {
+    pub fn new(fixture_family: impl Into<String>, seed_suffix: impl Into<String>) -> Self {
+        let fixture_family = fixture_family.into();
+        let seed_suffix = seed_suffix.into();
+        Self {
+            builder_name: format!("build_valid_{fixture_family}_fixture"),
+            schema_ref: format!("schema:shared-schema-package/{fixture_family}"),
+            fixture_family,
+            deterministic_seed: format!("fixture-seed:shared-schema-phase6:{seed_suffix}"),
+            stable_from_clean_checkout: true,
+            consumers: owned_values(&[
+                "integration_harness",
+                "sdk",
+                "cli",
+                "service_contract_tests",
+                "local_stack",
+                "rust_contract_tests",
+            ]),
+            privacy_defaults: "redacted_refs_only".to_owned(),
+            production_credentials_allowed: false,
+            private_payload_defaults_allowed: false,
+            expected_reason_codes: owned_values(&["schema.fixture_validated"]),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE6_FIXTURE_FAMILIES
+            .iter()
+            .any(|family| self.fixture_family == *family)
+        {
+            return Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(
+                self.fixture_family.clone(),
+            ));
+        }
+        if self.builder_name.trim().is_empty()
+            || !self.deterministic_seed.starts_with("fixture-seed:")
+            || !self.schema_ref.starts_with("schema:")
+            || !self.stable_from_clean_checkout
+            || self.privacy_defaults != "redacted_refs_only"
+            || self.production_credentials_allowed
+            || self.private_payload_defaults_allowed
+            || self.expected_reason_codes.is_empty()
+        {
+            return Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(
+                self.fixture_family.clone(),
+            ));
+        }
+        for required in ["integration_harness", "sdk", "cli"] {
+            if !self.consumers.iter().any(|consumer| consumer == required) {
+                return Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(
+                    self.fixture_family.clone(),
+                ));
+            }
+        }
+        if !self
+            .expected_reason_codes
+            .iter()
+            .all(|reason_code| reason_code.contains('.'))
+        {
+            return Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(
+                self.fixture_family.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6InvalidFixtureBuilder {
+    pub case_name: String,
+    pub case_kind: String,
+    pub payload_family: String,
+    pub stable_reason_code: String,
+    pub ambiguous_parser_error_allowed: bool,
+    pub migration_metadata_required: bool,
+}
+
+impl SharedSchemaPhase6InvalidFixtureBuilder {
+    pub fn new(
+        case_name: impl Into<String>,
+        case_kind: impl Into<String>,
+        payload_family: impl Into<String>,
+        stable_reason_code: impl Into<String>,
+        migration_metadata_required: bool,
+    ) -> Self {
+        Self {
+            case_name: case_name.into(),
+            case_kind: case_kind.into(),
+            payload_family: payload_family.into(),
+            stable_reason_code: stable_reason_code.into(),
+            ambiguous_parser_error_allowed: false,
+            migration_metadata_required,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if self.case_name.trim().is_empty()
+            || !REQUIRED_SHARED_SCHEMA_PHASE6_NEGATIVE_CASES
+                .iter()
+                .any(|case_kind| self.case_kind == *case_kind)
+            || !REQUIRED_SHARED_SCHEMA_PHASE6_FIXTURE_FAMILIES
+                .iter()
+                .any(|family| self.payload_family == *family)
+            || !self.stable_reason_code.contains('.')
+        {
+            return Err(SharedSchemaPhase6ContractError::InvalidNegativeCase(
+                self.case_name.clone(),
+            ));
+        }
+        if self.ambiguous_parser_error_allowed {
+            return Err(
+                SharedSchemaPhase6ContractError::AmbiguousParserErrorAllowed(
+                    self.case_name.clone(),
+                ),
+            );
+        }
+        if matches!(
+            self.case_kind.as_str(),
+            "migration_needed" | "deprecated_payload"
+        ) && !self.migration_metadata_required
+        {
+            return Err(SharedSchemaPhase6ContractError::InvalidNegativeCase(
+                self.case_name.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6GoldenEnvelopeFixture {
+    pub envelope_family: String,
+    pub fixture_path: String,
+    pub round_trip_targets: Vec<String>,
+    pub stable_field_order: bool,
+    pub field_loss_allowed: bool,
+    pub ordering_drift_allowed: bool,
+    pub error_shape_changes_allowed: bool,
+}
+
+impl SharedSchemaPhase6GoldenEnvelopeFixture {
+    pub fn new(envelope_family: impl Into<String>) -> Self {
+        let envelope_family = envelope_family.into();
+        Self {
+            fixture_path: format!(
+                "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.{envelope_family}"
+            ),
+            envelope_family,
+            round_trip_targets: owned_values(&[
+                "rust",
+                "cli",
+                "sdk",
+                "future_typescript_web_projection",
+            ]),
+            stable_field_order: true,
+            field_loss_allowed: false,
+            ordering_drift_allowed: false,
+            error_shape_changes_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE6_GOLDEN_ENVELOPES
+            .iter()
+            .any(|family| self.envelope_family == *family)
+            || !self.fixture_path.contains("#golden.")
+            || !self.stable_field_order
+            || self.field_loss_allowed
+            || self.ordering_drift_allowed
+            || self.error_shape_changes_allowed
+        {
+            return Err(SharedSchemaPhase6ContractError::GoldenFixtureDrift(
+                self.envelope_family.clone(),
+            ));
+        }
+        for required in ["rust", "cli", "sdk"] {
+            if !self
+                .round_trip_targets
+                .iter()
+                .any(|target| target == required)
+            {
+                return Err(SharedSchemaPhase6ContractError::GoldenFixtureDrift(
+                    self.envelope_family.clone(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6LocalStackContract {
+    pub sds_ref: String,
+    pub fixture_bundle_path: String,
+    pub resettable: bool,
+    pub deterministic_state: bool,
+    pub test_only_marker_required: bool,
+    pub production_data_enabled: bool,
+    pub production_credentials_allowed: bool,
+    pub raw_secret_defaults_allowed: bool,
+}
+
+impl SharedSchemaPhase6LocalStackContract {
+    pub fn canonical() -> Self {
+        Self {
+            sds_ref: "SDS #4 Local Development Stack".to_owned(),
+            fixture_bundle_path: "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#local_stack_fixture_bundle".to_owned(),
+            resettable: true,
+            deterministic_state: true,
+            test_only_marker_required: true,
+            production_data_enabled: false,
+            production_credentials_allowed: false,
+            raw_secret_defaults_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if self.sds_ref != "SDS #4 Local Development Stack"
+            || !self
+                .fixture_bundle_path
+                .contains("#local_stack_fixture_bundle")
+            || !self.resettable
+            || !self.deterministic_state
+            || !self.test_only_marker_required
+            || self.production_data_enabled
+            || self.production_credentials_allowed
+            || self.raw_secret_defaults_allowed
+        {
+            return Err(SharedSchemaPhase6ContractError::LocalStackFixtureUnsafe);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6IntegrationHarnessContract {
+    pub sds_ref: String,
+    pub fixture_bundle_path: String,
+    pub reuses_fixture_builders: bool,
+    pub production_credentials_allowed: bool,
+    pub private_payload_defaults_allowed: bool,
+    pub stable_reason_codes_required: bool,
+    pub redaction_required: bool,
+}
+
+impl SharedSchemaPhase6IntegrationHarnessContract {
+    pub fn canonical() -> Self {
+        Self {
+            sds_ref: "SDS #3 Integration Test Harness".to_owned(),
+            fixture_bundle_path: "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#integration_harness_fixture_bundle".to_owned(),
+            reuses_fixture_builders: true,
+            production_credentials_allowed: false,
+            private_payload_defaults_allowed: false,
+            stable_reason_codes_required: true,
+            redaction_required: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if self.sds_ref != "SDS #3 Integration Test Harness"
+            || !self
+                .fixture_bundle_path
+                .contains("#integration_harness_fixture_bundle")
+            || !self.reuses_fixture_builders
+            || self.production_credentials_allowed
+            || self.private_payload_defaults_allowed
+            || !self.stable_reason_codes_required
+            || !self.redaction_required
+        {
+            return Err(SharedSchemaPhase6ContractError::IntegrationHarnessFixtureUnsafe);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6ValidationArtifact {
+    pub artifact_kind: String,
+    pub path: String,
+    pub generated_by: String,
+    pub non_authoritative: bool,
+    pub overwatch_runtime_event: bool,
+    pub redaction_checked: bool,
+    pub docdex_index_expected: bool,
+}
+
+impl SharedSchemaPhase6ValidationArtifact {
+    pub fn new(artifact_kind: impl Into<String>, path: impl Into<String>) -> Self {
+        Self {
+            artifact_kind: artifact_kind.into(),
+            path: path.into(),
+            generated_by: PHASE6_VALIDATOR_SCRIPT.to_owned(),
+            non_authoritative: true,
+            overwatch_runtime_event: false,
+            redaction_checked: true,
+            docdex_index_expected: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE6_ARTIFACT_KINDS
+            .iter()
+            .any(|kind| self.artifact_kind == *kind)
+            || !self.path.starts_with("artifacts/shared-schema-phase6/")
+            || self.generated_by != PHASE6_VALIDATOR_SCRIPT
+            || !self.non_authoritative
+            || self.overwatch_runtime_event
+            || !self.redaction_checked
+        {
+            return Err(SharedSchemaPhase6ContractError::ArtifactAuthorityDrift(
+                self.artifact_kind.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase6RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE6_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint: "SharedSchemaPhase6FixtureContract::canonical().validate()"
+                .to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        if self.path != PHASE6_RUST_OUTPUT_PATH
+            || !self
+                .validator_entrypoint
+                .contains("SharedSchemaPhase6FixtureContract")
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase6ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase6FixtureContract {
+    pub schema_version: SchemaVersion,
+    pub valid_fixture_builders: Vec<SharedSchemaPhase6ValidFixtureBuilder>,
+    pub invalid_fixture_builders: Vec<SharedSchemaPhase6InvalidFixtureBuilder>,
+    pub golden_envelope_fixtures: Vec<SharedSchemaPhase6GoldenEnvelopeFixture>,
+    pub local_stack_contract: SharedSchemaPhase6LocalStackContract,
+    pub integration_harness_contract: SharedSchemaPhase6IntegrationHarnessContract,
+    pub validation_artifacts: Vec<SharedSchemaPhase6ValidationArtifact>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase6RustProjection,
+}
+
+impl SharedSchemaPhase6FixtureContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            valid_fixture_builders: vec![
+                SharedSchemaPhase6ValidFixtureBuilder::new("primitive", "primitive"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("identity", "identity"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("tenant", "tenant"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("command", "command"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("api_error", "api-error"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("event", "event"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("audit", "audit"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("manifest", "manifest"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("resource", "resource"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("queue", "queue"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("lease", "lease"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("usage", "usage"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("policy", "policy"),
+                SharedSchemaPhase6ValidFixtureBuilder::new("key_metadata", "key-metadata"),
+            ],
+            invalid_fixture_builders: vec![
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "unsupported_version_payload",
+                    "unsupported_version",
+                    "command",
+                    "schema.unsupported_version",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "unknown_sensitive_field_payload",
+                    "unknown_field",
+                    "identity",
+                    "schema.unknown_sensitive_field",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "missing_command_envelope",
+                    "missing_envelope",
+                    "command",
+                    "schema.envelope_incomplete",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "privacy_class_missing",
+                    "privacy_missing",
+                    "event",
+                    "schema.wrong_privacy_class",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "malformed_reference_payload",
+                    "malformed_ref",
+                    "manifest",
+                    "schema.malformed_ref",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "stale_reason_code_payload",
+                    "stale_reason_code",
+                    "api_error",
+                    "schema.reason_code_undocumented",
+                    false,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "migration_needed_payload",
+                    "migration_needed",
+                    "tenant",
+                    "schema.migration_metadata_required",
+                    true,
+                ),
+                SharedSchemaPhase6InvalidFixtureBuilder::new(
+                    "deprecated_payload_without_window",
+                    "deprecated_payload",
+                    "policy",
+                    "schema.deprecated_payload",
+                    true,
+                ),
+            ],
+            golden_envelope_fixtures: REQUIRED_SHARED_SCHEMA_PHASE6_GOLDEN_ENVELOPES
+                .iter()
+                .map(|family| SharedSchemaPhase6GoldenEnvelopeFixture::new(*family))
+                .collect(),
+            local_stack_contract: SharedSchemaPhase6LocalStackContract::canonical(),
+            integration_harness_contract: SharedSchemaPhase6IntegrationHarnessContract::canonical(),
+            validation_artifacts: vec![
+                SharedSchemaPhase6ValidationArtifact::new(
+                    "schema_lint",
+                    "artifacts/shared-schema-phase6/schema-lint.json",
+                ),
+                SharedSchemaPhase6ValidationArtifact::new(
+                    "generated_output_diff",
+                    "artifacts/shared-schema-phase6/generated-output-diff.json",
+                ),
+                SharedSchemaPhase6ValidationArtifact::new(
+                    "fixture_pass_fail_counts",
+                    "artifacts/shared-schema-phase6/fixture-counts.json",
+                ),
+                SharedSchemaPhase6ValidationArtifact::new(
+                    "redaction_check",
+                    "artifacts/shared-schema-phase6/redaction-check.json",
+                ),
+                SharedSchemaPhase6ValidationArtifact::new(
+                    "compatibility_report",
+                    "artifacts/shared-schema-phase6/compatibility-report.json",
+                ),
+            ],
+            source_hash_inputs: owned_values(&[
+                PHASE6_CANONICAL_SCHEMA_SOURCE,
+                PHASE6_MANIFEST_SOURCE,
+                PHASE6_BUILD_PLAN_SOURCE,
+                PHASE6_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase6RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase6ContractError> {
+        for required in REQUIRED_SHARED_SCHEMA_PHASE6_FIXTURE_FAMILIES {
+            if !self
+                .valid_fixture_builders
+                .iter()
+                .any(|builder| builder.fixture_family == *required)
+            {
+                return Err(SharedSchemaPhase6ContractError::MissingFixtureFamily(
+                    required,
+                ));
+            }
+        }
+        for builder in &self.valid_fixture_builders {
+            builder.validate()?;
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE6_NEGATIVE_CASES {
+            if !self
+                .invalid_fixture_builders
+                .iter()
+                .any(|builder| builder.case_kind == *required)
+            {
+                return Err(SharedSchemaPhase6ContractError::InvalidNegativeCase(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for builder in &self.invalid_fixture_builders {
+            builder.validate()?;
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE6_GOLDEN_ENVELOPES {
+            if !self
+                .golden_envelope_fixtures
+                .iter()
+                .any(|fixture| fixture.envelope_family == *required)
+            {
+                return Err(SharedSchemaPhase6ContractError::GoldenFixtureDrift(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for fixture in &self.golden_envelope_fixtures {
+            fixture.validate()?;
+        }
+        self.local_stack_contract.validate()?;
+        self.integration_harness_contract.validate()?;
+        for required in REQUIRED_SHARED_SCHEMA_PHASE6_ARTIFACT_KINDS {
+            if !self
+                .validation_artifacts
+                .iter()
+                .any(|artifact| artifact.artifact_kind == *required)
+            {
+                return Err(SharedSchemaPhase6ContractError::ArtifactAuthorityDrift(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for artifact in &self.validation_artifacts {
+            artifact.validate()?;
+        }
+        for required in [
+            PHASE6_CANONICAL_SCHEMA_SOURCE,
+            PHASE6_MANIFEST_SOURCE,
+            PHASE6_BUILD_PLAN_SOURCE,
+            PHASE6_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase6ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase6ContractError {
+    MissingFixtureFamily(&'static str),
+    InvalidFixtureBuilder(String),
+    InvalidNegativeCase(String),
+    AmbiguousParserErrorAllowed(String),
+    GoldenFixtureDrift(String),
+    LocalStackFixtureUnsafe,
+    IntegrationHarnessFixtureUnsafe,
+    ArtifactAuthorityDrift(String),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase6ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingFixtureFamily(family) => {
+                write!(formatter, "missing Phase 6 fixture family: {family}")
+            }
+            Self::InvalidFixtureBuilder(builder) => {
+                write!(formatter, "invalid Phase 6 fixture builder: {builder}")
+            }
+            Self::InvalidNegativeCase(case_name) => {
+                write!(
+                    formatter,
+                    "invalid Phase 6 negative fixture case: {case_name}"
+                )
+            }
+            Self::AmbiguousParserErrorAllowed(case_name) => write!(
+                formatter,
+                "ambiguous parser error allowed for Phase 6 case: {case_name}"
+            ),
+            Self::GoldenFixtureDrift(family) => {
+                write!(formatter, "Phase 6 golden fixture drift: {family}")
+            }
+            Self::LocalStackFixtureUnsafe => {
+                formatter.write_str("Phase 6 local-stack fixture contract is unsafe")
+            }
+            Self::IntegrationHarnessFixtureUnsafe => {
+                formatter.write_str("Phase 6 integration-harness fixture contract is unsafe")
+            }
+            Self::ArtifactAuthorityDrift(kind) => {
+                write!(formatter, "Phase 6 artifact authority drift: {kind}")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 6 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase6ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -7576,6 +8251,134 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase5ContractError::RustProjectionAuthorityDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase6_contract_covers_fixtures_golden_and_artifacts() {
+        let contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for family in REQUIRED_SHARED_SCHEMA_PHASE6_FIXTURE_FAMILIES {
+            assert!(contract
+                .valid_fixture_builders
+                .iter()
+                .any(|builder| builder.fixture_family == *family));
+        }
+        assert!(contract
+            .valid_fixture_builders
+            .iter()
+            .all(|builder| builder.deterministic_seed.starts_with("fixture-seed:")));
+        assert!(contract
+            .invalid_fixture_builders
+            .iter()
+            .any(|builder| builder.case_kind == "migration_needed"
+                && builder.migration_metadata_required));
+        assert!(contract
+            .golden_envelope_fixtures
+            .iter()
+            .any(|fixture| fixture.envelope_family == "api_error"
+                && fixture.round_trip_targets.contains(&"rust".to_owned())));
+        assert!(contract.local_stack_contract.resettable);
+        assert!(
+            contract
+                .integration_harness_contract
+                .reuses_fixture_builders
+        );
+        assert!(contract
+            .validation_artifacts
+            .iter()
+            .any(
+                |artifact| artifact.artifact_kind == "fixture_pass_fail_counts"
+                    && !artifact.overwatch_runtime_event
+            ));
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase6FixtureContract::canonical().validate()"
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase6_rejects_invalid_valid_fixture_builders() {
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.valid_fixture_builders[0]
+            .deterministic_seed
+            .clear();
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(family))
+                if family == "primitive"
+        ));
+
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.valid_fixture_builders[0].production_credentials_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::InvalidFixtureBuilder(family))
+                if family == "primitive"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase6_rejects_negative_fixture_and_golden_drift() {
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        let case = contract
+            .invalid_fixture_builders
+            .iter_mut()
+            .find(|builder| builder.case_kind == "unsupported_version")
+            .unwrap();
+        case.ambiguous_parser_error_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::AmbiguousParserErrorAllowed(case_name))
+                if case_name == "unsupported_version_payload"
+        ));
+
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        let command = contract
+            .golden_envelope_fixtures
+            .iter_mut()
+            .find(|fixture| fixture.envelope_family == "command")
+            .unwrap();
+        command.ordering_drift_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::GoldenFixtureDrift(family))
+                if family == "command"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase6_rejects_local_harness_artifact_and_projection_drift() {
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.local_stack_contract.production_data_enabled = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::LocalStackFixtureUnsafe)
+        ));
+
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract
+            .integration_harness_contract
+            .private_payload_defaults_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::IntegrationHarnessFixtureUnsafe)
+        ));
+
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.validation_artifacts[0].overwatch_runtime_event = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::ArtifactAuthorityDrift(kind))
+                if kind == "schema_lint"
+        ));
+
+        let mut contract = SharedSchemaPhase6FixtureContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase6ContractError::RustProjectionAuthorityDrift)
         ));
     }
 

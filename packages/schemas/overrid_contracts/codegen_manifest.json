@@ -707,6 +707,588 @@
       "Redaction diagnostics fail closed if sentinel private material can appear in generated docs, compatibility reports, fixture reports, logs, or validation output."
     ]
   },
+  "shared_schema_package_phase6": {
+    "schema_family": "shared-schema-package",
+    "schema_version": "shared-schema-package.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package",
+      "downstream_consumers": [
+        "Shared Schema Package",
+        "CLI",
+        "SDK",
+        "Integration Test Harness",
+        "Local Development Stack",
+        "Service contract tests",
+        "Rust contract tests",
+        "Schema validators",
+        "Future generated bindings"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers using SDS #7 Phase 6 with SDS #3 and SDS #4 review",
+      "consumer_notes": "Phase 6 deterministic fixture, golden envelope, local-stack reset, integration-harness reuse, and validation artifact metadata. JSON Schema remains the authority and Rust projection stays non-authoritative."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "non_authoritative": true,
+      "validator_entrypoint": "SharedSchemaPhase6FixtureContract::canonical().validate()"
+    },
+    "valid_fixture_builders": [
+      {
+        "fixture_family": "primitive",
+        "builder_name": "build_valid_primitive_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:primitive",
+        "schema_ref": "schema:shared-schema-package/primitive",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "identity",
+        "builder_name": "build_valid_identity_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:identity",
+        "schema_ref": "schema:shared-schema-package/identity",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "tenant",
+        "builder_name": "build_valid_tenant_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:tenant",
+        "schema_ref": "schema:shared-schema-package/tenant",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "command",
+        "builder_name": "build_valid_command_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:command",
+        "schema_ref": "schema:shared-schema-package/command",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "api_error",
+        "builder_name": "build_valid_api_error_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:api-error",
+        "schema_ref": "schema:shared-schema-package/api_error",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "event",
+        "builder_name": "build_valid_event_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:event",
+        "schema_ref": "schema:shared-schema-package/event",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "audit",
+        "builder_name": "build_valid_audit_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:audit",
+        "schema_ref": "schema:shared-schema-package/audit",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "manifest",
+        "builder_name": "build_valid_manifest_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:manifest",
+        "schema_ref": "schema:shared-schema-package/manifest",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "resource",
+        "builder_name": "build_valid_resource_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:resource",
+        "schema_ref": "schema:shared-schema-package/resource",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "queue",
+        "builder_name": "build_valid_queue_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:queue",
+        "schema_ref": "schema:shared-schema-package/queue",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "lease",
+        "builder_name": "build_valid_lease_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:lease",
+        "schema_ref": "schema:shared-schema-package/lease",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "usage",
+        "builder_name": "build_valid_usage_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:usage",
+        "schema_ref": "schema:shared-schema-package/usage",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "policy",
+        "builder_name": "build_valid_policy_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:policy",
+        "schema_ref": "schema:shared-schema-package/policy",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      },
+      {
+        "fixture_family": "key_metadata",
+        "builder_name": "build_valid_key_metadata_fixture",
+        "deterministic_seed": "fixture-seed:shared-schema-phase6:key-metadata",
+        "schema_ref": "schema:shared-schema-package/key_metadata",
+        "stable_from_clean_checkout": true,
+        "consumers": [
+          "integration_harness",
+          "sdk",
+          "cli",
+          "service_contract_tests",
+          "local_stack",
+          "rust_contract_tests"
+        ],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": [
+          "schema.fixture_validated"
+        ]
+      }
+    ],
+    "invalid_fixture_builders": [
+      {
+        "case_name": "unsupported_version_payload",
+        "case_kind": "unsupported_version",
+        "payload_family": "command",
+        "stable_reason_code": "schema.unsupported_version",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "unknown_sensitive_field_payload",
+        "case_kind": "unknown_field",
+        "payload_family": "identity",
+        "stable_reason_code": "schema.unknown_sensitive_field",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "missing_command_envelope",
+        "case_kind": "missing_envelope",
+        "payload_family": "command",
+        "stable_reason_code": "schema.envelope_incomplete",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "privacy_class_missing",
+        "case_kind": "privacy_missing",
+        "payload_family": "event",
+        "stable_reason_code": "schema.wrong_privacy_class",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "malformed_reference_payload",
+        "case_kind": "malformed_ref",
+        "payload_family": "manifest",
+        "stable_reason_code": "schema.malformed_ref",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "stale_reason_code_payload",
+        "case_kind": "stale_reason_code",
+        "payload_family": "api_error",
+        "stable_reason_code": "schema.reason_code_undocumented",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": false
+      },
+      {
+        "case_name": "migration_needed_payload",
+        "case_kind": "migration_needed",
+        "payload_family": "tenant",
+        "stable_reason_code": "schema.migration_metadata_required",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": true
+      },
+      {
+        "case_name": "deprecated_payload_without_window",
+        "case_kind": "deprecated_payload",
+        "payload_family": "policy",
+        "stable_reason_code": "schema.deprecated_payload",
+        "ambiguous_parser_error_allowed": false,
+        "migration_metadata_required": true
+      }
+    ],
+    "golden_envelope_fixtures": [
+      {
+        "envelope_family": "command",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.command",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      },
+      {
+        "envelope_family": "event",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.event",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      },
+      {
+        "envelope_family": "audit",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.audit",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      },
+      {
+        "envelope_family": "usage",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.usage",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      },
+      {
+        "envelope_family": "ledger",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.ledger",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      },
+      {
+        "envelope_family": "api_error",
+        "fixture_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#golden.api_error",
+        "round_trip_targets": [
+          "rust",
+          "cli",
+          "sdk",
+          "future_typescript_web_projection"
+        ],
+        "stable_field_order": true,
+        "field_loss_allowed": false,
+        "ordering_drift_allowed": false,
+        "error_shape_changes_allowed": false
+      }
+    ],
+    "local_stack_contract": {
+      "sds_ref": "SDS #4 Local Development Stack",
+      "fixture_bundle_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#local_stack_fixture_bundle",
+      "resettable": true,
+      "deterministic_state": true,
+      "test_only_marker_required": true,
+      "production_data_enabled": false,
+      "production_credentials_allowed": false,
+      "raw_secret_defaults_allowed": false
+    },
+    "integration_harness_contract": {
+      "sds_ref": "SDS #3 Integration Test Harness",
+      "fixture_bundle_path": "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json#integration_harness_fixture_bundle",
+      "reuses_fixture_builders": true,
+      "production_credentials_allowed": false,
+      "private_payload_defaults_allowed": false,
+      "stable_reason_codes_required": true,
+      "redaction_required": true
+    },
+    "validation_artifacts": [
+      {
+        "artifact_kind": "schema_lint",
+        "path": "artifacts/shared-schema-phase6/schema-lint.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": false,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      },
+      {
+        "artifact_kind": "generated_output_diff",
+        "path": "artifacts/shared-schema-phase6/generated-output-diff.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": false,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      },
+      {
+        "artifact_kind": "fixture_pass_fail_counts",
+        "path": "artifacts/shared-schema-phase6/fixture-counts.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": false,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      },
+      {
+        "artifact_kind": "redaction_check",
+        "path": "artifacts/shared-schema-phase6/redaction-check.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": false,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      },
+      {
+        "artifact_kind": "compatibility_report",
+        "path": "artifacts/shared-schema-phase6/compatibility-report.json",
+        "generated_by": "scripts/validate_shared_schema_package_phase6.py",
+        "non_authoritative": true,
+        "overwatch_runtime_event": false,
+        "redaction_checked": true,
+        "docdex_index_expected": true
+      }
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "contracts": [
+      "phase6_fixture_contract",
+      "phase6_valid_fixture_builder",
+      "phase6_invalid_fixture_builder",
+      "phase6_golden_envelope_fixture",
+      "phase6_local_stack_contract",
+      "phase6_integration_harness_contract",
+      "phase6_validation_artifact",
+      "phase6_rust_projection"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase6.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase6_missing_seed.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase6_ambiguous_error.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase6_golden_drift.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase6_local_stack_production_data.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase6_artifact_overwatch_event.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Valid fixture builders must be deterministic from a clean checkout and stable seed for primitive, identity, tenant, command, error, event, audit, manifest, resource, queue, lease, usage, policy, and key metadata families.",
+      "Invalid fixture builders must fail with stable reason codes for unsupported versions, unknown fields, missing envelopes, missing privacy classes, malformed refs, stale reason codes, migration-needed payloads, and deprecated payloads.",
+      "Golden command, event, audit, usage, ledger, and API error envelope fixtures must reject field loss, ordering drift, and error-shape changes across Rust, CLI, SDK, and future TypeScript/web projections.",
+      "SDS #3 integration-harness and SDS #4 local-stack fixture bundles are resettable, test-only, redacted, and structurally impossible to enable as production data.",
+      "Schema lint, generated diff, fixture count, redaction, and compatibility artifacts are CI evidence only and must not become Overwatch runtime events or contract authority."
+    ]
+  },
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",

@@ -56,6 +56,17 @@ reason-code registry is exposed through the Rust
 sentinel private material can appear in generated docs, compatibility reports,
 fixture reports, logs, or validation output.
 
+Shared Schema Package Phase 6 contracts define deterministic valid and invalid
+fixture-builder metadata, golden command/event/audit/usage/ledger/API error
+envelope fixtures, SDS #3 integration-harness fixture reuse, SDS #4 local-stack
+reset bundles, and validation artifact metadata. Rust projection checks run
+through `SharedSchemaPhase6FixtureContract::canonical().validate()`. Fixture
+builders must use stable seeds from a clean checkout, negative fixtures must
+return stable reason codes without ambiguous parser errors, local-stack and
+harness bundles must stay test-only and secret-free, and schema lint/generated
+diff/fixture count/redaction/compatibility artifacts remain non-authoritative CI
+evidence rather than Overwatch runtime events.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

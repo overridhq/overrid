@@ -1,0 +1,16 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase6_fixture_contract": {
+    "invalid_fixture_builders": [
+      {
+        "case_name": "ambiguous_parser_error",
+        "case_kind": "unsupported_version",
+        "payload_family": "command",
+        "stable_reason_code": "schema.unsupported_version",
+        "ambiguous_parser_error_allowed": true,
+        "migration_metadata_required": false
+      }
+    ]
+  }
+}

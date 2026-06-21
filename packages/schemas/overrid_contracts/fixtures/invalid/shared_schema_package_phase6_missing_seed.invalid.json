@@ -1,0 +1,19 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase6_fixture_contract": {
+    "valid_fixture_builders": [
+      {
+        "fixture_family": "primitive",
+        "builder_name": "build_valid_primitive_fixture",
+        "schema_ref": "schema:shared-schema-package/primitive",
+        "stable_from_clean_checkout": true,
+        "consumers": ["integration_harness", "sdk", "cli"],
+        "privacy_defaults": "redacted_refs_only",
+        "production_credentials_allowed": false,
+        "private_payload_defaults_allowed": false,
+        "expected_reason_codes": ["schema.fixture_validated"]
+      }
+    ]
+  }
+}
