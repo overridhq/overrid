@@ -322,6 +322,53 @@ Focused fixture checks must prove at least the missing schema version, duplicate
   - Output: Reason-code and event-contract path rules.
   - Validation: Schema and docs checks prove mutating service contracts cite reason-code and event-contract sources before service logic is accepted.
 
+### Phase 4 Gate Outputs
+
+#### Schema Authority Contract
+
+The `schema_authority_defined` gate makes `packages/schemas` the language-neutral contract authority for commands, manifests, fixtures, signed payloads, view models, events, audit records, errors, and docs-facing examples. Canonical source files use `*.schema.json` under versioned schema-family directories such as `v0/`, with fixtures split into `fixtures/valid` and `fixtures/invalid`, and each family must maintain a `codegen_manifest.json` that names canonical schemas, fixtures, generated/projection outputs, and source-of-truth status.
+
+Service, SDK, CLI, UI, local-stack, and harness code may consume these contracts only as generated or validated projections. They must not treat Rust structs, TypeScript declarations, docs examples, fixture outputs, or generated artifacts as the contract source of truth.
+
+Current Phase 4 schema authority paths include `packages/schemas/admin_ui/v0`, `packages/schemas/overrid_contracts/v0`, `packages/schemas/admin_ui/codegen_manifest.json`, and `packages/schemas/overrid_contracts/codegen_manifest.json`.
+
+#### Generated Binding Boundary
+
+The `generated_binding_boundaries_defined` gate requires generated or projected Rust and TypeScript/web bindings to declare:
+
+- canonical source schema path;
+- generated/projection output path;
+- `source_of_truth = json_schema`;
+- `non_authoritative = true`;
+- validator or test target that checks projection alignment.
+
+Approved generated-output roots are documented in `docs/specs/contract_authority.md`, `packages/schemas/README.md`, and `overrid.workspace.toml`. Generated files outside approved roots are layout violations unless a later SDS-backed contract update adds the path and ignore/validation evidence.
+
+#### Optional Protobuf Placement
+
+The `protobuf_placement_defined` gate allows Protobuf only for compact internal service/RPC/event contracts when an owning SDS, `docs/specs` entry, and package metadata justify it. Protobuf may not replace JSON Schema for human-readable commands, signed command payloads, manifests, fixtures, view models, docs-facing examples, reason codes, audit records, or error shapes.
+
+#### Service Contract Stub Template
+
+The `service_contract_template_defined` gate requires implemented service/module contracts to include these sections before service logic is accepted:
+
+- Purpose
+- Owned Data
+- Public API
+- Events Emitted
+- Events Consumed
+- Security Boundary
+- Operational Checks
+- Test Expectations
+- Schema Refs
+- Owning Phase
+
+The template lives in `docs/specs/service_contract_template.md`. Equivalent SDS/service-catalog locations may be used only when the module record documents the path and the docs check verifies every required section.
+
+#### Reason-Code And Event Contract Placement
+
+The `reason_event_contracts_defined` gate keeps stable reason codes, event envelopes, audit records, validation artifacts, and error shapes discoverable from both `docs/specs/reason_codes_and_events.md` and `packages/schemas`. Mutating service contracts must cite the relevant schema family and reason/event contract source before implementation is accepted.
+
 ## Phase 5: Root Command Registry And Layout Check
 
 ### Work Items

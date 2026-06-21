@@ -236,21 +236,26 @@ def collect_manifest_findings(
         add("missing_required_field", "workspace_name must be overrid")
 
     manifest_version = manifest.get("manifest_version")
-    if (
-        not isinstance(manifest_version, str)
-        or "repository-layout-phase-3" not in manifest_version
-    ):
+    manifest_match = (
+        re.search(r"repository-layout-phase-(\d+)", manifest_version)
+        if isinstance(manifest_version, str)
+        else None
+    )
+    if manifest_match is None or int(manifest_match.group(1)) < 3:
         add(
             "missing_required_field",
-            "manifest_version must identify the Repository Layout Phase 3 contract",
+            "manifest_version must identify Repository Layout Phase 3 or later",
         )
 
     validation_metadata = manifest.get("validation_metadata")
     if not isinstance(validation_metadata, dict):
         add("missing_required_field", "validation_metadata table is required")
         validation_metadata = {}
-    elif validation_metadata.get("layout_phase") != 3:
-        add("missing_required_field", "validation_metadata.layout_phase must equal 3")
+    elif (
+        not isinstance(validation_metadata.get("layout_phase"), int)
+        or validation_metadata.get("layout_phase") < 3
+    ):
+        add("missing_required_field", "validation_metadata.layout_phase must be at least 3")
 
     command_consumers = normalize_string_list(
         validation_metadata.get("command_consumers")

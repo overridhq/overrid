@@ -73,6 +73,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `phase_owner_metadata_defined`: module records use accepted phase, owner, type, dependency, lifecycle, and local-stack participation metadata, with later promotions requiring SDS, service-plan, phase, and crosswalk evidence.
 - `manifest_drift_checks_defined`: `scripts/validate_repository_layout_phase3.py` reports deterministic reason codes for manifest drift, including `missing_schema_version`, `missing_module_records`, `missing_required_field`, `duplicate_module_name`, `invalid_path`, `missing_path`, `unknown_module_type`, `unknown_owner_layer`, `invalid_master_phase`, `unknown_dependency_group`, `missing_public_contract`, `stale_documentation_link`, `missing_test_target`, `forbidden_generated_path`, `missing_local_stack_participation`, `cargo_member_drift`, and `unlisted_module`.
 
+## Phase 4 Implementation Gates
+
+- `schema_authority_defined`: `packages/schemas` is the canonical JSON Schema authority for commands, manifests, fixtures, signed payloads, view models, events, audit records, errors, and docs-facing examples.
+- `generated_binding_boundaries_defined`: Rust and TypeScript/web generated or projected bindings are non-authoritative consumers that must cite source schemas, output paths, source-of-truth status, and validation targets.
+- `protobuf_placement_defined`: Protobuf is allowed only for compact internal service/RPC/event contracts with owning SDS and `docs/specs` justification, not for docs-facing commands, manifests, signed payloads, fixtures, reason codes, audit records, or errors.
+- `service_contract_template_defined`: `docs/specs/service_contract_template.md` defines required service/module contract sections before implemented service logic is accepted.
+- `reason_event_contracts_defined`: `docs/specs/reason_codes_and_events.md` and `packages/schemas` define reason-code, event-envelope, audit-record, validation-artifact, and error-shape placement.
+- `phase4_validation_defined`: `scripts/validate_repository_layout_phase4.py` validates the Phase 4 docs, schema package metadata, workspace manifest metadata, planning trail, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -81,6 +90,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase1.py` verifies Phase 1 attachment, boundary, master-phase, resolved-decision, governance, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase2.py` verifies Phase 2 directory contracts, ownership READMEs, ignored local/generated markers, planning evidence, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase3.py` verifies the root manifest, module records, inventory discovery, deterministic drift fixtures, planning evidence, and Markdown-link evidence.
+- `scripts/validate_repository_layout_phase4.py` verifies schema authority, generated/projection boundaries, optional Protobuf placement, service-contract template content, reason-code/event placement, and phase planning evidence.
 
 ## Handoff
 

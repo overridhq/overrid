@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-3"
+manifest_version = "2026-06-21.repository-layout-phase-4"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 3
+layout_phase = 4
 command_consumers = [
     "layout:check",
     "build",
@@ -124,6 +124,33 @@ spec_roots = [
     "docs/specs",
 ]
 
+[contract_authority]
+schema_source_roots = [
+    "packages/schemas/admin_ui/v0",
+    "packages/schemas/overrid_contracts/v0",
+]
+fixture_roots = [
+    "packages/schemas/admin_ui/fixtures/valid",
+    "packages/schemas/admin_ui/fixtures/invalid",
+    "packages/schemas/overrid_contracts/fixtures/valid",
+    "packages/schemas/overrid_contracts/fixtures/invalid",
+]
+codegen_manifests = [
+    "packages/schemas/admin_ui/codegen_manifest.json",
+    "packages/schemas/overrid_contracts/codegen_manifest.json",
+]
+approved_generated_roots = [
+    "packages/schemas/admin_ui/generated",
+    "packages/schemas/overrid_contracts/src/lib.rs",
+    "docs/specs/generated",
+]
+service_contract_template = "docs/specs/service_contract_template.md"
+reason_event_contracts = "docs/specs/reason_codes_and_events.md"
+contract_authority_spec = "docs/specs/contract_authority.md"
+optional_protobuf_root = "packages/schemas/protobuf"
+optional_protobuf_requires_sds_and_spec = true
+source_of_truth = "json_schema"
+
 [[modules]]
 name = "shared-schemas"
 type = "rust_schema_crate"
@@ -136,7 +163,10 @@ cargo_package = "overrid-contracts"
 lifecycle_state = "accepted"
 allowed_dependency_groups = ["none"]
 generated_output_paths = []
-test_targets = ["cargo test -p overrid-contracts"]
+test_targets = [
+    "cargo test -p overrid-contracts",
+    "python3 scripts/validate_repository_layout_phase4.py",
+]
 local_stack_participation = "none"
 documentation_links = [
     "docs/sds/foundation/shared_schema_package.md",
@@ -288,7 +318,10 @@ public_contract_path = "docs/specs/README.md"
 lifecycle_state = "accepted"
 allowed_dependency_groups = ["docs", "contracts"]
 generated_output_paths = ["docs/specs/generated"]
-test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+test_targets = [
+    "python3 scripts/validate_repository_layout_phase3.py",
+    "python3 scripts/validate_repository_layout_phase4.py",
+]
 local_stack_participation = "none"
 documentation_links = [
     "docs/sds/foundation/repository_layout.md",

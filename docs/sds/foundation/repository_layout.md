@@ -145,6 +145,26 @@ Initial Phase 3 records cover `packages/schemas`, `packages/sdk`, `packages/cli`
 
 Required command contracts:
 
+## Phase 4 Contracts And Schema Authority Decisions
+
+Phase 4 makes contract source-of-truth paths explicit before service logic grows. It does not add runtime services, executable configuration from docs, hidden discovery, or production topology.
+
+Gate states:
+
+- `schema_authority_defined`: `packages/schemas` owns canonical JSON Schema sources for commands, manifests, fixtures, signed payloads, view models, events, audit records, errors, and docs-facing examples; generated/projection code remains non-authoritative.
+- `generated_binding_boundaries_defined`: Rust and TypeScript/web bindings must cite canonical schema paths, generated/projection output paths, source-of-truth status, non-authoritative status, and validation targets before consumers rely on them.
+- `protobuf_placement_defined`: Protobuf may be added only for compact internal service/RPC/event contracts with owning SDS and `docs/specs` justification; it cannot replace JSON Schema for docs-facing or signed command contracts.
+- `service_contract_template_defined`: implemented service/module contracts must include purpose, owned data, public API, events emitted, events consumed, security boundary, operational checks, test expectations, schema refs, and owning phase.
+- `reason_event_contracts_defined`: reason-code families, event envelopes, audit records, validation artifacts, and error shapes remain discoverable from `docs/specs/reason_codes_and_events.md` and `packages/schemas`.
+
+Required Phase 4 source contracts:
+
+- `docs/specs/contract_authority.md`
+- `docs/specs/service_contract_template.md`
+- `docs/specs/reason_codes_and_events.md`
+- `packages/schemas/README.md`
+- `overrid.workspace.toml`
+
 - `build`: compile/check all implemented packages.
 - `test`: run unit and fast package tests.
 - `test:integration`: run bounded local integration scenarios.
