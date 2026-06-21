@@ -231,6 +231,20 @@ Gate states:
 
 Phase 8 validation artifacts include `missing_service_contract`, `missing_test_target`, `module_lifecycle_violation`, and `stale_layout_reference`.
 
+## Phase 9 Foundation Integration Decisions
+
+Phase 9 exposes repository-layout metadata to the Local Development Stack, Integration Test Harness, CI, Docdex, and future agents without turning Repository Layout into runtime service discovery, production configuration, deployment orchestration, or Overwatch event ownership.
+
+Gate states:
+
+- `local_stack_discovery_metadata_defined`: `overrid.workspace.toml` records Local Development Stack service-definition roots, profile roots, local state roots, generated env example paths, port-binding source refs, and safe reset markers.
+- `harness_discovery_metadata_defined`: `overrid.workspace.toml` records Integration Test Harness scenario roots, fixture roots, artifact roots, schema refs, local-stack command refs, and test targets.
+- `clean_checkout_ci_defined`: clean-checkout Linux CI uses canonical root commands for layout, schema, docs, unit, local-stack, and harness checks with `pass`, `fail`, and `blocked` result states.
+- `validation_evidence_defined`: docs and layout validation evidence records link checks, phase headings, work-item structure, stale-note scans, rejected-assumption scans, Docdex indexing checks, and queue/progress updates.
+- `validation_artifact_consumers_defined`: layout artifacts are consumed by CI, local developer commands, Docdex, and future agents only as build/CI evidence.
+
+Phase 9 validation artifacts include `local_stack_discovery_violation`, `harness_discovery_violation`, `ci_command_sequence_violation`, `validation_evidence_missing`, and `artifact_consumer_violation`.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.
@@ -253,6 +267,11 @@ It should produce validation artifacts:
 - `artifact_redaction_violation`
 - `module_lifecycle_violation`
 - `stale_layout_reference`
+- `local_stack_discovery_violation`
+- `harness_discovery_violation`
+- `ci_command_sequence_violation`
+- `validation_evidence_missing`
+- `artifact_consumer_violation`
 
 These are CI/build artifacts, not Overwatch events. Integration tests may still exercise Overwatch through running services.
 

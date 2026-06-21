@@ -172,6 +172,22 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
         aliases: &["overrid dev:status"],
     },
     RootCommandRecord {
+        name: "dev:smoke",
+        purpose: "Run the loopback-only local stack smoke path used by clean-checkout CI.",
+        inputs: &[
+            "infra/local/profiles",
+            "infra/local/service-definitions",
+            "tests/integration/scenarios",
+        ],
+        outputs: &["local_stack.smoke.passed", "local_stack.smoke.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev smoke",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:smoke"],
+    },
+    RootCommandRecord {
         name: "schema:check",
         purpose: "Validate shared JSON Schema sources, fixtures, and generated projection metadata.",
         inputs: &["packages/schemas", "docs/specs/contract_authority.md"],
@@ -216,6 +232,11 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
             "artifact_redaction_violation",
             "module_lifecycle_violation",
             "stale_layout_reference",
+            "local_stack_discovery_violation",
+            "harness_discovery_violation",
+            "ci_command_sequence_violation",
+            "validation_evidence_missing",
+            "artifact_consumer_violation",
         ],
         owning_tool: "overrid-cli",
         phase_gate: "phase_0",
@@ -243,6 +264,11 @@ const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
     "artifact_redaction_violation",
     "module_lifecycle_violation",
     "stale_layout_reference",
+    "local_stack_discovery_violation",
+    "harness_discovery_violation",
+    "ci_command_sequence_violation",
+    "validation_evidence_missing",
+    "artifact_consumer_violation",
 ];
 
 pub fn main_entry<I, S>(args: I) -> i32
@@ -788,6 +814,9 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         ("infra/local", Some("local-infra")),
         ("tests/integration", Some("integration-tests")),
         ("docs/specs", Some("docs-specs")),
+        ("infra/local/service-definitions", Some("local-infra")),
+        ("infra/local/profiles", Some("local-infra")),
+        ("tests/integration/scenarios", Some("integration-tests")),
     ] {
         push_path_presence(
             &mut records,
@@ -993,6 +1022,90 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "module_lifecycle_acceptance_evidence",
         "required_acceptance_evidence",
         "missing_test_target",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase9_foundation_integration",
+        "[foundation_integration]",
+        "artifact_consumer_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "local_stack_discovery_metadata",
+        "local_stack_discovery_fields",
+        "local_stack_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "local_stack_service_definition_roots",
+        "local_stack_service_definition_roots",
+        "local_stack_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "local_stack_safe_reset_markers",
+        "local_stack_safe_reset_markers",
+        "local_stack_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "harness_discovery_metadata",
+        "harness_discovery_fields",
+        "harness_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "harness_scenario_roots",
+        "harness_scenario_roots",
+        "harness_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "harness_schema_refs",
+        "harness_schema_refs",
+        "harness_discovery_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "clean_checkout_ci_behavior",
+        "clean_checkout_ci_commands",
+        "ci_command_sequence_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "clean_checkout_ci_statuses",
+        "clean_checkout_ci_statuses",
+        "ci_command_sequence_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "validation_evidence_model",
+        "validation_evidence_entries",
+        "validation_evidence_missing",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "validation_artifact_consumers",
+        "artifact_consumers",
+        "artifact_consumer_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "artifact_consumer_boundary",
+        "build_ci_evidence_not_overwatch_runtime_events",
+        "artifact_consumer_violation",
     );
     push_lifecycle_state_validity(&mut records, repo_root);
     push_accepted_module_validation_evidence(&mut records, repo_root);
@@ -5473,6 +5586,37 @@ mod tests {
     }
 
     #[test]
+    fn layout_check_emits_phase9_foundation_integration_records() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        for check in [
+            "phase9_foundation_integration",
+            "local_stack_discovery_metadata",
+            "local_stack_service_definition_roots",
+            "local_stack_safe_reset_markers",
+            "harness_discovery_metadata",
+            "harness_scenario_roots",
+            "harness_schema_refs",
+            "clean_checkout_ci_behavior",
+            "clean_checkout_ci_statuses",
+            "validation_evidence_model",
+            "validation_artifact_consumers",
+            "artifact_consumer_boundary",
+        ] {
+            assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
+        }
+        for artifact in [
+            "local_stack_discovery_violation",
+            "harness_discovery_violation",
+            "ci_command_sequence_violation",
+            "validation_evidence_missing",
+            "artifact_consumer_violation",
+        ] {
+            assert!(result.stdout.contains(artifact));
+        }
+    }
+
+    #[test]
     fn layout_check_rejects_real_phase6_boundary_violations() {
         let temp_root = std::env::temp_dir().join(format!(
             "overrid-phase6-layout-check-{}",
@@ -5612,6 +5756,54 @@ mod tests {
                 && record.status == "failed"
                 && record.reason_code == "missing_test_target"
                 && record.path == "overrid.workspace.toml#bad-module"
+        }));
+
+        std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
+    }
+
+    #[test]
+    fn layout_check_rejects_phase9_foundation_integration_violations() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "overrid-phase9-layout-check-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        write_test_file(
+            &temp_root,
+            "overrid.workspace.toml",
+            concat!(
+                "[foundation_integration]\n",
+                "states = [\"local_stack_discovery_metadata_defined\"]\n",
+                "local_stack_discovery_fields = [\"profile_roots\"]\n",
+                "clean_checkout_ci_commands = [\"overrid layout:check\"]\n",
+            ),
+        );
+
+        let records = collect_layout_check_records(&temp_root);
+        assert!(records.iter().any(|record| {
+            record.check_name == "local_stack_service_definition_roots"
+                && record.status == "failed"
+                && record.reason_code == "local_stack_discovery_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "harness_discovery_metadata"
+                && record.status == "failed"
+                && record.reason_code == "harness_discovery_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "clean_checkout_ci_statuses"
+                && record.status == "failed"
+                && record.reason_code == "ci_command_sequence_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "validation_evidence_model"
+                && record.status == "failed"
+                && record.reason_code == "validation_evidence_missing"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "artifact_consumer_boundary"
+                && record.status == "failed"
+                && record.reason_code == "artifact_consumer_violation"
         }));
 
         std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");

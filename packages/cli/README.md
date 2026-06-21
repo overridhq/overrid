@@ -50,6 +50,16 @@ also reports service-contract and module-lifecycle evidence for
 `module_lifecycle_violation` and `stale_layout_reference`, and rejects accepted
 modules without test-target validation evidence.
 
+For `SUB BUILD PLAN #5 - Repository Layout` Phase 9, `overrid layout:check`
+also reports foundation-integration evidence for
+`local_stack_discovery_metadata_defined`, `harness_discovery_metadata_defined`,
+`clean_checkout_ci_defined`, `validation_evidence_defined`, and
+`validation_artifact_consumers_defined`. The check emits safe refs such as
+`local_stack_discovery_violation`, `harness_discovery_violation`,
+`ci_command_sequence_violation`, `validation_evidence_missing`, and
+`artifact_consumer_violation`, while keeping layout artifacts as build/CI
+evidence rather than Overwatch runtime events.
+
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust
 projection is consumed by this crate but is not the contract authority.

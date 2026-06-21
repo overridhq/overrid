@@ -17,3 +17,4 @@ Rules:
 - Integration tests must not become runtime dependencies of services or packages.
 - Repository Layout Phase 7 treats `artifacts/` as ignored local/test output for generated fixture outputs, redacted logs, reproduction bundles, and temporary object chunks.
 - Harness artifact exports must report secret-like findings by path/reason refs only and never include raw secret, key, token, signature, private payload, encrypted content, or fixture credential values.
+- Repository Layout Phase 9 exposes this path to the Integration Test Harness through `overrid.workspace.toml` discovery metadata: scenario roots, fixture roots, artifact roots, schema refs, local-stack command refs, and test targets must be listed without bespoke per-service scripts.

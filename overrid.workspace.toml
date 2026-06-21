@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-8"
+manifest_version = "2026-06-21.repository-layout-phase-9"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 8
+layout_phase = 9
 command_consumers = [
     "layout:check",
     "build",
@@ -17,6 +17,7 @@ command_consumers = [
     "dev:reset",
     "dev:seed",
     "dev:status",
+    "dev:smoke",
     "schema:check",
     "docs:check",
 ]
@@ -185,6 +186,11 @@ validation_artifacts = [
     "artifact_redaction_violation",
     "module_lifecycle_violation",
     "stale_layout_reference",
+    "local_stack_discovery_violation",
+    "harness_discovery_violation",
+    "ci_command_sequence_violation",
+    "validation_evidence_missing",
+    "artifact_consumer_violation",
 ]
 
 [package_boundary_enforcement]
@@ -413,6 +419,117 @@ violation_artifacts = [
 ]
 validation_script = "scripts/validate_repository_layout_phase8.py"
 
+[foundation_integration]
+phase_gate = "repository-layout-phase-9"
+states = [
+    "local_stack_discovery_metadata_defined",
+    "harness_discovery_metadata_defined",
+    "clean_checkout_ci_defined",
+    "validation_evidence_defined",
+    "validation_artifact_consumers_defined",
+]
+local_stack_discovery_fields = [
+    "service_definition_roots",
+    "profile_roots",
+    "local_state_roots",
+    "generated_env_paths",
+    "port_binding_source",
+    "safe_reset_markers",
+]
+local_stack_service_definition_roots = [
+    "infra/local/service-definitions",
+]
+local_stack_profile_roots = [
+    "infra/local/profiles",
+]
+local_stack_local_state_roots = [
+    "infra/local/state",
+    "infra/local/job-tables",
+    "infra/local/artifacts",
+]
+local_stack_generated_env_paths = [
+    ".env.example",
+]
+local_stack_port_binding_source = "packages/local_stack/src/lib.rs"
+local_stack_safe_reset_markers = [
+    "infra/local/state/.gitignore",
+    "infra/local/job-tables/.gitignore",
+    "infra/local/artifacts/.gitignore",
+]
+harness_discovery_fields = [
+    "scenario_roots",
+    "fixture_roots",
+    "artifact_roots",
+    "schema_refs",
+    "local_stack_commands",
+    "test_targets",
+]
+harness_scenario_roots = [
+    "tests/integration/scenarios",
+]
+harness_fixture_roots = [
+    "packages/schemas/overrid_contracts/fixtures/valid",
+    "packages/schemas/overrid_contracts/fixtures/invalid",
+]
+harness_artifact_roots = [
+    "tests/integration/artifacts",
+]
+harness_schema_refs = [
+    "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
+    "packages/schemas/overrid_contracts/v0/local_development_stack.schema.json",
+]
+harness_local_stack_commands = [
+    "overrid dev status",
+    "overrid dev smoke",
+    "overrid dev reset",
+]
+harness_test_targets = [
+    "cargo test -p overrid-integration-harness",
+    "overrid test integration",
+]
+clean_checkout_ci_commands = [
+    "overrid layout:check",
+    "overrid schema:check",
+    "overrid docs:check",
+    "overrid test",
+    "overrid dev smoke",
+    "overrid test integration",
+]
+clean_checkout_ci_statuses = [
+    "pass",
+    "fail",
+    "blocked",
+]
+blocked_status_reason_codes = [
+    "ci.missing_runner_configuration",
+    "ci.missing_local_stack_profile",
+    "ci.missing_harness_fixture",
+]
+validation_evidence_entries = [
+    "markdown_link_checks",
+    "phase_heading_checks",
+    "work_item_structure_checks",
+    "stale_note_scans",
+    "rejected_assumption_scans",
+    "docdex_indexing_checks",
+    "queue_progress_updates",
+]
+artifact_consumers = [
+    "ci",
+    "local_developer_commands",
+    "docdex",
+    "future_agents",
+]
+artifact_consumer_boundary = "build_ci_evidence_not_overwatch_runtime_events"
+violation_artifacts = [
+    "local_stack_discovery_violation",
+    "harness_discovery_violation",
+    "ci_command_sequence_violation",
+    "validation_evidence_missing",
+    "artifact_consumer_violation",
+]
+validation_script = "scripts/validate_repository_layout_phase9.py"
+
 [[root_commands]]
 name = "build"
 purpose = "Compile and check implemented Rust workspace packages."
@@ -510,6 +627,18 @@ failure_classes = ["usage", "config", "platform"]
 aliases = ["overrid dev:status"]
 
 [[root_commands]]
+name = "dev:smoke"
+purpose = "Run the loopback-only local stack smoke path used by clean-checkout CI."
+inputs = ["infra/local/profiles", "infra/local/service-definitions", "tests/integration/scenarios"]
+outputs = ["local_stack.smoke.passed", "local_stack.smoke.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev smoke"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:smoke"]
+
+[[root_commands]]
 name = "schema:check"
 purpose = "Validate shared JSON Schema sources, fixtures, and generated projection metadata."
 inputs = ["packages/schemas", "docs/specs/contract_authority.md"]
@@ -554,6 +683,11 @@ outputs = [
     "artifact_redaction_violation",
     "module_lifecycle_violation",
     "stale_layout_reference",
+    "local_stack_discovery_violation",
+    "harness_discovery_violation",
+    "ci_command_sequence_violation",
+    "validation_evidence_missing",
+    "artifact_consumer_violation",
 ]
 owning_tool = "overrid-cli"
 phase_gate = "phase_0"

@@ -652,6 +652,36 @@ Phase 8 layout artifacts include `missing_service_contract`, `missing_test_targe
   - Output: Artifact ownership and consumer list.
   - Validation: Review confirms validation artifacts remain build/CI evidence and do not imply runtime platform event behavior.
 
+### Phase 9 Gate Outputs
+
+#### Local-Stack Discovery Metadata
+
+The `local_stack_discovery_metadata_defined` gate records the manifest fields the Local Development Stack can consume before startup: service-definition roots, profile roots, local state roots, generated environment example paths, port-binding source refs, and safe reset markers.
+
+Local stack discovery remains a Phase 0 development/test contract. It must reject missing service definitions, unknown profile directories, unsafe local state roots, and reset paths without marker evidence. It must not become production configuration, hidden service discovery, or a shortcut around Local Development Stack SDS ownership.
+
+#### Harness Discovery Metadata
+
+The `harness_discovery_metadata_defined` gate records the manifest fields the Integration Test Harness can consume: scenario roots, fixture roots, artifact roots, schema refs, local stack command refs, and test targets. Harness discovery must list scenario manifests, fixture manifests, and artifact output paths without bespoke per-service scripts.
+
+Harness discovery remains a test/build contract. It must not become a runtime dependency of services, direct private storage access, direct queue access, or a replacement for public Overgate/admin contracts.
+
+#### Clean-Checkout CI Behavior
+
+The `clean_checkout_ci_defined` gate records a deterministic Linux clean-checkout command sequence for `layout:check`, `schema:check`, `docs:check`, unit tests, local-stack smoke/status, and harness smoke. CI results use `pass`, `fail`, and `blocked` statuses so missing runner configuration is distinguishable from documentation or implementation regressions.
+
+CI commands must call canonical Rust-owned root commands or documented Cargo workspace invocations. Shell, Make, just, npm, and hosted-CI files may only wrap these semantics.
+
+#### Docs And Layout Validation Evidence
+
+The `validation_evidence_defined` gate records required progress evidence for link checks, phase-heading checks, work-item structure checks, stale-note scans, rejected-assumption scans, Docdex indexing checks, and queue/progress updates. Evidence entries belong in phase progress docs or validation artifacts, not runtime service state.
+
+#### Validation Artifact Consumers
+
+The `validation_artifact_consumers_defined` gate names CI, local developer commands, Docdex, and future agents as consumers of layout validation artifacts. These artifacts remain build/CI evidence and do not imply Overwatch runtime audit events.
+
+Phase 9 layout artifacts include `local_stack_discovery_violation`, `harness_discovery_violation`, `ci_command_sequence_violation`, `validation_evidence_missing`, and `artifact_consumer_violation`.
+
 ## Phase 10: Validation, Documentation Alignment, And Downstream Handoff
 
 ### Work Items

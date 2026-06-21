@@ -241,9 +241,10 @@ def validate_manifest_registry() -> None:
         if not command.get("failure_classes"):
             raise AssertionError(f"{MANIFEST} root command {name} must declare failure classes")
 
-    if sorted(by_name) != sorted(REQUIRED_ROOT_COMMANDS):
+    missing_commands = [command for command in REQUIRED_ROOT_COMMANDS if command not in by_name]
+    if missing_commands:
         raise AssertionError(
-            f"{MANIFEST} root commands mismatch: {sorted(by_name)} != {REQUIRED_ROOT_COMMANDS}"
+            f"{MANIFEST} root commands missing required phase 5 commands: {missing_commands}"
         )
 
     layout_outputs = by_name["layout:check"].get("outputs", [])

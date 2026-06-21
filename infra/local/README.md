@@ -21,3 +21,4 @@ Rules:
 - Never commit raw secrets, private keys, tokens, local runtime logs, or generated artifacts.
 - Repository Layout Phase 7 requires `state/`, `job-tables/`, and `artifacts/` to remain ignored marker-gated local-state paths.
 - Reset and validation artifacts must redact secrets, keys, tokens, signatures, private payloads, encrypted content, and fixture credentials.
+- Repository Layout Phase 9 exposes this path to the Local Development Stack through `overrid.workspace.toml` discovery metadata: service definitions, profiles, local state roots, generated env examples, port-binding source refs, and safe reset markers must be validated before startup.

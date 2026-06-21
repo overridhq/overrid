@@ -26,3 +26,4 @@ Rules:
 - Package validation artifacts must report secret, key, token, signature, private payload, encrypted content, and fixture-credential findings by safe refs only.
 - Repository Layout Phase 8 module lifecycle rules require new packages to move through `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, and `accepted` states, with `deprecated` and `removed` states for retirement.
 - Accepted package modules must keep service/module contracts, schema refs or no-public-contract reasons, test targets, documentation links, local-stack participation metadata, and validation evidence aligned with `docs/specs/new_module_checklist.md`.
+- Repository Layout Phase 9 foundation integration metadata exposes local-stack discovery, harness discovery, clean-checkout CI sequencing, validation evidence, and artifact-consumer rules through `overrid.workspace.toml`; package roots remain consumers of those build/CI records, not runtime configuration sources.

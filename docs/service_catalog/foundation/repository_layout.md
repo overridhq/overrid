@@ -118,6 +118,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `cross_document_maintenance_rules_defined`: repository layout changes keep SDS, service catalog, sub-build plan, master plan, crosswalk, specs, manifest, and phase planning/progress docs aligned.
 - `phase8_validation_defined`: `scripts/validate_repository_layout_phase8.py` validates Phase 8 docs, manifest lifecycle metadata, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
 
+## Phase 9 Implementation Gates
+
+- `local_stack_discovery_metadata_defined`: `overrid.workspace.toml` exposes Local Development Stack service-definition roots, profile roots, local state roots, generated env example paths, port-binding source refs, and safe reset markers as development/test metadata.
+- `harness_discovery_metadata_defined`: `overrid.workspace.toml` exposes Integration Test Harness scenario roots, fixture roots, artifact roots, schema refs, local-stack command refs, and test targets without bespoke per-service scripts.
+- `clean_checkout_ci_defined`: clean-checkout Linux validation runs `layout:check`, `schema:check`, `docs:check`, unit tests, local-stack smoke/status, and harness smoke through canonical root commands or documented Cargo workspace invocations with `pass`, `fail`, and `blocked` statuses.
+- `validation_evidence_defined`: progress evidence records link checks, phase headings, work-item structure, stale-note scans, rejected-assumption scans, Docdex indexing checks, and queue/progress updates.
+- `validation_artifact_consumers_defined`: layout artifacts are consumed by CI, local developer commands, Docdex, and future agents only as build/CI evidence, not Overwatch runtime events.
+- `phase9_validation_defined`: `scripts/validate_repository_layout_phase9.py` validates Phase 9 docs, manifest foundation-integration metadata, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -131,6 +140,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase6.py` verifies dependency direction groups, shared-schema dependency paths, modular control-plane shape, split-review criteria, local/test-only separation, and Phase 6 planning evidence.
 - `scripts/validate_repository_layout_phase7.py` verifies generated-output ignores, local-state markers, secret-file rules, Docdex indexing hygiene, artifact-redaction expectations, and Phase 7 planning evidence.
 - `scripts/validate_repository_layout_phase8.py` verifies service contract template usage, new-module checklist, module lifecycle, deprecation/removal workflow, cross-document maintenance rules, and Phase 8 planning evidence.
+- `scripts/validate_repository_layout_phase9.py` verifies local-stack discovery metadata, harness discovery metadata, clean-checkout CI behavior, validation evidence, validation artifact consumers, and Phase 9 planning evidence.
 
 ## Handoff
 
