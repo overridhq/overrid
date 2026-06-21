@@ -270,8 +270,10 @@ def validate_cli_wiring() -> None:
     for expected in (
         "CommandRegistry",
         "RootCommand",
+        "RootCommand::Test",
         "RootCommand::LayoutCheck",
         '"command-registry"',
+        '"test"',
         '"layout:check"',
         '"test:integration"',
         '"dev:start"',

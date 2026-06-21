@@ -4709,6 +4709,14 @@ mod tests {
         assert!(result
             .stdout
             .contains("rust_owned_command_execution_defined"));
+
+        let test_result = run_args(["overrid", "test", "--json"]);
+        assert_eq!(test_result.exit_code, EXIT_SUCCESS);
+        assert!(test_result.stdout.contains("\"command_name\":\"test\""));
+        assert!(test_result.stdout.contains("\"status\":\"registered\""));
+        assert!(test_result
+            .stdout
+            .contains("\"canonical_invocation\":\"overrid test\""));
     }
 
     #[test]

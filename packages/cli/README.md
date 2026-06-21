@@ -17,11 +17,12 @@ Rust command surface for the semantic root command registry. `overrid
 command-registry` reports `build`, `test`, `test:integration`, `dev:start`,
 `dev:stop`, `dev:reset`, `dev:seed`, `dev:status`, `schema:check`,
 `docs:check`, and `layout:check` with command purpose, inputs, outputs, owner,
-machine-readable result envelope status, and failure classes. `overrid
-layout:check` runs the lightweight Repository Layout checks and emits
-`layout_check.passed` or `layout_check.failed` artifact refs without exposing
-secret values. Shell, Make, just, or npm aliases may only be thin wrappers
-around the Rust-owned command behavior.
+machine-readable result envelope status, and failure classes. Bare `overrid
+test` reports the Rust-owned unit/fast-test orchestration record, while
+`overrid test list|integration|scenario|reset|artifacts` remains the integration
+harness surface. `overrid layout:check` runs the lightweight Repository Layout
+checks and emits `layout_check.passed` or `layout_check.failed` artifact refs
+without exposing secret values. Shell, Make, just, or npm aliases may only be thin wrappers around the Rust-owned command behavior.
 
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust

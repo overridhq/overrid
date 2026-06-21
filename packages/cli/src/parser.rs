@@ -147,6 +147,7 @@ pub enum Command {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootCommand {
     Build,
+    Test,
     SchemaCheck,
     DocsCheck,
     LayoutCheck,
@@ -156,6 +157,7 @@ impl RootCommand {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Build => "build",
+            Self::Test => "test",
             Self::SchemaCheck => "schema:check",
             Self::DocsCheck => "docs:check",
             Self::LayoutCheck => "layout:check",
@@ -742,6 +744,7 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "ledger" => ledger_command(tokens),
         "dispute" => dispute_command(tokens),
         "dev" => dev_command(tokens),
+        "test" if tokens.len() == 1 => Ok(Command::Root(RootCommand::Test)),
         "test" => test_command(tokens),
         "schema" => root_check_command(tokens, "schema", RootCommand::SchemaCheck),
         "docs" => root_check_command(tokens, "docs", RootCommand::DocsCheck),
@@ -1044,6 +1047,10 @@ mod tests {
             Command::Root(RootCommand::Build)
         );
         assert_eq!(
+            parse_cli(["overrid", "test"]).unwrap().command,
+            Command::Root(RootCommand::Test)
+        );
+        assert_eq!(
             parse_cli(["overrid", "schema:check"]).unwrap().command,
             Command::Root(RootCommand::SchemaCheck)
         );
@@ -1059,6 +1066,7 @@ mod tests {
             parse_cli(["overrid", "layout", "check"]).unwrap().command,
             Command::Root(RootCommand::LayoutCheck)
         );
+        assert_eq!(RootCommand::Test.as_str(), "test");
         assert_eq!(RootCommand::LayoutCheck.as_str(), "layout:check");
     }
 
