@@ -595,6 +595,34 @@ Phase 7 layout artifacts include `generated_file_committed`, `secret_file_commit
   - Output: Maintenance rule referenced by this plan and future sub-build plans.
   - Validation: Link and alignment checks detect missing sub-build-plan refs, wrong first build phase, and stale master/crosswalk rows.
 
+### Phase 8 Gate Outputs
+
+#### Service Contract Template Usage
+
+The `service_contract_template_implemented` gate keeps `docs/specs/service_contract_template.md` as the repeatable service/module contract stub. Contracts include purpose, owned data, public API, events emitted, events consumed, security boundary, operational checks, test expectations, schema refs, owning phase, and downstream dependencies before implemented service logic is accepted.
+
+Equivalent SDS or service-catalog contract paths are allowed only when the module record names the path, documents a no-public-contract reason where appropriate, and docs checks verify every required section.
+
+#### New-Service Checklist
+
+The `new_service_checklist_defined` gate records the developer and future-agent checklist in `docs/specs/new_module_checklist.md`. A new module must update SDS, service catalog, build plan/crosswalk, docs/specs contracts, packages/schemas entries or no-public-contract reason, test targets, local-stack participation where applicable, generated-output rules, and workspace module records before acceptance.
+
+Checklist validation uses existing service roots as sample-service evidence: `services/control-plane` and `services/node-agent` remain scaffolded service contract roots without inventing new top-level folders.
+
+#### Module Addition Workflow
+
+The `module_addition_workflow_defined` gate records lifecycle states in `overrid.workspace.toml`: `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, and `accepted`. Module records carry machine-readable `lifecycle_state` values so `layout:check` and validators can reject invalid states and accepted modules without wired validation evidence.
+
+#### Deprecation And Removal Workflow
+
+The `deprecation_removal_workflow_defined` gate extends the lifecycle with `deprecated` and `removed`. Deprecated and removed modules require replacement or removal notes, manifest updates, docs updates, test-target updates, local-stack updates, harness-scenario updates, generated-output updates, and Docdex reference cleanup before deletion is accepted.
+
+#### Cross-Document Maintenance Rules
+
+The `cross_document_maintenance_rules_defined` gate keeps `docs/sds/foundation/repository_layout.md`, `docs/service_catalog/foundation/repository_layout.md`, this sub-build plan, `docs/build_plan/master_plan.md`, `docs/build_plan/service_catalog_alignment.md`, `docs/specs/service_contract_template.md`, `docs/specs/new_module_checklist.md`, `overrid.workspace.toml`, and phase planning/progress docs aligned whenever layout rules or service boundaries change.
+
+Phase 8 layout artifacts include `missing_service_contract`, `missing_test_target`, `module_lifecycle_violation`, and `stale_layout_reference`.
+
 ## Phase 9: Foundation Integration With Local Stack, Harness, And CI
 
 ### Work Items

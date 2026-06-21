@@ -109,6 +109,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `artifact_redaction_expectations_defined`: validation artifacts, docs checks, CI bundles, local-stack exports, and harness artifacts redact secret-bearing values and report only safe path/reason metadata.
 - `phase7_validation_defined`: `scripts/validate_repository_layout_phase7.py` validates Phase 7 docs, manifest artifact-hygiene metadata, ignore files, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
 
+## Phase 8 Implementation Gates
+
+- `service_contract_template_implemented`: `docs/specs/service_contract_template.md` carries the reusable service/module contract sections, usage notes, and downstream dependency expectations.
+- `new_service_checklist_defined`: `docs/specs/new_module_checklist.md` defines the module addition checklist for SDS, service catalog, build plan/crosswalk, specs, schemas, tests, local-stack participation, generated-output rules, and module records.
+- `module_addition_workflow_defined`: `overrid.workspace.toml` records lifecycle states for proposed, scaffolded, contracted, wired, validated, and accepted modules.
+- `deprecation_removal_workflow_defined`: deprecated and removed states require replacement/removal notes, stale-reference cleanup, manifest updates, tests, local-stack updates, harness scenario updates, generated-output updates, and Docdex reference updates.
+- `cross_document_maintenance_rules_defined`: repository layout changes keep SDS, service catalog, sub-build plan, master plan, crosswalk, specs, manifest, and phase planning/progress docs aligned.
+- `phase8_validation_defined`: `scripts/validate_repository_layout_phase8.py` validates Phase 8 docs, manifest lifecycle metadata, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -121,6 +130,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase5.py` verifies root command registry metadata, Rust-owned CLI wiring, `layout:check` output, validation artifact schema, command orchestration records, and Phase 5 planning evidence.
 - `scripts/validate_repository_layout_phase6.py` verifies dependency direction groups, shared-schema dependency paths, modular control-plane shape, split-review criteria, local/test-only separation, and Phase 6 planning evidence.
 - `scripts/validate_repository_layout_phase7.py` verifies generated-output ignores, local-state markers, secret-file rules, Docdex indexing hygiene, artifact-redaction expectations, and Phase 7 planning evidence.
+- `scripts/validate_repository_layout_phase8.py` verifies service contract template usage, new-module checklist, module lifecycle, deprecation/removal workflow, cross-document maintenance rules, and Phase 8 planning evidence.
 
 ## Handoff
 

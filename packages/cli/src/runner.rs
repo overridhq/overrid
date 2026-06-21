@@ -214,6 +214,8 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
             "local_state_committed",
             "docdex_index_hygiene_violation",
             "artifact_redaction_violation",
+            "module_lifecycle_violation",
+            "stale_layout_reference",
         ],
         owning_tool: "overrid-cli",
         phase_gate: "phase_0",
@@ -239,6 +241,8 @@ const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
     "local_state_committed",
     "docdex_index_hygiene_violation",
     "artifact_redaction_violation",
+    "module_lifecycle_violation",
+    "stale_layout_reference",
 ];
 
 pub fn main_entry<I, S>(args: I) -> i32
@@ -802,6 +806,7 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
             "docs/specs/service_contract_template.md",
             Some("docs-specs"),
         ),
+        ("docs/specs/new_module_checklist.md", Some("docs-specs")),
         ("docs/specs/reason_codes_and_events.md", Some("docs-specs")),
         ("docs/specs/contract_authority.md", Some("docs-specs")),
         ("packages/cli/README.md", Some("cli")),
@@ -940,6 +945,57 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "redaction_classes",
         "artifact_redaction_violation",
     );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase8_module_lifecycle",
+        "[module_lifecycle]",
+        "module_lifecycle_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "service_contract_template_usage",
+        "service_contract_template = \"docs/specs/service_contract_template.md\"",
+        "missing_service_contract",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "new_module_checklist",
+        "new_module_checklist = \"docs/specs/new_module_checklist.md\"",
+        "missing_service_contract",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "module_addition_workflow",
+        "module_addition_workflow_defined",
+        "module_lifecycle_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "deprecation_removal_workflow",
+        "deprecation_removal_workflow_defined",
+        "module_lifecycle_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "cross_document_maintenance_rules",
+        "cross_document_maintenance_rules_defined",
+        "stale_layout_reference",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "module_lifecycle_acceptance_evidence",
+        "required_acceptance_evidence",
+        "missing_test_target",
+    );
+    push_lifecycle_state_validity(&mut records, repo_root);
+    push_accepted_module_validation_evidence(&mut records, repo_root);
     for (group, path, module_id, expected) in [
         (
             "contracts",
@@ -1152,6 +1208,94 @@ fn push_manifest_contains(
         owning_phase: "phase_0",
         module_id: None,
     });
+}
+
+fn push_lifecycle_state_validity(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path) {
+    let manifest_path = repo_root.join("overrid.workspace.toml");
+    let manifest = std::fs::read_to_string(&manifest_path).unwrap_or_default();
+    let allowed = [
+        "proposed",
+        "scaffolded",
+        "contracted",
+        "wired",
+        "validated",
+        "accepted",
+        "deprecated",
+        "removed",
+    ];
+    let state_catalog_ok = allowed
+        .iter()
+        .all(|state| manifest.contains(&format!("\"{state}\"")));
+    records.push(LayoutCheckRecord {
+        check_name: "module_lifecycle_state_catalog",
+        status: if state_catalog_ok { "passed" } else { "failed" },
+        reason_code: if state_catalog_ok {
+            "lifecycle_state_catalog_present"
+        } else {
+            "module_lifecycle_violation"
+        },
+        path: "overrid.workspace.toml".to_owned(),
+        owning_phase: "phase_0",
+        module_id: None,
+    });
+
+    for block in manifest.split("[[modules]]").skip(1) {
+        if let Some(state) = quoted_manifest_field(block, "lifecycle_state") {
+            if !allowed.contains(&state.as_str()) {
+                records.push(LayoutCheckRecord {
+                    check_name: "module_lifecycle_state_valid",
+                    status: "failed",
+                    reason_code: "module_lifecycle_violation",
+                    path: format!(
+                        "overrid.workspace.toml#{}",
+                        quoted_manifest_field(block, "name")
+                            .unwrap_or_else(|| "unknown".to_owned())
+                    ),
+                    owning_phase: "phase_0",
+                    module_id: None,
+                });
+            }
+        }
+    }
+}
+
+fn push_accepted_module_validation_evidence(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+) {
+    let manifest_path = repo_root.join("overrid.workspace.toml");
+    let manifest = std::fs::read_to_string(&manifest_path).unwrap_or_default();
+    for block in manifest.split("[[modules]]").skip(1) {
+        if quoted_manifest_field(block, "lifecycle_state").as_deref() != Some("accepted") {
+            continue;
+        }
+        let name = quoted_manifest_field(block, "name").unwrap_or_else(|| "unknown".to_owned());
+        let has_test_targets =
+            block.contains("test_targets = [") && !block.contains("test_targets = []");
+        let has_docs = block.contains("documentation_links = [");
+        let has_local_stack = block.contains("local_stack_participation = ");
+        let ok = has_test_targets && has_docs && has_local_stack;
+        records.push(LayoutCheckRecord {
+            check_name: "accepted_module_validation_evidence",
+            status: if ok { "passed" } else { "failed" },
+            reason_code: if ok {
+                "accepted_module_validation_evidence_present"
+            } else {
+                "missing_test_target"
+            },
+            path: format!("overrid.workspace.toml#{name}"),
+            owning_phase: "phase_0",
+            module_id: None,
+        });
+    }
+}
+
+fn quoted_manifest_field(block: &str, key: &str) -> Option<String> {
+    let needle = format!("{key} = \"");
+    let start = block.find(&needle)? + needle.len();
+    let rest = &block[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_owned())
 }
 
 fn push_internal_dependency_direction(
@@ -5308,6 +5452,27 @@ mod tests {
     }
 
     #[test]
+    fn layout_check_emits_phase8_lifecycle_records() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        for check in [
+            "phase8_module_lifecycle",
+            "service_contract_template_usage",
+            "new_module_checklist",
+            "module_addition_workflow",
+            "deprecation_removal_workflow",
+            "cross_document_maintenance_rules",
+            "module_lifecycle_state_catalog",
+            "accepted_module_validation_evidence",
+        ] {
+            assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
+        }
+        for artifact in ["module_lifecycle_violation", "stale_layout_reference"] {
+            assert!(result.stdout.contains(artifact));
+        }
+    }
+
+    #[test]
     fn layout_check_rejects_real_phase6_boundary_violations() {
         let temp_root = std::env::temp_dir().join(format!(
             "overrid-phase6-layout-check-{}",
@@ -5400,6 +5565,54 @@ mod tests {
             .iter()
             .any(|artifact| artifact.contains("secret_file_committed")));
         assert!(!refs.join("\n").contains("OVERRID_PHASE7_SENTINEL_SECRET"));
+
+        std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
+    }
+
+    #[test]
+    fn layout_check_rejects_phase8_lifecycle_violations() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "overrid-phase8-layout-check-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        write_test_file(
+            &temp_root,
+            "overrid.workspace.toml",
+            concat!(
+                "accepted_lifecycle_states = [\"scaffolded\", \"accepted\"]\n",
+                "\n[[modules]]\n",
+                "name = \"bad-module\"\n",
+                "lifecycle_state = \"accepted\"\n",
+                "documentation_links = []\n",
+                "local_stack_participation = \"none\"\n",
+                "\n[[modules]]\n",
+                "name = \"invalid-module\"\n",
+                "lifecycle_state = \"invented\"\n",
+                "test_targets = [\"python3 scripts/validate_fake.py\"]\n",
+                "documentation_links = []\n",
+                "local_stack_participation = \"none\"\n",
+            ),
+        );
+
+        let records = collect_layout_check_records(&temp_root);
+        assert!(records.iter().any(|record| {
+            record.check_name == "module_lifecycle_state_catalog"
+                && record.status == "failed"
+                && record.reason_code == "module_lifecycle_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "module_lifecycle_state_valid"
+                && record.status == "failed"
+                && record.reason_code == "module_lifecycle_violation"
+                && record.path == "overrid.workspace.toml#invalid-module"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "accepted_module_validation_evidence"
+                && record.status == "failed"
+                && record.reason_code == "missing_test_target"
+                && record.path == "overrid.workspace.toml#bad-module"
+        }));
 
         std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
     }

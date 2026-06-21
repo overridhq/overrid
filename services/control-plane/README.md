@@ -10,5 +10,6 @@ Ownership rules:
 - Tests that span services belong under `tests/integration`; package-local tests stay with their crate/module.
 - Repository Layout Phase 6 preserves this as one modular Rust process through master Phase 3 by default. Future splits require measured API-load, failure-isolation, security-boundary, operational, or grid-resident backbone pressure plus updated SDS, service catalog, build-plan crosswalk, docs/specs contracts, and validation evidence.
 - Runtime-facing control-plane code must not depend on integration harness internals, local stack internals, fixture writers, integration artifacts, local simulator internals, or docs files as executable configuration.
+- Repository Layout Phase 8 keeps this root in `scaffolded` lifecycle state until an owning control-plane phase moves it through contracted, wired, validated, and accepted evidence using `docs/specs/new_module_checklist.md`.
 
 This scaffold does not create runtime behavior. It records the Phase 2 path contract for later Rust implementation.

@@ -24,3 +24,5 @@ Rules:
 - Repository Layout Phase 7 generated-output rules keep package caches, generated projections, generated docs/types, coverage, logs, fixture outputs, and temporary object chunks ignored by default.
 - Approved generated projection files must be explicitly listed in `overrid.workspace.toml`; generated projections remain non-authoritative consumers of canonical schema sources.
 - Package validation artifacts must report secret, key, token, signature, private payload, encrypted content, and fixture-credential findings by safe refs only.
+- Repository Layout Phase 8 module lifecycle rules require new packages to move through `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, and `accepted` states, with `deprecated` and `removed` states for retirement.
+- Accepted package modules must keep service/module contracts, schema refs or no-public-contract reasons, test targets, documentation links, local-stack participation metadata, and validation evidence aligned with `docs/specs/new_module_checklist.md`.

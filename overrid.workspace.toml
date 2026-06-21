@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-7"
+manifest_version = "2026-06-21.repository-layout-phase-8"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 7
+layout_phase = 8
 command_consumers = [
     "layout:check",
     "build",
@@ -70,11 +70,14 @@ accepted_dependency_groups = [
     "docs_specs",
 ]
 accepted_lifecycle_states = [
+    "proposed",
     "scaffolded",
     "contracted",
     "wired",
     "validated",
     "accepted",
+    "deprecated",
+    "removed",
 ]
 accepted_local_stack_participation = [
     "none",
@@ -180,6 +183,8 @@ validation_artifacts = [
     "local_state_committed",
     "docdex_index_hygiene_violation",
     "artifact_redaction_violation",
+    "module_lifecycle_violation",
+    "stale_layout_reference",
 ]
 
 [package_boundary_enforcement]
@@ -333,10 +338,80 @@ violation_artifacts = [
     "local_state_committed",
     "docdex_index_hygiene_violation",
     "artifact_redaction_violation",
+    "module_lifecycle_violation",
+    "stale_layout_reference",
 ]
 validation_script = "scripts/validate_repository_layout_phase7.py"
 docdex_ignore_file = ".docdexignore"
 git_ignore_file = ".gitignore"
+
+[module_lifecycle]
+phase_gate = "repository-layout-phase-8"
+states = [
+    "service_contract_template_implemented",
+    "new_service_checklist_defined",
+    "module_addition_workflow_defined",
+    "deprecation_removal_workflow_defined",
+    "cross_document_maintenance_rules_defined",
+]
+service_contract_template = "docs/specs/service_contract_template.md"
+new_module_checklist = "docs/specs/new_module_checklist.md"
+addition_states = [
+    "proposed",
+    "scaffolded",
+    "contracted",
+    "wired",
+    "validated",
+    "accepted",
+]
+deprecation_states = [
+    "deprecated",
+    "removed",
+]
+required_acceptance_evidence = [
+    "sds_link",
+    "service_catalog_link",
+    "build_plan_crosswalk_link",
+    "docs_specs_contract",
+    "schema_entry_or_no_public_contract_reason",
+    "test_target",
+    "local_stack_participation",
+    "module_record",
+    "validation_evidence",
+]
+deprecation_removal_evidence = [
+    "replacement_or_removal_note",
+    "stale_reference_scan",
+    "workspace_manifest_update",
+    "test_target_update",
+    "local_stack_update",
+    "harness_scenario_update",
+    "generated_output_update",
+    "docdex_reference_update",
+]
+maintenance_documents = [
+    "docs/sds/foundation/repository_layout.md",
+    "docs/service_catalog/foundation/repository_layout.md",
+    "docs/build_plan/sub_build_plan_005_repository_layout.md",
+    "docs/build_plan/master_plan.md",
+    "docs/build_plan/service_catalog_alignment.md",
+    "docs/specs/service_contract_template.md",
+    "docs/specs/new_module_checklist.md",
+    "overrid.workspace.toml",
+    "docs/planning/repository_layout_phase_08_plan.md",
+    "docs/planning/repository_layout_phase_08_progress.md",
+]
+sample_service_module_paths = [
+    "services/control-plane",
+    "services/node-agent",
+]
+violation_artifacts = [
+    "missing_service_contract",
+    "missing_test_target",
+    "module_lifecycle_violation",
+    "stale_layout_reference",
+]
+validation_script = "scripts/validate_repository_layout_phase8.py"
 
 [[root_commands]]
 name = "build"
@@ -501,6 +576,7 @@ test_targets = [
     "cargo test -p overrid-contracts",
     "python3 scripts/validate_repository_layout_phase4.py",
     "python3 scripts/validate_repository_layout_phase7.py",
+    "python3 scripts/validate_repository_layout_phase8.py",
 ]
 local_stack_participation = "none"
 documentation_links = [
@@ -624,6 +700,7 @@ generated_output_paths = [
 test_targets = [
     "python3 scripts/validate_repository_layout_phase3.py",
     "python3 scripts/validate_repository_layout_phase7.py",
+    "python3 scripts/validate_repository_layout_phase8.py",
 ]
 local_stack_participation = "source_contract"
 documentation_links = [
@@ -645,6 +722,7 @@ generated_output_paths = ["tests/integration/artifacts"]
 test_targets = [
     "python3 scripts/validate_repository_layout_phase3.py",
     "python3 scripts/validate_repository_layout_phase7.py",
+    "python3 scripts/validate_repository_layout_phase8.py",
 ]
 local_stack_participation = "scenario_consumer"
 documentation_links = [
@@ -667,6 +745,7 @@ test_targets = [
     "python3 scripts/validate_repository_layout_phase3.py",
     "python3 scripts/validate_repository_layout_phase4.py",
     "python3 scripts/validate_repository_layout_phase7.py",
+    "python3 scripts/validate_repository_layout_phase8.py",
 ]
 local_stack_participation = "none"
 documentation_links = [

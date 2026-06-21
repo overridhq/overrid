@@ -217,6 +217,20 @@ Gate states:
 
 Phase 7 validation artifacts include `generated_file_committed`, `secret_file_committed`, `local_state_committed`, `docdex_index_hygiene_violation`, and `artifact_redaction_violation`.
 
+## Phase 8 Service Contract And Lifecycle Decisions
+
+Phase 8 turns new-module checklist and lifecycle intent into validation metadata. It does not add runtime service discovery, deployment orchestration, production configuration, or new top-level sprawl.
+
+Gate states:
+
+- `service_contract_template_implemented`: `docs/specs/service_contract_template.md` includes the required service/module sections plus usage notes and downstream dependency expectations.
+- `new_service_checklist_defined`: `docs/specs/new_module_checklist.md` records required SDS, service catalog, build-plan/crosswalk, docs/specs, schema, test, local-stack, generated-output, and module-record evidence before acceptance.
+- `module_addition_workflow_defined`: module records use `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, and `accepted` lifecycle states.
+- `deprecation_removal_workflow_defined`: deprecated and removed modules require replacement/removal notes, stale-reference cleanup, manifest updates, tests, local-stack, harness, generated-output, and Docdex reference updates.
+- `cross_document_maintenance_rules_defined`: SDS, service catalog, sub-build plan, master plan, crosswalk, specs, manifest, and phase planning/progress evidence remain aligned when layout rules or service boundaries change.
+
+Phase 8 validation artifacts include `missing_service_contract`, `missing_test_target`, `module_lifecycle_violation`, and `stale_layout_reference`.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.
@@ -237,6 +251,8 @@ It should produce validation artifacts:
 - `local_state_committed`
 - `docdex_index_hygiene_violation`
 - `artifact_redaction_violation`
+- `module_lifecycle_violation`
+- `stale_layout_reference`
 
 These are CI/build artifacts, not Overwatch events. Integration tests may still exercise Overwatch through running services.
 

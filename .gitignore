@@ -75,6 +75,8 @@ docs/planning/*
 !docs/planning/repository_layout_phase_06_progress.md
 !docs/planning/repository_layout_phase_07_plan.md
 !docs/planning/repository_layout_phase_07_progress.md
+!docs/planning/repository_layout_phase_08_plan.md
+!docs/planning/repository_layout_phase_08_progress.md
 docs/old_whitepaper.txt
 docs/**/progress.md
 docs/sds/service_sds_refinement_plan.md

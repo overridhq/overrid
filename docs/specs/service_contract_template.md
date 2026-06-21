@@ -18,6 +18,7 @@ Each implemented service/module contract must include:
 - Test Expectations
 - Schema Refs
 - Owning Phase
+- Downstream Dependencies
 
 ## Section Rules
 
@@ -60,6 +61,17 @@ List canonical JSON Schema files and optional internal Protobuf specs. Generated
 ### Owning Phase
 
 Name the master phase, sub-build plan, and lifecycle state that justify the service/module boundary.
+
+### Downstream Dependencies
+
+List downstream consumers, local-stack participation, integration harness scenarios, generated bindings, and service/module dependencies that must be updated when this contract changes.
+
+## Usage Notes
+
+- Use this template before service logic is accepted, not after implementation has already created an implicit boundary.
+- Pair every accepted module contract with a module record in `overrid.workspace.toml` and the checklist in `new_module_checklist.md`.
+- Keep the contract path under `docs/specs` unless an SDS or service catalog document is the documented equivalent.
+- Do not treat generated Rust, TypeScript declarations, examples, or fixture output as the contract source of truth.
 
 ## Validation
 

@@ -10,5 +10,6 @@ Ownership rules:
 - Keep simulator fixtures test-scoped and separate from local state or secrets.
 - Repository Layout Phase 6 keeps node-agent modules in the `node_agent_modules` dependency group. They may consume contracts but must not import integration harness internals, local stack internals, fixture writers, integration artifacts, `infra/local`, or docs files as executable configuration.
 - Any future node-agent service split requires measured pressure, updated SDS/service-catalog/build-plan/spec evidence, and validation before it is accepted.
+- Repository Layout Phase 8 keeps this root in `scaffolded` lifecycle state until an owning node-agent phase moves it through contracted, wired, validated, and accepted evidence using `docs/specs/new_module_checklist.md`.
 
 This scaffold is a path and ownership contract only. It is not an early node-agent runtime.

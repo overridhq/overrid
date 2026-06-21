@@ -42,6 +42,14 @@ The check emits safe artifact refs such as `local_state_committed`,
 `docdex_index_hygiene_violation`, and `artifact_redaction_violation`; secret-like
 findings report only path and reason metadata, never raw secret values.
 
+For `SUB BUILD PLAN #5 - Repository Layout` Phase 8, `overrid layout:check`
+also reports service-contract and module-lifecycle evidence for
+`service_contract_template_implemented`, `new_service_checklist_defined`,
+`module_addition_workflow_defined`, `deprecation_removal_workflow_defined`, and
+`cross_document_maintenance_rules_defined`. The check emits safe refs such as
+`module_lifecycle_violation` and `stale_layout_reference`, and rejects accepted
+modules without test-target validation evidence.
+
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust
 projection is consumed by this crate but is not the contract authority.
