@@ -58,3 +58,14 @@ The Phase 4 SDK gate turns Phase 2 records and Phase 3 client construction into 
 - Idempotency cache: `phase4_idempotency_policy()` and `evaluate_idempotency_cache()` skip read-only caching, store in-flight retry records for the shorter of the absolute command deadline or the 2-hour SDK cap, keep 24-hour Phase 1 terminal digests, keep 7-day workload refs, keep security-sensitive terminal digests for 24 hours with no raw payload retention, detect conflicting request hashes, and expose `clear_phase4_idempotency_cache()` for local `dev reset` cleanup.
 - Retry classification: `classify_phase4_retry()` retries only transport failures, timeouts, or service responses explicitly marked retryable/retry-after, and always requires the same idempotency key for safe retries.
 - Stable errors: `decode_stable_overrid_error()` preserves reason code, message, trace id, audit refs, retryable flag, correction fields, dependency name, policy refs, and schema version in caller-facing `overrid_error` records.
+
+## Phase 5 Credential Providers, Signing, And Security Guardrails
+
+The Phase 5 SDK gate keeps signing delegated to credential-provider references while the Rust SDK prepares deterministic, secret-free signing metadata:
+
+- Credential providers: `SdkCredentialProvider::from_config()` and `SdkCredentialProviderKind` describe file-backed local test credentials, host signing-agent sockets, platform keychains, hardware-backed devices, and Overkey-compatible refs without storing private keys, bearer tokens, seed phrases, raw payload secrets, or vault values.
+- Canonical signing: `phase5_signature_ref()`, `build_canonical_signing_input()`, and `sign_request()` bind method, path, sorted headers, body hash, timestamp, schema version, credential id, replay window, tenant id, actor id, trace id, and idempotency key before signing handoff.
+- Signing invariants: `validate_signed_request_invariants()` rejects mutated payloads, wrong tenants, expired timestamps, mismatched credentials, missing signing capability, and unsupported signing algorithms before a request can be treated as signed.
+- Test signer separation: `validate_fixture_signer_installation()` allows fixture signers only for explicit local or CI test-fixture configuration and rejects production-like or ambiguous fixture use.
+- Redacted diagnostics: `SDK_PHASE5_DIAGNOSTIC_EVENTS` and `redacted_diagnostic_event()` cover request_built, request_signed, request_sent, response_received, retry_scheduled, request_denied, request_failed, and duplicate_resolved while rendering payloads, signatures, and secret refs as redacted.
+- Credential lifecycle failures: `credential_lifecycle_failure()` maps expired, revoked, rotated, missing, mismatched, unknown, insufficient, host-signer-unavailable, and retry-prohibited signing failures to terminal decisions unless Overgate supplies an explicit retryable correction path.

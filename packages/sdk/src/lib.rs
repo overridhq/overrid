@@ -5,6 +5,7 @@ use std::fmt;
 pub mod command;
 pub mod generated;
 pub mod read;
+pub mod signing;
 
 pub use command::*;
 pub use generated::*;
@@ -20,6 +21,7 @@ pub use overrid_contracts::{
     SyntheticWorkloadPendingState, TraceContext,
 };
 pub use read::*;
+pub use signing::*;
 
 pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 pub const DEFAULT_MAX_RETRIES: u8 = 2;
