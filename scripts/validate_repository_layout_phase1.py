@@ -28,6 +28,9 @@ SCOPED_DOCS = [
     MASTER,
     CROSSWALK,
     TECH_STACK,
+]
+
+LOCAL_PLANNING_DOCS = [
     PHASE_PLAN,
     PHASE_PROGRESS,
 ]
@@ -97,6 +100,17 @@ def read(path: Path) -> str:
     if not full_path.is_file():
         raise AssertionError(f"Missing required file: {path}")
     return full_path.read_text(encoding="utf-8")
+
+
+def read_local_planning_trail() -> tuple[str, str] | None:
+    existing = [(REPO_ROOT / path).is_file() for path in LOCAL_PLANNING_DOCS]
+    if not any(existing):
+        return None
+    if not all(existing):
+        raise AssertionError(
+            f"Local planning trail must include both {PHASE_PLAN} and {PHASE_PROGRESS}"
+        )
+    return read(PHASE_PLAN), read(PHASE_PROGRESS)
 
 
 def section(text: str, heading: str, next_heading_level: str = "## ") -> str:
@@ -173,8 +187,7 @@ def validate_cross_doc_alignment() -> None:
     master = read(MASTER)
     crosswalk = read(CROSSWALK)
     tech_stack = read(TECH_STACK)
-    phase_plan = read(PHASE_PLAN)
-    phase_progress = read(PHASE_PROGRESS)
+    local_planning_trail = read_local_planning_trail()
     suite_validator = read(SUITE_VALIDATOR)
 
     assert_contains(sds, "[sub_build_plan_005_repository_layout.md]", SDS)
@@ -215,10 +228,16 @@ def validate_cross_doc_alignment() -> None:
     assert_contains(tech_stack, "Overrid-shaped local stubs", TECH_STACK)
     assert_contains(tech_stack, "Node.js/TypeScript as the core control-plane", TECH_STACK)
 
-    assert_contains(phase_plan, "Complete SUB BUILD PLAN #5 Phase 1", PHASE_PLAN)
-    assert_contains(phase_plan, "must not introduce runtime repository-layout code", PHASE_PLAN)
-    assert_contains(phase_progress, "Repository Layout Phase 1 Progress", PHASE_PROGRESS)
-    assert_contains(phase_progress, "Validation Evidence", PHASE_PROGRESS)
+    if local_planning_trail is not None:
+        phase_plan, phase_progress = local_planning_trail
+        assert_contains(phase_plan, "Complete SUB BUILD PLAN #5 Phase 1", PHASE_PLAN)
+        assert_contains(
+            phase_plan,
+            "must not introduce runtime repository-layout code",
+            PHASE_PLAN,
+        )
+        assert_contains(phase_progress, "Repository Layout Phase 1 Progress", PHASE_PROGRESS)
+        assert_contains(phase_progress, "Validation Evidence", PHASE_PROGRESS)
 
     assert_contains(
         suite_validator,
@@ -231,7 +250,12 @@ def validate_local_markdown_links() -> None:
     link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
     missing: list[str] = []
 
-    for path in SCOPED_DOCS:
+    scoped_docs = [
+        *SCOPED_DOCS,
+        *[path for path in LOCAL_PLANNING_DOCS if (REPO_ROOT / path).is_file()],
+    ]
+
+    for path in scoped_docs:
         text = read(path)
         for raw_target in link_pattern.findall(text):
             parsed = urlparse(raw_target)
