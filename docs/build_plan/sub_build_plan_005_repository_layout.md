@@ -224,6 +224,75 @@ Already implemented companion roots under `packages/admin_ui_shell`, `packages/i
   - Output: Drift report with stable fields for missing path, stale link, missing test target, forbidden generated path, and unlisted module.
   - Validation: Fixture tests create drift cases and prove `layout:check` reports deterministic reason codes.
 
+### Phase 3 Gate Outputs
+
+#### Workspace Manifest Contract
+
+The root `overrid.workspace.toml` file is the Phase 3 workspace manifest. It records schema version, manifest version, source document links, validation metadata, module-record schema enums, workspace inventory roots, drift reason codes, and initial module records. It is validation/build metadata only and must not become runtime service configuration, hidden service discovery, deployment orchestration, or production configuration.
+
+The `workspace_manifest_defined` gate requires:
+
+- `schema_version` is present and equals `1`.
+- `source_sds`, `source_build_plan`, and `tech_stack_decision` point to existing repo documents.
+- `validation_metadata.command_consumers` names `layout:check`, `build`, `test`, `schema:check`, and `docs:check` as consumers of the inventory.
+- `workspace_inventory` lists Cargo workspace members, direct package roots, local profile roots, test roots, and specs roots without inventing runtime service discovery.
+
+#### Module Record Schema
+
+The `module_records_defined` gate requires every `module_record` to include:
+
+- `name`
+- `type`
+- `owner_layer`
+- `path`
+- `master_phase`
+- `public_contract_path`
+- `allowed_dependency_groups`
+- `generated_output_paths`
+- `test_targets`
+- `local_stack_participation`
+- `documentation_links`
+
+Initial Phase 0 records cover `packages/schemas`, `packages/sdk`, `packages/cli`, `packages/local_stack`, `packages/integration_harness`, `packages/admin_ui_shell`, `infra/local`, `tests/integration`, `docs/specs`, `services/control-plane`, and `services/node-agent`. Cargo-backed records also declare their Cargo member and package name. Scaffolded service roots remain layout contracts until their owning later phases add runtime code.
+
+#### Inventory Discovery Rules
+
+The `inventory_discovery_defined` gate requires layout checks to compare `overrid.workspace.toml` against native workspace metadata and source-controlled paths:
+
+- `Cargo.toml` workspace members must match manifest `cargo_member` entries.
+- Every direct implemented `packages/` root must have exactly one manifest module record.
+- Local profile roots, service-definition roots, test roots, and specs roots must exist and remain source contracts.
+- Generated-output paths must be protected by standard ignore markers before they can appear in a module record.
+- Inventory discovery must not depend on hardcoded per-service shell scripts or docs files as runtime configuration.
+
+#### Phase And Owner Metadata
+
+The `phase_owner_metadata_defined` gate requires module records to name accepted `type`, `owner_layer`, `master_phase`, dependency groups, lifecycle state, and local-stack participation values. Phase 3 records use master Phase 0 for the layout contract itself; later phases may add or promote records only when the owning SDS, service plan, phase document, and crosswalk justify the change.
+
+#### Manifest Drift Reason Codes
+
+The `manifest_drift_checks_defined` gate requires deterministic drift reason codes:
+
+- `missing_schema_version`
+- `missing_module_records`
+- `missing_required_field`
+- `duplicate_module_name`
+- `invalid_path`
+- `missing_path`
+- `unknown_module_type`
+- `unknown_owner_layer`
+- `invalid_master_phase`
+- `unknown_dependency_group`
+- `missing_public_contract`
+- `stale_documentation_link`
+- `missing_test_target`
+- `forbidden_generated_path`
+- `missing_local_stack_participation`
+- `cargo_member_drift`
+- `unlisted_module`
+
+Focused fixture checks must prove at least the missing schema version, duplicate module name, missing path, unknown module type, stale documentation link, missing test target, forbidden generated path, and unlisted module cases.
+
 ## Phase 4: Contracts, Specs, And Schema Source Of Truth
 
 ### Work Items

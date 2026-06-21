@@ -13,6 +13,7 @@ VALIDATORS = [
     Path("scripts/validate_admin_ui.py"),
     Path("scripts/validate_repository_layout_phase1.py"),
     Path("scripts/validate_repository_layout_phase2.py"),
+    Path("scripts/validate_repository_layout_phase3.py"),
     Path("scripts/validate_integration_harness_phase1.py"),
     Path("scripts/validate_integration_harness_phase2.py"),
     Path("scripts/validate_integration_harness_phase3.py"),

@@ -1,0 +1,333 @@
+schema_version = 1
+manifest_version = "2026-06-21.repository-layout-phase-3"
+workspace_name = "overrid"
+source_sds = "docs/sds/foundation/repository_layout.md"
+source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
+tech_stack_decision = "docs/overrid_tech_stack_choice.md"
+
+[validation_metadata]
+layout_phase = 3
+command_consumers = [
+    "layout:check",
+    "build",
+    "test",
+    "schema:check",
+    "docs:check",
+]
+
+[module_record_schema]
+required_fields = [
+    "name",
+    "type",
+    "owner_layer",
+    "path",
+    "master_phase",
+    "public_contract_path",
+    "allowed_dependency_groups",
+    "generated_output_paths",
+    "test_targets",
+    "local_stack_participation",
+    "documentation_links",
+]
+accepted_module_types = [
+    "rust_schema_crate",
+    "rust_sdk_crate",
+    "rust_cli_crate",
+    "rust_helper_crate",
+    "typescript_client_surface",
+    "local_infra_contract",
+    "integration_test_root",
+    "docs_contract",
+    "service_contract_root",
+]
+accepted_owner_layers = [
+    "foundation_contracts",
+    "developer_tooling",
+    "local_development",
+    "integration_validation",
+    "client_surface",
+    "runtime_service_contracts",
+    "documentation_contracts",
+]
+accepted_dependency_groups = [
+    "none",
+    "contracts",
+    "sdk",
+    "cli",
+    "local_stack",
+    "integration_harness",
+    "admin_ui_shell",
+    "docs",
+    "local_infra",
+]
+accepted_lifecycle_states = [
+    "scaffolded",
+    "contracted",
+    "wired",
+    "validated",
+    "accepted",
+]
+accepted_local_stack_participation = [
+    "none",
+    "source_contract",
+    "scenario_consumer",
+    "profile_consumer",
+    "helper_crate",
+]
+
+[drift_report]
+reason_codes = [
+    "missing_schema_version",
+    "missing_module_records",
+    "missing_required_field",
+    "duplicate_module_name",
+    "invalid_path",
+    "missing_path",
+    "unknown_module_type",
+    "unknown_owner_layer",
+    "invalid_master_phase",
+    "unknown_dependency_group",
+    "missing_public_contract",
+    "stale_documentation_link",
+    "missing_test_target",
+    "forbidden_generated_path",
+    "missing_local_stack_participation",
+    "cargo_member_drift",
+    "unlisted_module",
+]
+
+[workspace_inventory]
+cargo_workspace_manifest = "Cargo.toml"
+cargo_members = [
+    "packages/schemas/overrid_contracts",
+    "packages/sdk",
+    "packages/local_stack",
+    "packages/integration_harness",
+    "packages/cli",
+]
+package_roots = [
+    "packages/admin_ui_shell",
+    "packages/schemas",
+    "packages/sdk",
+    "packages/cli",
+    "packages/integration_harness",
+    "packages/local_stack",
+]
+local_profile_roots = [
+    "infra/local/profiles",
+    "infra/local/service-definitions",
+]
+test_roots = [
+    "tests/integration",
+]
+spec_roots = [
+    "docs/specs",
+]
+
+[[modules]]
+name = "shared-schemas"
+type = "rust_schema_crate"
+owner_layer = "foundation_contracts"
+path = "packages/schemas"
+master_phase = 0
+public_contract_path = "packages/schemas/README.md"
+cargo_member = "packages/schemas/overrid_contracts"
+cargo_package = "overrid-contracts"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["none"]
+generated_output_paths = []
+test_targets = ["cargo test -p overrid-contracts"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/sds/foundation/shared_schema_package.md",
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+    "docs/service_catalog/foundation/shared_schema_package.md",
+]
+
+[[modules]]
+name = "sdk"
+type = "rust_sdk_crate"
+owner_layer = "developer_tooling"
+path = "packages/sdk"
+master_phase = 0
+public_contract_path = "packages/sdk/README.md"
+cargo_member = "packages/sdk"
+cargo_package = "overrid-sdk"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts"]
+generated_output_paths = []
+test_targets = ["cargo test -p overrid-sdk"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/sds/foundation/sdk.md",
+    "docs/build_plan/sub_build_plan_006_sdk.md",
+    "docs/service_catalog/foundation/sdk.md",
+]
+
+[[modules]]
+name = "cli"
+type = "rust_cli_crate"
+owner_layer = "developer_tooling"
+path = "packages/cli"
+master_phase = 0
+public_contract_path = "packages/cli/README.md"
+cargo_member = "packages/cli"
+cargo_package = "overrid-cli"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts", "sdk", "local_stack", "integration_harness"]
+generated_output_paths = []
+test_targets = ["cargo test -p overrid-cli"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/sds/foundation/cli.md",
+    "docs/build_plan/sub_build_plan_002_cli.md",
+    "docs/service_catalog/foundation/cli.md",
+]
+
+[[modules]]
+name = "local-stack"
+type = "rust_helper_crate"
+owner_layer = "local_development"
+path = "packages/local_stack"
+master_phase = 0
+public_contract_path = "packages/local_stack/README.md"
+cargo_member = "packages/local_stack"
+cargo_package = "overrid-local-stack"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts"]
+generated_output_paths = []
+test_targets = ["cargo test -p overrid-local-stack"]
+local_stack_participation = "helper_crate"
+documentation_links = [
+    "docs/sds/foundation/local_development_stack.md",
+    "docs/build_plan/sub_build_plan_004_local_development_stack.md",
+    "docs/service_catalog/foundation/local_development_stack.md",
+]
+
+[[modules]]
+name = "integration-harness"
+type = "rust_helper_crate"
+owner_layer = "integration_validation"
+path = "packages/integration_harness"
+master_phase = 0
+public_contract_path = "packages/integration_harness/README.md"
+cargo_member = "packages/integration_harness"
+cargo_package = "overrid-integration-harness"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts"]
+generated_output_paths = []
+test_targets = ["cargo test -p overrid-integration-harness"]
+local_stack_participation = "scenario_consumer"
+documentation_links = [
+    "docs/sds/foundation/integration_test_harness.md",
+    "docs/build_plan/sub_build_plan_003_integration_test_harness.md",
+    "docs/service_catalog/foundation/integration_test_harness.md",
+]
+
+[[modules]]
+name = "admin-ui-shell"
+type = "typescript_client_surface"
+owner_layer = "client_surface"
+path = "packages/admin_ui_shell"
+master_phase = 0
+public_contract_path = "packages/admin_ui_shell/README.md"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts", "admin_ui_shell"]
+generated_output_paths = []
+test_targets = ["python3 scripts/validate_admin_ui.py"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/sds/foundation/admin_developer_ui.md",
+    "docs/build_plan/sub_build_plan_001_admin_developer_ui.md",
+    "docs/service_catalog/foundation/admin_developer_ui.md",
+]
+
+[[modules]]
+name = "local-infra"
+type = "local_infra_contract"
+owner_layer = "local_development"
+path = "infra/local"
+master_phase = 0
+public_contract_path = "infra/local/README.md"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts", "local_stack", "local_infra"]
+generated_output_paths = ["infra/local/artifacts"]
+test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+local_stack_participation = "source_contract"
+documentation_links = [
+    "docs/sds/foundation/local_development_stack.md",
+    "docs/build_plan/sub_build_plan_004_local_development_stack.md",
+    "docs/service_catalog/foundation/local_development_stack.md",
+]
+
+[[modules]]
+name = "integration-tests"
+type = "integration_test_root"
+owner_layer = "integration_validation"
+path = "tests/integration"
+master_phase = 0
+public_contract_path = "tests/integration/README.md"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["contracts", "integration_harness", "local_stack"]
+generated_output_paths = ["tests/integration/artifacts"]
+test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+local_stack_participation = "scenario_consumer"
+documentation_links = [
+    "docs/sds/foundation/integration_test_harness.md",
+    "docs/build_plan/sub_build_plan_003_integration_test_harness.md",
+    "docs/service_catalog/foundation/integration_test_harness.md",
+]
+
+[[modules]]
+name = "docs-specs"
+type = "docs_contract"
+owner_layer = "documentation_contracts"
+path = "docs/specs"
+master_phase = 0
+public_contract_path = "docs/specs/README.md"
+lifecycle_state = "accepted"
+allowed_dependency_groups = ["docs", "contracts"]
+generated_output_paths = ["docs/specs/generated"]
+test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/sds/foundation/repository_layout.md",
+    "docs/build_plan/sub_build_plan_005_repository_layout.md",
+    "docs/service_catalog/foundation/repository_layout.md",
+]
+
+[[modules]]
+name = "control-plane-root"
+type = "service_contract_root"
+owner_layer = "runtime_service_contracts"
+path = "services/control-plane"
+master_phase = 0
+public_contract_path = "services/control-plane/README.md"
+lifecycle_state = "scaffolded"
+allowed_dependency_groups = ["contracts"]
+generated_output_paths = []
+test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/build_plan/phase_01_control_plane_skeleton.md",
+    "docs/sds/control_plane/overgate.md",
+    "docs/sds/control_plane/overpass.md",
+]
+
+[[modules]]
+name = "node-agent-root"
+type = "service_contract_root"
+owner_layer = "runtime_service_contracts"
+path = "services/node-agent"
+master_phase = 0
+public_contract_path = "services/node-agent/README.md"
+lifecycle_state = "scaffolded"
+allowed_dependency_groups = ["contracts"]
+generated_output_paths = []
+test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+local_stack_participation = "none"
+documentation_links = [
+    "docs/build_plan/phase_02_seed_private_swarm.md",
+    "docs/sds/execution_scheduling/overcell.md",
+    "docs/sds/execution_scheduling/hardware_discovery.md",
+]

@@ -27,9 +27,10 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 1. Freeze Phase 1 SDS attachment, non-runtime boundary, master Phase 0 gate, resolved SDS decisions, and layout-change governance lifecycle.
 2. Create top-level folders for `services`, `packages`, `infra`, `tests`, and `docs/specs`.
 3. Define ownership boundaries for control plane, node agent, SDK, CLI, schemas, and integration tests.
-4. Add placeholder service contract docs for each initial subsystem.
-5. Add build/test command conventions and a root task runner.
-6. Document how new services are added without bypassing shared schemas.
+4. Add the root workspace manifest and module inventory records.
+5. Add placeholder service contract docs for each initial subsystem.
+6. Add build/test command conventions and a root task runner.
+7. Document how new services are added without bypassing shared schemas.
 
 ## Contracts And Interfaces
 
@@ -64,6 +65,14 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `local_infra_test_paths_defined`: `infra/local` owns Overrid-shaped local profiles and service definitions, while `tests/integration` owns cross-service scenarios; local state, job tables, artifact stubs, integration artifacts, and run outputs are ignored by default.
 - `specs_contract_defined`: `docs/specs` owns hand-authored protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact docs; `docs/specs/generated` is ignored generated output.
 
+## Phase 3 Implementation Gates
+
+- `workspace_manifest_defined`: `overrid.workspace.toml` records schema version, manifest metadata, source document links, validation metadata, module-record schema enums, workspace inventory roots, and drift reason codes as validation/build metadata only.
+- `module_records_defined`: each Phase 0 module record defines `name`, `type`, `owner_layer`, `path`, `master_phase`, `public_contract_path`, `allowed_dependency_groups`, `generated_output_paths`, `test_targets`, `local_stack_participation`, and `documentation_links`.
+- `inventory_discovery_defined`: layout checks compare the manifest with `Cargo.toml` workspace members, direct `packages/` roots, local profile roots, service-definition roots, test roots, specs roots, and generated-output ignore markers.
+- `phase_owner_metadata_defined`: module records use accepted phase, owner, type, dependency, lifecycle, and local-stack participation metadata, with later promotions requiring SDS, service-plan, phase, and crosswalk evidence.
+- `manifest_drift_checks_defined`: `scripts/validate_repository_layout_phase3.py` reports deterministic reason codes for manifest drift, including missing schema version, duplicate names, missing paths, stale links, missing test targets, forbidden generated paths, Cargo member drift, and unlisted modules.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -71,6 +80,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - New service stubs can be added without inventing a new layout.
 - `scripts/validate_repository_layout_phase1.py` verifies Phase 1 attachment, boundary, master-phase, resolved-decision, governance, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase2.py` verifies Phase 2 directory contracts, ownership READMEs, ignored local/generated markers, planning evidence, and Markdown-link evidence.
+- `scripts/validate_repository_layout_phase3.py` verifies the root manifest, module records, inventory discovery, deterministic drift fixtures, planning evidence, and Markdown-link evidence.
 
 ## Handoff
 

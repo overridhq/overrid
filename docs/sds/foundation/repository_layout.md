@@ -129,6 +129,20 @@ Gate states:
 
 Phase 2 does not introduce Cargo service crates, runtime endpoints, production configuration loading from docs, deployment orchestration, or hidden discovery. It records path ownership so later phases can add Rust code, specs, schemas, tests, and local-stack wiring through layout-change governance.
 
+## Phase 3 Workspace Manifest Decisions
+
+Phase 3 defines `overrid.workspace.toml` as the root workspace manifest for validation and build discovery. The manifest is not runtime configuration, hidden service discovery, deployment orchestration, or production configuration.
+
+Gate states:
+
+- `workspace_manifest_defined`: the root manifest records schema version, manifest version, source document links, validation metadata, module-record schema enums, workspace inventory roots, and drift reason codes.
+- `module_records_defined`: every implemented Phase 0 module has a `module_record` with `name`, `type`, `owner_layer`, `path`, `master_phase`, `public_contract_path`, `allowed_dependency_groups`, `generated_output_paths`, `test_targets`, `local_stack_participation`, and `documentation_links`.
+- `inventory_discovery_defined`: layout checks compare manifest records against `Cargo.toml` workspace members, direct `packages/` roots, local profile roots, service-definition roots, test roots, specs roots, and generated-output ignore markers.
+- `phase_owner_metadata_defined`: each module record uses accepted type, owner-layer, phase, dependency-group, lifecycle-state, and local-stack participation metadata; later phase promotions require matching SDS, service plan, phase, and crosswalk evidence.
+- `manifest_drift_checks_defined`: manifest checks produce deterministic reason codes, including `missing_schema_version`, `duplicate_module_name`, `missing_path`, `unknown_module_type`, `stale_documentation_link`, `missing_test_target`, `forbidden_generated_path`, `unlisted_module`, and `cargo_member_drift`.
+
+Initial Phase 3 records cover `packages/schemas`, `packages/sdk`, `packages/cli`, `packages/local_stack`, `packages/integration_harness`, `packages/admin_ui_shell`, `infra/local`, `tests/integration`, `docs/specs`, `services/control-plane`, and `services/node-agent`. Scaffolded service roots remain layout contracts until later phases add runtime code through layout-change governance.
+
 Required command contracts:
 
 - `build`: compile/check all implemented packages.
