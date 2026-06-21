@@ -12,6 +12,92 @@ use crate::fixtures::fixture_id_from_ref;
 use crate::phase_gate::{scenario_is_planned_for_phase, scenario_is_selected_for_phase};
 
 pub const DEFAULT_MANIFEST_DIR: &str = "packages/schemas/overrid_contracts/fixtures/valid";
+pub const WORKSPACE_LAYOUT_MANIFEST_PATH: &str = "overrid.workspace.toml";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HarnessDiscoveryMetadata {
+    pub scenario_roots: Vec<String>,
+    pub fixture_roots: Vec<String>,
+    pub artifact_roots: Vec<String>,
+    pub schema_refs: Vec<String>,
+    pub local_stack_commands: Vec<String>,
+    pub test_targets: Vec<String>,
+}
+
+impl HarnessDiscoveryMetadata {
+    pub fn load_from_repo_root(repo_root: impl AsRef<Path>) -> Result<Self, ManifestLoadError> {
+        let path = repo_root.as_ref().join(WORKSPACE_LAYOUT_MANIFEST_PATH);
+        let text = fs::read_to_string(&path).map_err(|error| ManifestLoadError::Io {
+            path: path.display().to_string(),
+            message: error.to_string(),
+        })?;
+        Self::from_workspace_manifest_text(&text)
+    }
+
+    pub fn from_workspace_manifest_text(text: &str) -> Result<Self, ManifestLoadError> {
+        let path = WORKSPACE_LAYOUT_MANIFEST_PATH;
+        let section =
+            toml_table(text, "foundation_integration").ok_or(ManifestLoadError::MissingField {
+                path: path.to_owned(),
+                field: "[foundation_integration]",
+            })?;
+        let metadata = Self {
+            scenario_roots: require_toml_string_array(path, section, "harness_scenario_roots")?,
+            fixture_roots: require_toml_string_array(path, section, "harness_fixture_roots")?,
+            artifact_roots: require_toml_string_array(path, section, "harness_artifact_roots")?,
+            schema_refs: require_toml_string_array(path, section, "harness_schema_refs")?,
+            local_stack_commands: require_toml_string_array(
+                path,
+                section,
+                "harness_local_stack_commands",
+            )?,
+            test_targets: require_toml_string_array(path, section, "harness_test_targets")?,
+        };
+
+        validate_discovery_paths(path, "harness_scenario_roots", &metadata.scenario_roots)?;
+        validate_discovery_paths(path, "harness_fixture_roots", &metadata.fixture_roots)?;
+        validate_discovery_paths(path, "harness_artifact_roots", &metadata.artifact_roots)?;
+        validate_discovery_paths(path, "harness_schema_refs", &metadata.schema_refs)?;
+        require_discovery_prefix(
+            path,
+            "harness_scenario_roots",
+            &metadata.scenario_roots,
+            "tests/integration/scenarios",
+        )?;
+        require_discovery_prefix(
+            path,
+            "harness_fixture_roots",
+            &metadata.fixture_roots,
+            "packages/schemas/overrid_contracts/fixtures",
+        )?;
+        require_discovery_prefix(
+            path,
+            "harness_artifact_roots",
+            &metadata.artifact_roots,
+            "tests/integration/",
+        )?;
+        require_discovery_prefix(
+            path,
+            "harness_schema_refs",
+            &metadata.schema_refs,
+            "packages/schemas/overrid_contracts/",
+        )?;
+        require_contains(
+            path,
+            "harness_local_stack_commands",
+            &metadata.local_stack_commands,
+            "overrid dev smoke",
+        )?;
+        require_contains(
+            path,
+            "harness_test_targets",
+            &metadata.test_targets,
+            "overrid test integration",
+        )?;
+
+        Ok(metadata)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixtureManifestRef {
@@ -70,6 +156,7 @@ pub struct HarnessManifestCatalog {
     pub fixtures: Vec<FixtureManifestRef>,
     pub scenarios: Vec<ScenarioManifestRef>,
     pub source_paths: Vec<String>,
+    pub discovery_metadata: Option<HarnessDiscoveryMetadata>,
 }
 
 impl HarnessManifestCatalog {
@@ -249,18 +336,46 @@ impl From<HarnessContractError> for ManifestLoadError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HarnessManifestLoader {
     root: PathBuf,
+    discovery_metadata: Option<HarnessDiscoveryMetadata>,
+    discovery_error: Option<ManifestLoadError>,
 }
 
 impl HarnessManifestLoader {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            discovery_metadata: None,
+            discovery_error: None,
+        }
     }
 
     pub fn canonical(repo_root: impl AsRef<Path>) -> Self {
-        Self::new(repo_root.as_ref().join(DEFAULT_MANIFEST_DIR))
+        let repo_root = repo_root.as_ref();
+        match HarnessDiscoveryMetadata::load_from_repo_root(repo_root) {
+            Ok(discovery_metadata) => {
+                let root = discovery_metadata
+                    .fixture_roots
+                    .first()
+                    .map(|fixture_root| repo_root.join(fixture_root))
+                    .unwrap_or_else(|| repo_root.join(DEFAULT_MANIFEST_DIR));
+                Self {
+                    root,
+                    discovery_metadata: Some(discovery_metadata),
+                    discovery_error: None,
+                }
+            }
+            Err(error) => Self {
+                root: repo_root.join(DEFAULT_MANIFEST_DIR),
+                discovery_metadata: None,
+                discovery_error: Some(error),
+            },
+        }
     }
 
     pub fn load_catalog(&self) -> Result<HarnessManifestCatalog, ManifestLoadError> {
+        if let Some(error) = self.discovery_error.clone() {
+            return Err(error);
+        }
         let mut paths = fs::read_dir(&self.root)
             .map_err(|error| ManifestLoadError::Io {
                 path: self.root.to_string_lossy().into_owned(),
@@ -295,7 +410,9 @@ impl HarnessManifestLoader {
             .iter()
             .map(|(path, text)| (path.as_str(), text.as_str()))
             .collect::<Vec<_>>();
-        Self::load_catalog_from_documents(&borrowed)
+        let mut catalog = Self::load_catalog_from_documents(&borrowed)?;
+        catalog.discovery_metadata = self.discovery_metadata.clone();
+        Ok(catalog)
     }
 
     pub fn load_catalog_from_documents(
@@ -342,6 +459,7 @@ impl HarnessManifestLoader {
             fixtures,
             scenarios,
             source_paths,
+            discovery_metadata: None,
         })
     }
 }
@@ -799,6 +917,212 @@ fn boolean_field_is_true(text: &str, field: &str) -> bool {
     text[after_colon..].trim_start().starts_with("true")
 }
 
+fn toml_table<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!("[{name}]");
+    let start = text.find(&marker)? + marker.len();
+    let rest = &text[start..];
+    let end = rest.find("\n[").unwrap_or(rest.len());
+    Some(rest[..end].trim())
+}
+
+fn require_toml_string_array(
+    path: &str,
+    section: &str,
+    key: &'static str,
+) -> Result<Vec<String>, ManifestLoadError> {
+    let Some(after_equals) = find_toml_assignment_value(section, key) else {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field: key,
+        });
+    };
+    let Some(array_start) = section[after_equals..]
+        .find('[')
+        .map(|index| after_equals + index)
+    else {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field: key,
+        });
+    };
+    let Some(array_end) = find_toml_array_end(section, array_start) else {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field: key,
+        });
+    };
+    let values = extract_toml_strings(&section[array_start..=array_end]);
+    if values.is_empty() {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field: key,
+        });
+    }
+    Ok(values)
+}
+
+fn find_toml_assignment_value(section: &str, key: &str) -> Option<usize> {
+    let mut offset = 0;
+    while let Some(relative) = section[offset..].find(key) {
+        let key_start = offset + relative;
+        let line_start = section[..key_start]
+            .rfind('\n')
+            .map(|index| index + 1)
+            .unwrap_or(0);
+        let before_key = section[line_start..key_start].trim();
+        let after_key = key_start + key.len();
+        let after_key_ws = after_key + leading_whitespace_len(&section[after_key..]);
+        if before_key.is_empty() && section[after_key_ws..].starts_with('=') {
+            return Some(after_key_ws + 1);
+        }
+        offset = after_key;
+    }
+    None
+}
+
+fn leading_whitespace_len(text: &str) -> usize {
+    text.len() - text.trim_start().len()
+}
+
+fn find_toml_array_end(text: &str, start: usize) -> Option<usize> {
+    let mut depth = 0_i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (relative, character) in text[start..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if in_string {
+            if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(start + relative);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn extract_toml_strings(text: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut offset = 0;
+    while let Some(relative) = text[offset..].find('"') {
+        let start = offset + relative;
+        if let Some((value, consumed)) = parse_toml_string(&text[start..]) {
+            values.push(value);
+            offset = start + consumed;
+        } else {
+            break;
+        }
+    }
+    values
+}
+
+fn parse_toml_string(text: &str) -> Option<(String, usize)> {
+    if !text.starts_with('"') {
+        return None;
+    }
+    let mut value = String::new();
+    let mut escaped = false;
+    for (index, character) in text.char_indices().skip(1) {
+        if escaped {
+            value.push(character);
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return Some((value, index + 1)),
+            other => value.push(other),
+        }
+    }
+    None
+}
+
+fn validate_discovery_paths(
+    path: &str,
+    field: &'static str,
+    values: &[String],
+) -> Result<(), ManifestLoadError> {
+    if values.is_empty() {
+        return Err(ManifestLoadError::MissingField {
+            path: path.to_owned(),
+            field,
+        });
+    }
+    for value in values {
+        validate_discovery_path(path, field, value)?;
+    }
+    Ok(())
+}
+
+fn validate_discovery_path(
+    path: &str,
+    field: &'static str,
+    value: &str,
+) -> Result<(), ManifestLoadError> {
+    let parsed = Path::new(value);
+    if value.trim().is_empty()
+        || parsed.is_absolute()
+        || parsed
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+        || value.contains('\\')
+        || value.to_ascii_lowercase().contains("production")
+    {
+        return Err(ManifestLoadError::UnsafeField {
+            path: path.to_owned(),
+            field: format!("{field}:{value}"),
+        });
+    }
+    Ok(())
+}
+
+fn require_discovery_prefix(
+    path: &str,
+    field: &'static str,
+    values: &[String],
+    expected_prefix: &'static str,
+) -> Result<(), ManifestLoadError> {
+    for value in values {
+        if value != expected_prefix && !value.starts_with(expected_prefix) {
+            return Err(ManifestLoadError::UnsafeField {
+                path: path.to_owned(),
+                field: format!("{field}:{value}"),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn require_contains(
+    path: &str,
+    field: &'static str,
+    values: &[String],
+    required: &'static str,
+) -> Result<(), ManifestLoadError> {
+    if values.iter().any(|value| value == required) {
+        return Ok(());
+    }
+    Err(ManifestLoadError::MissingField {
+        path: path.to_owned(),
+        field,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -814,17 +1138,83 @@ mod tests {
         [("valid.json", VALID)]
     }
 
-    #[test]
-    fn loads_valid_manifest_from_canonical_repo_paths() {
-        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(Path::parent)
-            .unwrap();
-        let catalog = HarnessManifestLoader::canonical(repo_root)
+            .expect("integration-harness crate lives under packages/")
+            .to_path_buf()
+    }
+
+    fn workspace_manifest_text() -> String {
+        fs::read_to_string(repo_root().join(WORKSPACE_LAYOUT_MANIFEST_PATH))
+            .expect("workspace manifest is available for harness discovery tests")
+    }
+
+    #[test]
+    fn loads_valid_manifest_from_canonical_repo_paths() {
+        let catalog = HarnessManifestLoader::canonical(repo_root())
             .load_catalog()
             .unwrap();
         assert!(catalog.scenario("scenario_phase0_smoke").is_some());
         assert!(catalog.scenario("scenario_blocked_dependency").is_some());
+        let discovery = catalog.discovery_metadata.unwrap();
+        assert_eq!(
+            discovery.fixture_roots[0],
+            "packages/schemas/overrid_contracts/fixtures/valid"
+        );
+    }
+
+    #[test]
+    fn repository_layout_phase9_harness_discovery_loads_workspace_manifest_roots() {
+        let discovery =
+            HarnessDiscoveryMetadata::from_workspace_manifest_text(&workspace_manifest_text())
+                .unwrap();
+        assert_eq!(
+            discovery.scenario_roots,
+            vec!["tests/integration/scenarios".to_owned()]
+        );
+        assert!(discovery
+            .artifact_roots
+            .contains(&"tests/integration/artifacts".to_owned()));
+        assert!(discovery.schema_refs.contains(
+            &"packages/schemas/overrid_contracts/v0/integration_harness.schema.json".to_owned()
+        ));
+        assert!(discovery
+            .local_stack_commands
+            .contains(&"overrid dev smoke".to_owned()));
+        assert!(discovery
+            .test_targets
+            .contains(&"overrid test integration".to_owned()));
+    }
+
+    #[test]
+    fn repository_layout_phase9_harness_discovery_rejects_missing_fixture_roots() {
+        let text = workspace_manifest_text().replacen(
+            "harness_fixture_roots = [",
+            "harness_fixture_roots_missing = [",
+            1,
+        );
+        let error = HarnessDiscoveryMetadata::from_workspace_manifest_text(&text).unwrap_err();
+        assert!(matches!(
+            error,
+            ManifestLoadError::MissingField { field, .. } if field == "harness_fixture_roots"
+        ));
+    }
+
+    #[test]
+    fn repository_layout_phase9_harness_discovery_rejects_unsafe_artifact_roots() {
+        let text = workspace_manifest_text().replacen(
+            "harness_artifact_roots = [\n    \"tests/integration/artifacts\"",
+            "harness_artifact_roots = [\n    \"../artifacts\"",
+            1,
+        );
+        let error = HarnessDiscoveryMetadata::from_workspace_manifest_text(&text).unwrap_err();
+        assert!(matches!(
+            error,
+            ManifestLoadError::UnsafeField { field, .. }
+                if field == "harness_artifact_roots:../artifacts"
+        ));
     }
 
     #[test]

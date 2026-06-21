@@ -29,6 +29,8 @@ PACKAGES_README = Path("packages/README.md")
 LOCAL_INFRA_README = Path("infra/local/README.md")
 INTEGRATION_TESTS_README = Path("tests/integration/README.md")
 CLI_RUNNER = Path("packages/cli/src/runner.rs")
+LOCAL_STACK_LIB = Path("packages/local_stack/src/lib.rs")
+INTEGRATION_HARNESS_MANIFESTS = Path("packages/integration_harness/src/manifests.rs")
 
 REQUIRED_PHASE9_STATES = [
     "`local_stack_discovery_metadata_defined`",
@@ -388,6 +390,49 @@ def validate_cli_and_readme_evidence() -> None:
         assert_contains(runner, expected, CLI_RUNNER)
 
 
+def validate_rust_foundation_consumers() -> None:
+    local_stack = read(LOCAL_STACK_LIB)
+    for expected in (
+        "WORKSPACE_LAYOUT_MANIFEST_PATH",
+        "LocalStackDiscoveryMetadata",
+        "load_from_repo_root",
+        "from_workspace_manifest_text",
+        "local_stack_service_definition_roots",
+        "local_stack_profile_roots",
+        "local_stack_local_state_roots",
+        "local_stack_generated_env_paths",
+        "local_stack_port_binding_source",
+        "local_stack_safe_reset_markers",
+        "WorkspaceDiscoveryMissingField",
+        "WorkspaceDiscoveryUnsafePath",
+        "WorkspaceDiscoveryUnexpectedRoot",
+        "repository_layout_phase9_local_stack_discovery_rejects_missing_service_definition_roots",
+        "repository_layout_phase9_local_stack_discovery_rejects_unsafe_state_roots",
+        "repository_layout_phase9_local_stack_discovery_rejects_unknown_profile_roots",
+    ):
+        assert_contains(local_stack, expected, LOCAL_STACK_LIB)
+
+    harness = read(INTEGRATION_HARNESS_MANIFESTS)
+    for expected in (
+        "WORKSPACE_LAYOUT_MANIFEST_PATH",
+        "HarnessDiscoveryMetadata",
+        "load_from_repo_root",
+        "from_workspace_manifest_text",
+        "harness_scenario_roots",
+        "harness_fixture_roots",
+        "harness_artifact_roots",
+        "harness_schema_refs",
+        "harness_local_stack_commands",
+        "harness_test_targets",
+        "discovery_metadata",
+        "discovery_error",
+        "repository_layout_phase9_harness_discovery_loads_workspace_manifest_roots",
+        "repository_layout_phase9_harness_discovery_rejects_missing_fixture_roots",
+        "repository_layout_phase9_harness_discovery_rejects_unsafe_artifact_roots",
+    ):
+        assert_contains(harness, expected, INTEGRATION_HARNESS_MANIFESTS)
+
+
 def validate_local_planning_trail() -> None:
     plan = read(PHASE_PLAN)
     progress = read(PHASE_PROGRESS)
@@ -446,6 +491,7 @@ def main() -> int:
         validate_phase9_source_docs,
         validate_manifest_foundation_integration,
         validate_cli_and_readme_evidence,
+        validate_rust_foundation_consumers,
         validate_local_planning_trail,
         validate_suite_registration,
         validate_local_markdown_links,

@@ -12,6 +12,7 @@ use overrid_contracts::{
 };
 
 pub const DEFAULT_LOCAL_STACK_MANIFEST_PATH: &str = "packages/schemas/overrid_contracts/fixtures/valid/local_development_stack_phase2_default_local.valid.json";
+pub const WORKSPACE_LAYOUT_MANIFEST_PATH: &str = "overrid.workspace.toml";
 pub const LOCAL_STACK_PHASE_GATE: &str = "phase_3_local_development_stack";
 pub const LOCAL_STACK_PHASE4_TOPOLOGY_GATE: &str = "phase_4_loopback_topology";
 pub const LOCAL_STACK_PHASE5_BACKING_GATE: &str = "phase_5_embedded_state_queue_store";
@@ -693,11 +694,16 @@ pub struct LocalStackManifest {
     pub schema_version: String,
     pub service_ids: Vec<String>,
     pub dependency_ids: Vec<String>,
+    pub discovery_metadata: Option<LocalStackDiscoveryMetadata>,
 }
 
 impl LocalStackManifest {
     pub fn load_default(repo_root: impl AsRef<Path>) -> Result<Self, ManifestValidationError> {
-        Self::load_from_path(repo_root.as_ref().join(DEFAULT_LOCAL_STACK_MANIFEST_PATH))
+        let repo_root = repo_root.as_ref();
+        let discovery_metadata = LocalStackDiscoveryMetadata::load_from_repo_root(repo_root)?;
+        let mut manifest = Self::load_from_path(repo_root.join(DEFAULT_LOCAL_STACK_MANIFEST_PATH))?;
+        manifest.discovery_metadata = Some(discovery_metadata);
+        Ok(manifest)
     }
 
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, ManifestValidationError> {
@@ -713,6 +719,7 @@ impl LocalStackManifest {
             schema_version: content.schema_version,
             service_ids: content.service_ids,
             dependency_ids: content.dependency_ids,
+            discovery_metadata: None,
         })
     }
 
@@ -792,6 +799,98 @@ pub struct LocalStackManifestContent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalStackDiscoveryMetadata {
+    pub service_definition_roots: Vec<String>,
+    pub profile_roots: Vec<String>,
+    pub local_state_roots: Vec<String>,
+    pub generated_env_paths: Vec<String>,
+    pub port_binding_source: String,
+    pub safe_reset_markers: Vec<String>,
+}
+
+impl LocalStackDiscoveryMetadata {
+    pub fn load_from_repo_root(
+        repo_root: impl AsRef<Path>,
+    ) -> Result<Self, ManifestValidationError> {
+        let path = repo_root.as_ref().join(WORKSPACE_LAYOUT_MANIFEST_PATH);
+        let text = fs::read_to_string(&path).map_err(|error| {
+            ManifestValidationError::WorkspaceDiscoveryReadFailed {
+                path: path.display().to_string(),
+                message: error.to_string(),
+            }
+        })?;
+        Self::from_workspace_manifest_text(&text)
+    }
+
+    pub fn from_workspace_manifest_text(text: &str) -> Result<Self, ManifestValidationError> {
+        let section = toml_table(text, "foundation_integration").ok_or(
+            ManifestValidationError::WorkspaceDiscoveryMissingField {
+                field: "[foundation_integration]",
+            },
+        )?;
+        let metadata = Self {
+            service_definition_roots: require_toml_string_array(
+                section,
+                "local_stack_service_definition_roots",
+            )?,
+            profile_roots: require_toml_string_array(section, "local_stack_profile_roots")?,
+            local_state_roots: require_toml_string_array(section, "local_stack_local_state_roots")?,
+            generated_env_paths: require_toml_string_array(
+                section,
+                "local_stack_generated_env_paths",
+            )?,
+            port_binding_source: require_toml_string(section, "local_stack_port_binding_source")?,
+            safe_reset_markers: require_toml_string_array(
+                section,
+                "local_stack_safe_reset_markers",
+            )?,
+        };
+
+        validate_layout_paths(
+            "local_stack_service_definition_roots",
+            &metadata.service_definition_roots,
+        )?;
+        validate_layout_paths("local_stack_profile_roots", &metadata.profile_roots)?;
+        validate_layout_paths("local_stack_local_state_roots", &metadata.local_state_roots)?;
+        validate_layout_paths(
+            "local_stack_generated_env_paths",
+            &metadata.generated_env_paths,
+        )?;
+        validate_layout_path(
+            "local_stack_port_binding_source",
+            &metadata.port_binding_source,
+        )?;
+        validate_layout_paths(
+            "local_stack_safe_reset_markers",
+            &metadata.safe_reset_markers,
+        )?;
+
+        require_layout_prefix(
+            "local_stack_service_definition_roots",
+            &metadata.service_definition_roots,
+            "infra/local/service-definitions",
+        )?;
+        require_layout_prefix(
+            "local_stack_profile_roots",
+            &metadata.profile_roots,
+            "infra/local/profiles",
+        )?;
+        require_layout_prefix(
+            "local_stack_local_state_roots",
+            &metadata.local_state_roots,
+            "infra/local/",
+        )?;
+        require_layout_prefix(
+            "local_stack_safe_reset_markers",
+            &metadata.safe_reset_markers,
+            "infra/local/",
+        )?;
+
+        Ok(metadata)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManifestValidationError {
     ReadFailed {
         path: String,
@@ -808,6 +907,21 @@ pub enum ManifestValidationError {
     DuplicateServiceId(String),
     MissingDependency(String),
     UnsafeEndpoint(String),
+    WorkspaceDiscoveryReadFailed {
+        path: String,
+        message: String,
+    },
+    WorkspaceDiscoveryMissingField {
+        field: &'static str,
+    },
+    WorkspaceDiscoveryUnsafePath {
+        field: &'static str,
+        path: String,
+    },
+    WorkspaceDiscoveryUnexpectedRoot {
+        field: &'static str,
+        path: String,
+    },
 }
 
 impl ManifestValidationError {
@@ -822,6 +936,14 @@ impl ManifestValidationError {
             Self::DuplicateServiceId(_) => "manifest.duplicate_service_id",
             Self::MissingDependency(_) => "manifest.missing_dependency",
             Self::UnsafeEndpoint(_) => "manifest.unsafe_endpoint",
+            Self::WorkspaceDiscoveryReadFailed { .. } => "layout.local_stack_discovery_read_failed",
+            Self::WorkspaceDiscoveryMissingField { .. } => {
+                "layout.local_stack_discovery_missing_field"
+            }
+            Self::WorkspaceDiscoveryUnsafePath { .. } => "layout.local_stack_discovery_unsafe_path",
+            Self::WorkspaceDiscoveryUnexpectedRoot { .. } => {
+                "layout.local_stack_discovery_unknown_root"
+            }
         }
     }
 
@@ -835,7 +957,11 @@ impl ManifestValidationError {
             | Self::MissingDependency(_) => ExitCodeClass::Schema,
             Self::MissingLocalMarkers
             | Self::MissingServiceDefinitions
-            | Self::UnsafeEndpoint(_) => ExitCodeClass::Config,
+            | Self::UnsafeEndpoint(_)
+            | Self::WorkspaceDiscoveryMissingField { .. }
+            | Self::WorkspaceDiscoveryUnsafePath { .. }
+            | Self::WorkspaceDiscoveryUnexpectedRoot { .. } => ExitCodeClass::Config,
+            Self::WorkspaceDiscoveryReadFailed { .. } => ExitCodeClass::LocalIo,
         }
     }
 }
@@ -876,6 +1002,22 @@ impl fmt::Display for ManifestValidationError {
             Self::UnsafeEndpoint(endpoint) => {
                 write!(formatter, "unsafe local-stack endpoint {endpoint}")
             }
+            Self::WorkspaceDiscoveryReadFailed { path, message } => write!(
+                formatter,
+                "failed to read workspace layout manifest {path}: {message}"
+            ),
+            Self::WorkspaceDiscoveryMissingField { field } => write!(
+                formatter,
+                "workspace foundation integration is missing {field}"
+            ),
+            Self::WorkspaceDiscoveryUnsafePath { field, path } => write!(
+                formatter,
+                "workspace foundation integration {field} has unsafe path {path}"
+            ),
+            Self::WorkspaceDiscoveryUnexpectedRoot { field, path } => write!(
+                formatter,
+                "workspace foundation integration {field} has unknown local-stack root {path}"
+            ),
         }
     }
 }
@@ -4833,6 +4975,116 @@ fn parse_json_string(text: &str) -> Option<(String, usize)> {
     None
 }
 
+fn toml_table<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!("[{name}]");
+    let start = text.find(&marker)? + marker.len();
+    let rest = &text[start..];
+    let end = rest.find("\n[").unwrap_or(rest.len());
+    Some(rest[..end].trim())
+}
+
+fn require_toml_string_array(
+    section: &str,
+    key: &'static str,
+) -> Result<Vec<String>, ManifestValidationError> {
+    let Some(after_equals) = find_toml_assignment_value(section, key) else {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key });
+    };
+    let Some(array_start) = section[after_equals..]
+        .find('[')
+        .map(|index| after_equals + index)
+    else {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key });
+    };
+    let Some(array_end) = find_matching_delimiter(section, array_start, '[', ']') else {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key });
+    };
+    let values = extract_all_strings(&section[array_start..=array_end]);
+    if values.is_empty() {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key });
+    }
+    Ok(values)
+}
+
+fn require_toml_string(
+    section: &str,
+    key: &'static str,
+) -> Result<String, ManifestValidationError> {
+    let Some(after_equals) = find_toml_assignment_value(section, key) else {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key });
+    };
+    let value_start = after_equals + leading_whitespace_len(&section[after_equals..]);
+    parse_json_string(&section[value_start..])
+        .map(|(value, _)| value)
+        .ok_or(ManifestValidationError::WorkspaceDiscoveryMissingField { field: key })
+}
+
+fn find_toml_assignment_value(section: &str, key: &str) -> Option<usize> {
+    let mut offset = 0;
+    while let Some(relative) = section[offset..].find(key) {
+        let key_start = offset + relative;
+        let line_start = section[..key_start]
+            .rfind('\n')
+            .map(|index| index + 1)
+            .unwrap_or(0);
+        let before_key = section[line_start..key_start].trim();
+        let after_key = key_start + key.len();
+        let after_key_ws = after_key + leading_whitespace_len(&section[after_key..]);
+        if before_key.is_empty() && section[after_key_ws..].starts_with('=') {
+            return Some(after_key_ws + 1);
+        }
+        offset = after_key;
+    }
+    None
+}
+
+fn validate_layout_paths(
+    field: &'static str,
+    paths: &[String],
+) -> Result<(), ManifestValidationError> {
+    if paths.is_empty() {
+        return Err(ManifestValidationError::WorkspaceDiscoveryMissingField { field });
+    }
+    for path in paths {
+        validate_layout_path(field, path)?;
+    }
+    Ok(())
+}
+
+fn validate_layout_path(field: &'static str, path: &str) -> Result<(), ManifestValidationError> {
+    let parsed = Path::new(path);
+    if path.trim().is_empty()
+        || parsed.is_absolute()
+        || parsed
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+        || path.contains('\\')
+        || path.to_ascii_lowercase().contains("production")
+    {
+        return Err(ManifestValidationError::WorkspaceDiscoveryUnsafePath {
+            field,
+            path: path.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn require_layout_prefix(
+    field: &'static str,
+    paths: &[String],
+    expected_prefix: &'static str,
+) -> Result<(), ManifestValidationError> {
+    for path in paths {
+        if path != expected_prefix && !path.starts_with(expected_prefix) {
+            return Err(ManifestValidationError::WorkspaceDiscoveryUnexpectedRoot {
+                field,
+                path: path.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn leading_whitespace_len(text: &str) -> usize {
     text.len() - text.trim_start().len()
 }
@@ -6451,6 +6703,11 @@ mod tests {
         .to_owned()
     }
 
+    fn workspace_manifest_text() -> String {
+        fs::read_to_string(repo_root().join(WORKSPACE_LAYOUT_MANIFEST_PATH))
+            .expect("workspace manifest is available for local-stack discovery tests")
+    }
+
     #[test]
     fn loads_default_manifest() {
         let manifest = LocalStackManifest::load_default(repo_root()).unwrap();
@@ -6463,6 +6720,70 @@ mod tests {
             .contains(&"service:embedded_state".to_owned()));
         assert!(manifest.service_ids.contains(&"service:api".to_owned()));
         assert!(manifest.service_ids.contains(&"service:worker".to_owned()));
+        let discovery = manifest.discovery_metadata.unwrap();
+        assert_eq!(
+            discovery.service_definition_roots,
+            vec!["infra/local/service-definitions".to_owned()]
+        );
+        assert_eq!(
+            discovery.profile_roots,
+            vec!["infra/local/profiles".to_owned()]
+        );
+        assert!(discovery
+            .local_state_roots
+            .contains(&"infra/local/state".to_owned()));
+        assert_eq!(
+            discovery.port_binding_source,
+            "packages/local_stack/src/lib.rs"
+        );
+        assert!(discovery
+            .safe_reset_markers
+            .contains(&"infra/local/state/.gitignore".to_owned()));
+    }
+
+    #[test]
+    fn repository_layout_phase9_local_stack_discovery_rejects_missing_service_definition_roots() {
+        let text = workspace_manifest_text().replacen(
+            "local_stack_service_definition_roots = [",
+            "local_stack_service_definition_roots_missing = [",
+            1,
+        );
+        let error = LocalStackDiscoveryMetadata::from_workspace_manifest_text(&text).unwrap_err();
+        assert!(matches!(
+            error,
+            ManifestValidationError::WorkspaceDiscoveryMissingField { field }
+                if field == "local_stack_service_definition_roots"
+        ));
+    }
+
+    #[test]
+    fn repository_layout_phase9_local_stack_discovery_rejects_unsafe_state_roots() {
+        let text = workspace_manifest_text().replacen(
+            "local_stack_local_state_roots = [\n    \"infra/local/state\"",
+            "local_stack_local_state_roots = [\n    \"../state\"",
+            1,
+        );
+        let error = LocalStackDiscoveryMetadata::from_workspace_manifest_text(&text).unwrap_err();
+        assert!(matches!(
+            error,
+            ManifestValidationError::WorkspaceDiscoveryUnsafePath { field, path }
+                if field == "local_stack_local_state_roots" && path == "../state"
+        ));
+    }
+
+    #[test]
+    fn repository_layout_phase9_local_stack_discovery_rejects_unknown_profile_roots() {
+        let text = workspace_manifest_text().replacen(
+            "local_stack_profile_roots = [\n    \"infra/local/profiles\"",
+            "local_stack_profile_roots = [\n    \"profiles/local\"",
+            1,
+        );
+        let error = LocalStackDiscoveryMetadata::from_workspace_manifest_text(&text).unwrap_err();
+        assert!(matches!(
+            error,
+            ManifestValidationError::WorkspaceDiscoveryUnexpectedRoot { field, path }
+                if field == "local_stack_profile_roots" && path == "profiles/local"
+        ));
     }
 
     #[test]
