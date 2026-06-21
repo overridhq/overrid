@@ -320,6 +320,22 @@ def validate_manifest_lifecycle() -> None:
         if state == "accepted" and not module.get("test_targets"):
             raise AssertionError(f"accepted module {module.get('name')} needs test_targets")
 
+    root_commands = manifest.get("root_commands", [])
+    if not isinstance(root_commands, list):
+        raise AssertionError(f"{MANIFEST} root_commands must be a list")
+    layout_commands = [
+        command
+        for command in root_commands
+        if isinstance(command, dict) and command.get("name") == "layout:check"
+    ]
+    if len(layout_commands) != 1:
+        raise AssertionError(f"{MANIFEST} must define exactly one layout:check root command")
+    list_contains_all(
+        layout_commands[0].get("outputs"),
+        REQUIRED_PHASE8_ARTIFACTS,
+        "root_commands.layout:check.outputs",
+    )
+
 
 def validate_cli_and_readme_evidence() -> None:
     cli = read(CLI_README)

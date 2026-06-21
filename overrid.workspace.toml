@@ -552,6 +552,8 @@ outputs = [
     "local_state_committed",
     "docdex_index_hygiene_violation",
     "artifact_redaction_violation",
+    "module_lifecycle_violation",
+    "stale_layout_reference",
 ]
 owning_tool = "overrid-cli"
 phase_gate = "phase_0"
