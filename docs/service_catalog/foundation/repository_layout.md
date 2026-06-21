@@ -71,7 +71,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `module_records_defined`: each Phase 0 module record defines `name`, `type`, `owner_layer`, `path`, `master_phase`, `public_contract_path`, `allowed_dependency_groups`, `generated_output_paths`, `test_targets`, `local_stack_participation`, and `documentation_links`.
 - `inventory_discovery_defined`: layout checks compare the manifest with `Cargo.toml` workspace members, direct `packages/` roots, local profile roots, service-definition roots, test roots, specs roots, and generated-output ignore markers.
 - `phase_owner_metadata_defined`: module records use accepted phase, owner, type, dependency, lifecycle, and local-stack participation metadata, with later promotions requiring SDS, service-plan, phase, and crosswalk evidence.
-- `manifest_drift_checks_defined`: `scripts/validate_repository_layout_phase3.py` reports deterministic reason codes for manifest drift, including missing schema version, duplicate names, missing paths, stale links, missing test targets, forbidden generated paths, Cargo member drift, and unlisted modules.
+- `manifest_drift_checks_defined`: `scripts/validate_repository_layout_phase3.py` reports deterministic reason codes for manifest drift, including `missing_schema_version`, `missing_module_records`, `missing_required_field`, `duplicate_module_name`, `invalid_path`, `missing_path`, `unknown_module_type`, `unknown_owner_layer`, `invalid_master_phase`, `unknown_dependency_group`, `missing_public_contract`, `stale_documentation_link`, `missing_test_target`, `forbidden_generated_path`, `missing_local_stack_participation`, `cargo_member_drift`, and `unlisted_module`.
 
 ## Validation
 

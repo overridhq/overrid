@@ -58,9 +58,30 @@ REQUIRED_MODULE_FIELDS = [
     "`documentation_links`",
 ]
 
-REQUIRED_DRIFT_CODES = [
+REQUIRED_MANIFEST_DRIFT_CODES = [
+    "missing_schema_version",
+    "missing_module_records",
+    "missing_required_field",
+    "duplicate_module_name",
+    "invalid_path",
+    "missing_path",
+    "unknown_module_type",
+    "unknown_owner_layer",
+    "invalid_master_phase",
+    "unknown_dependency_group",
+    "missing_public_contract",
+    "stale_documentation_link",
+    "missing_test_target",
+    "forbidden_generated_path",
+    "missing_local_stack_participation",
+    "unlisted_module",
+    "cargo_member_drift",
+]
+
+REQUIRED_FOCUSED_DRIFT_FIXTURES = [
     "missing_schema_version",
     "duplicate_module_name",
+    "invalid_path",
     "missing_path",
     "unknown_module_type",
     "stale_documentation_link",
@@ -69,6 +90,41 @@ REQUIRED_DRIFT_CODES = [
     "unlisted_module",
     "cargo_member_drift",
 ]
+
+REQUIRED_COMMAND_CONSUMERS = [
+    "layout:check",
+    "build",
+    "test",
+    "schema:check",
+    "docs:check",
+]
+
+REQUIRED_INITIAL_MODULE_RECORDS = {
+    "shared-schemas": "packages/schemas",
+    "sdk": "packages/sdk",
+    "cli": "packages/cli",
+    "local-stack": "packages/local_stack",
+    "integration-harness": "packages/integration_harness",
+    "admin-ui-shell": "packages/admin_ui_shell",
+    "local-infra": "infra/local",
+    "integration-tests": "tests/integration",
+    "docs-specs": "docs/specs",
+    "control-plane-root": "services/control-plane",
+    "node-agent-root": "services/node-agent",
+}
+
+REQUIRED_INVENTORY_ROOTS = {
+    "local_profile_roots": [
+        "infra/local/profiles",
+        "infra/local/service-definitions",
+    ],
+    "test_roots": [
+        "tests/integration",
+    ],
+    "spec_roots": [
+        "docs/specs",
+    ],
+}
 
 STANDARD_IGNORE_MARKER = "*\n!.gitignore\n"
 
@@ -176,6 +232,39 @@ def collect_manifest_findings(
     if manifest.get("schema_version") != 1:
         add("missing_schema_version", "manifest schema_version must be 1")
 
+    if manifest.get("workspace_name") != "overrid":
+        add("missing_required_field", "workspace_name must be overrid")
+
+    manifest_version = manifest.get("manifest_version")
+    if (
+        not isinstance(manifest_version, str)
+        or "repository-layout-phase-3" not in manifest_version
+    ):
+        add(
+            "missing_required_field",
+            "manifest_version must identify the Repository Layout Phase 3 contract",
+        )
+
+    validation_metadata = manifest.get("validation_metadata")
+    if not isinstance(validation_metadata, dict):
+        add("missing_required_field", "validation_metadata table is required")
+        validation_metadata = {}
+    elif validation_metadata.get("layout_phase") != 3:
+        add("missing_required_field", "validation_metadata.layout_phase must equal 3")
+
+    command_consumers = normalize_string_list(
+        validation_metadata.get("command_consumers")
+    )
+    if command_consumers is None:
+        add("missing_required_field", "validation_metadata.command_consumers must be a list")
+    else:
+        for command in REQUIRED_COMMAND_CONSUMERS:
+            if command not in command_consumers:
+                add(
+                    "missing_required_field",
+                    f"validation_metadata.command_consumers is missing {command}",
+                )
+
     schema = manifest.get("module_record_schema")
     if not isinstance(schema, dict):
         add("missing_required_field", "module_record_schema is required")
@@ -196,10 +285,14 @@ def collect_manifest_findings(
         normalize_string_list(schema.get("accepted_local_stack_participation")) or []
     )
 
+    for field in (item.strip("`") for item in REQUIRED_MODULE_FIELDS):
+        if field not in required_fields:
+            add("missing_required_field", f"module_record_schema.required_fields is missing {field}")
+
     drift_codes = set(
         normalize_string_list(manifest.get("drift_report", {}).get("reason_codes")) or []
     )
-    for code in REQUIRED_DRIFT_CODES:
+    for code in REQUIRED_MANIFEST_DRIFT_CODES:
         if code not in drift_codes:
             add("missing_required_field", f"drift_report.reason_codes is missing {code}")
 
@@ -210,6 +303,7 @@ def collect_manifest_findings(
 
     seen_names: set[str] = set()
     manifest_module_paths: set[str] = set()
+    seen_paths: dict[str, str] = {}
     manifest_cargo_members: set[str] = set()
 
     for index, module in enumerate(modules):
@@ -252,7 +346,16 @@ def collect_manifest_findings(
         if path is None:
             add("invalid_path", f"{label} path must be a safe relative path")
         else:
-            manifest_module_paths.add(str(path))
+            path_value = str(path)
+            previous_owner = seen_paths.get(path_value)
+            if previous_owner is not None:
+                add(
+                    "invalid_path",
+                    f"{label} duplicates module path {path_value} already used by {previous_owner}",
+                )
+            else:
+                seen_paths[path_value] = str(label)
+            manifest_module_paths.add(path_value)
             if not (REPO_ROOT / path).exists():
                 add("missing_path", f"{label} path does not exist: {path}")
 
@@ -325,8 +428,39 @@ def collect_manifest_findings(
                 add("invalid_path", f"{label} cargo_member path is invalid")
             else:
                 manifest_cargo_members.add(str(cargo_path))
-                if not (REPO_ROOT / cargo_path / "Cargo.toml").is_file():
+                cargo_manifest = REPO_ROOT / cargo_path / "Cargo.toml"
+                if not cargo_manifest.is_file():
                     add("cargo_member_drift", f"{label} cargo_member lacks Cargo.toml: {cargo_path}")
+                else:
+                    cargo_package = module.get("cargo_package")
+                    if not isinstance(cargo_package, str) or not cargo_package:
+                        add(
+                            "cargo_member_drift",
+                            f"{label} cargo_member must declare cargo_package",
+                        )
+                    else:
+                        actual_package = load_toml(cargo_path / "Cargo.toml").get(
+                            "package", {}
+                        ).get("name")
+                        if cargo_package != actual_package:
+                            add(
+                                "cargo_member_drift",
+                                f"{label} cargo_package {cargo_package!r} differs from Cargo.toml package.name {actual_package!r}",
+                            )
+        elif module.get("cargo_package") is not None:
+            add("cargo_member_drift", f"{label} declares cargo_package without cargo_member")
+
+    for expected_name, expected_path in REQUIRED_INITIAL_MODULE_RECORDS.items():
+        if not any(
+            isinstance(module, dict)
+            and module.get("name") == expected_name
+            and module.get("path") == expected_path
+            for module in modules
+        ):
+            add(
+                "missing_module_records",
+                f"required Phase 0 module record {expected_name} at {expected_path} is missing",
+            )
 
     actual_members = set(discovered_cargo_members or actual_cargo_members())
     if manifest_cargo_members != actual_members:
@@ -350,6 +484,23 @@ def collect_manifest_findings(
         manifest_inventory_packages = normalize_string_list(inventory.get("package_roots")) or []
         if sorted(manifest_inventory_packages) != sorted(actual_packages):
             add("unlisted_module", "workspace_inventory.package_roots differs from packages/")
+
+        for key, expected_roots in REQUIRED_INVENTORY_ROOTS.items():
+            roots = normalize_string_list(inventory.get(key))
+            if roots is None:
+                add("missing_required_field", f"workspace_inventory.{key} must be a list")
+                continue
+            if sorted(roots) != sorted(expected_roots):
+                add(
+                    "missing_required_field",
+                    f"workspace_inventory.{key} differs from required Repository Layout roots",
+                )
+            for root in roots:
+                root_path = safe_relative_path(root)
+                if root_path is None:
+                    add("invalid_path", f"workspace_inventory.{key} has invalid path: {root!r}")
+                elif not (REPO_ROOT / root_path).exists():
+                    add("missing_path", f"workspace_inventory.{key} path is missing: {root_path}")
     else:
         add("missing_required_field", "workspace_inventory table is required")
 
@@ -390,7 +541,7 @@ def validate_phase3_source_docs() -> None:
         assert_contains(phase_3, state, SUB_PLAN)
     for field in REQUIRED_MODULE_FIELDS:
         assert_contains(phase_3, field, SUB_PLAN)
-    for code in REQUIRED_DRIFT_CODES:
+    for code in REQUIRED_MANIFEST_DRIFT_CODES:
         assert_contains(phase_3, f"`{code}`", SUB_PLAN)
     assert_contains(phase_3, "`overrid.workspace.toml`", SUB_PLAN)
     assert_contains(phase_3, "`module_record`", SUB_PLAN)
@@ -401,13 +552,15 @@ def validate_phase3_source_docs() -> None:
         assert_contains(sds, state, SDS)
     for field in REQUIRED_MODULE_FIELDS:
         assert_contains(sds, field, SDS)
-    for code in REQUIRED_DRIFT_CODES:
+    for code in REQUIRED_MANIFEST_DRIFT_CODES:
         assert_contains(sds, f"`{code}`", SDS)
 
     service = read(SERVICE)
     assert_contains(service, "## Phase 3 Implementation Gates", SERVICE)
     for state in REQUIRED_PHASE3_STATES:
         assert_contains(service, state, SERVICE)
+    for code in REQUIRED_MANIFEST_DRIFT_CODES:
+        assert_contains(service, f"`{code}`", SERVICE)
     assert_contains(service, "`scripts/validate_repository_layout_phase3.py`", SERVICE)
 
     tech_stack = read(TECH_STACK)
@@ -451,6 +604,7 @@ def validate_fixture_drift_cases() -> None:
     base = load_toml(MANIFEST)
     actual_members = actual_cargo_members()
     actual_packages = actual_package_roots()
+    observed_fixture_codes: set[str] = set()
 
     def assert_code(mutator, expected_code: str) -> None:
         fixture = deepcopy(base)
@@ -466,6 +620,7 @@ def validate_fixture_drift_cases() -> None:
             raise AssertionError(
                 f"fixture drift case expected {expected_code}, observed {detail}"
             )
+        observed_fixture_codes.add(expected_code)
 
     assert_code(lambda data: data.pop("schema_version", None), "missing_schema_version")
 
@@ -473,6 +628,11 @@ def validate_fixture_drift_cases() -> None:
         data["modules"].append(deepcopy(data["modules"][0]))
 
     assert_code(duplicate_module, "duplicate_module_name")
+
+    def invalid_path(data: dict) -> None:
+        data["modules"][0]["path"] = "../outside"
+
+    assert_code(invalid_path, "invalid_path")
 
     def missing_path(data: dict) -> None:
         data["modules"][0]["path"] = "missing/path"
@@ -499,6 +659,11 @@ def validate_fixture_drift_cases() -> None:
 
     assert_code(forbidden_generated_path, "forbidden_generated_path")
 
+    def cargo_member_drift(data: dict) -> None:
+        data["modules"][0]["cargo_package"] = "wrong-package-name"
+
+    assert_code(cargo_member_drift, "cargo_member_drift")
+
     findings = collect_manifest_findings(
         base,
         discovered_cargo_members=actual_members,
@@ -506,6 +671,15 @@ def validate_fixture_drift_cases() -> None:
     )
     if "unlisted_module" not in {finding.code for finding in findings}:
         raise AssertionError("fixture drift case expected unlisted_module")
+    observed_fixture_codes.add("unlisted_module")
+
+    missing_fixture_codes = sorted(
+        set(REQUIRED_FOCUSED_DRIFT_FIXTURES) - observed_fixture_codes
+    )
+    if missing_fixture_codes:
+        raise AssertionError(
+            f"focused drift fixtures missing coverage for: {missing_fixture_codes}"
+        )
 
 
 def validate_local_planning_trail() -> None:
