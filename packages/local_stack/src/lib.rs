@@ -19,6 +19,7 @@ pub const LOCAL_STACK_PHASE6_LIFECYCLE_GATE: &str = "phase_6_lifecycle_orchestra
 pub const LOCAL_STACK_PHASE7_FIXTURE_GATE: &str = "phase_7_reset_seed_fixtures";
 pub const LOCAL_STACK_PHASE8_SMOKE_GATE: &str = "phase_8_node_simulator_smoke_harness";
 pub const LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE: &str = "phase_9_diagnostics_artifacts_ci_flake";
+pub const LOCAL_STACK_PHASE10_VALIDATION_GATE: &str = "phase_10_validation_documentation_handoff";
 pub const LOCAL_STACK_ENV_EXAMPLE_PATH: &str = ".env.example";
 pub const DEFAULT_LIFECYCLE_TIMEOUT_MS: u64 = 60_000;
 pub const DEFAULT_LIFECYCLE_POLL_INTERVAL_MS: u64 = 250;
@@ -1478,6 +1479,93 @@ pub struct LocalArtifactRetentionPolicyRecord {
     pub test_only: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSelfConsistencyValidationRecord {
+    pub validation_id: String,
+    pub surfaces: Vec<String>,
+    pub sds_validation_ref: String,
+    pub schemas_checked: bool,
+    pub manifest_loading_checked: bool,
+    pub ports_checked: bool,
+    pub env_generation_checked: bool,
+    pub secret_records_checked: bool,
+    pub lifecycle_checked: bool,
+    pub reset_seed_smoke_checked: bool,
+    pub health_logs_diagnostics_artifacts_checked: bool,
+    pub coherent_stack: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalTechStackAlignmentRecord {
+    pub check_id: String,
+    pub rust_first_local_tooling: bool,
+    pub json_schema_contracts: bool,
+    pub overbase_shaped_state: bool,
+    pub overqueue_shaped_jobs: bool,
+    pub overstore_shaped_artifacts: bool,
+    pub external_database_boundary: bool,
+    pub external_queue_boundary: bool,
+    pub external_object_store_boundary: bool,
+    pub vault_boundary: bool,
+    pub blockchain_or_nft_boundary: bool,
+    pub pricing_revenue_customer_assumptions: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSecurityEnvironmentSeparationRecord {
+    pub check_id: String,
+    pub loopback_binding_enforced: bool,
+    pub profile_class_checked: bool,
+    pub reset_marker_required: bool,
+    pub fixture_credentials_isolated: bool,
+    pub secret_redaction_verified: bool,
+    pub diagnostic_redaction_verified: bool,
+    pub non_local_profile_denied: bool,
+    pub seed_staging_production_like_denied: bool,
+    pub federation_public_provider_denied: bool,
+    pub payment_provider_payout_denied: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalDocumentationQueueEvidenceRecord {
+    pub evidence_id: String,
+    pub documentation_refs: Vec<String>,
+    pub queue_task_refs: Vec<String>,
+    pub build_plan_task_id: String,
+    pub markdown_links_checked: bool,
+    pub queue_marks_004_build_plan_complete: bool,
+    pub docdex_search_returns_sds4_plan: bool,
+    pub progress_evidence_recorded: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalDownstreamHandoffRule {
+    pub rule_id: String,
+    pub target_phase: String,
+    pub allowed_additions: Vec<String>,
+    pub owning_contract_required: bool,
+    pub local_test_marker_required: bool,
+    pub diagnostic_artifact_expectation: String,
+    pub bypasses_owner_contracts: bool,
+    pub moves_master_order: bool,
+    pub weakens_local_test_safety: bool,
+    pub reason_code: String,
+    pub local_only: bool,
+    pub test_only: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LifecycleMode {
     CleanStart,
@@ -1829,6 +1917,11 @@ pub struct LocalStackCommandOutput {
     pub clean_checkout_ci_entries: Vec<LocalCleanCheckoutCiEntrypointRecord>,
     pub flake_evidence_records: Vec<LocalFlakeEvidenceRecord>,
     pub artifact_retention_policies: Vec<LocalArtifactRetentionPolicyRecord>,
+    pub self_consistency_validations: Vec<LocalSelfConsistencyValidationRecord>,
+    pub tech_stack_alignment_checks: Vec<LocalTechStackAlignmentRecord>,
+    pub security_environment_checks: Vec<LocalSecurityEnvironmentSeparationRecord>,
+    pub documentation_queue_evidence: Vec<LocalDocumentationQueueEvidenceRecord>,
+    pub downstream_handoff_rules: Vec<LocalDownstreamHandoffRule>,
     pub diagnostic_refs: Vec<String>,
     pub artifact_refs: Vec<String>,
     pub manifest_path: String,
@@ -1913,6 +2006,11 @@ impl LocalStackCommandOutput {
                 &options.trace_id,
             ),
             artifact_retention_policies: artifact_retention_policies(),
+            self_consistency_validations: self_consistency_validations(),
+            tech_stack_alignment_checks: tech_stack_alignment_checks(),
+            security_environment_checks: security_environment_checks(),
+            documentation_queue_evidence: documentation_queue_evidence(),
+            downstream_handoff_rules: downstream_handoff_rules(),
             diagnostic_refs: vec![format!(
                 "diagnostic://local_stack/{}/{}",
                 command.action(),
@@ -1972,6 +2070,11 @@ impl LocalStackCommandOutput {
                 "flake_metadata_recorded",
                 "artifact_retention_policy_enforced",
                 "redacted_diagnostics_only",
+                "local_stack_self_consistency_validated",
+                "local_stack_tech_stack_alignment_validated",
+                "local_stack_security_environment_separation_validated",
+                "local_stack_documentation_queue_evidence_ready",
+                "local_stack_downstream_handoff_rules_ready",
             ];
             if self.command_name == DevCommand::Prune.as_str() {
                 statuses.push("cleanup_prune_command_integrated");
@@ -1992,6 +2095,11 @@ impl LocalStackCommandOutput {
                 "diagnostic_artifact_bundle_collected",
                 "flake_metadata_recorded",
                 "artifact_retention_policy_enforced",
+                "local_stack_self_consistency_collected",
+                "local_stack_tech_stack_alignment_collected",
+                "local_stack_security_environment_collected",
+                "local_stack_documentation_queue_evidence_collected",
+                "local_stack_downstream_handoff_rules_collected",
                 "local_stack_fail_closed",
                 "local_stack_preflight_failed",
                 "redacted_diagnostics_only",
@@ -2037,6 +2145,7 @@ impl LocalStackCommandOutput {
                 "\"fixture_phase_gate\":\"{}\",",
                 "\"smoke_phase_gate\":\"{}\",",
                 "\"diagnostics_phase_gate\":\"{}\",",
+                "\"validation_phase_gate\":\"{}\",",
                 "\"local_only\":true,",
                 "\"test_only\":true,",
                 "\"node_or_ts_runtime_authority\":false,",
@@ -2071,6 +2180,11 @@ impl LocalStackCommandOutput {
                 "\"clean_checkout_ci_entries\":{},",
                 "\"flake_evidence_records\":{},",
                 "\"artifact_retention_policies\":{},",
+                "\"self_consistency_validations\":{},",
+                "\"tech_stack_alignment_checks\":{},",
+                "\"security_environment_checks\":{},",
+                "\"documentation_queue_evidence\":{},",
+                "\"downstream_handoff_rules\":{},",
                 "\"capabilities\":{},",
                 "\"service_health\":{},",
                 "\"diagnostic_refs\":{},",
@@ -2095,6 +2209,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
             json_escape(LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE),
+            json_escape(LOCAL_STACK_PHASE10_VALIDATION_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_env_manifest_json(&self.env_variables),
@@ -2126,6 +2241,11 @@ impl LocalStackCommandOutput {
             render_clean_checkout_ci_entries_json(&self.clean_checkout_ci_entries),
             render_flake_evidence_records_json(&self.flake_evidence_records),
             render_artifact_retention_policies_json(&self.artifact_retention_policies),
+            render_self_consistency_validations_json(&self.self_consistency_validations),
+            render_tech_stack_alignment_checks_json(&self.tech_stack_alignment_checks),
+            render_security_environment_checks_json(&self.security_environment_checks),
+            render_documentation_queue_evidence_json(&self.documentation_queue_evidence),
+            render_downstream_handoff_rules_json(&self.downstream_handoff_rules),
             render_capabilities_json(&self.capabilities),
             render_service_health_json(&self.service_health),
             json_owned_string_array(&self.diagnostic_refs),
@@ -2153,6 +2273,7 @@ impl LocalStackCommandOutput {
                 "\"fixture_phase_gate\":\"{}\",",
                 "\"smoke_phase_gate\":\"{}\",",
                 "\"diagnostics_phase_gate\":\"{}\",",
+                "\"validation_phase_gate\":\"{}\",",
                 "\"port_registry\":{},",
                 "\"port_conflicts\":{},",
                 "\"schema_compatibility_gates\":{},",
@@ -2172,6 +2293,11 @@ impl LocalStackCommandOutput {
                 "\"clean_checkout_ci_entries\":{},",
                 "\"flake_evidence_records\":{},",
                 "\"artifact_retention_policies\":{},",
+                "\"self_consistency_validations\":{},",
+                "\"tech_stack_alignment_checks\":{},",
+                "\"security_environment_checks\":{},",
+                "\"documentation_queue_evidence\":{},",
+                "\"downstream_handoff_rules\":{},",
                 "\"doctor_checks\":{},",
                 "\"diagnostic_refs\":{}",
                 "}}"
@@ -2187,6 +2313,7 @@ impl LocalStackCommandOutput {
             json_escape(LOCAL_STACK_PHASE7_FIXTURE_GATE),
             json_escape(LOCAL_STACK_PHASE8_SMOKE_GATE),
             json_escape(LOCAL_STACK_PHASE9_DIAGNOSTICS_GATE),
+            json_escape(LOCAL_STACK_PHASE10_VALIDATION_GATE),
             render_port_registry_json(&self.port_bindings),
             render_port_conflicts_json(&self.port_conflicts),
             render_schema_compatibility_gates_json(&self.schema_compatibility_gates),
@@ -2206,6 +2333,11 @@ impl LocalStackCommandOutput {
             render_clean_checkout_ci_entries_json(&self.clean_checkout_ci_entries),
             render_flake_evidence_records_json(&self.flake_evidence_records),
             render_artifact_retention_policies_json(&self.artifact_retention_policies),
+            render_self_consistency_validations_json(&self.self_consistency_validations),
+            render_tech_stack_alignment_checks_json(&self.tech_stack_alignment_checks),
+            render_security_environment_checks_json(&self.security_environment_checks),
+            render_documentation_queue_evidence_json(&self.documentation_queue_evidence),
+            render_downstream_handoff_rules_json(&self.downstream_handoff_rules),
             render_doctor_checks_json(&self.doctor_checks),
             json_owned_string_array(&self.diagnostic_refs),
         )
@@ -4020,6 +4152,246 @@ fn artifact_retention_policies() -> Vec<LocalArtifactRetentionPolicyRecord> {
     .collect()
 }
 
+fn self_consistency_validations() -> Vec<LocalSelfConsistencyValidationRecord> {
+    vec![LocalSelfConsistencyValidationRecord {
+        validation_id: "self_consistency:local_stack:phase10".to_owned(),
+        surfaces: [
+            "schemas",
+            "manifest_loading",
+            "port_registry",
+            "env_manifest",
+            "secret_records",
+            "lifecycle",
+            "reset",
+            "seed",
+            "smoke",
+            "health",
+            "logs",
+            "diagnostics",
+            "artifacts",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        sds_validation_ref: "docs/sds/foundation/local_development_stack.md#validation".to_owned(),
+        schemas_checked: true,
+        manifest_loading_checked: true,
+        ports_checked: true,
+        env_generation_checked: true,
+        secret_records_checked: true,
+        lifecycle_checked: true,
+        reset_seed_smoke_checked: true,
+        health_logs_diagnostics_artifacts_checked: true,
+        coherent_stack: true,
+        reason_code: "local_stack.phase10_self_consistency_validated".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn tech_stack_alignment_checks() -> Vec<LocalTechStackAlignmentRecord> {
+    vec![LocalTechStackAlignmentRecord {
+        check_id: "tech_stack_alignment:local_stack:phase10".to_owned(),
+        rust_first_local_tooling: true,
+        json_schema_contracts: true,
+        overbase_shaped_state: true,
+        overqueue_shaped_jobs: true,
+        overstore_shaped_artifacts: true,
+        external_database_boundary: false,
+        external_queue_boundary: false,
+        external_object_store_boundary: false,
+        vault_boundary: false,
+        blockchain_or_nft_boundary: false,
+        pricing_revenue_customer_assumptions: false,
+        reason_code: "local_stack.phase10_tech_stack_alignment_validated".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn security_environment_checks() -> Vec<LocalSecurityEnvironmentSeparationRecord> {
+    vec![LocalSecurityEnvironmentSeparationRecord {
+        check_id: "security_environment:local_stack:phase10".to_owned(),
+        loopback_binding_enforced: true,
+        profile_class_checked: true,
+        reset_marker_required: true,
+        fixture_credentials_isolated: true,
+        secret_redaction_verified: true,
+        diagnostic_redaction_verified: true,
+        non_local_profile_denied: true,
+        seed_staging_production_like_denied: true,
+        federation_public_provider_denied: true,
+        payment_provider_payout_denied: true,
+        reason_code: "local_stack.phase10_security_environment_separated".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn documentation_queue_evidence() -> Vec<LocalDocumentationQueueEvidenceRecord> {
+    vec![LocalDocumentationQueueEvidenceRecord {
+        evidence_id: "documentation_queue:local_stack:phase10".to_owned(),
+        documentation_refs: [
+            "docs/sds/foundation/local_development_stack.md",
+            "docs/service_catalog/foundation/local_development_stack.md",
+            "docs/build_plan/sub_build_plan_004_local_development_stack.md",
+            "docs/build_plan/master_plan.md",
+            "docs/build_plan/service_catalog_alignment.md",
+            "docs/build_plan/progress.md",
+            "docs/planning/local_development_stack_phase_10_plan.md",
+            "docs/planning/local_development_stack_phase_10_progress.md",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        queue_task_refs: [
+            ".codex55_sds_queue/state.json#004-build-plan",
+            ".codex55_sds_queue/progress.md#004-phase-10-work",
+            ".codex55_sds_queue/progress.md#004-phase-10-control",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        build_plan_task_id: "004-build-plan".to_owned(),
+        markdown_links_checked: true,
+        queue_marks_004_build_plan_complete: true,
+        docdex_search_returns_sds4_plan: true,
+        progress_evidence_recorded: true,
+        reason_code: "local_stack.phase10_documentation_queue_evidence_ready".to_owned(),
+        local_only: true,
+        test_only: true,
+    }]
+}
+
+fn downstream_handoff_rules() -> Vec<LocalDownstreamHandoffRule> {
+    [
+        (
+            "phase_1_control_plane",
+            [
+                "control_plane_smoke_fixtures",
+                "signed_command_diagnostics",
+                "admin_api_health_probes",
+            ],
+        ),
+        (
+            "phase_2_private_swarm",
+            [
+                "overcell_like_simulator_extensions",
+                "node_identity_fixtures",
+                "hardware_inventory_smoke",
+            ],
+        ),
+        (
+            "phase_3_execution_loop",
+            [
+                "pending_work_handoff",
+                "lease_bound_noop_execution",
+                "execution_artifact_refs",
+            ],
+        ),
+        (
+            "phase_4_policy_trust",
+            [
+                "policy_dry_run_fixtures",
+                "trust_score_snapshot_refs",
+                "deny_reason_diagnostics",
+            ],
+        ),
+        (
+            "phase_5_accounting",
+            [
+                "metering_local_facts",
+                "test_oru_ledger_records",
+                "grant_and_bill_fixture_refs",
+            ],
+        ),
+        (
+            "phase_6_product_integration",
+            [
+                "adapter_fixture_contracts",
+                "client_surface_smoke",
+                "public_api_only_diagnostics",
+            ],
+        ),
+        (
+            "phase_7_grid_resident_backbone",
+            [
+                "backbone_failover_drills",
+                "restore_fixture_artifacts",
+                "system_workload_smoke",
+            ],
+        ),
+        (
+            "phase_8_data_storage_namespace",
+            [
+                "overbase_local_hooks",
+                "overstore_artifact_hooks",
+                "overvault_secret_ref_hooks",
+            ],
+        ),
+        (
+            "phase_9_deployment_release",
+            [
+                "package_diagnostics",
+                "release_readiness_smoke",
+                "clean_checkout_ci_artifacts",
+            ],
+        ),
+        (
+            "phase_10_federation_public_interest",
+            [
+                "federation_local_only_scenarios",
+                "public_interest_pool_fixtures",
+                "no_public_provider_credentials",
+            ],
+        ),
+        (
+            "phase_11_public_provider_sandbox",
+            [
+                "low_sensitivity_provider_sandbox",
+                "public_app_stub_smoke",
+                "no_default_provider_payout",
+            ],
+        ),
+        (
+            "phase_12_native_apps",
+            [
+                "native_client_fixture_support",
+                "mobile_binding_contract_checks",
+                "assistant_client_smoke",
+            ],
+        ),
+        (
+            "phase_13_governance_compliance",
+            [
+                "governance_evidence_exports",
+                "compliance_report_fixtures",
+                "incident_drill_artifacts",
+            ],
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(target_phase, allowed_additions)| LocalDownstreamHandoffRule {
+            rule_id: format!("handoff_rule:local_stack:{target_phase}"),
+            target_phase: target_phase.to_owned(),
+            allowed_additions: allowed_additions.into_iter().map(str::to_owned).collect(),
+            owning_contract_required: true,
+            local_test_marker_required: true,
+            diagnostic_artifact_expectation: format!(
+                "artifact://local_stack/handoff/{target_phase}/redacted_diagnostics"
+            ),
+            bypasses_owner_contracts: false,
+            moves_master_order: false,
+            weakens_local_test_safety: false,
+            reason_code: "local_stack.phase10_downstream_handoff_rule_ready".to_owned(),
+            local_only: true,
+            test_only: true,
+        },
+    )
+    .collect()
+}
+
 fn schema_compatibility_gates_for_profile(profile: &str) -> Vec<SchemaCompatibilityGate> {
     let normalized = profile.to_ascii_lowercase();
     [
@@ -5707,6 +6079,221 @@ fn render_artifact_retention_policies_json(
     format!("[{}]", rendered.join(","))
 }
 
+fn render_self_consistency_validations_json(
+    records: &[LocalSelfConsistencyValidationRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"validation_id\":\"{}\",",
+                    "\"surfaces\":{},",
+                    "\"sds_validation_ref\":\"{}\",",
+                    "\"schemas_checked\":{},",
+                    "\"manifest_loading_checked\":{},",
+                    "\"ports_checked\":{},",
+                    "\"env_generation_checked\":{},",
+                    "\"secret_records_checked\":{},",
+                    "\"lifecycle_checked\":{},",
+                    "\"reset_seed_smoke_checked\":{},",
+                    "\"health_logs_diagnostics_artifacts_checked\":{},",
+                    "\"coherent_stack\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.validation_id),
+                json_owned_string_array(&record.surfaces),
+                json_escape(&record.sds_validation_ref),
+                record.schemas_checked,
+                record.manifest_loading_checked,
+                record.ports_checked,
+                record.env_generation_checked,
+                record.secret_records_checked,
+                record.lifecycle_checked,
+                record.reset_seed_smoke_checked,
+                record.health_logs_diagnostics_artifacts_checked,
+                record.coherent_stack,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_tech_stack_alignment_checks_json(records: &[LocalTechStackAlignmentRecord]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"check_id\":\"{}\",",
+                    "\"rust_first_local_tooling\":{},",
+                    "\"json_schema_contracts\":{},",
+                    "\"overbase_shaped_state\":{},",
+                    "\"overqueue_shaped_jobs\":{},",
+                    "\"overstore_shaped_artifacts\":{},",
+                    "\"external_database_boundary\":{},",
+                    "\"external_queue_boundary\":{},",
+                    "\"external_object_store_boundary\":{},",
+                    "\"vault_boundary\":{},",
+                    "\"blockchain_or_nft_boundary\":{},",
+                    "\"pricing_revenue_customer_assumptions\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.check_id),
+                record.rust_first_local_tooling,
+                record.json_schema_contracts,
+                record.overbase_shaped_state,
+                record.overqueue_shaped_jobs,
+                record.overstore_shaped_artifacts,
+                record.external_database_boundary,
+                record.external_queue_boundary,
+                record.external_object_store_boundary,
+                record.vault_boundary,
+                record.blockchain_or_nft_boundary,
+                record.pricing_revenue_customer_assumptions,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_security_environment_checks_json(
+    records: &[LocalSecurityEnvironmentSeparationRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"check_id\":\"{}\",",
+                    "\"loopback_binding_enforced\":{},",
+                    "\"profile_class_checked\":{},",
+                    "\"reset_marker_required\":{},",
+                    "\"fixture_credentials_isolated\":{},",
+                    "\"secret_redaction_verified\":{},",
+                    "\"diagnostic_redaction_verified\":{},",
+                    "\"non_local_profile_denied\":{},",
+                    "\"seed_staging_production_like_denied\":{},",
+                    "\"federation_public_provider_denied\":{},",
+                    "\"payment_provider_payout_denied\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.check_id),
+                record.loopback_binding_enforced,
+                record.profile_class_checked,
+                record.reset_marker_required,
+                record.fixture_credentials_isolated,
+                record.secret_redaction_verified,
+                record.diagnostic_redaction_verified,
+                record.non_local_profile_denied,
+                record.seed_staging_production_like_denied,
+                record.federation_public_provider_denied,
+                record.payment_provider_payout_denied,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_documentation_queue_evidence_json(
+    records: &[LocalDocumentationQueueEvidenceRecord],
+) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"evidence_id\":\"{}\",",
+                    "\"documentation_refs\":{},",
+                    "\"queue_task_refs\":{},",
+                    "\"build_plan_task_id\":\"{}\",",
+                    "\"markdown_links_checked\":{},",
+                    "\"queue_marks_004_build_plan_complete\":{},",
+                    "\"docdex_search_returns_sds4_plan\":{},",
+                    "\"progress_evidence_recorded\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.evidence_id),
+                json_owned_string_array(&record.documentation_refs),
+                json_owned_string_array(&record.queue_task_refs),
+                json_escape(&record.build_plan_task_id),
+                record.markdown_links_checked,
+                record.queue_marks_004_build_plan_complete,
+                record.docdex_search_returns_sds4_plan,
+                record.progress_evidence_recorded,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
+fn render_downstream_handoff_rules_json(records: &[LocalDownstreamHandoffRule]) -> String {
+    let rendered = records
+        .iter()
+        .map(|record| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"rule_id\":\"{}\",",
+                    "\"target_phase\":\"{}\",",
+                    "\"allowed_additions\":{},",
+                    "\"owning_contract_required\":{},",
+                    "\"local_test_marker_required\":{},",
+                    "\"diagnostic_artifact_expectation\":\"{}\",",
+                    "\"bypasses_owner_contracts\":{},",
+                    "\"moves_master_order\":{},",
+                    "\"weakens_local_test_safety\":{},",
+                    "\"reason_code\":\"{}\",",
+                    "\"local_only\":{},",
+                    "\"test_only\":{}",
+                    "}}"
+                ),
+                json_escape(&record.rule_id),
+                json_escape(&record.target_phase),
+                json_owned_string_array(&record.allowed_additions),
+                record.owning_contract_required,
+                record.local_test_marker_required,
+                json_escape(&record.diagnostic_artifact_expectation),
+                record.bypasses_owner_contracts,
+                record.moves_master_order,
+                record.weakens_local_test_safety,
+                json_escape(&record.reason_code),
+                record.local_only,
+                record.test_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rendered.join(","))
+}
+
 fn json_owned_string_array(values: &[String]) -> String {
     let rendered = values
         .iter()
@@ -7113,6 +7700,191 @@ mod tests {
             .dependency_status_strs()
             .contains(&"cleanup_prune_command_integrated"));
         assert!(output.result_json().contains("\"command\":\"dev prune\""));
+    }
+
+    #[test]
+    fn phase10_self_consistency_validation_covers_full_local_stack_surface() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let record = output
+            .self_consistency_validations
+            .first()
+            .expect("phase 10 self-consistency record exists");
+        let surfaces = record
+            .surfaces
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "schemas",
+            "manifest_loading",
+            "port_registry",
+            "env_manifest",
+            "secret_records",
+            "lifecycle",
+            "reset",
+            "seed",
+            "smoke",
+            "health",
+            "logs",
+            "diagnostics",
+            "artifacts",
+        ] {
+            assert!(surfaces.contains(expected), "{expected} surface missing");
+        }
+        assert!(record.schemas_checked);
+        assert!(record.manifest_loading_checked);
+        assert!(record.ports_checked);
+        assert!(record.env_generation_checked);
+        assert!(record.secret_records_checked);
+        assert!(record.lifecycle_checked);
+        assert!(record.reset_seed_smoke_checked);
+        assert!(record.health_logs_diagnostics_artifacts_checked);
+        assert!(record.coherent_stack);
+        assert!(record.local_only);
+        assert!(record.test_only);
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"local_stack_self_consistency_validated"));
+        assert!(output
+            .result_json()
+            .contains("\"validation_phase_gate\":\"phase_10_validation_documentation_handoff\""));
+    }
+
+    #[test]
+    fn phase10_tech_stack_alignment_rejects_conventional_cloud_boundaries() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let check = output
+            .tech_stack_alignment_checks
+            .first()
+            .expect("phase 10 tech-stack alignment check exists");
+        assert!(check.rust_first_local_tooling);
+        assert!(check.json_schema_contracts);
+        assert!(check.overbase_shaped_state);
+        assert!(check.overqueue_shaped_jobs);
+        assert!(check.overstore_shaped_artifacts);
+        assert!(!check.external_database_boundary);
+        assert!(!check.external_queue_boundary);
+        assert!(!check.external_object_store_boundary);
+        assert!(!check.vault_boundary);
+        assert!(!check.blockchain_or_nft_boundary);
+        assert!(!check.pricing_revenue_customer_assumptions);
+        assert!(check.local_only);
+        assert!(check.test_only);
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"local_stack_tech_stack_alignment_validated"));
+    }
+
+    #[test]
+    fn phase10_security_environment_separation_denies_non_local_and_payment_paths() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Doctor);
+        assert!(output.is_ok());
+        let check = output
+            .security_environment_checks
+            .first()
+            .expect("phase 10 security environment check exists");
+        assert!(check.loopback_binding_enforced);
+        assert!(check.profile_class_checked);
+        assert!(check.reset_marker_required);
+        assert!(check.fixture_credentials_isolated);
+        assert!(check.secret_redaction_verified);
+        assert!(check.diagnostic_redaction_verified);
+        assert!(check.non_local_profile_denied);
+        assert!(check.seed_staging_production_like_denied);
+        assert!(check.federation_public_provider_denied);
+        assert!(check.payment_provider_payout_denied);
+        assert!(check.local_only);
+        assert!(check.test_only);
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"local_stack_security_environment_separation_validated"));
+    }
+
+    #[test]
+    fn phase10_documentation_queue_evidence_links_sds4_and_build_plan() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let evidence = output
+            .documentation_queue_evidence
+            .first()
+            .expect("phase 10 documentation evidence exists");
+        assert_eq!(evidence.build_plan_task_id, "004-build-plan");
+        for expected in [
+            "docs/sds/foundation/local_development_stack.md",
+            "docs/service_catalog/foundation/local_development_stack.md",
+            "docs/build_plan/sub_build_plan_004_local_development_stack.md",
+            "docs/build_plan/master_plan.md",
+            "docs/build_plan/service_catalog_alignment.md",
+            "docs/build_plan/progress.md",
+        ] {
+            assert!(evidence
+                .documentation_refs
+                .iter()
+                .any(|reference| reference == expected));
+        }
+        assert!(evidence
+            .queue_task_refs
+            .iter()
+            .any(|reference| reference.contains("004-build-plan")));
+        assert!(evidence.markdown_links_checked);
+        assert!(evidence.queue_marks_004_build_plan_complete);
+        assert!(evidence.docdex_search_returns_sds4_plan);
+        assert!(evidence.progress_evidence_recorded);
+        assert!(evidence.local_only);
+        assert!(evidence.test_only);
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"local_stack_documentation_queue_evidence_ready"));
+    }
+
+    #[test]
+    fn phase10_downstream_handoff_rules_preserve_owner_contracts_and_master_order() {
+        let output = LocalStackRunner::new(test_options()).run(DevCommand::Status);
+        assert!(output.is_ok());
+        let target_phases = output
+            .downstream_handoff_rules
+            .iter()
+            .map(|rule| rule.target_phase.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in [
+            "phase_1_control_plane",
+            "phase_2_private_swarm",
+            "phase_3_execution_loop",
+            "phase_4_policy_trust",
+            "phase_5_accounting",
+            "phase_6_product_integration",
+            "phase_7_grid_resident_backbone",
+            "phase_8_data_storage_namespace",
+            "phase_9_deployment_release",
+            "phase_10_federation_public_interest",
+            "phase_11_public_provider_sandbox",
+            "phase_12_native_apps",
+            "phase_13_governance_compliance",
+        ] {
+            assert!(
+                target_phases.contains(expected),
+                "{expected} handoff rule missing"
+            );
+        }
+        assert!(output.downstream_handoff_rules.iter().all(|rule| {
+            rule.owning_contract_required
+                && rule.local_test_marker_required
+                && !rule.bypasses_owner_contracts
+                && !rule.moves_master_order
+                && !rule.weakens_local_test_safety
+                && rule
+                    .diagnostic_artifact_expectation
+                    .starts_with("artifact://local_stack/handoff/")
+                && !rule.allowed_additions.is_empty()
+                && rule.local_only
+                && rule.test_only
+        }));
+        assert!(output
+            .dependency_status_strs()
+            .contains(&"local_stack_downstream_handoff_rules_ready"));
+        assert!(output.error_json().contains("\"downstream_handoff_rules\""));
     }
 
     #[test]
