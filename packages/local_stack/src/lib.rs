@@ -4246,8 +4246,8 @@ fn documentation_queue_evidence() -> Vec<LocalDocumentationQueueEvidenceRecord> 
         .collect(),
         queue_task_refs: [
             ".codex55_sds_queue/state.json#004-build-plan",
-            ".codex55_sds_queue/progress.md#004-phase-10-work",
-            ".codex55_sds_queue/progress.md#004-phase-10-control",
+            ".codex55_sds_queue/state.json#004-phase-10-work",
+            ".codex55_sds_queue/state.json#004-phase-10-control",
         ]
         .into_iter()
         .map(str::to_owned)
@@ -7828,6 +7828,14 @@ mod tests {
             .queue_task_refs
             .iter()
             .any(|reference| reference.contains("004-build-plan")));
+        assert!(evidence
+            .queue_task_refs
+            .iter()
+            .any(|reference| reference.contains("004-phase-10-work")));
+        assert!(evidence
+            .queue_task_refs
+            .iter()
+            .any(|reference| reference.contains("004-phase-10-control")));
         assert!(evidence.markdown_links_checked);
         assert!(evidence.queue_marks_004_build_plan_complete);
         assert!(evidence.docdex_search_returns_sds4_plan);

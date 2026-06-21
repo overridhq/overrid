@@ -19,7 +19,6 @@ MASTER_PLAN = Path("docs/build_plan/master_plan.md")
 CROSSWALK = Path("docs/build_plan/service_catalog_alignment.md")
 BUILD_PROGRESS = Path("docs/build_plan/progress.md")
 QUEUE_STATE = Path(".codex55_sds_queue/state.json")
-QUEUE_PROGRESS = Path(".codex55_sds_queue/progress.md")
 PHASE_PLAN = Path("docs/planning/local_development_stack_phase_10_plan.md")
 PHASE_PROGRESS = Path("docs/planning/local_development_stack_phase_10_progress.md")
 TECH_STACK = Path("docs/overrid_tech_stack_choice.md")
@@ -34,7 +33,6 @@ REQUIRED_FILES = [
     CROSSWALK,
     BUILD_PROGRESS,
     QUEUE_STATE,
-    QUEUE_PROGRESS,
     PHASE_PLAN,
     PHASE_PROGRESS,
     TECH_STACK,
@@ -99,6 +97,19 @@ def assert_true(condition: bool, message: str) -> None:
 
 def assert_contains(text: str, expected: str, source: Path) -> None:
     assert_true(expected in text, f"{source} missing required text: {expected}")
+
+
+def require_queue_task(tasks: dict[str, Any], task_id: str) -> dict[str, Any]:
+    task = tasks.get(task_id)
+    assert_true(isinstance(task, dict), f"queue state missing {task_id}")
+    assert_true(task.get("task_id") == task_id, f"{task_id} task_id drifted")
+    return task
+
+
+def assert_task_completed(task: dict[str, Any], task_id: str) -> None:
+    assert_true(task.get("status") == "complete", f"{task_id} is not complete")
+    assert_true(task.get("last_exit_code") == 0, f"{task_id} did not exit cleanly")
+    assert_true(task.get("timed_out") is False, f"{task_id} timed out")
 
 
 def run(command: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -167,7 +178,6 @@ def check_docs_source_and_queue() -> None:
     phase_progress = read_text(PHASE_PROGRESS)
     tech_stack = read_text(TECH_STACK)
     suite = read_text(SUITE_VALIDATOR)
-    queue_progress = read_text(QUEUE_PROGRESS)
     queue_state = load_json(QUEUE_STATE)
 
     for expected in [
@@ -194,6 +204,8 @@ def check_docs_source_and_queue() -> None:
         "Local Development Stack Phase 10 Progress",
         "Validation Evidence",
         "004-build-plan",
+        "004-phase-10-work",
+        "004-phase-10-control",
     ]:
         assert_contains(phase_progress, expected, PHASE_PROGRESS)
     for expected in [
@@ -212,12 +224,27 @@ def check_docs_source_and_queue() -> None:
     )
 
     tasks = queue_state.get("tasks", {})
-    build_plan = tasks.get("004-build-plan")
-    assert_true(isinstance(build_plan, dict), "queue state missing 004-build-plan")
-    assert_true(build_plan.get("status") == "complete", "004-build-plan is not complete")
-    assert_true(build_plan.get("last_exit_code") == 0, "004-build-plan did not exit cleanly")
-    assert_contains(queue_progress, "004-phase-10-work", QUEUE_PROGRESS)
-    assert_contains(queue_progress, "004-phase-10-control", QUEUE_PROGRESS)
+    assert_true(isinstance(tasks, dict), "queue state tasks must be an object")
+    assert_task_completed(require_queue_task(tasks, "004-build-plan"), "004-build-plan")
+    phase_work = require_queue_task(tasks, "004-phase-10-work")
+    assert_task_completed(phase_work, "004-phase-10-work")
+    assert_true(phase_work.get("phase") == 10, "004-phase-10-work phase drifted")
+    assert_true(phase_work.get("stage") == "phase_work", "004-phase-10-work stage drifted")
+    phase_control = require_queue_task(tasks, "004-phase-10-control")
+    assert_true(phase_control.get("phase") == 10, "004-phase-10-control phase drifted")
+    assert_true(
+        phase_control.get("stage") == "phase_control",
+        "004-phase-10-control stage drifted",
+    )
+    assert_true(
+        phase_control.get("status") in {"running", "complete"},
+        "004-phase-10-control must be recorded as running or complete",
+    )
+    if phase_control.get("status") == "complete":
+        assert_true(
+            phase_control.get("last_exit_code") == 0,
+            "004-phase-10-control did not exit cleanly",
+        )
 
     for expected in [
         "LOCAL_STACK_PHASE10_VALIDATION_GATE",
@@ -352,6 +379,14 @@ def check_docs_evidence(result: dict[str, Any], dependency_status: list[str]) ->
     assert_true(
         any("004-build-plan" in reference for reference in evidence["queue_task_refs"]),
         "queue evidence missing 004-build-plan",
+    )
+    assert_true(
+        any("004-phase-10-work" in reference for reference in evidence["queue_task_refs"]),
+        "queue evidence missing 004-phase-10-work",
+    )
+    assert_true(
+        any("004-phase-10-control" in reference for reference in evidence["queue_task_refs"]),
+        "queue evidence missing 004-phase-10-control",
     )
     for key in [
         "markdown_links_checked",
