@@ -74,6 +74,62 @@ Repository Layout is a governance and build-contract artifact, not a runtime ser
   - Output: Governance rule for layout changes and removals.
   - Validation: Review checklist rejects undocumented new top-level folders, uncontracted modules, and removed paths with stale references.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Source | Required link | Gate state |
+| --- | --- | --- |
+| Numbered SDS | `docs/sds/foundation/repository_layout.md` links to `docs/build_plan/sub_build_plan_005_repository_layout.md`. | `attached` |
+| Service catalog | `docs/service_catalog/foundation/repository_layout.md` links to this sub-build plan and the detailed SDS. | `attached` |
+| Master build plan | `docs/build_plan/master_plan.md` lists SDS #5 and this sub-build plan in the per-SDS table. | `attached` |
+| Build-plan crosswalk | `docs/build_plan/service_catalog_alignment.md` maps SDS #5 to Phase 0 and this sub-build plan. | `attached` |
+| Tech stack decision | `docs/overrid_tech_stack_choice.md` remains the Rust-first/native-Overrid stack constraint for later layout implementation. | `attached` |
+| Phase planning trail | `docs/planning/repository_layout_phase_01_plan.md` and `docs/planning/repository_layout_phase_01_progress.md` record implementation and validation evidence. | `attached` |
+
+#### Frozen Repository-Layout Boundary
+
+Repository Layout is a governance, build-contract, and validation artifact. It is not a network service, not a runtime service registry, not a deployment orchestrator, not a configuration database, not a production configuration source, not hidden service discovery, not an external cloud account boundary, not a service-storage shortcut, and not a shortcut around service contracts.
+
+The `boundary_frozen` gate means later phases may consume or validate repository-layout records, but they must not move this artifact into runtime service behavior.
+
+The allowed Phase 1 output is documented boundary evidence plus validation. Runtime folders, Rust crates, command execution, manifests, local state, and `layout:check` implementation start only in later Repository Layout phases.
+
+#### Master Phase Gate Matrix
+
+| Master phase | Repository Layout gate state | Rule |
+| --- | --- | --- |
+| 0 | `master_phase_0_owned` | Repository Layout first becomes buildable in Phase 0 and owns workspace shape, command names, schema/source paths, generated/local ignore rules, and validation contracts. |
+| 1 | `later_phase_consumer` | Control-plane work consumes the Phase 0 layout and must not move layout governance into runtime services. |
+| 2 | `later_phase_consumer` | Seed private swarm work consumes service/node-agent paths after owning SDS docs justify implementation. |
+| 3 | `later_phase_consumer` | Private execution loop work consumes packages, tests, and specs without bypassing shared contracts. |
+| 4 | `later_phase_consumer` | Trust/policy work may add modules only through layout-change governance. |
+| 5 | `later_phase_consumer` | Accounting work may add modules only through layout-change governance and no pricing/revenue assumptions. |
+| 6 | `later_phase_consumer` | Product integration work may add UI/client paths only as documented consumers of Overgate/admin contracts. |
+| 7 | `later_phase_consumer` | Grid-resident work may justify service splits only with measured operational/security pressure. |
+| 8 | `later_phase_consumer` | Storage/namespace work may add native primitives only through SDS-backed contracts. |
+| 9 | `later_phase_consumer` | Deployment work consumes package/deployment specs without turning Repository Layout into an orchestrator. |
+| 10 | `later_phase_consumer` | Federation/public-interest work consumes existing module and specs paths unless docs justify expansion. |
+| 11 | `later_phase_consumer` | Public-provider work cannot add uncontracted public/test paths. |
+| 12 | `later_phase_consumer` | Native app work adds client/app paths only after phase and SDS docs justify them. |
+| 13 | `later_phase_consumer` | Governance hardening may deprecate or remove paths only through documented lifecycle states. |
+
+#### Resolved SDS Decision Checklist
+
+- `resolved_decision_carried`: Rust-owned command registry remains the canonical semantic command path; shell, Make, just, or npm wrappers may only be thin aliases.
+- `resolved_decision_carried`: `services/control-plane` remains one modular Rust process through Phase 3 by default, with future splits requiring measured rationale and updated SDS/spec links.
+- `resolved_decision_carried`: language-neutral `packages/schemas` authority owns canonical JSON Schema contracts, with optional Protobuf only for justified compact internal contracts.
+- `resolved_decision_carried`: generated/local ignore rules keep build output, generated SDK/types/docs, fixture outputs, local state, logs, caches, temporary object chunks, and secret-bearing files out of source control and Docdex indexing where appropriate.
+- `resolved_decision_carried`: the minimal `overrid.workspace.toml` manifest is module inventory and validation metadata, not runtime configuration.
+
+#### Layout-Change Governance Lifecycle
+
+Every new top-level directory, package group, generated path, service boundary, deprecation, or removal must move through `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, `accepted`, `deprecated`, and `removed` states as applicable. The `governance_required` gate rejects undocumented top-level folders, uncontracted modules, generated paths without ignore rules, and removed paths with stale references.
+
+#### Documentation Update Rule
+
+Any accepted layout change must update the numbered SDS, service catalog entry, sub-build plan, master build plan or phase doc when phase placement changes, build-plan crosswalk, relevant docs/specs contract, and phase progress evidence before implementation is accepted.
+
 ## Phase 2: Top-Level Directory Contracts And Workspace Shape
 
 ### Work Items

@@ -169,6 +169,29 @@ Layout change lifecycle:
 
 No runtime service state should depend on this lifecycle.
 
+## Phase-Gate Boundary Decisions
+
+SDS #5 starts in [Phase 0: Foundation](../../build_plan/phase_00_foundation.md) and is tracked by [SUB BUILD PLAN #5 - Repository Layout](../../build_plan/sub_build_plan_005_repository_layout.md). Phase 1 freezes the attachment, boundary, and governance gates before any layout command or manifest implementation starts.
+
+Repository Layout is a governance/build-contract/validation artifact, not a network service, not a runtime service registry, not a deployment orchestrator, not a configuration database, not a production configuration source, not hidden service discovery, not an external cloud account boundary, not a service-storage shortcut, and not a shortcut around service contracts.
+
+Phase-gate states:
+
+- `attached`: SDS, service catalog, master plan, build-plan crosswalk, and phase planning docs link to the SDS #5 sub-build plan.
+- `boundary_frozen`: later implementation must preserve the non-runtime Repository Layout boundary.
+- `master_phase_0_owned`: Phase 0 owns the initial workspace shape, command names, schema/source paths, generated/local ignore rules, and validation contracts.
+- `later_phase_consumer`: Phases 1 through 13 consume the established layout and may expand it only when their SDS and phase docs justify new boundaries.
+- `resolved_decision_carried`: later implementation must preserve Rust-owned command registry, modular control-plane through Phase 3, language-neutral `packages/schemas` authority, generated/local ignore rules, and minimal `overrid.workspace.toml` manifest.
+- `governance_required`: every new top-level directory, package group, generated path, service boundary, deprecation, or removal must move through `proposed`, `scaffolded`, `contracted`, `wired`, `validated`, `accepted`, `deprecated`, and `removed` states as applicable.
+
+Resolved Phase 1 decisions:
+
+- Rust-owned command registry is canonical; wrappers may only call the same semantic command paths.
+- The modular control-plane process through Phase 3 remains the default until measured operational/security pressure justifies a split.
+- Language-neutral `packages/schemas` authority owns canonical JSON Schema contracts, with Protobuf allowed only for justified compact internal contracts.
+- Generated/local ignore rules keep build output, local state, caches, fixture outputs, temporary object chunks, generated bindings, and secret-bearing files out of source control and Docdex indexing where appropriate.
+- Minimal `overrid.workspace.toml` manifest records module inventory and validation metadata only; it must not become runtime configuration.
+
 ## Policy And Security
 
 - Commit only examples for secret-bearing files, never real secrets.
