@@ -80,3 +80,15 @@ The Phase 6 SDK gate adds ergonomic workload helpers while keeping runtime autho
 - Status, result, and cancellation helpers: `build_command_status_request()`, `build_workload_status_request()`, `build_job_status_request()`, `build_workload_result_request()`, `build_cancellation_status_request()`, `SdkWorkloadStatusRecord::from_service()`, and `build_workload_cancellation_request()` use public control-plane paths and require service evidence before failed, cancelled, timed-out, duplicate, dead-letter, or completed states are treated as true.
 - Policy dry-run: `build_policy_dry_run_request()` is gated by `negotiate_sdk_capability()` for `SdkOptionalHelper::PolicyDryRun`; `decode_policy_dry_run_result()` returns matched policy refs, reason codes, placement class, and correction fields without mutating runtime state and must never cache dry-run output as policy truth.
 - Runtime authority boundary: `sdk_phase6_authority_review()` and `validate_phase6_authority_review()` document that workload, manifest, status, result, cancellation, and dry-run helpers are wrappers only; they do not become schedulers, policy engines, direct storage readers, metering truth, or bypasses around Overgate, Overguard, Overqueue, Overrun, Overmeter, or Overwatch.
+
+## Phase 7 Usage, Receipt, ORU, And Dispute Readers
+
+The Phase 7 SDK gate adds read-only accounting helper descriptors while keeping accounting truth in owning Overrid services:
+
+- Accounting read requests: `build_accounting_read_request()` emits read-only descriptors for usage receipts, usage rollups, ORU charge previews, Seal Ledger refs, dispute refs, receipt refs, holds, refund/correction refs, grants, and asset refs behind `SdkOptionalHelper::AccountingReaders`.
+- Readiness gating: `validate_accounting_reader_readiness()` fails closed until Phase 5 accounting APIs, Phase 6 product-integration readiness, supported schema versions, supported SDK majors, and accounting service capabilities are present.
+- Usage receipt views: `decode_usage_receipt_view()` requires service-returned receipt evidence and preserves usage rollup refs, ORU dimension totals, Seal Ledger refs, Overbill refs, Overgrant refs, Overasset refs, policy refs, audit refs, dispute windows, trace ids, and redaction profiles without embedding charge tables.
+- ORU charge previews: `decode_oru_charge_preview()` consumes only service-returned preview objects and keeps client-side settlement decisions disabled.
+- Dispute and correction refs: `decode_dispute_reference_view()` and `build_accounting_error_surface()` surface dispute refs, correction refs, challenge windows, provider payout hold refs, refund refs, and denied-settlement reason refs without masking them behind generic errors.
+- Ref preservation: `verify_accounting_refs_unchanged()` rejects SDK rewrites of Overmeter, ORU Account Service, Seal Ledger, Overbill, Overgrant, Overasset, policy, and audit refs.
+- Accounting authority boundary: `sdk_phase7_authority_review()` and `validate_phase7_authority_review()` reject direct payment-provider calls, embedded charge tables, client-side settlement decisions, and SDK mutation of accounting state.

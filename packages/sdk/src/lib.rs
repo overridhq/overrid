@@ -2,12 +2,14 @@
 
 use std::fmt;
 
+pub mod accounting;
 pub mod command;
 pub mod generated;
 pub mod read;
 pub mod signing;
 pub mod workload;
 
+pub use accounting::*;
 pub use command::*;
 pub use generated::*;
 use overrid_contracts::{
@@ -577,6 +579,7 @@ pub enum SdkFeatureFlag {
     WorkloadSubmission,
     StatusReaders,
     PolicyDryRun,
+    AccountingReaders,
 }
 
 impl SdkFeatureFlag {
@@ -592,6 +595,7 @@ impl SdkFeatureFlag {
             "workload_submission" => Ok(Self::WorkloadSubmission),
             "status_readers" => Ok(Self::StatusReaders),
             "policy_dry_run" => Ok(Self::PolicyDryRun),
+            "accounting_readers" => Ok(Self::AccountingReaders),
             other => Err(SdkError::UnknownFeatureFlag(other.to_owned())),
         }
     }
@@ -608,6 +612,7 @@ impl SdkFeatureFlag {
             Self::WorkloadSubmission => "workload_submission",
             Self::StatusReaders => "status_readers",
             Self::PolicyDryRun => "policy_dry_run",
+            Self::AccountingReaders => "accounting_readers",
         }
     }
 }
