@@ -117,6 +117,45 @@ impl SdkResourceDeclaration {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkDataDeclaration {
+    pub data_ref: String,
+    pub access_mode: String,
+}
+
+impl SdkDataDeclaration {
+    pub fn new(
+        data_ref: impl Into<String>,
+        access_mode: impl Into<String>,
+    ) -> Result<Self, SdkPhase6Error> {
+        let data_ref = data_ref.into();
+        let access_mode = access_mode.into();
+        require_phase6_non_empty(&data_ref, "data ref")?;
+        require_phase6_non_empty(&access_mode, "data access mode")?;
+        Ok(Self {
+            data_ref,
+            access_mode,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkPolicyDeclaration {
+    pub policy_ref: String,
+    pub required: bool,
+}
+
+impl SdkPolicyDeclaration {
+    pub fn new(policy_ref: impl Into<String>, required: bool) -> Result<Self, SdkPhase6Error> {
+        let policy_ref = policy_ref.into();
+        require_phase6_non_empty(&policy_ref, "policy ref")?;
+        Ok(Self {
+            policy_ref,
+            required,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SdkEgressMode {
     DenyAll,
@@ -220,8 +259,8 @@ pub struct SdkWorkloadManifestInput {
     pub workload_class: String,
     pub schema_version: String,
     pub resources: Vec<SdkResourceDeclaration>,
-    pub data_refs: Vec<String>,
-    pub policy_refs: Vec<String>,
+    pub data_refs: Vec<SdkDataDeclaration>,
+    pub policy_refs: Vec<SdkPolicyDeclaration>,
     pub egress: SdkEgressDeclaration,
     pub output: SdkOutputDeclaration,
     pub secret_refs: Vec<SdkSecretReferenceDeclaration>,
@@ -241,8 +280,8 @@ pub struct SdkWorkloadManifest {
     pub workload_class: SdkWorkloadClass,
     pub schema_version: SchemaVersion,
     pub resources: Vec<SdkResourceDeclaration>,
-    pub data_refs: Vec<String>,
-    pub policy_refs: Vec<String>,
+    pub data_refs: Vec<SdkDataDeclaration>,
+    pub policy_refs: Vec<SdkPolicyDeclaration>,
     pub egress: SdkEgressDeclaration,
     pub output: SdkOutputDeclaration,
     pub secret_refs: Vec<SdkSecretReferenceDeclaration>,
@@ -289,10 +328,18 @@ impl SdkWorkloadManifest {
             ));
         }
         for data_ref in &self.data_refs {
-            fields.push(("data_ref".to_owned(), data_ref.clone()));
+            fields.push(("data_ref".to_owned(), data_ref.data_ref.clone()));
+            fields.push((
+                format!("data_access:{}", data_ref.data_ref),
+                data_ref.access_mode.clone(),
+            ));
         }
         for policy_ref in &self.policy_refs {
-            fields.push(("policy_ref".to_owned(), policy_ref.clone()));
+            fields.push(("policy_ref".to_owned(), policy_ref.policy_ref.clone()));
+            fields.push((
+                format!("policy_required:{}", policy_ref.policy_ref),
+                policy_ref.required.to_string(),
+            ));
         }
         for secret_ref in &self.secret_refs {
             fields.push(("secret_ref".to_owned(), secret_ref.secret_ref.clone()));
@@ -311,8 +358,8 @@ pub fn build_workload_manifest(
     if input.resources.is_empty() {
         return Err(SdkPhase6Error::MissingField("resource declarations"));
     }
-    validate_ref_list("data ref", &input.data_refs)?;
-    validate_ref_list("policy ref", &input.policy_refs)?;
+    validate_data_declarations(&input.data_refs)?;
+    validate_policy_declarations(&input.policy_refs)?;
     validate_egress(&input.egress)?;
 
     Ok(SdkWorkloadManifest {
@@ -444,10 +491,7 @@ pub fn decode_workload_submission_response(
     let pending_queue_reached = command_outcome
         .acceptance
         .as_ref()
-        .is_some_and(|acceptance| {
-            acceptance.pending_state.contains("queue")
-                || acceptance.pending_state.contains("pending")
-        });
+        .is_some_and(|acceptance| acceptance.pending_state.contains("queue"));
     let denied_reason_code = command_outcome
         .error
         .as_ref()
@@ -540,6 +584,91 @@ pub fn build_workload_read_request(
         read_only: true,
         public_control_plane_path: true,
     })
+}
+
+pub fn build_command_status_request(
+    endpoint: &OvergateEndpoint,
+    command_ref: impl Into<String>,
+    request_id: impl Into<String>,
+    trace_id: impl Into<String>,
+    schema_version: &str,
+) -> Result<SdkWorkloadReadRequest, SdkPhase6Error> {
+    build_workload_read_request(
+        endpoint,
+        SdkWorkloadReadKind::CommandStatus,
+        command_ref,
+        request_id,
+        trace_id,
+        schema_version,
+    )
+}
+
+pub fn build_workload_status_request(
+    endpoint: &OvergateEndpoint,
+    workload_ref: impl Into<String>,
+    request_id: impl Into<String>,
+    trace_id: impl Into<String>,
+    schema_version: &str,
+) -> Result<SdkWorkloadReadRequest, SdkPhase6Error> {
+    build_workload_read_request(
+        endpoint,
+        SdkWorkloadReadKind::WorkloadStatus,
+        workload_ref,
+        request_id,
+        trace_id,
+        schema_version,
+    )
+}
+
+pub fn build_job_status_request(
+    endpoint: &OvergateEndpoint,
+    job_ref: impl Into<String>,
+    request_id: impl Into<String>,
+    trace_id: impl Into<String>,
+    schema_version: &str,
+) -> Result<SdkWorkloadReadRequest, SdkPhase6Error> {
+    build_workload_read_request(
+        endpoint,
+        SdkWorkloadReadKind::JobStatus,
+        job_ref,
+        request_id,
+        trace_id,
+        schema_version,
+    )
+}
+
+pub fn build_workload_result_request(
+    endpoint: &OvergateEndpoint,
+    workload_ref: impl Into<String>,
+    request_id: impl Into<String>,
+    trace_id: impl Into<String>,
+    schema_version: &str,
+) -> Result<SdkWorkloadReadRequest, SdkPhase6Error> {
+    build_workload_read_request(
+        endpoint,
+        SdkWorkloadReadKind::Result,
+        workload_ref,
+        request_id,
+        trace_id,
+        schema_version,
+    )
+}
+
+pub fn build_cancellation_status_request(
+    endpoint: &OvergateEndpoint,
+    cancellation_ref: impl Into<String>,
+    request_id: impl Into<String>,
+    trace_id: impl Into<String>,
+    schema_version: &str,
+) -> Result<SdkWorkloadReadRequest, SdkPhase6Error> {
+    build_workload_read_request(
+        endpoint,
+        SdkWorkloadReadKind::CancellationStatus,
+        cancellation_ref,
+        request_id,
+        trace_id,
+        schema_version,
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -751,7 +880,12 @@ pub fn build_policy_dry_run_request(
         manifest_ref: input.manifest.manifest_ref,
         request_id: input.request_id.clone(),
         trace_id: input.trace_id.clone(),
-        policy_refs: input.manifest.policy_refs,
+        policy_refs: input
+            .manifest
+            .policy_refs
+            .into_iter()
+            .map(|policy| policy.policy_ref)
+            .collect(),
         schema_version: schema_version.clone(),
         capability,
         headers: phase6_headers(
@@ -1011,6 +1145,29 @@ fn validate_ref_list(field: &'static str, refs: &[String]) -> Result<(), SdkPhas
     Ok(())
 }
 
+fn validate_data_declarations(data_refs: &[SdkDataDeclaration]) -> Result<(), SdkPhase6Error> {
+    if data_refs.is_empty() {
+        return Err(SdkPhase6Error::MissingField("data ref"));
+    }
+    for data_ref in data_refs {
+        require_phase6_non_empty(&data_ref.data_ref, "data ref")?;
+        require_phase6_non_empty(&data_ref.access_mode, "data access mode")?;
+    }
+    Ok(())
+}
+
+fn validate_policy_declarations(
+    policy_refs: &[SdkPolicyDeclaration],
+) -> Result<(), SdkPhase6Error> {
+    if policy_refs.is_empty() {
+        return Err(SdkPhase6Error::MissingField("policy ref"));
+    }
+    for policy_ref in policy_refs {
+        require_phase6_non_empty(&policy_ref.policy_ref, "policy ref")?;
+    }
+    Ok(())
+}
+
 fn validate_egress(egress: &SdkEgressDeclaration) -> Result<(), SdkPhase6Error> {
     match egress.mode {
         SdkEgressMode::DenyAll => Ok(()),
@@ -1131,8 +1288,8 @@ mod tests {
                 SdkResourceDeclaration::new("cpu", "cpu", 2, "cores").unwrap(),
                 SdkResourceDeclaration::new("memory", "memory", 4096, "mb").unwrap(),
             ],
-            data_refs: vec!["data:input:phase6".to_owned()],
-            policy_refs: vec!["policy:deny-public-egress".to_owned()],
+            data_refs: vec![SdkDataDeclaration::new("data:input:phase6", "read").unwrap()],
+            policy_refs: vec![SdkPolicyDeclaration::new("policy:deny-public-egress", true).unwrap()],
             egress: SdkEgressDeclaration::deny_all(),
             output: SdkOutputDeclaration::new("output:phase6", "application/json", "ephemeral")
                 .unwrap(),
@@ -1161,6 +1318,13 @@ mod tests {
         assert!(manifest
             .command_payload_fields()
             .contains(&("runtime_acceptance_claimed".to_owned(), "false".to_owned())));
+        assert!(manifest
+            .command_payload_fields()
+            .contains(&("data_ref".to_owned(), "data:input:phase6".to_owned())));
+        assert!(manifest.command_payload_fields().contains(&(
+            "policy_ref".to_owned(),
+            "policy:deny-public-egress".to_owned()
+        )));
 
         let mut missing_schema = manifest_input();
         missing_schema.schema_version.clear();
@@ -1176,6 +1340,21 @@ mod tests {
             Err(SdkPhase6Error::UnsupportedWorkloadClass(class)) if class == "scheduler_override"
         ));
 
+        let mut missing_data = manifest_input();
+        missing_data.data_refs.clear();
+        assert!(matches!(
+            build_workload_manifest(missing_data),
+            Err(SdkPhase6Error::MissingField("data ref"))
+        ));
+
+        assert!(matches!(
+            SdkDataDeclaration::new("data:input:phase6", ""),
+            Err(SdkPhase6Error::MissingField("data access mode"))
+        ));
+        assert!(matches!(
+            SdkPolicyDeclaration::new("", true),
+            Err(SdkPhase6Error::MissingField("policy ref"))
+        ));
         assert!(matches!(
             SdkResourceDeclaration::new("cpu", "cpu", 0, "cores"),
             Err(SdkPhase6Error::InvalidResourceAmount(resource)) if resource == "cpu"
@@ -1243,6 +1422,19 @@ mod tests {
         assert!(outcome.pending_queue_reached);
         assert!(!outcome.runtime_completion_invented);
         assert!(outcome.denied_reason_code.is_none());
+
+        let pending_without_queue = decode_workload_submission_response(
+            &submission,
+            SdkOvergateResponse::accepted(
+                "trace_phase6_workload",
+                "accepted:workload:phase6:review",
+                "pending_review",
+                vec!["audit:overwatch:phase6:review".to_owned()],
+            ),
+        )
+        .unwrap();
+        assert!(!pending_without_queue.pending_queue_reached);
+        assert!(!pending_without_queue.runtime_completion_invented);
     }
 
     #[test]
@@ -1250,9 +1442,22 @@ mod tests {
         let endpoint =
             OvergateEndpoint::parse("http://127.0.0.1:18080/overgate", EnvironmentClass::Local)
                 .unwrap();
-        let status_request = build_workload_read_request(
+        let command_status_request = build_command_status_request(
             &endpoint,
-            SdkWorkloadReadKind::WorkloadStatus,
+            "command:phase6",
+            "request_phase6_command_status",
+            "trace_phase6_command_status",
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap();
+        assert!(command_status_request.read_only);
+        assert_eq!(
+            command_status_request.route,
+            SDK_PHASE6_COMMAND_STATUS_ROUTE
+        );
+
+        let status_request = build_workload_status_request(
+            &endpoint,
             "workload:phase6",
             "request_phase6_status",
             "trace_phase6_status",
@@ -1262,6 +1467,41 @@ mod tests {
         assert!(status_request.read_only);
         assert!(status_request.public_control_plane_path);
         assert_eq!(status_request.route, SDK_PHASE6_WORKLOAD_STATUS_ROUTE);
+
+        let job_status_request = build_job_status_request(
+            &endpoint,
+            "job:phase6",
+            "request_phase6_job_status",
+            "trace_phase6_job_status",
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap();
+        assert_eq!(job_status_request.route, SDK_PHASE6_JOB_STATUS_ROUTE);
+
+        let result_request = build_workload_result_request(
+            &endpoint,
+            "workload:phase6",
+            "request_phase6_result",
+            "trace_phase6_result",
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap();
+        assert_eq!(result_request.route, SDK_PHASE6_RESULT_ROUTE);
+        assert!(result_request.read_only);
+
+        let cancellation_status_request = build_cancellation_status_request(
+            &endpoint,
+            "cancel:phase6",
+            "request_phase6_cancel_status",
+            "trace_phase6_cancel_status",
+            SUPPORTED_SCHEMA_VERSION,
+        )
+        .unwrap();
+        assert_eq!(
+            cancellation_status_request.route,
+            SDK_PHASE6_CANCELLATION_ROUTE
+        );
+        assert!(cancellation_status_request.read_only);
 
         for state in [
             SdkWorkloadServiceState::Failed,
@@ -1297,6 +1537,22 @@ mod tests {
         assert_eq!(
             dead_letter.dead_letter_ref.as_deref(),
             Some("dead-letter:phase6")
+        );
+
+        let duplicate = SdkWorkloadStatusRecord::from_service(SdkWorkloadStatusInput {
+            state: SdkWorkloadServiceState::Duplicate,
+            service_reported: true,
+            trace_id: "trace_phase6_duplicate".to_owned(),
+            audit_refs: vec!["audit:duplicate".to_owned()],
+            queue_ref: Some("queue:phase6".to_owned()),
+            result_ref: None,
+            duplicate_of: Some("workload:phase6-original".to_owned()),
+            dead_letter_ref: None,
+        })
+        .unwrap();
+        assert_eq!(
+            duplicate.duplicate_of.as_deref(),
+            Some("workload:phase6-original")
         );
 
         assert!(matches!(

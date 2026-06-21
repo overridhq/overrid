@@ -30,6 +30,8 @@ REQUIRED_PHASE6_SYMBOLS = [
     "SDK_PHASE6_RUNTIME_AUTHORITY_OWNERS",
     "SdkWorkloadClass",
     "SdkResourceDeclaration",
+    "SdkDataDeclaration",
+    "SdkPolicyDeclaration",
     "SdkEgressDeclaration",
     "SdkSecretReferenceDeclaration",
     "SdkWorkloadManifestInput",
@@ -42,6 +44,11 @@ REQUIRED_PHASE6_SYMBOLS = [
     "decode_workload_submission_response",
     "SdkWorkloadReadKind",
     "build_workload_read_request",
+    "build_command_status_request",
+    "build_workload_status_request",
+    "build_job_status_request",
+    "build_workload_result_request",
+    "build_cancellation_status_request",
     "SdkWorkloadServiceState",
     "SdkWorkloadStatusRecord",
     "build_workload_cancellation_request",
@@ -159,6 +166,8 @@ def validate_sdk_code_and_readme() -> None:
         "runtime_acceptance_claimed: false",
         "runtime_authority_claimed: false",
         "runtime_completion_invented: false",
+        'acceptance.pending_state.contains("queue")',
+        "pending_review",
         "sdk_invented_terminal_state: false",
         "cacheable_as_policy_truth: false",
         "mutates_runtime_state: false",
@@ -175,6 +184,10 @@ def validate_sdk_code_and_readme() -> None:
         "Overwatch",
     ]:
         assert_contains(workload, expected, SDK_WORKLOAD)
+    if 'acceptance.pending_state.contains("pending")' in workload:
+        raise AssertionError(
+            f"{SDK_WORKLOAD} should not treat generic pending states as pending-queue proof"
+        )
     for expected in [
         "WorkloadManifest",
         "WorkloadSubmission",
@@ -191,7 +204,11 @@ def validate_sdk_code_and_readme() -> None:
         "`build_workload_manifest()`",
         "`submit_workload()`",
         "`decode_workload_submission_response()`",
-        "`build_workload_read_request()`",
+        "`build_command_status_request()`",
+        "`build_workload_status_request()`",
+        "`build_job_status_request()`",
+        "`build_workload_result_request()`",
+        "`build_cancellation_status_request()`",
         "`SdkWorkloadStatusRecord::from_service()`",
         "`build_workload_cancellation_request()`",
         "`build_policy_dry_run_request()`",
