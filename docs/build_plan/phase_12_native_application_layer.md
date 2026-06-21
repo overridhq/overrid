@@ -19,14 +19,15 @@ Native apps are non-profit oriented public utilities. They should charge for res
 
 1. Wallet and usage center.
 2. Personal native AI assistant.
-3. Workspace and office suite.
-4. Directory listings.
-5. Search engine.
-6. Messaging center.
-7. Social photo/video app.
-8. Maps and navigation.
-9. Central AI stewardship interface and governance console.
-10. Mobile service layer for approved native and third-party mobile apps.
+3. Overdesk desktop client shell and resource-provider onboarding.
+4. Workspace and office suite.
+5. Directory listings.
+6. Search engine.
+7. Messaging center.
+8. Social photo/video app.
+9. Maps and navigation.
+10. Central AI stewardship interface and governance console.
+11. Mobile service layer for approved native and third-party mobile apps.
 
 ## Workstream 1: Wallet And Usage Center
 
@@ -61,7 +62,24 @@ Build the assistant using:
 
 The assistant should direct calls when needed rather than forcing every request through one expensive model.
 
-## Workstream 3: Workspace And Office Suite
+## Workstream 3: Overdesk Desktop Client
+
+Build the Phase 12 Overdesk desktop product from [SUB BUILD PLAN #84 - Overdesk Desktop Client](sub_build_plan_084_overdesk_desktop_client.md):
+
+- Desktop shell with account switcher, navigation rail, top address bar, notification center, command palette, local encrypted cache, redacted diagnostics, and support-bundle review.
+- Add This Computer flow for desktop, workstation, server, GPU rig, lab machine, or institution machine onboarding through Node Installer, Hardware Discovery, Overcell, Oververify, Overguard, Overregistry, and Overwatch.
+- Resource Sharing Rules for day/night schedules, exact hour windows, date windows, CPU/GPU/RAM/storage/network percentages, idle-only mode, bandwidth caps, thermal/battery safety, pause, drain, and emergency stop.
+- Access Rules for institutions, organizations, users, tags, purpose tags, private UUID allowlists, deny rules, expiry, periodic review, and Policy Dry-Run API previews.
+- Overrid Browser with `/hugo`-style address resolution through Universal Namespace Service, Overmesh route refs, Overgate/Overguard checks, tabs, bookmarks, history, trust markers, and Search/Directory fallback.
+- Embedded native app sessions for Messaging, Search, Personal AI Assistant, Social, Maps, Wallet, Workspace, Directory, Central AI stewardship, and Overasset views through owner-service route contracts.
+- Wallet and Credits pages that create purchase intents through Wallet/Overbill/ORU/Seal Ledger without local ledger mutation or payment-secret storage.
+- Owned Apps dashboard with app credit usage, credit earnings, resource costs, visitors/source-safe analytics, deployment state, incidents, disputes, app assets, and app-owner exports.
+- Deploy New App wizard over Overpack manifests, Package Validator results, resource estimates, Overguard dry-runs, namespace binding, wallet precheck, Deployment Planner graphs, release strategies, health checks, and rollback requests.
+- Overasset inventory for owned operational assets, capacity rights, app/service ownership, namespace-bound rights, delegations, transfers, disputes, evidence refs, and app/resource bindings.
+
+Overdesk should be the default desktop entry point for users, providers, app owners, and builders. It must remain a client shell and orchestration surface, not a ledger authority, node authority, policy engine, search engine, message store, AI router, maps service, app deployment authority, or asset registry.
+
+## Workstream 4: Workspace And Office Suite
 
 Build the Phase 12 Workspace and Office Suite slice from [SUB BUILD PLAN #75 - Workspace and Office Suite](sub_build_plan_075_workspace_office_suite.md):
 
@@ -77,7 +95,7 @@ Build the Phase 12 Workspace and Office Suite slice from [SUB BUILD PLAN #75 - W
 
 This exercises Overbase, Overstore, Overvault, encrypted Docdex RAG, namespace routes, sharing, metering, Wallet/Usage Center, Search Engine, Messaging Center, Mobile SDK, Mobile Backend Gateway, and mSwarm Runtime Bridge handoffs for app-owned local-first collaboration or offline proposals where appropriate. Workspace must remain a native Overrid service boundary, not a conventional office-suite wrapper, raw object store, vault, search engine, direct-message system, AI model provider, or accounting authority.
 
-## Workstream 4: Directory Listings
+## Workstream 5: Directory Listings
 
 Build a Craigslist-like native directory:
 
@@ -100,7 +118,7 @@ Build a Craigslist-like native directory:
 
 Start with directory listings before broad social media because the abuse surface is smaller and the utility is immediate.
 
-## Workstream 5: Search Engine
+## Workstream 6: Search Engine
 
 Build search across:
 
@@ -133,7 +151,7 @@ The first useful Search slice includes:
 
 Search should be an Overrid-native discovery service, not an external search product wrapper, source-of-truth database, ad auction, paid placement system, private-data bypass, or central AI decision service.
 
-## Workstream 6: Messaging Center
+## Workstream 7: Messaging Center
 
 Build a username-addressed replacement for fragmented email, phone, and chat identities:
 
@@ -152,7 +170,7 @@ Build a username-addressed replacement for fragmented email, phone, and chat ide
 
 Messaging should be a protocol-level utility, not a lock-in product.
 
-## Workstream 7: Social Photo/Video
+## Workstream 8: Social Photo/Video
 
 Build only after stronger moderation and storage controls exist:
 
@@ -175,7 +193,7 @@ Build only after stronger moderation and storage controls exist:
 
 Avoid addiction-driven design. The app should serve people and communities, not maximize compulsive engagement.
 
-## Workstream 8: Maps And Navigation
+## Workstream 9: Maps And Navigation
 
 Build:
 
@@ -192,7 +210,7 @@ Build:
 
 Maps should integrate with directory listings, search, and messaging.
 
-## Workstream 9: Central AI Stewardship Interface
+## Workstream 10: Central AI Stewardship Interface
 
 Build an interface for:
 
@@ -209,7 +227,7 @@ Build an interface for:
 
 The minimum Phase 12 slice is read-heavy and role-aware. It may create a narrow signed-review action envelope, but every mutating action must route to the owning service and retain evidence, privacy, audit, and appeal paths. Formal compliance, threat review, public-reporting governance, and scale hardening continue in Phase 13.
 
-## Workstream 10: Mobile Service Layer
+## Workstream 11: Mobile Service Layer
 
 Build the Phase 12 mobile service layer from [SUB BUILD PLAN #82 - Mobile Backend Gateway](sub_build_plan_082_mobile_backend_gateway.md) and [SUB BUILD PLAN #83 - Mobile SDK](sub_build_plan_083_mobile_sdk.md):
 

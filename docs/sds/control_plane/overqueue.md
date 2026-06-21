@@ -17,6 +17,7 @@ Overqueue is the control-plane persistence layer for accepted work that cannot o
 | Master service catalog | [master_services.md](../../service_catalog/master_services.md) |
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_plane_skeleton.md), [Phase 3: Private Execution Loop](../../build_plan/phase_03_private_execution_loop.md) |
+| Sub-build plan | [SUB BUILD PLAN #11 - Overqueue](../../build_plan/sub_build_plan_011_overqueue.md) |
 
 ## Service Family
 

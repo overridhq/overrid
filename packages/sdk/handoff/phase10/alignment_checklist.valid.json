@@ -1,0 +1,71 @@
+{
+  "artifact_id": "sdk_phase10_alignment_checklist",
+  "capability_profile": "phase10-validation-documentation-downstream-handoff",
+  "artifact_path": "packages/sdk/handoff/phase10/alignment_checklist.valid.json",
+  "master_alignment": "phase1_with_phase0_prerequisites_and_phase6_hardening",
+  "runtime_authority": false,
+  "checks": [
+    "rust_first_sdk_generation",
+    "typescript_web_generated_second_target",
+    "language_neutral_schema_authority",
+    "overgate_only_mutating_calls",
+    "credential_provider_signing"
+  ],
+  "items": [
+    {
+      "domain": "tech_stack",
+      "source_path": "docs/overrid_tech_stack_choice.md",
+      "expected_marker": "Rust-first infrastructure stack",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "generated_bindings_only": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "master_plan",
+      "source_path": "docs/build_plan/master_plan.md",
+      "expected_marker": "First build point remains Phase 1, with Phase 0 prerequisites and Phase 6 product-integration hardening.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "generated_bindings_only": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "sds",
+      "source_path": "docs/sds/foundation/sdk.md",
+      "expected_marker": "The SDK is a versioned developer package, not a standalone runtime service.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "generated_bindings_only": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "service_catalog",
+      "source_path": "docs/service_catalog/foundation/sdk.md",
+      "expected_marker": "Treat the SDK as a versioned client package, not a runtime authority or deployed service.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "generated_bindings_only": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "crosswalk",
+      "source_path": "docs/build_plan/service_catalog_alignment.md",
+      "expected_marker": "Phase 1: Control-Plane Skeleton",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "generated_bindings_only": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    }
+  ]
+}

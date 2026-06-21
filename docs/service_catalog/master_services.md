@@ -107,7 +107,7 @@ flowchart TB
 | 9 | Overpack application deployment planner, package validator, release strategies, provisioning engine |
 | 10 | Federation templates, cross-tenant Overgrant, purpose tags, public-interest pool services |
 | 11 | Public provider onboarding, anti-Sybil checks, public sandbox profile, fraud controls, payout holds |
-| 12 | Wallet, personal AI assistant, workspace, directory listings, search, messaging, social photo/video, maps, central AI stewardship interface |
+| 12 | Overdesk desktop client, wallet, personal AI assistant, workspace, directory listings, search, messaging, social photo/video, maps, central AI stewardship interface |
 | 13 | PIP registry, stewardship reporting, central AI evidence rules, compliance boundaries, threat modeling, incident drills, migration tooling |
 
 ## Per-Service Implementation Files
@@ -126,7 +126,7 @@ The canonical phase-to-service crosswalk lives in [Build Plan to Service Catalog
 | Federation and public capacity | [Federation Template Service](federation_public/federation_template_service.md), [Purpose Tag Registry](federation_public/purpose_tag_registry.md), [Public-Interest Pool Service](federation_public/public_interest_pool_service.md), [Public Provider Onboarding](federation_public/public_provider_onboarding.md), [Public Sandbox Profile](federation_public/public_sandbox_profile.md), [Fraud Control Service](federation_public/fraud_control_service.md) |
 | AI, RAG, and model routing | [Personal AI Assistant](ai_rag_model_routing/personal_ai_assistant.md), [AI Gateway Router](ai_rag_model_routing/ai_gateway_router.md), [Lightweight Classifier](ai_rag_model_routing/lightweight_classifier.md), [ADES Enrichment Adapter](ai_rag_model_routing/ades_enrichment_adapter.md), [Encrypted Docdex RAG Adapter](ai_rag_model_routing/encrypted_docdex_rag_adapter.md), [Central AI Service](ai_rag_model_routing/central_ai_service.md) |
 | Ecosystem adapters | [Docdex Adapter](adapters/docdex_adapter.md), [Mcoda Adapter](adapters/mcoda_adapter.md), [Codali Adapter](adapters/codali_adapter.md), [mSwarm Runtime Bridge](adapters/mswarm_runtime_bridge.md) |
-| Native applications | [Wallet and Usage Center](native_apps/wallet_usage_center.md), [Workspace and Office Suite](native_apps/workspace_office_suite.md), [Directory Listings](native_apps/directory_listings.md), [Search Engine](native_apps/search_engine.md), [Messaging Center](native_apps/messaging_center.md), [Social Photo/Video App](native_apps/social_photo_video_app.md), [Maps and Navigation](native_apps/maps_navigation.md), [Central AI Stewardship Interface](native_apps/central_ai_stewardship_interface.md) |
+| Native applications | [Overdesk Desktop Client](native_apps/overdesk_desktop_client.md), [Wallet and Usage Center](native_apps/wallet_usage_center.md), [Workspace and Office Suite](native_apps/workspace_office_suite.md), [Directory Listings](native_apps/directory_listings.md), [Search Engine](native_apps/search_engine.md), [Messaging Center](native_apps/messaging_center.md), [Social Photo/Video App](native_apps/social_photo_video_app.md), [Maps and Navigation](native_apps/maps_navigation.md), [Central AI Stewardship Interface](native_apps/central_ai_stewardship_interface.md) |
 | Governance, compliance, and operations | [Protocol Improvement Proposal Registry](governance_ops/pip_registry.md), [Stewardship Reporting Service](governance_ops/stewardship_reporting_service.md), [Compliance Boundary Service](governance_ops/compliance_boundary_service.md), [Threat Modeling and Security Review Tracker](governance_ops/threat_modeling_security_review_tracker.md), [Incident Response Service](governance_ops/incident_response_service.md), [Migration Tooling](governance_ops/migration_tooling.md) |
 | Mobile app service layer | [Mobile SDK](mobile/mobile_sdk.md), [Mobile Backend Gateway](mobile/mobile_backend_gateway.md) |
 
@@ -1412,6 +1412,27 @@ Interfaces: mSwarm, Overpass, Overtenant, Overgate, native apps.
 First phase: Phase 6 or earlier if needed by native app runtime.
 
 ## Native Applications
+
+### Overdesk Desktop Client
+
+Purpose: Installable desktop front face for Overrid that lets users add a computer to the network, set resource sharing and access rules, browse Overrid addresses, use native apps, buy credits, inspect owned apps, deploy new apps, and manage Overasset-owned assets.
+
+Build:
+
+- Desktop shell with account switcher, address bar, navigation, notifications, local encrypted cache, diagnostics, and support bundles.
+- Add This Computer onboarding with installer handoff, hardware discovery, benchmark display, first sharing preset, and node health.
+- Resource sharing rules for day/night/hour schedules, resource percentages, idle-only mode, caps, pause, drain, and emergency stop.
+- Access rules for institutions, organizations, users, tags, purpose tags, private UUID allowlists, deny rules, expiry, and dry-run previews.
+- Overrid browser for addresses such as `/hugo`, namespace resolution, route refs, tabs, bookmarks, and search/directory fallback.
+- Native app host for messaging, search, personal AI, social, maps, wallet, workspace, directory, central AI stewardship, and Overasset views.
+- Credit purchase intent flow through Wallet, Overbill, ORU Account Service, and Seal Ledger.
+- Owned apps dashboard for credit usage, credit earnings, resource costs, visitors/source-safe analytics, deployments, incidents, and disputes.
+- Deploy New App wizard through Overpack, Package Validator, Policy Dry-Run API, Deployment Planner, namespace binding, wallet precheck, and Release Strategy Service.
+- Overasset inventory for owned rights, capacity claims, app/service ownership, delegations, transfers, disputes, and related resources.
+
+Interfaces: Overgate, Overpass, Overtenant, Overkey, Overwatch, Node Installer, Hardware Discovery, Overcell, Overguard, Policy Dry-Run API, Universal Namespace Service, Overmesh, Wallet and Usage Center, Overbill, ORU Account Service, Seal Ledger, Overasset, Deployment Planner, Package Validator, native apps.
+
+First phase: Phase 12, with Phase 2/3 node onboarding dependencies and Phase 13 hardening.
 
 ### Wallet and Usage Center
 

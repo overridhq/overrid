@@ -17,7 +17,7 @@ Overrid has four major responsibilities:
 1. Run workloads on participant-owned compute, GPU, storage, network, and service resources.
 2. Govern those workloads through identity, tenant boundaries, policy, trust, verification, audit, and dispute systems.
 3. Account for usage through ORU credits, Seal Ledger, Overmark, Overbill, Overgrant, and Overasset without blockchain, NFTs, or per-transaction fee friction.
-4. Provide native public utilities such as wallet, personal AI, workspace, directory listings, search, messaging, social photo/video sharing, maps, and mobile service access.
+4. Provide native public utilities such as Overdesk desktop client, wallet, personal AI, workspace, directory listings, search, messaging, social photo/video sharing, maps, and mobile service access.
 
 ## Core Documents
 
@@ -49,7 +49,7 @@ The service catalog is organized by service family. Each family has its own fold
 | Federation and public capacity | [docs/service_catalog/federation_public](../service_catalog/federation_public) | Trusted federation templates, purpose tags, public-interest pools, public provider onboarding, public sandbox profiles, and fraud controls. |
 | AI, RAG, and model routing | [docs/service_catalog/ai_rag_model_routing](../service_catalog/ai_rag_model_routing) | Personal AI, central AI, model routing, lightweight classification, ADES enrichment, and encrypted Docdex RAG. |
 | Ecosystem adapters | [docs/service_catalog/adapters](../service_catalog/adapters) | Docdex, Mcoda, Codali, and mSwarm integration bridges. |
-| Native applications | [docs/service_catalog/native_apps](../service_catalog/native_apps) | Wallet, workspace, directory listings, search, messaging, social photo/video, maps, and central AI stewardship UI. |
+| Native applications | [docs/service_catalog/native_apps](../service_catalog/native_apps) | Overdesk desktop client, wallet, workspace, directory listings, search, messaging, social photo/video, maps, and central AI stewardship UI. |
 | Governance and operations | [docs/service_catalog/governance_ops](../service_catalog/governance_ops) | Protocol improvement process, stewardship reporting, compliance boundaries, threat modeling, incident response, and migration tooling. |
 | Mobile service layer | [docs/service_catalog/mobile](../service_catalog/mobile) | Mobile SDK and mobile backend gateway. |
 
@@ -139,6 +139,7 @@ Native apps are built as normal Overrid applications. They do not bypass identit
 
 The planned native apps are:
 
+- Overdesk desktop client.
 - Wallet and usage center.
 - Personal AI assistant.
 - Workspace and office suite.

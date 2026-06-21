@@ -34,6 +34,10 @@ Skeleton in [Phase 1: Control-Plane Skeleton](../../build_plan/phase_01_control_
 
 - [Overqueue SDS](../../sds/control_plane/overqueue.md)
 
+## Sub-Build Plan
+
+- [SUB BUILD PLAN #11 - Overqueue](../../build_plan/sub_build_plan_011_overqueue.md)
+
 ## Design Alignment
 
 - Treat Overqueue as durable queue state and scheduler handoff, not as scheduler, lease, or runner logic.

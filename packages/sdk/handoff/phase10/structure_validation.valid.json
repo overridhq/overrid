@@ -1,0 +1,59 @@
+{
+  "artifact_id": "sdk_phase10_structure_validation",
+  "capability_profile": "phase10-validation-documentation-downstream-handoff",
+  "artifact_path": "packages/sdk/handoff/phase10/structure_validation.valid.json",
+  "source_build_plan": "docs/build_plan/sub_build_plan_006_sdk.md",
+  "phase": 10,
+  "runtime_authority": false,
+  "validation_result": "passed",
+  "gates": [
+    {
+      "gate": "title_prefix",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "# SUB BUILD PLAN #6 - SDK",
+      "validation_method": "scripted_text_check",
+      "passed": true,
+      "runtime_authority": false
+    },
+    {
+      "gate": "attached_sds_link",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "Attached SDS: [docs/sds/foundation/sdk.md](../sds/foundation/sdk.md)",
+      "validation_method": "scripted_text_check",
+      "passed": true,
+      "runtime_authority": false
+    },
+    {
+      "gate": "phase_headings",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "## Phase 10: Validation, Documentation, And Downstream Handoff",
+      "validation_method": "regex_structure_check",
+      "passed": true,
+      "runtime_authority": false
+    },
+    {
+      "gate": "work_item_structure",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "**10.5 Prepare downstream phase handoff**",
+      "validation_method": "regex_structure_check",
+      "passed": true,
+      "runtime_authority": false
+    },
+    {
+      "gate": "design_output_validation_fields",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "Design:",
+      "validation_method": "regex_structure_check",
+      "passed": true,
+      "runtime_authority": false
+    },
+    {
+      "gate": "exit_gate",
+      "source_path": "docs/build_plan/sub_build_plan_006_sdk.md",
+      "required_marker": "## Exit Gate",
+      "validation_method": "scripted_text_check",
+      "passed": true,
+      "runtime_authority": false
+    }
+  ]
+}

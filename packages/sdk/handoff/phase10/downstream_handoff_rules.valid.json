@@ -1,0 +1,209 @@
+{
+  "artifact_id": "sdk_phase10_downstream_handoff_rules",
+  "capability_profile": "phase10-validation-documentation-downstream-handoff",
+  "artifact_path": "packages/sdk/handoff/phase10/downstream_handoff_rules.valid.json",
+  "runtime_authority_profile": "owner_services_not_sdk",
+  "runtime_authority": false,
+  "consumers": [
+    {
+      "consumer": "cli",
+      "consumer_scope": "command submission, status reads, and local diagnostics",
+      "allowed_sdk_primitives": [
+        "generated_models",
+        "signed_command_envelopes",
+        "idempotency_records",
+        "stable_error_objects",
+        "redacted_diagnostics"
+      ],
+      "required_public_api_families": ["/v1/overgate/commands", "/v1/control-plane/status"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "admin_developer_ui",
+      "consumer_scope": "generated client surfaces for admin and developer views",
+      "allowed_sdk_primitives": [
+        "generated_models",
+        "request_helpers",
+        "stable_error_objects",
+        "capability_snapshots",
+        "redacted_diagnostics"
+      ],
+      "required_public_api_families": ["/v1/admin/", "/v1/control-plane/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "docdex_adapter",
+      "consumer_scope": "encrypted RAG workload submission and result refs",
+      "allowed_sdk_primitives": [
+        "workload_manifest_helpers",
+        "signed_command_envelopes",
+        "job_status_refs",
+        "cancellation_refs",
+        "result_refs",
+        "usage_reader_refs"
+      ],
+      "required_public_api_families": ["/v1/overgate/workloads", "/v1/control-plane/workloads/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "mcoda_adapter",
+      "consumer_scope": "agent workload submission, capability refs, and result refs",
+      "allowed_sdk_primitives": [
+        "workload_manifest_helpers",
+        "signed_command_envelopes",
+        "job_status_refs",
+        "cancellation_refs",
+        "result_refs",
+        "usage_reader_refs"
+      ],
+      "required_public_api_families": ["/v1/overgate/workloads", "/v1/control-plane/workloads/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "codali_adapter",
+      "consumer_scope": "code-agent workload manifests and package validation refs",
+      "allowed_sdk_primitives": [
+        "workload_manifest_helpers",
+        "signed_command_envelopes",
+        "job_status_refs",
+        "cancellation_refs",
+        "result_refs",
+        "usage_reader_refs"
+      ],
+      "required_public_api_families": ["/v1/overgate/workloads", "/v1/overgate/packages/validate"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "native_apps",
+      "consumer_scope": "ordinary client helpers for signed requests and redacted diagnostics",
+      "allowed_sdk_primitives": [
+        "generated_models",
+        "credential_provider_refs",
+        "signed_request_helpers",
+        "stable_error_objects",
+        "redacted_diagnostics"
+      ],
+      "required_public_api_families": ["/v1/overgate/", "/v1/control-plane/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "mobile_services",
+      "consumer_scope": "shared generated models and extension points for Phase 12 mobile owners",
+      "allowed_sdk_primitives": [
+        "generated_models",
+        "signing_extension_points",
+        "session_refresh_refs",
+        "sync_cursor_refs",
+        "redacted_diagnostics"
+      ],
+      "required_public_api_families": ["/v1/overgate/", "/v1/control-plane/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "overpack_deployment",
+      "consumer_scope": "deployment package validation and release status helpers",
+      "allowed_sdk_primitives": [
+        "package_validation_helpers",
+        "deployment_status_refs",
+        "release_gate_refs",
+        "stable_error_objects"
+      ],
+      "required_public_api_families": ["/v1/overpack/", "/v1/control-plane/deployments/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "accounting_services",
+      "consumer_scope": "read-only usage and receipt refs returned by accounting owners",
+      "allowed_sdk_primitives": [
+        "usage_rollup_readers",
+        "usage_receipt_readers",
+        "ledger_ref_views",
+        "dispute_ref_views"
+      ],
+      "required_public_api_families": [
+        "/v1/accounting/usage-rollups",
+        "/v1/accounting/usage-receipts"
+      ],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "policy_services",
+      "consumer_scope": "policy dry-run requests and service-returned policy refs",
+      "allowed_sdk_primitives": [
+        "policy_dry_run_requests",
+        "policy_ref_views",
+        "correction_fields",
+        "stable_error_objects"
+      ],
+      "required_public_api_families": ["/v1/policy/dry-run", "/v1/control-plane/policy/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    },
+    {
+      "consumer": "future_language_bindings",
+      "consumer_scope": "generated binding parity checks for later language targets",
+      "allowed_sdk_primitives": [
+        "shared_schema_models",
+        "golden_request_envelopes",
+        "generated_error_objects",
+        "cross_language_contract_tests"
+      ],
+      "required_public_api_families": ["/v1/overgate/", "/v1/control-plane/", "/v1/accounting/"],
+      "owner_authority_retained": true,
+      "allowed_to_bypass_owner_services": false,
+      "allowed_to_store_private_keys": false,
+      "generated_contracts_required": true,
+      "capability_checks_required": true,
+      "runtime_authority": false
+    }
+  ]
+}

@@ -16,7 +16,7 @@ This index lists every detailed SDS document for the Overrid tools, services, ad
 | Federation and public capacity | [Federation Template Service](federation_public/federation_template_service.md), [Fraud Control Service](federation_public/fraud_control_service.md), [Public-Interest Pool Service](federation_public/public_interest_pool_service.md), [Public Provider Onboarding](federation_public/public_provider_onboarding.md), [Public Sandbox Profile](federation_public/public_sandbox_profile.md), [Purpose Tag Registry](federation_public/purpose_tag_registry.md) |
 | AI, RAG, and model routing | [ADES Enrichment Adapter](ai_rag_model_routing/ades_enrichment_adapter.md), [AI Gateway Router](ai_rag_model_routing/ai_gateway_router.md), [Central AI Service](ai_rag_model_routing/central_ai_service.md), [Encrypted Docdex RAG Adapter](ai_rag_model_routing/encrypted_docdex_rag_adapter.md), [Lightweight Classifier](ai_rag_model_routing/lightweight_classifier.md), [Personal AI Assistant](ai_rag_model_routing/personal_ai_assistant.md) |
 | Ecosystem adapters | [Codali Adapter](adapters/codali_adapter.md), [Docdex Adapter](adapters/docdex_adapter.md), [Mcoda Adapter](adapters/mcoda_adapter.md), [mSwarm Runtime Bridge](adapters/mswarm_runtime_bridge.md) |
-| Native applications | [Central AI Stewardship Interface](native_apps/central_ai_stewardship_interface.md), [Directory Listings](native_apps/directory_listings.md), [Maps and Navigation](native_apps/maps_navigation.md), [Messaging Center](native_apps/messaging_center.md), [Search Engine](native_apps/search_engine.md), [Social Photo/Video App](native_apps/social_photo_video_app.md), [Wallet and Usage Center](native_apps/wallet_usage_center.md), [Workspace and Office Suite](native_apps/workspace_office_suite.md) |
+| Native applications | [Central AI Stewardship Interface](native_apps/central_ai_stewardship_interface.md), [Directory Listings](native_apps/directory_listings.md), [Maps and Navigation](native_apps/maps_navigation.md), [Messaging Center](native_apps/messaging_center.md), [Overdesk Desktop Client](native_apps/overdesk_desktop_client.md), [Search Engine](native_apps/search_engine.md), [Social Photo/Video App](native_apps/social_photo_video_app.md), [Wallet and Usage Center](native_apps/wallet_usage_center.md), [Workspace and Office Suite](native_apps/workspace_office_suite.md) |
 | Governance, compliance, and operations | [Compliance Boundary Service](governance_ops/compliance_boundary_service.md), [Incident Response Service](governance_ops/incident_response_service.md), [Migration Tooling](governance_ops/migration_tooling.md), [Protocol Improvement Proposal Registry](governance_ops/pip_registry.md), [Stewardship Reporting Service](governance_ops/stewardship_reporting_service.md), [Threat Modeling and Security Review Tracker](governance_ops/threat_modeling_security_review_tracker.md) |
 | Mobile service layer | [Mobile Backend Gateway](mobile/mobile_backend_gateway.md), [Mobile SDK](mobile/mobile_sdk.md) |
 
@@ -158,10 +158,14 @@ Refined in pass 16, covering the user-requested entries 76 through 80:
 - [Protocol Improvement Proposal Registry](governance_ops/pip_registry.md)
 - [Stewardship Reporting Service](governance_ops/stewardship_reporting_service.md)
 
-Refined in pass 17, covering the user-requested entries 81 through 83 and completing the service SDS set:
+Refined in pass 17, covering the user-requested entries 81 through 83 and completing the initial service SDS set:
 
 - [Threat Modeling and Security Review Tracker](governance_ops/threat_modeling_security_review_tracker.md)
 - [Mobile Backend Gateway](mobile/mobile_backend_gateway.md)
 - [Mobile SDK](mobile/mobile_sdk.md)
 
-All 83 service SDS files have now been reviewed and refined for generated-template risk.
+Added after pass 17:
+
+- [Overdesk Desktop Client](native_apps/overdesk_desktop_client.md)
+
+The service SDS set now contains 84 numbered tools/services. The initial 83 files have been reviewed and refined for generated-template risk; SDS #84 has been added as the desktop front face for the ecosystem.

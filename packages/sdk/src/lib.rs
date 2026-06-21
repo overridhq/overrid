@@ -7,6 +7,7 @@ pub mod bindings;
 pub mod command;
 pub mod fixtures;
 pub mod generated;
+pub mod handoff;
 pub mod read;
 pub mod signing;
 pub mod workload;
@@ -16,6 +17,7 @@ pub use bindings::*;
 pub use command::*;
 pub use fixtures::*;
 pub use generated::*;
+pub use handoff::*;
 use overrid_contracts::{
     cli_contract_set, ensure_supported_schema_version, ContractError, GeneratedContractSet,
     ProfileValidationError, SchemaVersion, SUPPORTED_SCHEMA_VERSION,
