@@ -21,6 +21,7 @@ Rules:
 - Valid examples live under `fixtures/valid`.
 - Rejection examples live under `fixtures/invalid`.
 - Each schema family keeps a `codegen_manifest.json` that names canonical schema paths, fixture roots, generated or projected output paths, source-of-truth status, and validation target.
+- Top-level and nested manifest entries that name canonical schema sources or phase-gated schema artifacts must carry `schema_ownership` metadata.
 
 ## Schema Ownership Metadata
 
@@ -35,6 +36,8 @@ Each schema module must carry ownership metadata before it can move from `draft`
 - `consumer_notes`: known downstream consumers, blockers, and handoff constraints.
 
 Draft schema modules without owner, status, privacy class, compatibility metadata, and consumer notes are `metadata_required` and cannot be released. Released modules must preserve canonical JSON Schema authority, Rust-first validation, typed low-risk extension maps only, strict unknown-field rejection for sensitive objects, current-plus-previous stable major compatibility where external consumers exist, and formal migration plans for authority-sensitive fields.
+
+`scripts/validate_shared_schema_package_phase1.py` checks both top-level manifest metadata and nested `codegen_manifest.json` entries, and fails if any canonical `*.schema.json` source under `packages/schemas` lacks manifest ownership coverage.
 
 ## Generated Binding Boundaries
 

@@ -37,6 +37,20 @@
   "additional_schemas": [
     {
       "phase": "admin_ui_phase3",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI read API schema metadata; TypeScript/web declarations are non-authoritative projections from canonical JSON Schema."
+      },
       "canonical_schema": "packages/schemas/admin_ui/v0/admin_read_api_contracts.schema.json",
       "source_of_truth": "json_schema",
       "rust_first_validation": true,
@@ -52,6 +66,20 @@
   "phase_artifacts": [
     {
       "phase": "admin_ui_phase4",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI client artifact metadata; TypeScript surfaces are non-authoritative projections and remain Overgate-only."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/contracts.ts",
@@ -76,6 +104,20 @@
     },
     {
       "phase": "admin_ui_phase5",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI operational summary artifact metadata; read-only UI helpers remain generated/client-side consumers."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/operator_shell.ts",
@@ -104,6 +146,20 @@
     },
     {
       "phase": "admin_ui_phase6",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI workload timeline artifact metadata; timeline helpers remain read-only Overgate-admin consumers."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/index.ts",
@@ -130,6 +186,20 @@
     },
     {
       "phase": "admin_ui_phase7",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI policy evidence artifact metadata; evidence views stay read-only and reference-only."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/index.ts",
@@ -157,6 +227,20 @@
     },
     {
       "phase": "admin_ui_phase8",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI accounting and usage artifact metadata; accounting views remain read-only and non-authoritative."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/index.ts",
@@ -184,6 +268,20 @@
     },
     {
       "phase": "admin_ui_phase9",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI signed action artifact metadata; action helpers stay bounded by generated contracts and Overgate submission envelopes."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/index.ts",
@@ -213,6 +311,20 @@
     },
     {
       "phase": "admin_ui_phase10",
+      "schema_ownership": {
+        "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+        "downstream_consumers": [
+          "Admin and Developer UI",
+          "Overgate admin API clients",
+          "TypeScript web projection tests",
+          "UI fixture validators"
+        ],
+        "release_status": "reviewed",
+        "privacy_class": "mixed_boundary_metadata",
+        "compatibility_class": "phase_gated_current_plus_previous_major",
+        "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+        "consumer_notes": "Phase-gated Admin UI reliability and handoff artifact metadata; Phase 7 and Phase 13 surfaces remain disabled or readiness-only."
+      },
       "package": "packages/admin_ui_shell",
       "source_files": [
         "packages/admin_ui_shell/src/index.ts",

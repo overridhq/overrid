@@ -45,6 +45,21 @@
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #4 Local Development Stack",
+      "downstream_consumers": [
+        "Local Development Stack",
+        "Integration Test Harness",
+        "CLI",
+        "SDK",
+        "Rust contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Local Development Stack service owner review",
+      "consumer_notes": "Phase-gated local/test schema module metadata; canonical JSON Schema remains source of truth and Rust projection stays non-authoritative."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/local_development_stack.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -97,6 +112,21 @@
   "integration_harness_phase2": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness schema module metadata; fixture and artifact contracts remain canonical JSON Schema with Rust projection checks only."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -150,6 +180,21 @@
   "integration_harness_phase6": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness Phase 6 module metadata; step-runner artifacts stay redacted and schema-owned."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -176,6 +221,21 @@
   "integration_harness_phase7": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness Phase 7 module metadata; exact protocol, DAG, policy, and accounting traces stay schema-owned and secret-free."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -203,6 +263,21 @@
   "integration_harness_phase8": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness Phase 8 module metadata; artifact, redaction, reproduction, and flake evidence stay schema-owned."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -227,6 +302,21 @@
   "integration_harness_phase9": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness Phase 9 module metadata; CI and product integration evidence remains contract-checked and phase-gated."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,
@@ -251,6 +341,21 @@
   "integration_harness_phase10": {
     "schema_family": "integration-harness",
     "schema_version": "integration-harness.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package and SDS #3 Integration Test Harness",
+      "downstream_consumers": [
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Service contract tests"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers with Integration Test Harness service owner review",
+      "consumer_notes": "Phase-gated integration harness Phase 10 module metadata; handoff and downstream readiness evidence stays schema-owned and non-authoritative for runtime services."
+    },
     "canonical_schema": "packages/schemas/overrid_contracts/v0/integration_harness.schema.json",
     "source_of_truth": "json_schema",
     "rust_first_validation": true,

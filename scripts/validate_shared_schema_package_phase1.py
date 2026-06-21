@@ -129,6 +129,21 @@ ALLOWED_RELEASE_STATES = {
     "blocked",
 }
 
+CONTRACTS_MANIFEST_MODULE_KEYS = [
+    "local_development_stack_phase2",
+    "integration_harness_phase2",
+    "integration_harness_phase6",
+    "integration_harness_phase7",
+    "integration_harness_phase8",
+    "integration_harness_phase9",
+    "integration_harness_phase10",
+]
+
+ADMIN_UI_MANIFEST_COLLECTION_KEYS = [
+    "additional_schemas",
+    "phase_artifacts",
+]
+
 
 def read(path: Path) -> str:
     full_path = REPO_ROOT / path
@@ -276,42 +291,95 @@ def validate_cross_doc_alignment() -> None:
     )
 
 
-def validate_manifest_metadata(path: Path) -> None:
+def validate_schema_ownership(ownership: object, path: Path, label: str) -> None:
+    if not isinstance(ownership, dict):
+        raise AssertionError(f"{path} {label} is missing schema_ownership metadata")
+
+    for field in REQUIRED_METADATA_FIELDS:
+        value = ownership.get(field)
+        if value in (None, "", []):
+            raise AssertionError(f"{path} {label}.schema_ownership.{field} is required")
+
+    if ownership["release_status"] not in ALLOWED_RELEASE_STATES:
+        raise AssertionError(f"{path} {label} has invalid release_status")
+    if not isinstance(ownership["downstream_consumers"], list):
+        raise AssertionError(f"{path} {label} downstream_consumers must be a list")
+
+
+def validate_projection_metadata(entry: dict, path: Path, label: str) -> None:
+    for projection_key in ("rust_projection", "typescript_projection"):
+        projection = entry.get(projection_key)
+        if isinstance(projection, dict):
+            if projection.get("non_authoritative") is not True:
+                raise AssertionError(f"{path} {label}.{projection_key} must be non-authoritative")
+
+
+def validate_manifest_entry(entry: object, path: Path, label: str) -> set[str]:
+    if not isinstance(entry, dict):
+        raise AssertionError(f"{path} {label} must be an object")
+
+    validate_schema_ownership(entry.get("schema_ownership"), path, label)
+
+    covered_schemas: set[str] = set()
+    canonical_schema = entry.get("canonical_schema")
+    if canonical_schema is not None:
+        if not isinstance(canonical_schema, str) or not canonical_schema:
+            raise AssertionError(f"{path} {label}.canonical_schema must be a non-empty string")
+        covered_schemas.add(canonical_schema)
+        if not (REPO_ROOT / canonical_schema).is_file():
+            raise AssertionError(f"{path} {label}.canonical_schema does not exist: {canonical_schema}")
+        if entry.get("source_of_truth") != "json_schema":
+            raise AssertionError(f"{path} {label} must keep JSON Schema as source_of_truth")
+        if entry.get("rust_first_validation") is not True:
+            raise AssertionError(f"{path} {label} must keep rust_first_validation true")
+
+    validate_projection_metadata(entry, path, label)
+    return covered_schemas
+
+
+def validate_manifest_metadata(path: Path) -> set[str]:
     raw = read(path)
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise AssertionError(f"{path} must be valid JSON: {exc}") from exc
 
-    ownership = data.get("schema_ownership")
-    if not isinstance(ownership, dict):
-        raise AssertionError(f"{path} is missing schema_ownership metadata")
+    covered_schemas = validate_manifest_entry(data, path, "top-level")
 
-    for field in REQUIRED_METADATA_FIELDS:
-        value = ownership.get(field)
-        if value in (None, "", []):
-            raise AssertionError(f"{path} schema_ownership.{field} is required")
+    if path == CONTRACTS_MANIFEST:
+        for key in CONTRACTS_MANIFEST_MODULE_KEYS:
+            if key not in data:
+                raise AssertionError(f"{path} is missing expected manifest module: {key}")
+            covered_schemas.update(validate_manifest_entry(data[key], path, key))
 
-    if ownership["release_status"] not in ALLOWED_RELEASE_STATES:
-        raise AssertionError(f"{path} has invalid release_status")
-    if not isinstance(ownership["downstream_consumers"], list):
-        raise AssertionError(f"{path} downstream_consumers must be a list")
+    if path == ADMIN_UI_MANIFEST:
+        for collection_key in ADMIN_UI_MANIFEST_COLLECTION_KEYS:
+            collection = data.get(collection_key)
+            if not isinstance(collection, list) or not collection:
+                raise AssertionError(f"{path} {collection_key} must be a non-empty list")
+            for index, entry in enumerate(collection):
+                label = f"{collection_key}[{index}]"
+                covered_schemas.update(validate_manifest_entry(entry, path, label))
 
-    if data.get("source_of_truth") != "json_schema":
-        raise AssertionError(f"{path} must keep JSON Schema as source_of_truth")
-    if data.get("rust_first_validation") is not True:
-        raise AssertionError(f"{path} must keep rust_first_validation true")
-
-    for projection_key in ("rust_projection", "typescript_projection"):
-        projection = data.get(projection_key)
-        if isinstance(projection, dict):
-            if projection.get("non_authoritative") is not True:
-                raise AssertionError(f"{path} {projection_key} must be non-authoritative")
+    return covered_schemas
 
 
 def validate_schema_metadata() -> None:
-    validate_manifest_metadata(CONTRACTS_MANIFEST)
-    validate_manifest_metadata(ADMIN_UI_MANIFEST)
+    covered_schemas: set[str] = set()
+    covered_schemas.update(validate_manifest_metadata(CONTRACTS_MANIFEST))
+    covered_schemas.update(validate_manifest_metadata(ADMIN_UI_MANIFEST))
+
+    schema_sources = {
+        str(path.relative_to(REPO_ROOT))
+        for path in (REPO_ROOT / "packages/schemas").glob("**/*.schema.json")
+    }
+    missing_metadata = sorted(schema_sources - covered_schemas)
+    if missing_metadata:
+        missing = "\n".join(f"- {path}" for path in missing_metadata)
+        raise AssertionError(
+            "Schema sources missing schema_ownership metadata in codegen manifests:\n"
+            f"{missing}"
+        )
 
 
 def validate_local_markdown_links() -> None:
