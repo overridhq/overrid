@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-9"
+manifest_version = "2026-06-21.repository-layout-phase-10"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 9
+layout_phase = 10
 command_consumers = [
     "layout:check",
     "build",
@@ -191,6 +191,11 @@ validation_artifacts = [
     "ci_command_sequence_violation",
     "validation_evidence_missing",
     "artifact_consumer_violation",
+    "sub_build_plan_structure_violation",
+    "tech_stack_alignment_violation",
+    "master_plan_alignment_violation",
+    "source_document_alignment_violation",
+    "downstream_handoff_violation",
 ]
 
 [package_boundary_enforcement]
@@ -530,6 +535,74 @@ violation_artifacts = [
 ]
 validation_script = "scripts/validate_repository_layout_phase9.py"
 
+[alignment_handoff]
+phase_gate = "repository-layout-phase-10"
+states = [
+    "sub_build_plan_structure_validated",
+    "tech_stack_alignment_validated",
+    "master_plan_alignment_validated",
+    "service_catalog_sds_alignment_validated",
+    "downstream_phase_handoff_defined",
+]
+structure_checks = [
+    "title_prefix",
+    "attached_sds_link",
+    "phase_headings_1_through_10",
+    "work_item_design_output_validation_fields",
+    "exit_gate_present",
+    "local_markdown_links",
+]
+tech_stack_alignment_checks = [
+    "rust_first_workspace",
+    "language_neutral_schema_authority",
+    "overrid_shaped_local_primitives",
+    "modular_control_plane_through_phase_3",
+    "no_conventional_cloud_runtime_authority",
+    "no_blockchain_or_pricing_assumptions",
+]
+master_plan_alignment_checks = [
+    "phase_0_through_13_order_unchanged",
+    "sds_5_phase_0_foundation_alignment",
+    "service_catalog_crosswalk_phase_0_alignment",
+    "later_phase_consumer_rules_preserved",
+]
+source_alignment_documents = [
+    "docs/sds/foundation/repository_layout.md",
+    "docs/service_catalog/foundation/repository_layout.md",
+    "docs/build_plan/sub_build_plan_005_repository_layout.md",
+    "docs/build_plan/master_plan.md",
+    "docs/build_plan/service_catalog_alignment.md",
+    "docs/overrid_tech_stack_choice.md",
+]
+phase_planning_documents = [
+    "docs/planning/repository_layout_phase_10_plan.md",
+    "docs/planning/repository_layout_phase_10_progress.md",
+]
+downstream_phase_handoff_rules = [
+    "phase_1_control_plane_modules",
+    "phase_2_node_agent_modules",
+    "phase_3_execution_loop_modules",
+    "phase_4_trust_policy_modules",
+    "phase_5_accounting_modules",
+    "phase_6_product_integration_clients",
+    "phase_7_grid_resident_services",
+    "phase_8_storage_namespace_primitives",
+    "phase_9_deployment_platform_modules",
+    "phase_10_federation_public_interest_modules",
+    "phase_11_public_provider_modules",
+    "phase_12_native_app_clients",
+    "phase_13_governance_hardening_modules",
+]
+downstream_handoff_boundary = "existing_layout_with_sds_backed_expansion_no_top_level_sprawl"
+violation_artifacts = [
+    "sub_build_plan_structure_violation",
+    "tech_stack_alignment_violation",
+    "master_plan_alignment_violation",
+    "source_document_alignment_violation",
+    "downstream_handoff_violation",
+]
+validation_script = "scripts/validate_repository_layout_phase10.py"
+
 [[root_commands]]
 name = "build"
 purpose = "Compile and check implemented Rust workspace packages."
@@ -688,6 +761,11 @@ outputs = [
     "ci_command_sequence_violation",
     "validation_evidence_missing",
     "artifact_consumer_violation",
+    "sub_build_plan_structure_violation",
+    "tech_stack_alignment_violation",
+    "master_plan_alignment_violation",
+    "source_document_alignment_violation",
+    "downstream_handoff_violation",
 ]
 owning_tool = "overrid-cli"
 phase_gate = "phase_0"

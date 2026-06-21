@@ -127,6 +127,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `validation_artifact_consumers_defined`: layout artifacts are consumed by CI, local developer commands, Docdex, and future agents only as build/CI evidence, not Overwatch runtime events.
 - `phase9_validation_defined`: `scripts/validate_repository_layout_phase9.py` validates Phase 9 docs, manifest foundation-integration metadata, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
 
+## Phase 10 Implementation Gates
+
+- `sub_build_plan_structure_validated`: SUB BUILD PLAN #5 keeps its title prefix, attached SDS link, Phase 1 through Phase 10 headings, numbered work items, Design/Output/Validation fields, local Markdown links, Alignment Review, and Exit Gate.
+- `tech_stack_alignment_validated`: the layout remains Rust-first, Cargo-workspace backed, schema-governed, Overrid-shaped for local primitives, and free of conventional cloud runtime authority or unscoped blockchain, NFT, pricing, revenue, or customer-count assumptions.
+- `master_plan_alignment_validated`: the master Phase 0 through Phase 13 order remains unchanged, SDS #5 remains a Phase 0 foundation sub-build plan, and later phases remain consumers of the established layout.
+- `service_catalog_sds_alignment_validated`: the SDS, service plan, sub-build plan, master plan, crosswalk, tech-stack decision, manifest, and phase planning/progress evidence stay mutually linked.
+- `downstream_phase_handoff_defined`: Phases 1 through 13 add modules, contracts, tests, local profiles, generated outputs, and service boundaries inside the existing layout unless SDS-backed phase evidence justifies expansion.
+- `phase10_validation_defined`: `scripts/validate_repository_layout_phase10.py` validates Phase 10 docs, manifest alignment metadata, Rust CLI layout-check evidence, planning trail, suite registration, tech-stack drift scans, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -141,7 +150,8 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase7.py` verifies generated-output ignores, local-state markers, secret-file rules, Docdex indexing hygiene, artifact-redaction expectations, and Phase 7 planning evidence.
 - `scripts/validate_repository_layout_phase8.py` verifies service contract template usage, new-module checklist, module lifecycle, deprecation/removal workflow, cross-document maintenance rules, and Phase 8 planning evidence.
 - `scripts/validate_repository_layout_phase9.py` verifies local-stack discovery metadata, harness discovery metadata, clean-checkout CI behavior, validation evidence, validation artifact consumers, and Phase 9 planning evidence.
+- `scripts/validate_repository_layout_phase10.py` verifies sub-build-plan structure, tech-stack alignment, master-plan and crosswalk alignment, SDS/service-plan references, downstream handoff rules, Rust CLI layout-check records, and Phase 10 planning evidence.
 
 ## Handoff
 
-This enables the shared schema package, local development stack, SDK, CLI, and first control-plane modules.
+This enables the shared schema package, local development stack, integration test harness, SDK, CLI, first control-plane modules, and later Phase 1 through Phase 13 module additions inside the existing manifest-backed layout.

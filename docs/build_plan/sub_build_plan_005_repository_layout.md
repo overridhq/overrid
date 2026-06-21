@@ -711,6 +711,40 @@ Phase 9 layout artifacts include `local_stack_discovery_violation`, `harness_dis
   - Output: Handoff rules for all master phases without new top-level sprawl.
   - Validation: Handoff review confirms later phases can add modules, contracts, tests, local profiles, and generated outputs without changing the master build order or weakening schema/boundary rules.
 
+### Phase 10 Gate Outputs
+
+#### Sub-Build-Plan Structure Validation
+
+The `sub_build_plan_structure_validated` gate requires this document to keep the `SUB BUILD PLAN #5 - Repository Layout` title prefix, attached SDS link, Phase 1 through Phase 10 headings, numbered work items, Design/Output/Validation fields, local Markdown links, Alignment Review, and Exit Gate.
+
+The `sub_build_plan_structure_violation` artifact reports missing or malformed sub-build-plan structure before later phases use this document as a handoff contract.
+
+#### Tech-Stack Alignment Validation
+
+The `tech_stack_alignment_validated` gate confirms Repository Layout remains a Rust-first Cargo workspace contract with language-neutral JSON/JSON Schema authority, optional Protobuf for justified compact internal contracts, Overrid-shaped local primitives, generated binding boundaries, and one modular control-plane process through Phase 3 by default.
+
+This gate rejects conventional cloud runtime authority and unscoped economics assumptions. Lines may mention PostgreSQL, Redis, S3, MinIO, NATS, Kafka, Vault, blockchain, NFT, pricing, revenue, or customer-count only when they explicitly reject those assumptions. The `tech_stack_alignment_violation` artifact records drift.
+
+#### Master-Plan Alignment Validation
+
+The `master_plan_alignment_validated` gate proves the master Phase 0 through Phase 13 order remains unchanged, SDS #5 remains a Phase 0 foundation sub-build plan, and later phase responsibilities remain consumers of the established layout.
+
+The `master_plan_alignment_violation` artifact records drift in the master plan row, service-catalog crosswalk row, or later-phase consumer rule.
+
+#### Service-Catalog And SDS Alignment
+
+The `service_catalog_sds_alignment_validated` gate requires `docs/sds/foundation/repository_layout.md`, `docs/service_catalog/foundation/repository_layout.md`, this sub-build plan, `docs/build_plan/master_plan.md`, `docs/build_plan/service_catalog_alignment.md`, and `docs/overrid_tech_stack_choice.md` to stay mutually linked and aligned.
+
+The `source_document_alignment_violation` artifact records missing links, missing Phase 10 sections, missing validation-script registration, or missing phase planning/progress evidence.
+
+#### Downstream Phase Handoff
+
+The `downstream_phase_handoff_defined` gate documents that Phases 1 through 13 add modules, contracts, schemas, tests, local-stack profiles, generated outputs, and service boundaries inside the existing layout unless an SDS-backed phase update justifies expansion.
+
+The downstream handoff boundary is `existing_layout_with_sds_backed_expansion_no_top_level_sprawl`. The `downstream_handoff_violation` artifact records a missing handoff rule or a proposed top-level expansion without SDS, service-catalog, build-plan, manifest, and validation evidence.
+
+Phase 10 layout artifacts include `sub_build_plan_structure_violation`, `tech_stack_alignment_violation`, `master_plan_alignment_violation`, `source_document_alignment_violation`, and `downstream_handoff_violation`.
+
 ## Alignment Review
 
 - The sub-build plan keeps Repository Layout first build work in master Phase 0, matching the SDS, service catalog entry, Phase 0 plan, and build-plan crosswalk.

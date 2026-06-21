@@ -245,6 +245,22 @@ Gate states:
 
 Phase 9 validation artifacts include `local_stack_discovery_violation`, `harness_discovery_violation`, `ci_command_sequence_violation`, `validation_evidence_missing`, and `artifact_consumer_violation`.
 
+## Phase 10 Alignment And Handoff Decisions
+
+Phase 10 closes Repository Layout by validating the source-document chain, tech-stack constraints, master-plan placement, SDS/service-catalog references, and downstream expansion rules. It does not add runtime service behavior, hidden discovery, production configuration, deployment orchestration, or new top-level sprawl.
+
+Gate states:
+
+- `sub_build_plan_structure_validated`: SUB BUILD PLAN #5 keeps its title prefix, attached SDS link, Phase 1 through Phase 10 headings, numbered work items, Design/Output/Validation fields, local Markdown links, Alignment Review, and Exit Gate.
+- `tech_stack_alignment_validated`: repository layout remains a Rust-first Cargo workspace with language-neutral JSON/JSON Schema authority, Overrid-shaped local primitives, optional Protobuf only for justified compact internal contracts, generated binding boundaries, and no conventional cloud runtime authority.
+- `master_plan_alignment_validated`: master Phase 0 through Phase 13 order remains unchanged, SDS #5 remains a Phase 0 foundation sub-build plan, and later phase responsibilities remain consumers of the established layout.
+- `service_catalog_sds_alignment_validated`: SDS #5, the Repository Layout service plan, SUB BUILD PLAN #5, the master plan row, the service-catalog crosswalk row, and the tech-stack decision remain mutually linked and aligned.
+- `downstream_phase_handoff_defined`: Phases 1 through 13 add modules, contracts, schemas, tests, local-stack profiles, generated outputs, and service boundaries inside the existing structure unless SDS-backed phase evidence justifies expansion.
+
+Phase 10 validation artifacts include `sub_build_plan_structure_violation`, `tech_stack_alignment_violation`, `master_plan_alignment_violation`, `source_document_alignment_violation`, and `downstream_handoff_violation`.
+
+The downstream handoff boundary is `existing_layout_with_sds_backed_expansion_no_top_level_sprawl`: later builders extend the manifest-backed, schema-governed layout through lifecycle evidence rather than inventing undocumented top-level roots.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.
@@ -272,6 +288,11 @@ It should produce validation artifacts:
 - `ci_command_sequence_violation`
 - `validation_evidence_missing`
 - `artifact_consumer_violation`
+- `sub_build_plan_structure_violation`
+- `tech_stack_alignment_violation`
+- `master_plan_alignment_violation`
+- `source_document_alignment_violation`
+- `downstream_handoff_violation`
 
 These are CI/build artifacts, not Overwatch events. Integration tests may still exercise Overwatch through running services.
 
@@ -286,6 +307,7 @@ These are CI/build artifacts, not Overwatch events. Integration tests may still 
 7. Add root command registry and layout check.
 8. Document the new-service checklist.
 9. Keep later service additions aligned with phase docs and the build-plan/service crosswalk.
+10. Validate source-document alignment and hand downstream phases a bounded expansion path.
 
 ## State Machine
 

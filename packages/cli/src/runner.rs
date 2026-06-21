@@ -269,6 +269,11 @@ const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
     "ci_command_sequence_violation",
     "validation_evidence_missing",
     "artifact_consumer_violation",
+    "sub_build_plan_structure_violation",
+    "tech_stack_alignment_violation",
+    "master_plan_alignment_violation",
+    "source_document_alignment_violation",
+    "downstream_handoff_violation",
 ];
 
 pub fn main_entry<I, S>(args: I) -> i32
@@ -1106,6 +1111,69 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "artifact_consumer_boundary",
         "build_ci_evidence_not_overwatch_runtime_events",
         "artifact_consumer_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase10_alignment_handoff",
+        "[alignment_handoff]",
+        "downstream_handoff_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "sub_build_plan_structure_checks",
+        "structure_checks",
+        "sub_build_plan_structure_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "tech_stack_alignment_checks",
+        "tech_stack_alignment_checks",
+        "tech_stack_alignment_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "master_plan_alignment_checks",
+        "master_plan_alignment_checks",
+        "master_plan_alignment_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "source_alignment_documents",
+        "source_alignment_documents",
+        "source_document_alignment_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase10_planning_documents",
+        "phase_planning_documents",
+        "source_document_alignment_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "downstream_phase_handoff_rules",
+        "downstream_phase_handoff_rules",
+        "downstream_handoff_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "downstream_handoff_boundary",
+        "existing_layout_with_sds_backed_expansion_no_top_level_sprawl",
+        "downstream_handoff_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase10_validation_script",
+        "scripts/validate_repository_layout_phase10.py",
+        "source_document_alignment_violation",
     );
     push_lifecycle_state_validity(&mut records, repo_root);
     push_accepted_module_validation_evidence(&mut records, repo_root);
@@ -5617,6 +5685,34 @@ mod tests {
     }
 
     #[test]
+    fn layout_check_emits_phase10_alignment_handoff_records() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        for check in [
+            "phase10_alignment_handoff",
+            "sub_build_plan_structure_checks",
+            "tech_stack_alignment_checks",
+            "master_plan_alignment_checks",
+            "source_alignment_documents",
+            "phase10_planning_documents",
+            "downstream_phase_handoff_rules",
+            "downstream_handoff_boundary",
+            "phase10_validation_script",
+        ] {
+            assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
+        }
+        for artifact in [
+            "sub_build_plan_structure_violation",
+            "tech_stack_alignment_violation",
+            "master_plan_alignment_violation",
+            "source_document_alignment_violation",
+            "downstream_handoff_violation",
+        ] {
+            assert!(result.stdout.contains(artifact));
+        }
+    }
+
+    #[test]
     fn layout_check_rejects_real_phase6_boundary_violations() {
         let temp_root = std::env::temp_dir().join(format!(
             "overrid-phase6-layout-check-{}",
@@ -5804,6 +5900,54 @@ mod tests {
             record.check_name == "artifact_consumer_boundary"
                 && record.status == "failed"
                 && record.reason_code == "artifact_consumer_violation"
+        }));
+
+        std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
+    }
+
+    #[test]
+    fn layout_check_rejects_phase10_alignment_handoff_violations() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "overrid-phase10-layout-check-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        write_test_file(
+            &temp_root,
+            "overrid.workspace.toml",
+            concat!(
+                "[alignment_handoff]\n",
+                "states = [\"sub_build_plan_structure_validated\"]\n",
+                "structure_checks = [\"title_prefix\"]\n",
+                "tech_stack_alignment_checks = [\"rust_first_workspace\"]\n",
+            ),
+        );
+
+        let records = collect_layout_check_records(&temp_root);
+        assert!(records.iter().any(|record| {
+            record.check_name == "master_plan_alignment_checks"
+                && record.status == "failed"
+                && record.reason_code == "master_plan_alignment_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "source_alignment_documents"
+                && record.status == "failed"
+                && record.reason_code == "source_document_alignment_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "downstream_phase_handoff_rules"
+                && record.status == "failed"
+                && record.reason_code == "downstream_handoff_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "downstream_handoff_boundary"
+                && record.status == "failed"
+                && record.reason_code == "downstream_handoff_violation"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "phase10_validation_script"
+                && record.status == "failed"
+                && record.reason_code == "source_document_alignment_violation"
         }));
 
         std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
