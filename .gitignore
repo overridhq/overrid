@@ -1,6 +1,7 @@
 # Local agent/runtime state
 /.docdex/
 /.docdex-state/
+/.overrid/
 .codex55_sds_queue/
 .mcoda/
 .cache/
@@ -9,6 +10,16 @@
 .env
 .env.*
 !.env.example
+*.local.*
+*.secret.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.token
+secrets.*
+id_ed25519
+id_ed25519.pub
 
 # Operating-system/editor noise
 .DS_Store
@@ -25,8 +36,28 @@ coverage/
 node_modules/
 .next/
 .turbo/
+.pnpm-store/
+.yarn/
+.bun/
 .venv/
 venv/
+
+# Generated projections, specs, and local validation artifacts
+docs/specs/generated/*
+!docs/specs/generated/.gitignore
+packages/**/generated/**
+!packages/schemas/admin_ui/generated/
+!packages/schemas/admin_ui/generated/typescript/
+!packages/schemas/admin_ui/generated/typescript/admin_ui_contracts.d.ts
+!packages/schemas/admin_ui/generated/typescript/admin_read_api_contracts.d.ts
+infra/local/state/*
+!infra/local/state/.gitignore
+infra/local/job-tables/*
+!infra/local/job-tables/.gitignore
+infra/local/artifacts/*
+!infra/local/artifacts/.gitignore
+tests/integration/artifacts/*
+!tests/integration/artifacts/.gitignore
 
 # Logs and temporary files
 *.log
@@ -42,6 +73,8 @@ docs/planning/
 docs/planning/*
 !docs/planning/repository_layout_phase_06_plan.md
 !docs/planning/repository_layout_phase_06_progress.md
+!docs/planning/repository_layout_phase_07_plan.md
+!docs/planning/repository_layout_phase_07_progress.md
 docs/old_whitepaper.txt
 docs/**/progress.md
 docs/sds/service_sds_refinement_plan.md

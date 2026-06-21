@@ -34,6 +34,14 @@ as `schema_ref_missing`, `premature_service_split`, `split_review_missing`, and
 harness, `infra/local`, fixture writers, integration artifacts, or docs files
 into runtime authority.
 
+For `SUB BUILD PLAN #5 - Repository Layout` Phase 7, `overrid layout:check`
+also reports artifact-hygiene evidence for `generated_output_ignore_rules_defined`,
+`local_state_ignore_rules_defined`, `secret_file_rules_defined`,
+`docdex_indexing_hygiene_defined`, and `artifact_redaction_expectations_defined`.
+The check emits safe artifact refs such as `local_state_committed`,
+`docdex_index_hygiene_violation`, and `artifact_redaction_violation`; secret-like
+findings report only path and reason metadata, never raw secret values.
+
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust
 projection is consumed by this crate but is not the contract authority.

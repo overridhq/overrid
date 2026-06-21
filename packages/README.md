@@ -21,3 +21,6 @@ Rules:
 - Package additions require owner-layer, master-phase, contract refs, test targets, and docs links before they are accepted.
 - Repository Layout Phase 6 dependency direction groups keep `contracts` as the shared boundary path, `sdk` and `cli` as consumers, and `local_stack`, `integration_harness`, `local_infra`, fixture writers, and integration artifacts as local/test-only helpers.
 - Runtime-facing modules must not import local/test-only helpers or docs files as executable configuration; boundary payloads must cite `packages/schemas`, `overrid-contracts`, or `docs/specs`.
+- Repository Layout Phase 7 generated-output rules keep package caches, generated projections, generated docs/types, coverage, logs, fixture outputs, and temporary object chunks ignored by default.
+- Approved generated projection files must be explicitly listed in `overrid.workspace.toml`; generated projections remain non-authoritative consumers of canonical schema sources.
+- Package validation artifacts must report secret, key, token, signature, private payload, encrypted content, and fixture-credential findings by safe refs only.

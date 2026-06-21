@@ -203,6 +203,20 @@ Gate states:
 
 Phase 6 validation artifacts include `package_boundary_violation`, `schema_ref_missing`, `premature_service_split`, `split_review_missing`, and `local_test_boundary_violation`. These are CI/build artifacts, not Overwatch runtime events.
 
+## Phase 7 Artifact Hygiene And Indexing Decisions
+
+Phase 7 turns generated/local/secret ignore intent into validation metadata. It does not add runtime services, production configuration, deployment topology, hidden service discovery, or external storage product boundaries.
+
+Gate states:
+
+- `generated_output_ignore_rules_defined`: `.gitignore`, `.docdexignore`, and `overrid.workspace.toml` record generated output, dependency cache, coverage, log, generated spec/type/doc, fixture-output, integration artifact, and temporary object-chunk paths.
+- `local_state_ignore_rules_defined`: `.overrid`, `infra/local/state`, `infra/local/job-tables`, `infra/local/artifacts`, and `tests/integration/artifacts` are local/test-only, resettable, marker-gated paths and must not become production state.
+- `secret_file_rules_defined`: source control may contain example files only; secret-like environment, local, key, token, private-key, and fixture-credential paths are rejected without exposing raw values.
+- `docdex_indexing_hygiene_defined`: docs, specs, SDS, build plans, service catalog files, source schemas, handwritten fixtures, and service contract stubs remain indexable while generated artifacts and local caches are excluded.
+- `artifact_redaction_expectations_defined`: layout validation artifacts, docs checks, CI bundles, local-stack exports, and harness artifacts must redact secrets, keys, tokens, signatures, private payloads, encrypted content, and local fixture credentials.
+
+Phase 7 validation artifacts include `generated_file_committed`, `secret_file_committed`, `local_state_committed`, `docdex_index_hygiene_violation`, and `artifact_redaction_violation`.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.
@@ -220,6 +234,9 @@ It should produce validation artifacts:
 - `premature_service_split`
 - `split_review_missing`
 - `local_test_boundary_violation`
+- `local_state_committed`
+- `docdex_index_hygiene_violation`
+- `artifact_redaction_violation`
 
 These are CI/build artifacts, not Overwatch events. Integration tests may still exercise Overwatch through running services.
 

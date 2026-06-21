@@ -211,6 +211,9 @@ const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
             "premature_service_split",
             "split_review_missing",
             "local_test_boundary_violation",
+            "local_state_committed",
+            "docdex_index_hygiene_violation",
+            "artifact_redaction_violation",
         ],
         owning_tool: "overrid-cli",
         phase_gate: "phase_0",
@@ -233,6 +236,9 @@ const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
     "premature_service_split",
     "split_review_missing",
     "local_test_boundary_violation",
+    "local_state_committed",
+    "docdex_index_hygiene_violation",
+    "artifact_redaction_violation",
 ];
 
 pub fn main_entry<I, S>(args: I) -> i32
@@ -810,6 +816,20 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
             "missing_service_contract",
         );
     }
+    for (path, fail_reason) in [
+        (".gitignore", "generated_file_committed"),
+        (".docdexignore", "docdex_index_hygiene_violation"),
+    ] {
+        push_path_presence(
+            &mut records,
+            repo_root,
+            "required_hygiene_file",
+            path,
+            None,
+            "required_hygiene_file_present",
+            fail_reason,
+        );
+    }
 
     for path in [
         "infra/local/state/.gitignore",
@@ -878,6 +898,48 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "runtime_forbidden_dependency_groups",
         "local_test_boundary_violation",
     );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "phase7_artifact_hygiene",
+        "[artifact_hygiene]",
+        "docdex_index_hygiene_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "generated_output_ignore_rules",
+        "generated_output_roots",
+        "generated_file_committed",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "local_state_ignore_rules",
+        "local_state_roots",
+        "local_state_committed",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "secret_file_rules",
+        "secret_file_deny_patterns",
+        "secret_file_committed",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "docdex_indexing_hygiene",
+        "docdex_index_include_roots",
+        "docdex_index_hygiene_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "artifact_redaction_expectations",
+        "redaction_classes",
+        "artifact_redaction_violation",
+    );
     for (group, path, module_id, expected) in [
         (
             "contracts",
@@ -938,6 +1000,100 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
         "layout_check.failed",
     );
     push_generated_specs_clean(&mut records, repo_root);
+    for (check_name, path, fail_reason, module_id) in [
+        (
+            "local_state_marker_clean",
+            "infra/local/state",
+            "local_state_committed",
+            Some("local-infra"),
+        ),
+        (
+            "local_job_table_marker_clean",
+            "infra/local/job-tables",
+            "local_state_committed",
+            Some("local-infra"),
+        ),
+        (
+            "local_artifact_marker_clean",
+            "infra/local/artifacts",
+            "generated_file_committed",
+            Some("local-infra"),
+        ),
+        (
+            "integration_artifact_marker_clean",
+            "tests/integration/artifacts",
+            "generated_file_committed",
+            Some("integration-tests"),
+        ),
+    ] {
+        push_marker_only_directory(
+            &mut records,
+            repo_root,
+            check_name,
+            path,
+            fail_reason,
+            module_id,
+        );
+    }
+    for (ignore_file, marker, check_name, fail_reason) in [
+        (
+            ".gitignore",
+            "target/",
+            "gitignore_generated_output_rule",
+            "generated_file_committed",
+        ),
+        (
+            ".gitignore",
+            "node_modules/",
+            "gitignore_dependency_cache_rule",
+            "generated_file_committed",
+        ),
+        (
+            ".gitignore",
+            ".overrid/",
+            "gitignore_local_state_rule",
+            "local_state_committed",
+        ),
+        (
+            ".gitignore",
+            "packages/**/generated/**",
+            "gitignore_generated_projection_rule",
+            "generated_file_committed",
+        ),
+        (
+            ".gitignore",
+            "*.secret.*",
+            "gitignore_secret_file_rule",
+            "secret_file_committed",
+        ),
+        (
+            ".docdexignore",
+            "docs/specs/generated/",
+            "docdexignore_generated_specs_rule",
+            "docdex_index_hygiene_violation",
+        ),
+        (
+            ".docdexignore",
+            "infra/local/state/",
+            "docdexignore_local_state_rule",
+            "docdex_index_hygiene_violation",
+        ),
+        (
+            ".docdexignore",
+            "packages/**/generated/",
+            "docdexignore_generated_projection_rule",
+            "docdex_index_hygiene_violation",
+        ),
+    ] {
+        push_ignore_file_contains(
+            &mut records,
+            repo_root,
+            ignore_file,
+            marker,
+            check_name,
+            fail_reason,
+        );
+    }
     for path in [
         ".env",
         ".env.local",
@@ -948,6 +1104,7 @@ fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
     ] {
         push_forbidden_path_absent(&mut records, repo_root, path);
     }
+    push_secret_like_paths_absent(&mut records, repo_root);
 
     records
 }
@@ -1138,6 +1295,60 @@ fn push_generated_specs_clean(records: &mut Vec<LayoutCheckRecord>, repo_root: &
     });
 }
 
+fn push_marker_only_directory(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    check_name: &'static str,
+    path: &str,
+    fail_reason: &'static str,
+    module_id: Option<&'static str>,
+) {
+    let clean = std::fs::read_dir(repo_root.join(path))
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .all(|entry| entry.file_name().to_string_lossy() == ".gitignore")
+        })
+        .unwrap_or(false);
+    records.push(LayoutCheckRecord {
+        check_name,
+        status: if clean { "passed" } else { "failed" },
+        reason_code: if clean {
+            "local_or_generated_marker_clean"
+        } else {
+            fail_reason
+        },
+        path: path.to_owned(),
+        owning_phase: "phase_0",
+        module_id,
+    });
+}
+
+fn push_ignore_file_contains(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    ignore_file: &str,
+    marker: &str,
+    check_name: &'static str,
+    fail_reason: &'static str,
+) {
+    let present = std::fs::read_to_string(repo_root.join(ignore_file))
+        .map(|contents| contents.contains(marker))
+        .unwrap_or(false);
+    records.push(LayoutCheckRecord {
+        check_name,
+        status: if present { "passed" } else { "failed" },
+        reason_code: if present {
+            "ignore_rule_present"
+        } else {
+            fail_reason
+        },
+        path: ignore_file.to_owned(),
+        owning_phase: "phase_0",
+        module_id: None,
+    });
+}
+
 fn push_forbidden_path_absent(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path, path: &str) {
     let absent = !repo_root.join(path).exists();
     records.push(LayoutCheckRecord {
@@ -1152,6 +1363,96 @@ fn push_forbidden_path_absent(records: &mut Vec<LayoutCheckRecord>, repo_root: &
         owning_phase: "phase_0",
         module_id: None,
     });
+}
+
+fn push_secret_like_paths_absent(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path) {
+    let first_secret = first_forbidden_secret_like_path(repo_root);
+    records.push(LayoutCheckRecord {
+        check_name: "secret_like_path_absence",
+        status: if first_secret.is_none() {
+            "passed"
+        } else {
+            "failed"
+        },
+        reason_code: if first_secret.is_none() {
+            "secret_file_absent"
+        } else {
+            "secret_file_committed"
+        },
+        path: first_secret.unwrap_or_else(|| "secret-like paths".to_owned()),
+        owning_phase: "phase_0",
+        module_id: None,
+    });
+}
+
+fn first_forbidden_secret_like_path(repo_root: &Path) -> Option<String> {
+    let mut stack = vec![repo_root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let mut entries = std::fs::read_dir(&dir)
+            .ok()?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .collect::<Vec<_>>();
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                if !should_skip_secret_scan_dir(&path) {
+                    stack.push(path);
+                }
+                continue;
+            }
+            let relative = path
+                .strip_prefix(repo_root)
+                .ok()
+                .map(|relative| relative.to_string_lossy().replace('\\', "/"))?;
+            if is_forbidden_secret_like_path(&relative) {
+                return Some(relative);
+            }
+        }
+    }
+    None
+}
+
+fn should_skip_secret_scan_dir(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(
+            ".git"
+                | ".docdex"
+                | ".docdex-state"
+                | ".mcoda"
+                | ".cache"
+                | ".overrid"
+                | "target"
+                | "node_modules"
+                | "coverage"
+                | "logs"
+                | "tmp"
+                | "temp"
+        )
+    )
+}
+
+fn is_forbidden_secret_like_path(relative_path: &str) -> bool {
+    let file_name = relative_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(relative_path)
+        .to_ascii_lowercase();
+    if file_name == ".env.example" || file_name.ends_with(".example") {
+        return false;
+    }
+    file_name == ".env"
+        || file_name.starts_with(".env.")
+        || file_name.contains(".local.")
+        || file_name.contains(".secret.")
+        || file_name.ends_with(".key")
+        || file_name.ends_with(".pem")
+        || file_name.ends_with(".p12")
+        || file_name.ends_with(".pfx")
+        || file_name.ends_with(".token")
+        || file_name.starts_with("secrets.")
+        || file_name.starts_with("id_ed25519")
 }
 
 fn layout_artifact_refs(ok: bool, records: &[LayoutCheckRecord]) -> Vec<String> {
@@ -4979,6 +5280,34 @@ mod tests {
     }
 
     #[test]
+    fn layout_check_emits_phase7_hygiene_records() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        for check in [
+            "phase7_artifact_hygiene",
+            "generated_output_ignore_rules",
+            "local_state_ignore_rules",
+            "secret_file_rules",
+            "docdex_indexing_hygiene",
+            "artifact_redaction_expectations",
+            "required_hygiene_file",
+            "local_state_marker_clean",
+            "docdexignore_generated_specs_rule",
+            "secret_like_path_absence",
+        ] {
+            assert!(result.stdout.contains(&format!("\"check\":\"{check}\"")));
+        }
+        for artifact in [
+            "local_state_committed",
+            "docdex_index_hygiene_violation",
+            "artifact_redaction_violation",
+        ] {
+            assert!(result.stdout.contains(artifact));
+        }
+        assert!(!result.stdout.contains("OVERRID_PHASE7_SENTINEL_SECRET"));
+    }
+
+    #[test]
     fn layout_check_rejects_real_phase6_boundary_violations() {
         let temp_root = std::env::temp_dir().join(format!(
             "overrid-phase6-layout-check-{}",
@@ -5009,6 +5338,68 @@ mod tests {
                 && record.reason_code == "premature_service_split"
                 && record.path == "services/control-plane/overgate/Cargo.toml"
         }));
+
+        std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
+    }
+
+    #[test]
+    fn layout_check_rejects_phase7_hygiene_violations() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "overrid-phase7-layout-check-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_root);
+        write_test_file(
+            &temp_root,
+            "docs/specs/generated/.gitignore",
+            "*\n!.gitignore\n",
+        );
+        write_test_file(
+            &temp_root,
+            "docs/specs/generated/generated.json",
+            "{\"generated\":true}\n",
+        );
+        write_test_file(
+            &temp_root,
+            "infra/local/state/.gitignore",
+            "*\n!.gitignore\n",
+        );
+        write_test_file(&temp_root, "infra/local/state/local.db", "state\n");
+        write_test_file(
+            &temp_root,
+            ".env.local",
+            "OVERRID_PHASE7_SENTINEL_SECRET=raw\n",
+        );
+
+        let records = collect_layout_check_records(&temp_root);
+        assert!(records.iter().any(|record| {
+            record.check_name == "generated_specs_not_committed"
+                && record.status == "failed"
+                && record.reason_code == "generated_file_committed"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "local_state_marker_clean"
+                && record.status == "failed"
+                && record.reason_code == "local_state_committed"
+        }));
+        assert!(records.iter().any(|record| {
+            record.check_name == "secret_like_path_absence"
+                && record.status == "failed"
+                && record.reason_code == "secret_file_committed"
+                && record.path == ".env.local"
+        }));
+
+        let refs = layout_artifact_refs(false, &records);
+        assert!(refs
+            .iter()
+            .any(|artifact| artifact.contains("generated_file_committed")));
+        assert!(refs
+            .iter()
+            .any(|artifact| artifact.contains("local_state_committed")));
+        assert!(refs
+            .iter()
+            .any(|artifact| artifact.contains("secret_file_committed")));
+        assert!(!refs.join("\n").contains("OVERRID_PHASE7_SENTINEL_SECRET"));
 
         std::fs::remove_dir_all(&temp_root).expect("temporary repo should be removable");
     }

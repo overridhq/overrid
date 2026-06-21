@@ -1,12 +1,12 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-6"
+manifest_version = "2026-06-21.repository-layout-phase-7"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 6
+layout_phase = 7
 command_consumers = [
     "layout:check",
     "build",
@@ -177,6 +177,9 @@ validation_artifacts = [
     "premature_service_split",
     "split_review_missing",
     "local_test_boundary_violation",
+    "local_state_committed",
+    "docdex_index_hygiene_violation",
+    "artifact_redaction_violation",
 ]
 
 [package_boundary_enforcement]
@@ -237,6 +240,103 @@ violation_artifacts = [
     "local_test_boundary_violation",
 ]
 validation_script = "scripts/validate_repository_layout_phase6.py"
+
+[artifact_hygiene]
+phase_gate = "repository-layout-phase-7"
+states = [
+    "generated_output_ignore_rules_defined",
+    "local_state_ignore_rules_defined",
+    "secret_file_rules_defined",
+    "docdex_indexing_hygiene_defined",
+    "artifact_redaction_expectations_defined",
+]
+generated_output_roots = [
+    "target",
+    "node_modules",
+    "coverage",
+    "logs",
+    "docs/specs/generated",
+    "packages/schemas/admin_ui/generated",
+    "infra/local/artifacts",
+    "tests/integration/artifacts",
+]
+approved_generated_projection_files = [
+    "packages/schemas/admin_ui/generated/typescript/admin_ui_contracts.d.ts",
+    "packages/schemas/admin_ui/generated/typescript/admin_read_api_contracts.d.ts",
+    "packages/schemas/overrid_contracts/src/lib.rs",
+]
+local_state_roots = [
+    ".overrid",
+    "infra/local/state",
+    "infra/local/job-tables",
+    "infra/local/artifacts",
+    "tests/integration/artifacts",
+]
+local_state_marker_files = [
+    "infra/local/state/.gitignore",
+    "infra/local/job-tables/.gitignore",
+    "infra/local/artifacts/.gitignore",
+    "tests/integration/artifacts/.gitignore",
+    "docs/specs/generated/.gitignore",
+]
+secret_file_deny_patterns = [
+    ".env",
+    ".env.*",
+    "*.local.*",
+    "*.secret.*",
+    "*.key",
+    "*.pem",
+    "*.p12",
+    "*.pfx",
+    "*.token",
+    "secrets.*",
+    "id_ed25519",
+]
+allowed_secret_example_patterns = [
+    ".env.example",
+    "*.example",
+]
+docdex_index_include_roots = [
+    "docs/build_plan",
+    "docs/sds",
+    "docs/service_catalog",
+    "docs/specs",
+    "packages/schemas/admin_ui/fixtures",
+    "packages/schemas/overrid_contracts/v0",
+    "packages/schemas/overrid_contracts/fixtures",
+]
+docdex_index_exclude_roots = [
+    "target",
+    "node_modules",
+    "coverage",
+    "logs",
+    ".overrid",
+    "infra/local/state",
+    "infra/local/job-tables",
+    "infra/local/artifacts",
+    "tests/integration/artifacts",
+    "docs/specs/generated",
+    "packages/schemas/admin_ui/generated",
+]
+redaction_classes = [
+    "secret",
+    "key",
+    "token",
+    "signature",
+    "private_payload",
+    "encrypted_content",
+    "fixture_credential",
+]
+violation_artifacts = [
+    "generated_file_committed",
+    "secret_file_committed",
+    "local_state_committed",
+    "docdex_index_hygiene_violation",
+    "artifact_redaction_violation",
+]
+validation_script = "scripts/validate_repository_layout_phase7.py"
+docdex_ignore_file = ".docdexignore"
+git_ignore_file = ".gitignore"
 
 [[root_commands]]
 name = "build"
@@ -374,6 +474,9 @@ outputs = [
     "premature_service_split",
     "split_review_missing",
     "local_test_boundary_violation",
+    "local_state_committed",
+    "docdex_index_hygiene_violation",
+    "artifact_redaction_violation",
 ]
 owning_tool = "overrid-cli"
 phase_gate = "phase_0"
@@ -397,6 +500,7 @@ generated_output_paths = []
 test_targets = [
     "cargo test -p overrid-contracts",
     "python3 scripts/validate_repository_layout_phase4.py",
+    "python3 scripts/validate_repository_layout_phase7.py",
 ]
 local_stack_participation = "none"
 documentation_links = [
@@ -512,8 +616,15 @@ master_phase = 0
 public_contract_path = "infra/local/README.md"
 lifecycle_state = "accepted"
 allowed_dependency_groups = ["contracts", "local_stack", "local_infra"]
-generated_output_paths = ["infra/local/artifacts"]
-test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+generated_output_paths = [
+    "infra/local/state",
+    "infra/local/job-tables",
+    "infra/local/artifacts",
+]
+test_targets = [
+    "python3 scripts/validate_repository_layout_phase3.py",
+    "python3 scripts/validate_repository_layout_phase7.py",
+]
 local_stack_participation = "source_contract"
 documentation_links = [
     "docs/sds/foundation/local_development_stack.md",
@@ -531,7 +642,10 @@ public_contract_path = "tests/integration/README.md"
 lifecycle_state = "accepted"
 allowed_dependency_groups = ["contracts", "integration_harness", "local_stack"]
 generated_output_paths = ["tests/integration/artifacts"]
-test_targets = ["python3 scripts/validate_repository_layout_phase3.py"]
+test_targets = [
+    "python3 scripts/validate_repository_layout_phase3.py",
+    "python3 scripts/validate_repository_layout_phase7.py",
+]
 local_stack_participation = "scenario_consumer"
 documentation_links = [
     "docs/sds/foundation/integration_test_harness.md",
@@ -552,6 +666,7 @@ generated_output_paths = ["docs/specs/generated"]
 test_targets = [
     "python3 scripts/validate_repository_layout_phase3.py",
     "python3 scripts/validate_repository_layout_phase4.py",
+    "python3 scripts/validate_repository_layout_phase7.py",
 ]
 local_stack_participation = "none"
 documentation_links = [

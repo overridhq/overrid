@@ -100,6 +100,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `local_test_only_separation_enforced`: runtime-facing modules must not depend on integration harness internals, local stack internals, `infra/local`, fixture writers, integration artifacts, local simulator internals, or docs files as executable configuration.
 - `phase6_validation_defined`: `scripts/validate_repository_layout_phase6.py` validates Phase 6 docs, manifest boundary metadata, Rust CLI layout-check evidence, package/service README evidence, planning trail, suite registration, and local Markdown links.
 
+## Phase 7 Implementation Gates
+
+- `generated_output_ignore_rules_defined`: `.gitignore`, `.docdexignore`, and `overrid.workspace.toml` define generated-output, cache, coverage, log, generated spec/type/doc, integration artifact, fixture-output, and temporary object-chunk ignore rules.
+- `local_state_ignore_rules_defined`: local state remains under `.overrid`, `infra/local/state`, `infra/local/job-tables`, `infra/local/artifacts`, and `tests/integration/artifacts` with source-visible ignore markers and resettable local/test-only semantics.
+- `secret_file_rules_defined`: only example files may be source-controlled; secret-like env, local, key, token, private-key, and fixture-credential paths are rejected without exposing raw values.
+- `docdex_indexing_hygiene_defined`: Docdex keeps docs/specs/SDS/build plans/service catalog files/source schemas/handwritten fixtures/service stubs indexed while excluding generated outputs, local state, caches, logs, and coverage.
+- `artifact_redaction_expectations_defined`: validation artifacts, docs checks, CI bundles, local-stack exports, and harness artifacts redact secret-bearing values and report only safe path/reason metadata.
+- `phase7_validation_defined`: `scripts/validate_repository_layout_phase7.py` validates Phase 7 docs, manifest artifact-hygiene metadata, ignore files, Rust CLI layout-check evidence, planning trail, suite registration, and local Markdown links.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -111,6 +120,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase4.py` verifies schema authority, generated/projection boundaries, optional Protobuf placement, service-contract template content, reason-code/event placement, and phase planning evidence.
 - `scripts/validate_repository_layout_phase5.py` verifies root command registry metadata, Rust-owned CLI wiring, `layout:check` output, validation artifact schema, command orchestration records, and Phase 5 planning evidence.
 - `scripts/validate_repository_layout_phase6.py` verifies dependency direction groups, shared-schema dependency paths, modular control-plane shape, split-review criteria, local/test-only separation, and Phase 6 planning evidence.
+- `scripts/validate_repository_layout_phase7.py` verifies generated-output ignores, local-state markers, secret-file rules, Docdex indexing hygiene, artifact-redaction expectations, and Phase 7 planning evidence.
 
 ## Handoff
 

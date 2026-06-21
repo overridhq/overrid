@@ -15,3 +15,5 @@ Rules:
 - Scenarios must be phase-gated and fixture-backed.
 - Artifacts must be secret-free and ignored unless a later acceptance path explicitly promotes a redacted fixture.
 - Integration tests must not become runtime dependencies of services or packages.
+- Repository Layout Phase 7 treats `artifacts/` as ignored local/test output for generated fixture outputs, redacted logs, reproduction bundles, and temporary object chunks.
+- Harness artifact exports must report secret-like findings by path/reason refs only and never include raw secret, key, token, signature, private payload, encrypted content, or fixture credential values.

@@ -1,0 +1,28 @@
+# Generated and local-only artifacts
+target/
+node_modules/
+.pnpm-store/
+.yarn/
+.bun/
+coverage/
+logs/
+tmp/
+temp/
+
+# Local runtime state
+.overrid/
+infra/local/state/
+infra/local/job-tables/
+infra/local/artifacts/
+tests/integration/artifacts/
+
+# Generated contract and docs projections
+docs/specs/generated/
+packages/**/generated/
+
+# Agent/runtime caches
+.docdex/
+.docdex-state/
+.mcoda/
+.cache/
+

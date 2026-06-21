@@ -19,3 +19,5 @@ Rules:
 - Use Overrid-shaped local durable state, job tables, artifact stubs, service definitions, and profiles.
 - Do not make PostgreSQL, Redis, S3, MinIO, Kafka, NATS, Vault, or cloud KMS the product boundary.
 - Never commit raw secrets, private keys, tokens, local runtime logs, or generated artifacts.
+- Repository Layout Phase 7 requires `state/`, `job-tables/`, and `artifacts/` to remain ignored marker-gated local-state paths.
+- Reset and validation artifacts must redact secrets, keys, tokens, signatures, private payloads, encrypted content, and fixture credentials.

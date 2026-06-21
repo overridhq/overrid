@@ -534,6 +534,38 @@ Phase 6 layout artifacts include `package_boundary_violation`, `schema_ref_missi
   - Output: Redaction rule shared with SDS #3 and SDS #4 artifact work.
   - Validation: Redaction tests inject sentinel values and fail artifact export until forbidden values are removed.
 
+### Phase 7 Gate Outputs
+
+#### Generated-Output Ignore Rules
+
+The `generated_output_ignore_rules_defined` gate records generated and cache paths in `.gitignore`, `.docdexignore`, and `overrid.workspace.toml`. The ignored paths include `target`, `node_modules`, package caches, coverage, logs, `docs/specs/generated`, generated SDK/type/doc output, `infra/local/artifacts`, `tests/integration/artifacts`, generated fixture outputs, and temporary object chunks.
+
+Existing source-controlled generated projections are allowed only when they are explicitly listed as approved generated projection files and remain non-authoritative consumers of canonical schemas. Additional generated outputs produce `generated_file_committed` until ignored, regenerated from source contracts, or explicitly promoted through layout governance.
+
+#### Local-State Ignore Rules
+
+The `local_state_ignore_rules_defined` gate keeps local state under `.overrid`, `infra/local/state`, `infra/local/job-tables`, `infra/local/artifacts`, and `tests/integration/artifacts` with source-visible ignore markers. Local state paths are development/test-only, resettable, and must not become production configuration, hidden service discovery, or runtime storage authority.
+
+Unmarked local state, production-like local state names, or source-controlled local runtime state produce `local_state_committed`.
+
+#### Secret-File Rules
+
+The `secret_file_rules_defined` gate allows example files such as `.env.example` while rejecting committed `.env`, `.env.*`, `*.local.*`, `*.secret.*`, `*.key`, `*.pem`, `*.p12`, `*.pfx`, `*.token`, `secrets.*`, and private-key path names such as `id_ed25519`. Secret findings must report path and reason metadata only.
+
+Documentation may contain negative-control lines that explicitly prohibit unsafe handling, but no validation artifact may include raw secret values.
+
+#### Docdex Indexing Hygiene
+
+The `docdex_indexing_hygiene_defined` gate keeps hand-authored docs, specs, SDS files, build plans, service catalog files, source schemas, handwritten fixtures, and service contract stubs indexable while excluding generated artifacts, local state, dependency caches, logs, coverage, and runtime caches through `.docdexignore`.
+
+Docdex validation should confirm `docs/build_plan`, `docs/sds`, `docs/service_catalog`, `docs/specs`, and source schema/fixture roots remain visible after changes. Misconfigured indexing rules produce `docdex_index_hygiene_violation`.
+
+#### Artifact Redaction Expectations
+
+The `artifact_redaction_expectations_defined` gate requires layout validation artifacts, docs checks, CI bundles, harness artifacts, and local-stack exports to redact secrets, keys, tokens, signatures, private payloads, encrypted content, and local fixture credentials. Artifact records may include reason code, path, owning phase, module id, and artifact ref, but not raw secret values or private payload contents.
+
+Phase 7 layout artifacts include `generated_file_committed`, `secret_file_committed`, `local_state_committed`, `docdex_index_hygiene_violation`, and `artifact_redaction_violation`.
+
 ## Phase 8: Service Contract Templates And New-Module Checklist
 
 ### Work Items
