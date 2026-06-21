@@ -402,6 +402,172 @@ pub fn decode_oru_charge_preview(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkUsageRollupViewInput {
+    pub service_reported: bool,
+    pub rollup_ref: String,
+    pub account_id: String,
+    pub tenant_id: String,
+    pub overmeter_ref: String,
+    pub period_start_ms: u64,
+    pub period_end_ms: u64,
+    pub oru_dimension_totals: Vec<SdkOruDimensionTotal>,
+    pub accounting_refs: SdkAccountingRefBundle,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkUsageRollupView {
+    pub rollup_ref: String,
+    pub account_id: String,
+    pub tenant_id: String,
+    pub overmeter_ref: String,
+    pub period_start_ms: u64,
+    pub period_end_ms: u64,
+    pub oru_dimension_totals: Vec<SdkOruDimensionTotal>,
+    pub accounting_refs: SdkAccountingRefBundle,
+    pub trace_id: String,
+    pub service_reported: bool,
+    pub read_only: bool,
+    pub mutates_accounting_state: bool,
+    pub embeds_charge_tables: bool,
+}
+
+pub fn decode_usage_rollup_view(
+    input: SdkUsageRollupViewInput,
+) -> Result<SdkUsageRollupView, SdkPhase7Error> {
+    if !input.service_reported {
+        return Err(SdkPhase7Error::ServiceEvidenceRequired(
+            "usage rollup service response",
+        ));
+    }
+    require_phase7_non_empty(&input.rollup_ref, "usage rollup ref")?;
+    require_phase7_non_empty(&input.account_id, "account id")?;
+    require_phase7_non_empty(&input.tenant_id, "tenant id")?;
+    require_phase7_non_empty(&input.overmeter_ref, "Overmeter ref")?;
+    require_phase7_non_empty(&input.trace_id, "trace id")?;
+    if input.period_start_ms == 0 || input.period_end_ms == 0 {
+        return Err(SdkPhase7Error::MissingField("usage rollup period"));
+    }
+    if input.period_end_ms < input.period_start_ms {
+        return Err(SdkPhase7Error::InvalidAccountingWindow);
+    }
+    if input.oru_dimension_totals.is_empty() {
+        return Err(SdkPhase7Error::ServiceEvidenceRequired(
+            "usage rollup ORU totals",
+        ));
+    }
+    input.accounting_refs.validate()?;
+
+    Ok(SdkUsageRollupView {
+        rollup_ref: input.rollup_ref,
+        account_id: input.account_id,
+        tenant_id: input.tenant_id,
+        overmeter_ref: input.overmeter_ref,
+        period_start_ms: input.period_start_ms,
+        period_end_ms: input.period_end_ms,
+        oru_dimension_totals: input.oru_dimension_totals,
+        accounting_refs: input.accounting_refs,
+        trace_id: input.trace_id,
+        service_reported: true,
+        read_only: true,
+        mutates_accounting_state: false,
+        embeds_charge_tables: false,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkSealLedgerReferenceViewInput {
+    pub service_reported: bool,
+    pub subject_ref: String,
+    pub seal_ledger_refs: Vec<String>,
+    pub audit_refs: Vec<String>,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkSealLedgerReferenceView {
+    pub subject_ref: String,
+    pub seal_ledger_refs: Vec<String>,
+    pub audit_refs: Vec<String>,
+    pub trace_id: String,
+    pub service_reported: bool,
+    pub read_only: bool,
+    pub mutates_accounting_state: bool,
+}
+
+pub fn decode_seal_ledger_reference_view(
+    input: SdkSealLedgerReferenceViewInput,
+) -> Result<SdkSealLedgerReferenceView, SdkPhase7Error> {
+    if !input.service_reported {
+        return Err(SdkPhase7Error::ServiceEvidenceRequired(
+            "Seal Ledger reference service response",
+        ));
+    }
+    require_phase7_non_empty(&input.subject_ref, "Seal Ledger subject ref")?;
+    require_phase7_non_empty(&input.trace_id, "trace id")?;
+    validate_non_empty_ref_list("Seal Ledger ref", &input.seal_ledger_refs)?;
+    validate_non_empty_ref_list("audit ref", &input.audit_refs)?;
+
+    Ok(SdkSealLedgerReferenceView {
+        subject_ref: input.subject_ref,
+        seal_ledger_refs: input.seal_ledger_refs,
+        audit_refs: input.audit_refs,
+        trace_id: input.trace_id,
+        service_reported: true,
+        read_only: true,
+        mutates_accounting_state: false,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkReceiptReferenceViewInput {
+    pub service_reported: bool,
+    pub receipt_ref: String,
+    pub usage_ref: String,
+    pub idempotency_ref: String,
+    pub audit_refs: Vec<String>,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkReceiptReferenceView {
+    pub receipt_ref: String,
+    pub usage_ref: String,
+    pub idempotency_ref: String,
+    pub audit_refs: Vec<String>,
+    pub trace_id: String,
+    pub service_reported: bool,
+    pub read_only: bool,
+    pub mutates_accounting_state: bool,
+}
+
+pub fn decode_receipt_reference_view(
+    input: SdkReceiptReferenceViewInput,
+) -> Result<SdkReceiptReferenceView, SdkPhase7Error> {
+    if !input.service_reported {
+        return Err(SdkPhase7Error::ServiceEvidenceRequired(
+            "receipt reference service response",
+        ));
+    }
+    require_phase7_non_empty(&input.receipt_ref, "receipt ref")?;
+    require_phase7_non_empty(&input.usage_ref, "usage ref")?;
+    require_phase7_non_empty(&input.idempotency_ref, "receipt idempotency ref")?;
+    require_phase7_non_empty(&input.trace_id, "trace id")?;
+    validate_non_empty_ref_list("audit ref", &input.audit_refs)?;
+
+    Ok(SdkReceiptReferenceView {
+        receipt_ref: input.receipt_ref,
+        usage_ref: input.usage_ref,
+        idempotency_ref: input.idempotency_ref,
+        audit_refs: input.audit_refs,
+        trace_id: input.trace_id,
+        service_reported: true,
+        read_only: true,
+        mutates_accounting_state: false,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SdkAccountingDisputeReferenceInput {
     pub service_reported: bool,
     pub usage_ref: String,
@@ -630,6 +796,7 @@ pub enum SdkPhase7Error {
     RefRewriteDetected(&'static str),
     GenericAccountingErrorMask,
     AccountingAuthorityLeak(&'static str),
+    InvalidAccountingWindow,
 }
 
 impl fmt::Display for SdkPhase7Error {
@@ -661,6 +828,9 @@ impl fmt::Display for SdkPhase7Error {
                     formatter,
                     "SDK helper claims accounting authority: {helper}"
                 )
+            }
+            Self::InvalidAccountingWindow => {
+                write!(formatter, "accounting time window is invalid")
             }
         }
     }
@@ -908,6 +1078,110 @@ mod tests {
         assert!(matches!(
             verify_accounting_refs_unchanged(&original, &rewritten),
             Err(SdkPhase7Error::RefRewriteDetected("accounting refs"))
+        ));
+    }
+
+    #[test]
+    fn phase7_usage_rollup_reader_preserves_service_refs() {
+        let rollup = decode_usage_rollup_view(SdkUsageRollupViewInput {
+            service_reported: true,
+            rollup_ref: "overmeter:rollup:usage-1".to_owned(),
+            account_id: "oru:account:tenant:local".to_owned(),
+            tenant_id: "tenant:local".to_owned(),
+            overmeter_ref: "overmeter:fact-batch:1".to_owned(),
+            period_start_ms: 1_782_021_000_000,
+            period_end_ms: 1_782_021_060_000,
+            oru_dimension_totals: vec![dimension()],
+            accounting_refs: refs(),
+            trace_id: "trace:phase7".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(rollup.rollup_ref, "overmeter:rollup:usage-1");
+        assert_eq!(rollup.overmeter_ref, "overmeter:fact-batch:1");
+        assert!(rollup.read_only);
+        assert!(!rollup.mutates_accounting_state);
+        assert!(!rollup.embeds_charge_tables);
+        assert_eq!(
+            rollup.accounting_refs.oru_account_refs,
+            vec!["oru:account:tenant:local"]
+        );
+        assert!(matches!(
+            decode_usage_rollup_view(SdkUsageRollupViewInput {
+                service_reported: false,
+                rollup_ref: "overmeter:rollup:usage-1".to_owned(),
+                account_id: "oru:account:tenant:local".to_owned(),
+                tenant_id: "tenant:local".to_owned(),
+                overmeter_ref: "overmeter:fact-batch:1".to_owned(),
+                period_start_ms: 1_782_021_000_000,
+                period_end_ms: 1_782_021_060_000,
+                oru_dimension_totals: vec![dimension()],
+                accounting_refs: refs(),
+                trace_id: "trace:phase7".to_owned(),
+            }),
+            Err(SdkPhase7Error::ServiceEvidenceRequired(
+                "usage rollup service response"
+            ))
+        ));
+        assert!(matches!(
+            decode_usage_rollup_view(SdkUsageRollupViewInput {
+                service_reported: true,
+                rollup_ref: "overmeter:rollup:usage-1".to_owned(),
+                account_id: "oru:account:tenant:local".to_owned(),
+                tenant_id: "tenant:local".to_owned(),
+                overmeter_ref: "overmeter:fact-batch:1".to_owned(),
+                period_start_ms: 1_782_021_060_000,
+                period_end_ms: 1_782_021_000_000,
+                oru_dimension_totals: vec![dimension()],
+                accounting_refs: refs(),
+                trace_id: "trace:phase7".to_owned(),
+            }),
+            Err(SdkPhase7Error::InvalidAccountingWindow)
+        ));
+    }
+
+    #[test]
+    fn phase7_seal_ledger_and_receipt_ref_readers_require_service_evidence() {
+        let seal_ledger = decode_seal_ledger_reference_view(SdkSealLedgerReferenceViewInput {
+            service_reported: true,
+            subject_ref: "usage:rollup:1".to_owned(),
+            seal_ledger_refs: vec!["seal-ledger:entry:123".to_owned()],
+            audit_refs: vec!["overwatch:audit:phase7".to_owned()],
+            trace_id: "trace:phase7".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(seal_ledger.subject_ref, "usage:rollup:1");
+        assert_eq!(seal_ledger.seal_ledger_refs, vec!["seal-ledger:entry:123"]);
+        assert!(seal_ledger.read_only);
+        assert!(!seal_ledger.mutates_accounting_state);
+
+        let receipt = decode_receipt_reference_view(SdkReceiptReferenceViewInput {
+            service_reported: true,
+            receipt_ref: "overbill:receipt:123".to_owned(),
+            usage_ref: "overmeter:rollup:usage-1".to_owned(),
+            idempotency_ref: "idem:receipt:123".to_owned(),
+            audit_refs: vec!["overwatch:audit:phase7".to_owned()],
+            trace_id: "trace:phase7".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(receipt.receipt_ref, "overbill:receipt:123");
+        assert_eq!(receipt.idempotency_ref, "idem:receipt:123");
+        assert!(receipt.read_only);
+        assert!(!receipt.mutates_accounting_state);
+        assert!(matches!(
+            decode_receipt_reference_view(SdkReceiptReferenceViewInput {
+                service_reported: false,
+                receipt_ref: "overbill:receipt:123".to_owned(),
+                usage_ref: "overmeter:rollup:usage-1".to_owned(),
+                idempotency_ref: "idem:receipt:123".to_owned(),
+                audit_refs: vec!["overwatch:audit:phase7".to_owned()],
+                trace_id: "trace:phase7".to_owned(),
+            }),
+            Err(SdkPhase7Error::ServiceEvidenceRequired(
+                "receipt reference service response"
+            ))
         ));
     }
 
