@@ -35,9 +35,12 @@ REQUIRED_CONTRACT_FILES = [
     Path("services/control-plane/README.md"),
     Path("services/node-agent/README.md"),
     Path("packages/README.md"),
+    Path("packages/admin_ui_shell/README.md"),
     Path("packages/schemas/README.md"),
     Path("packages/sdk/README.md"),
     Path("packages/cli/README.md"),
+    Path("packages/integration_harness/README.md"),
+    Path("packages/local_stack/README.md"),
     Path("infra/README.md"),
     Path("infra/local/README.md"),
     Path("infra/local/profiles/README.md"),
@@ -84,6 +87,12 @@ REQUIRED_PHASE2_PATHS = [
     "`docs/specs`",
 ]
 
+IMPLEMENTED_COMPANION_PACKAGE_PATHS = [
+    "`packages/admin_ui_shell`",
+    "`packages/integration_harness`",
+    "`packages/local_stack`",
+]
+
 SCOPED_DOCS = [
     SUB_PLAN,
     SDS,
@@ -93,8 +102,11 @@ SCOPED_DOCS = [
     Path("services/control-plane/README.md"),
     Path("services/node-agent/README.md"),
     Path("packages/README.md"),
+    Path("packages/admin_ui_shell/README.md"),
     Path("packages/schemas/README.md"),
     Path("packages/sdk/README.md"),
+    Path("packages/integration_harness/README.md"),
+    Path("packages/local_stack/README.md"),
     Path("infra/README.md"),
     Path("infra/local/README.md"),
     Path("tests/README.md"),
@@ -154,6 +166,8 @@ def validate_phase2_source_docs() -> None:
         assert_contains(phase_2, state, SUB_PLAN)
     for path in REQUIRED_PHASE2_PATHS:
         assert_contains(phase_2, path, SUB_PLAN)
+    for path in IMPLEMENTED_COMPANION_PACKAGE_PATHS:
+        assert_contains(phase_2, path, SUB_PLAN)
 
     sds = read(SDS)
     assert_contains(sds, "## Phase 2 Workspace Shape Decisions", SDS)
@@ -161,12 +175,16 @@ def validate_phase2_source_docs() -> None:
         assert_contains(sds, state, SDS)
     for path in REQUIRED_PHASE2_PATHS:
         assert_contains(sds, path, SDS)
+    for path in IMPLEMENTED_COMPANION_PACKAGE_PATHS:
+        assert_contains(sds, path, SDS)
 
     service = read(SERVICE)
     assert_contains(service, "## Phase 2 Implementation Gates", SERVICE)
     for state in REQUIRED_PHASE2_STATES:
         assert_contains(service, state, SERVICE)
     for path in REQUIRED_PHASE2_PATHS:
+        assert_contains(service, path, SERVICE)
+    for path in IMPLEMENTED_COMPANION_PACKAGE_PATHS:
         assert_contains(service, path, SERVICE)
 
     tech_stack = read(TECH_STACK)
@@ -205,10 +223,19 @@ def validate_directory_contracts() -> None:
         ],
         Path("services/node-agent/README.md"): ["Overcell node agent", "simulator"],
         Path("packages/README.md"): [
+            "`packages/admin_ui_shell`",
             "`packages/schemas`",
             "`packages/sdk`",
             "`packages/cli`",
+            "`packages/integration_harness`",
+            "`packages/local_stack`",
             "Generated code is never the source of truth",
+        ],
+        Path("packages/admin_ui_shell/README.md"): [
+            "TypeScript operator shell",
+            "client-side surface only",
+            "generated TypeScript projections",
+            "must not become the source of truth",
         ],
         Path("packages/schemas/README.md"): [
             "canonical JSON Schema",
@@ -218,6 +245,20 @@ def validate_directory_contracts() -> None:
             "Rust SDK first",
             "`packages/schemas`",
             "SDK/Overgate routing",
+        ],
+        Path("packages/integration_harness/README.md"): [
+            "Rust integration validation gate",
+            "Integration Test Harness SDS",
+            "cargo test -p overrid-integration-harness",
+            "non-production validation gate",
+            "secret-free",
+        ],
+        Path("packages/local_stack/README.md"): [
+            "Rust helper types",
+            "Local Development Stack SDS",
+            "cargo test -p overrid-local-stack",
+            "Overrid-shaped local state",
+            "PostgreSQL, Redis, S3, MinIO, Kafka, NATS, Vault",
         ],
         Path("infra/local/README.md"): [
             "Overrid-shaped local",
@@ -244,6 +285,19 @@ def validate_directory_contracts() -> None:
         text = read(path)
         for snippet in snippets:
             assert_contains(text, snippet, path)
+
+    package_roots = sorted(
+        child
+        for child in (REPO_ROOT / "packages").iterdir()
+        if child.is_dir() and not child.name.startswith(".")
+    )
+    for package_root in package_roots:
+        readme = package_root / "README.md"
+        rel_readme = readme.relative_to(REPO_ROOT)
+        if not readme.is_file():
+            raise AssertionError(
+                f"Implemented package root is missing ownership README: {rel_readme}"
+            )
 
 
 def validate_ignored_markers() -> None:

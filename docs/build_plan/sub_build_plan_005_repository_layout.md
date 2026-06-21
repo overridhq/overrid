@@ -185,6 +185,8 @@ The `services/node-agent` path is reserved for Overcell node agent and simulator
 
 `packages/schemas`, `packages/sdk`, and `packages/cli` are required Phase 0 package roots. Package acceptance requires ownership metadata in README or manifest form, contract refs where required, and test-target declarations once executable code exists. TypeScript or generated bindings may exist for UI/client surfaces, but generated code is never the source of truth and TypeScript is not the core runtime authority.
 
+Already implemented companion roots under `packages/admin_ui_shell`, `packages/integration_harness`, and `packages/local_stack` must also carry package-level README ownership metadata, source SDS/build-plan refs, and test-target declarations. `packages/admin_ui_shell` remains a TypeScript client surface only; `packages/integration_harness` and `packages/local_stack` remain Rust Phase 0 helper crates that consume shared contracts without becoming runtime services or production configuration sources.
+
 #### Local Infrastructure And Integration Test Paths
 
 `infra/local` tracks source-controlled local profiles and service definitions while local state, local job tables, object/artifact stub outputs, logs, and temporary chunks remain ignored. `tests/integration` tracks scenario manifests and source fixtures while generated run artifacts remain ignored unless a later acceptance path explicitly promotes redacted fixtures.

@@ -60,7 +60,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 
 - `top_level_contracts_scaffolded`: `services`, `packages`, `infra`, `tests`, `docs/specs`, `docs/build_plan`, `docs/service_catalog`, and `docs/sds` exist as Phase 0 workspace-shape contracts.
 - `service_path_rules_defined`: `services/control-plane` remains the modular Rust control-plane process boundary through Phase 3 by default, and `services/node-agent` is reserved for Overcell node-agent and simulator code.
-- `package_path_rules_defined`: `packages/schemas`, `packages/sdk`, and `packages/cli` have explicit ownership rules, with schemas as contract authority, SDK as Rust-first generated/validated client layer, and CLI as Rust operator tooling.
+- `package_path_rules_defined`: `packages/schemas`, `packages/sdk`, and `packages/cli` have explicit ownership rules, with schemas as contract authority, SDK as Rust-first generated/validated client layer, and CLI as Rust operator tooling; already implemented companion roots such as `packages/admin_ui_shell`, `packages/integration_harness`, and `packages/local_stack` also carry README ownership metadata, source SDS/build-plan refs, and test-target declarations without becoming core runtime authority.
 - `local_infra_test_paths_defined`: `infra/local` owns Overrid-shaped local profiles and service definitions, while `tests/integration` owns cross-service scenarios; local state, job tables, artifact stubs, integration artifacts, and run outputs are ignored by default.
 - `specs_contract_defined`: `docs/specs` owns hand-authored protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact docs; `docs/specs/generated` is ignored generated output.
 

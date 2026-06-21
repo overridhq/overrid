@@ -123,6 +123,7 @@ Gate states:
 - `top_level_contracts_scaffolded`: `services`, `packages`, `infra`, `tests`, `docs/specs`, `docs/build_plan`, `docs/service_catalog`, and `docs/sds` exist as predictable top-level contracts.
 - `service_path_rules_defined`: `services/control-plane` owns the initial modular Rust control-plane process boundary and `services/node-agent` owns the future Overcell node-agent/simulator boundary.
 - `package_path_rules_defined`: `packages/schemas`, `packages/sdk`, and `packages/cli` have explicit ownership rules, with schemas as contract authority and generated code as consumer output.
+- `package_path_rules_defined`: implemented companion roots such as `packages/admin_ui_shell`, `packages/integration_harness`, and `packages/local_stack` also carry package-level README ownership metadata, source SDS/build-plan refs, and test-target declarations without becoming core runtime authority.
 - `local_infra_test_paths_defined`: `infra/local` and `tests/integration` separate source-controlled local/test contracts from ignored state, job-table, artifact, and run-output paths.
 - `specs_contract_defined`: `docs/specs` owns protocol, schema, API, service-contract, reason-code, event-contract, audit-record, and validation-artifact docs, while `docs/specs/generated` is ignored generated output.
 
