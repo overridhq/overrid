@@ -43,33 +43,33 @@
 ## Apps, Deployment, And Operations
 
 - [Owned Apps](pages/owned_apps.md)
-- App Detail
-- Deploy New App
-- Developer Console
-- Release And Rollback Manager
-- App Incidents And Support
+- [App Detail](pages/app_detail.md)
+- [Deploy New App](pages/deploy_new_app.md)
+- [Developer Console](pages/developer_console.md)
+- [Release And Rollback Manager](pages/release_rollback_manager.md)
+- [App Incidents And Support](pages/app_incidents_support.md)
 
 ## Identity, Privacy, And Data
 
-- Identity And Profile Center
-- Namespace Manager
-- Privacy And Permissions Center
-- Overvault Secure Storage Center
-- Docdex And RAG Index Manager
-- Settings And Security
+- [Identity And Profile Center](pages/identity_profile_center.md)
+- [Namespace Manager](pages/namespace_manager.md)
+- [Privacy And Permissions Center](pages/privacy_permissions_center.md)
+- [Overvault Secure Storage Center](pages/overvault_secure_storage_center.md)
+- [Docdex And RAG Index Manager](pages/docdex_rag_index_manager.md)
+- [Settings And Security](pages/settings_security.md)
 
 ## Governance And Public Trust
 
-- Governance Center
-- Protocol Improvement Proposals
-- Stewardship Reports
-- Security And Compliance Reviews
-- Incident Reports
+- [Governance Center](pages/governance_center.md)
+- [Protocol Improvement Proposals](pages/protocol_improvement_proposals.md)
+- [Stewardship Reports](pages/stewardship_reports.md)
+- [Security And Compliance Reviews](pages/security_compliance_reviews.md)
+- [Incident Reports](pages/incident_reports.md)
 
 ## System And Help
 
-- Local Device Settings
-- Local Cache And Offline Sync
-- Diagnostics And Support Bundles
-- Updates And Release Notes
-- Help
+- [Local Device Settings](pages/local_device_settings.md)
+- [Local Cache And Offline Sync](pages/local_cache_offline_sync.md)
+- [Diagnostics And Support Bundles](pages/diagnostics_support_bundles.md)
+- [Updates And Release Notes](pages/updates_release_notes.md)
+- [Help](pages/help.md)

@@ -1,0 +1,402 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "layout": {
+    "approved_source_roots": [
+      "packages/schemas/README.md",
+      "packages/schemas/overrid_contracts/v0",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "packages/schemas/overrid_contracts/README.md"
+    ],
+    "generated_output_roots": [
+      "packages/schemas/overrid_contracts/src/lib.rs",
+      "packages/schemas/admin_ui/generated"
+    ],
+    "fixture_roots": [
+      "packages/schemas/overrid_contracts/fixtures/valid",
+      "packages/schemas/overrid_contracts/fixtures/invalid"
+    ],
+    "compatibility_report_roots": [
+      "packages/schemas/overrid_contracts/compatibility",
+      "docs/specs/generated"
+    ],
+    "internal_binary_projection_roots": [
+      "packages/schemas/overrid_contracts/protobuf/internal"
+    ],
+    "generated_in_source_directories": false
+  },
+  "identifier_primitives": [
+    {
+      "primitive_name": "person_ref",
+      "object_family": "person",
+      "ref_prefix": "person:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "person:tenant_alpha:builder"
+      ]
+    },
+    {
+      "primitive_name": "organization_ref",
+      "object_family": "organization",
+      "ref_prefix": "org:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "org:tenant_alpha"
+      ]
+    },
+    {
+      "primitive_name": "tenant_ref",
+      "object_family": "tenant",
+      "ref_prefix": "tenant:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "tenant:local:alpha"
+      ]
+    },
+    {
+      "primitive_name": "node_ref",
+      "object_family": "node",
+      "ref_prefix": "node:",
+      "privacy_class": "system_service_only",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "node:seed:01"
+      ]
+    },
+    {
+      "primitive_name": "app_ref",
+      "object_family": "app",
+      "ref_prefix": "app:",
+      "privacy_class": "public",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "app:workspace"
+      ]
+    },
+    {
+      "primitive_name": "native_service_ref",
+      "object_family": "native_service",
+      "ref_prefix": "native_service:",
+      "privacy_class": "system_service_only",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "native_service:overwatch"
+      ]
+    },
+    {
+      "primitive_name": "service_account_ref",
+      "object_family": "service_account",
+      "ref_prefix": "service_account:",
+      "privacy_class": "system_service_only",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "service_account:overgate:runner"
+      ]
+    },
+    {
+      "primitive_name": "system_service_ref",
+      "object_family": "system_service",
+      "ref_prefix": "system_service:",
+      "privacy_class": "system_service_only",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "system_service:overqueue"
+      ]
+    },
+    {
+      "primitive_name": "central_ai_actor_ref",
+      "object_family": "central_ai_actor",
+      "ref_prefix": "central_ai:",
+      "privacy_class": "regulated",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "central_ai:stewardship:reviewer"
+      ]
+    },
+    {
+      "primitive_name": "overasset_ref",
+      "object_family": "overasset",
+      "ref_prefix": "overasset:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "overasset:right:storage:alpha"
+      ]
+    },
+    {
+      "primitive_name": "namespace_ref",
+      "object_family": "namespace",
+      "ref_prefix": "namespace:",
+      "privacy_class": "public",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "namespace:public:workspace"
+      ]
+    },
+    {
+      "primitive_name": "route_ref",
+      "object_family": "route",
+      "ref_prefix": "route:",
+      "privacy_class": "public",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "route:overgate:admin"
+      ]
+    },
+    {
+      "primitive_name": "package_ref",
+      "object_family": "package",
+      "ref_prefix": "package:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "package:local:no_op"
+      ]
+    },
+    {
+      "primitive_name": "workload_ref",
+      "object_family": "workload",
+      "ref_prefix": "workload:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "workload:local:no_op"
+      ]
+    },
+    {
+      "primitive_name": "queue_ref",
+      "object_family": "queue",
+      "ref_prefix": "queue:",
+      "privacy_class": "system_service_only",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "queue:pending:local"
+      ]
+    },
+    {
+      "primitive_name": "lease_ref",
+      "object_family": "lease",
+      "ref_prefix": "lease:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "lease:workload:local"
+      ]
+    },
+    {
+      "primitive_name": "receipt_ref",
+      "object_family": "receipt",
+      "ref_prefix": "receipt:",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "receipt:usage:local"
+      ]
+    },
+    {
+      "primitive_name": "evidence_ref",
+      "object_family": "evidence",
+      "ref_prefix": "evidence:",
+      "privacy_class": "redacted_diagnostic",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "evidence:overwatch:event:local"
+      ]
+    },
+    {
+      "primitive_name": "secret_ref",
+      "object_family": "secret_reference",
+      "ref_prefix": "secret:",
+      "privacy_class": "encrypted_private",
+      "public_object_required": false,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "secret://local_stack/fixture_key_ref"
+      ]
+    }
+  ],
+  "lifecycle_primitives": {
+    "timestamp": "rfc3339_utc_ms",
+    "logical_sequence": "monotonic_u64",
+    "schema_version": "shared-schema-package.v0.1",
+    "command_id": "command:",
+    "trace_id": "trace_",
+    "idempotency_key": "idem_",
+    "request_hash": "hash_",
+    "payload_hash": "hash_",
+    "compatibility_window": {
+      "current_major": 0,
+      "previous_major_supported": true
+    },
+    "deprecation_metadata": {
+      "deprecated_since": "none",
+      "retirement_after": "none",
+      "migration_plan_ref": "migration:phase2:none"
+    }
+  },
+  "privacy_classes": [
+    {
+      "privacy_class": "public",
+      "allowed_in_public_objects": true,
+      "requires_redaction": false,
+      "requires_owner": false,
+      "validator_rule_ref": "rule:privacy:public"
+    },
+    {
+      "privacy_class": "tenant_private",
+      "allowed_in_public_objects": false,
+      "requires_redaction": true,
+      "requires_owner": true,
+      "validator_rule_ref": "rule:privacy:tenant_private"
+    },
+    {
+      "privacy_class": "regulated",
+      "allowed_in_public_objects": false,
+      "requires_redaction": true,
+      "requires_owner": true,
+      "validator_rule_ref": "rule:privacy:regulated"
+    },
+    {
+      "privacy_class": "encrypted_private",
+      "allowed_in_public_objects": false,
+      "requires_redaction": true,
+      "requires_owner": true,
+      "validator_rule_ref": "rule:privacy:encrypted_private"
+    },
+    {
+      "privacy_class": "user_content",
+      "allowed_in_public_objects": false,
+      "requires_redaction": true,
+      "requires_owner": true,
+      "validator_rule_ref": "rule:privacy:user_content"
+    },
+    {
+      "privacy_class": "system_service_only",
+      "allowed_in_public_objects": false,
+      "requires_redaction": true,
+      "requires_owner": true,
+      "validator_rule_ref": "rule:privacy:system_service_only"
+    },
+    {
+      "privacy_class": "redacted_diagnostic",
+      "allowed_in_public_objects": true,
+      "requires_redaction": true,
+      "requires_owner": false,
+      "validator_rule_ref": "rule:privacy:redacted_diagnostic"
+    }
+  ],
+  "reason_code_registry": [
+    {
+      "reason_code": "schema.unsupported_version",
+      "reason_family": "unsupported_version",
+      "retryability": "not_retryable",
+      "correction_fields": [
+        {
+          "field_name": "schema_version",
+          "required": true,
+          "field_ref": "field:schema_version"
+        }
+      ],
+      "dependency_name": "shared_schema_package",
+      "policy_ref": "policy:version_window",
+      "audit_ref": "audit:schema:unsupported_version",
+      "unsupported_version": true,
+      "documented": true,
+      "rust_first_enum_source": true
+    },
+    {
+      "reason_code": "validation.typed_ref_required",
+      "reason_family": "validation",
+      "retryability": "not_retryable",
+      "correction_fields": [
+        {
+          "field_name": "ref_prefix",
+          "required": true,
+          "field_ref": "field:ref_prefix"
+        }
+      ],
+      "dependency_name": "shared_schema_package",
+      "policy_ref": "policy:typed_refs",
+      "audit_ref": "audit:schema:typed_refs",
+      "unsupported_version": false,
+      "documented": true,
+      "rust_first_enum_source": true
+    },
+    {
+      "reason_code": "policy.privacy_class_missing",
+      "reason_family": "policy",
+      "retryability": "operator_review",
+      "correction_fields": [
+        {
+          "field_name": "privacy_class",
+          "required": true,
+          "field_ref": "field:privacy_class"
+        }
+      ],
+      "dependency_name": "shared_schema_package",
+      "policy_ref": "policy:privacy_classification",
+      "audit_ref": "audit:schema:privacy_class",
+      "unsupported_version": false,
+      "documented": true,
+      "rust_first_enum_source": true
+    },
+    {
+      "reason_code": "dependency.generated_source_misplaced",
+      "reason_family": "dependency",
+      "retryability": "operator_review",
+      "correction_fields": [
+        {
+          "field_name": "generated_output_roots",
+          "required": true,
+          "field_ref": "field:generated_output_roots"
+        }
+      ],
+      "dependency_name": "shared_schema_package",
+      "policy_ref": "policy:source_layout",
+      "audit_ref": "audit:schema:source_layout",
+      "unsupported_version": false,
+      "documented": true,
+      "rust_first_enum_source": true
+    }
+  ]
+}

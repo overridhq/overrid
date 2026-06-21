@@ -10,6 +10,8 @@ pub const INTEGRATION_HARNESS_SCHEMA_FAMILY: &str = "integration-harness";
 pub const SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION: &str = "integration-harness.v0.1";
 pub const LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY: &str = "local-development-stack";
 pub const SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION: &str = "local-development-stack.v0.1";
+pub const SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY: &str = "shared-schema-package";
+pub const SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION: &str = "shared-schema-package.v0.1";
 pub const GENERATED_CONTRACT_STATUS: &str = "rust_projection_from_json_schema_source";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +44,15 @@ pub fn local_development_stack_contract_set() -> GeneratedContractSet {
     GeneratedContractSet {
         schema_family: LOCAL_DEVELOPMENT_STACK_SCHEMA_FAMILY,
         schema_version: SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION,
+        source_root: CONTRACT_SOURCE_ROOT,
+        projection_status: GENERATED_CONTRACT_STATUS,
+    }
+}
+
+pub fn shared_schema_package_contract_set() -> GeneratedContractSet {
+    GeneratedContractSet {
+        schema_family: SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY,
+        schema_version: SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
         source_root: CONTRACT_SOURCE_ROOT,
         projection_status: GENERATED_CONTRACT_STATUS,
     }
@@ -176,6 +187,625 @@ pub fn ensure_supported_local_development_stack_schema_version(
     }
     Ok(parsed)
 }
+
+pub fn ensure_supported_shared_schema_package_schema_version(
+    raw: &str,
+) -> Result<SchemaVersion, ContractError> {
+    let parsed = SchemaVersion::parse(raw)?;
+    let supported = SchemaVersion::parse(SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION)?;
+    if parsed.family() != SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY
+        || parsed.major() != supported.major()
+        || parsed.minor() > supported.minor()
+    {
+        return Err(ContractError::UnsupportedSchemaVersion {
+            provided: raw.to_owned(),
+            supported: SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+        });
+    }
+    Ok(parsed)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SharedSchemaPrivacyClass {
+    Public,
+    TenantPrivate,
+    Regulated,
+    EncryptedPrivate,
+    UserContent,
+    SystemServiceOnly,
+    RedactedDiagnostic,
+}
+
+impl SharedSchemaPrivacyClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::TenantPrivate => "tenant_private",
+            Self::Regulated => "regulated",
+            Self::EncryptedPrivate => "encrypted_private",
+            Self::UserContent => "user_content",
+            Self::SystemServiceOnly => "system_service_only",
+            Self::RedactedDiagnostic => "redacted_diagnostic",
+        }
+    }
+
+    pub fn allows_public_object(self) -> bool {
+        matches!(self, Self::Public | Self::RedactedDiagnostic)
+    }
+
+    pub fn requires_redaction(self) -> bool {
+        !matches!(self, Self::Public)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedSchemaRetryability {
+    NotRetryable,
+    SafeRetry,
+    RetryAfter,
+    OperatorReview,
+}
+
+impl SharedSchemaRetryability {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NotRetryable => "not_retryable",
+            Self::SafeRetry => "safe_retry",
+            Self::RetryAfter => "retry_after",
+            Self::OperatorReview => "operator_review",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaTypedRefPrimitive {
+    pub primitive_name: String,
+    pub object_family: String,
+    pub ref_prefix: String,
+    pub privacy_class: SharedSchemaPrivacyClass,
+    pub public_object_required: bool,
+    pub unstructured_string_allowed: bool,
+    pub versioned_when_external: bool,
+}
+
+impl SharedSchemaTypedRefPrimitive {
+    pub fn new(
+        primitive_name: impl Into<String>,
+        object_family: impl Into<String>,
+        ref_prefix: impl Into<String>,
+        privacy_class: SharedSchemaPrivacyClass,
+        public_object_required: bool,
+        versioned_when_external: bool,
+    ) -> Self {
+        Self {
+            primitive_name: primitive_name.into(),
+            object_family: object_family.into(),
+            ref_prefix: ref_prefix.into(),
+            privacy_class,
+            public_object_required,
+            unstructured_string_allowed: false,
+            versioned_when_external,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPackageContractError> {
+        if self.primitive_name.trim().is_empty() {
+            return Err(SharedSchemaPackageContractError::MissingPrimitiveName);
+        }
+        if self.object_family.trim().is_empty() {
+            return Err(SharedSchemaPackageContractError::MissingObjectFamily);
+        }
+        if self.ref_prefix.trim().is_empty()
+            || !(self.ref_prefix.ends_with(':') || self.ref_prefix.ends_with("://"))
+        {
+            return Err(SharedSchemaPackageContractError::UntypedRefPrimitive(
+                self.primitive_name.clone(),
+            ));
+        }
+        if self.unstructured_string_allowed {
+            return Err(SharedSchemaPackageContractError::UntypedRefPrimitive(
+                self.primitive_name.clone(),
+            ));
+        }
+        if self.public_object_required && !self.versioned_when_external {
+            return Err(SharedSchemaPackageContractError::UnversionedPublicRef(
+                self.primitive_name.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaLifecyclePrimitives {
+    pub schema_version: SchemaVersion,
+    pub timestamp: &'static str,
+    pub logical_sequence: &'static str,
+    pub command_id_prefix: &'static str,
+    pub trace_id_prefix: &'static str,
+    pub idempotency_key_prefix: &'static str,
+    pub request_hash_prefix: &'static str,
+    pub payload_hash_prefix: &'static str,
+    pub previous_major_supported: bool,
+    pub migration_plan_ref: &'static str,
+}
+
+impl SharedSchemaLifecyclePrimitives {
+    pub fn phase2_default() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            timestamp: "rfc3339_utc_ms",
+            logical_sequence: "monotonic_u64",
+            command_id_prefix: "command:",
+            trace_id_prefix: "trace_",
+            idempotency_key_prefix: "idem_",
+            request_hash_prefix: "hash_",
+            payload_hash_prefix: "hash_",
+            previous_major_supported: true,
+            migration_plan_ref: "migration:phase2:none",
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPackageContractError> {
+        if self.trace_id_prefix != "trace_" {
+            return Err(SharedSchemaPackageContractError::InvalidLifecyclePrimitive(
+                "trace_id",
+            ));
+        }
+        if self.idempotency_key_prefix != "idem_" {
+            return Err(SharedSchemaPackageContractError::InvalidLifecyclePrimitive(
+                "idempotency_key",
+            ));
+        }
+        if self.request_hash_prefix != "hash_" || self.payload_hash_prefix != "hash_" {
+            return Err(SharedSchemaPackageContractError::InvalidLifecyclePrimitive(
+                "hash",
+            ));
+        }
+        if !self.previous_major_supported {
+            return Err(SharedSchemaPackageContractError::InvalidLifecyclePrimitive(
+                "compatibility_window",
+            ));
+        }
+        if !self.migration_plan_ref.starts_with("migration:") {
+            return Err(SharedSchemaPackageContractError::InvalidLifecyclePrimitive(
+                "migration_plan_ref",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaReasonCodeEntry {
+    pub reason_code: String,
+    pub retryability: SharedSchemaRetryability,
+    pub correction_fields: Vec<String>,
+    pub dependency_name: String,
+    pub policy_ref: String,
+    pub audit_ref: String,
+    pub unsupported_version: bool,
+    pub documented: bool,
+    pub rust_first_enum_source: bool,
+}
+
+impl SharedSchemaReasonCodeEntry {
+    pub fn new(
+        reason_code: impl Into<String>,
+        retryability: SharedSchemaRetryability,
+        correction_fields: Vec<String>,
+        unsupported_version: bool,
+    ) -> Self {
+        Self {
+            reason_code: reason_code.into(),
+            retryability,
+            correction_fields,
+            dependency_name: "shared_schema_package".to_owned(),
+            policy_ref: "policy:shared_schema_package".to_owned(),
+            audit_ref: "audit:schema:phase2".to_owned(),
+            unsupported_version,
+            documented: true,
+            rust_first_enum_source: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPackageContractError> {
+        if !self.reason_code.contains('.') {
+            return Err(SharedSchemaPackageContractError::InvalidReasonCode(
+                self.reason_code.clone(),
+            ));
+        }
+        if self.correction_fields.is_empty() {
+            return Err(SharedSchemaPackageContractError::MissingCorrectionFields(
+                self.reason_code.clone(),
+            ));
+        }
+        if !self.documented || !self.rust_first_enum_source {
+            return Err(SharedSchemaPackageContractError::UndocumentedReasonCode(
+                self.reason_code.clone(),
+            ));
+        }
+        if !self.policy_ref.starts_with("policy:") || !self.audit_ref.starts_with("audit:") {
+            return Err(SharedSchemaPackageContractError::InvalidReasonCode(
+                self.reason_code.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase2Contract {
+    pub schema_version: SchemaVersion,
+    pub source_roots: Vec<String>,
+    pub generated_output_roots: Vec<String>,
+    pub fixture_roots: Vec<String>,
+    pub typed_ref_primitives: Vec<SharedSchemaTypedRefPrimitive>,
+    pub lifecycle_primitives: SharedSchemaLifecyclePrimitives,
+    pub privacy_classes: Vec<SharedSchemaPrivacyClass>,
+    pub reason_codes: Vec<SharedSchemaReasonCodeEntry>,
+}
+
+impl SharedSchemaPhase2Contract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            source_roots: vec![
+                "packages/schemas/README.md".to_owned(),
+                "packages/schemas/overrid_contracts/v0".to_owned(),
+                "packages/schemas/overrid_contracts/codegen_manifest.json".to_owned(),
+                "packages/schemas/overrid_contracts/README.md".to_owned(),
+            ],
+            generated_output_roots: vec![
+                "packages/schemas/overrid_contracts/src/lib.rs".to_owned(),
+                "packages/schemas/admin_ui/generated".to_owned(),
+            ],
+            fixture_roots: vec![
+                "packages/schemas/overrid_contracts/fixtures/valid".to_owned(),
+                "packages/schemas/overrid_contracts/fixtures/invalid".to_owned(),
+            ],
+            typed_ref_primitives: required_shared_schema_typed_refs(),
+            lifecycle_primitives: SharedSchemaLifecyclePrimitives::phase2_default()?,
+            privacy_classes: vec![
+                SharedSchemaPrivacyClass::Public,
+                SharedSchemaPrivacyClass::TenantPrivate,
+                SharedSchemaPrivacyClass::Regulated,
+                SharedSchemaPrivacyClass::EncryptedPrivate,
+                SharedSchemaPrivacyClass::UserContent,
+                SharedSchemaPrivacyClass::SystemServiceOnly,
+                SharedSchemaPrivacyClass::RedactedDiagnostic,
+            ],
+            reason_codes: vec![
+                SharedSchemaReasonCodeEntry::new(
+                    "schema.unsupported_version",
+                    SharedSchemaRetryability::NotRetryable,
+                    vec!["schema_version".to_owned()],
+                    true,
+                ),
+                SharedSchemaReasonCodeEntry::new(
+                    "validation.typed_ref_required",
+                    SharedSchemaRetryability::NotRetryable,
+                    vec!["ref_prefix".to_owned()],
+                    false,
+                ),
+                SharedSchemaReasonCodeEntry::new(
+                    "policy.privacy_class_missing",
+                    SharedSchemaRetryability::OperatorReview,
+                    vec!["privacy_class".to_owned()],
+                    false,
+                ),
+                SharedSchemaReasonCodeEntry::new(
+                    "dependency.generated_source_misplaced",
+                    SharedSchemaRetryability::OperatorReview,
+                    vec!["generated_output_roots".to_owned()],
+                    false,
+                ),
+            ],
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPackageContractError> {
+        if !self
+            .source_roots
+            .iter()
+            .any(|path| path == "packages/schemas/overrid_contracts/v0")
+        {
+            return Err(SharedSchemaPackageContractError::MissingSourceRoot(
+                "packages/schemas/overrid_contracts/v0",
+            ));
+        }
+        if self.generated_output_roots.iter().any(|path| {
+            path.starts_with("packages/schemas/overrid_contracts/v0/")
+                || path.ends_with(".schema.json")
+        }) {
+            return Err(SharedSchemaPackageContractError::GeneratedOutputInsideSource);
+        }
+        for primitive in &self.typed_ref_primitives {
+            primitive.validate()?;
+        }
+        for required_family in REQUIRED_SHARED_SCHEMA_OBJECT_FAMILIES {
+            if !self
+                .typed_ref_primitives
+                .iter()
+                .any(|primitive| primitive.object_family == *required_family)
+            {
+                return Err(SharedSchemaPackageContractError::MissingObjectFamily);
+            }
+        }
+        let privacy_classes: BTreeSet<_> = self.privacy_classes.iter().copied().collect();
+        for required_class in REQUIRED_SHARED_SCHEMA_PRIVACY_CLASSES {
+            if !privacy_classes.contains(required_class) {
+                return Err(SharedSchemaPackageContractError::MissingPrivacyClass(
+                    required_class.as_str(),
+                ));
+            }
+        }
+        self.lifecycle_primitives.validate()?;
+        for reason in &self.reason_codes {
+            reason.validate()?;
+        }
+        if !self
+            .reason_codes
+            .iter()
+            .any(|reason| reason.unsupported_version)
+        {
+            return Err(SharedSchemaPackageContractError::MissingUnsupportedVersionReason);
+        }
+        Ok(())
+    }
+
+    pub fn has_typed_ref_family(&self, object_family: &str) -> bool {
+        self.typed_ref_primitives
+            .iter()
+            .any(|primitive| primitive.object_family == object_family)
+    }
+
+    pub fn has_reason_code(&self, reason_code: &str) -> bool {
+        self.reason_codes
+            .iter()
+            .any(|entry| entry.reason_code == reason_code)
+    }
+}
+
+pub const REQUIRED_SHARED_SCHEMA_OBJECT_FAMILIES: &[&str] = &[
+    "person",
+    "organization",
+    "tenant",
+    "node",
+    "app",
+    "native_service",
+    "service_account",
+    "system_service",
+    "central_ai_actor",
+    "overasset",
+    "namespace",
+    "route",
+    "package",
+    "workload",
+    "queue",
+    "lease",
+    "receipt",
+    "evidence",
+    "secret_reference",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PRIVACY_CLASSES: &[SharedSchemaPrivacyClass] = &[
+    SharedSchemaPrivacyClass::Public,
+    SharedSchemaPrivacyClass::TenantPrivate,
+    SharedSchemaPrivacyClass::Regulated,
+    SharedSchemaPrivacyClass::EncryptedPrivate,
+    SharedSchemaPrivacyClass::UserContent,
+    SharedSchemaPrivacyClass::SystemServiceOnly,
+    SharedSchemaPrivacyClass::RedactedDiagnostic,
+];
+
+pub fn required_shared_schema_typed_refs() -> Vec<SharedSchemaTypedRefPrimitive> {
+    vec![
+        SharedSchemaTypedRefPrimitive::new(
+            "person_ref",
+            "person",
+            "person:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "organization_ref",
+            "organization",
+            "org:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "tenant_ref",
+            "tenant",
+            "tenant:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "node_ref",
+            "node",
+            "node:",
+            SharedSchemaPrivacyClass::SystemServiceOnly,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "app_ref",
+            "app",
+            "app:",
+            SharedSchemaPrivacyClass::Public,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "native_service_ref",
+            "native_service",
+            "native_service:",
+            SharedSchemaPrivacyClass::SystemServiceOnly,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "service_account_ref",
+            "service_account",
+            "service_account:",
+            SharedSchemaPrivacyClass::SystemServiceOnly,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "system_service_ref",
+            "system_service",
+            "system_service:",
+            SharedSchemaPrivacyClass::SystemServiceOnly,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "central_ai_actor_ref",
+            "central_ai_actor",
+            "central_ai:",
+            SharedSchemaPrivacyClass::Regulated,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "overasset_ref",
+            "overasset",
+            "overasset:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "namespace_ref",
+            "namespace",
+            "namespace:",
+            SharedSchemaPrivacyClass::Public,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "route_ref",
+            "route",
+            "route:",
+            SharedSchemaPrivacyClass::Public,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "package_ref",
+            "package",
+            "package:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "workload_ref",
+            "workload",
+            "workload:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "queue_ref",
+            "queue",
+            "queue:",
+            SharedSchemaPrivacyClass::SystemServiceOnly,
+            false,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "lease_ref",
+            "lease",
+            "lease:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "receipt_ref",
+            "receipt",
+            "receipt:",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "evidence_ref",
+            "evidence",
+            "evidence:",
+            SharedSchemaPrivacyClass::RedactedDiagnostic,
+            true,
+            true,
+        ),
+        SharedSchemaTypedRefPrimitive::new(
+            "secret_ref",
+            "secret_reference",
+            "secret:",
+            SharedSchemaPrivacyClass::EncryptedPrivate,
+            false,
+            true,
+        ),
+    ]
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPackageContractError {
+    MissingSourceRoot(&'static str),
+    GeneratedOutputInsideSource,
+    MissingPrimitiveName,
+    MissingObjectFamily,
+    UntypedRefPrimitive(String),
+    UnversionedPublicRef(String),
+    MissingPrivacyClass(&'static str),
+    InvalidLifecyclePrimitive(&'static str),
+    InvalidReasonCode(String),
+    MissingCorrectionFields(String),
+    UndocumentedReasonCode(String),
+    MissingUnsupportedVersionReason,
+}
+
+impl fmt::Display for SharedSchemaPackageContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingSourceRoot(path) => write!(formatter, "missing source root: {path}"),
+            Self::GeneratedOutputInsideSource => {
+                formatter.write_str("generated output is inside schema source")
+            }
+            Self::MissingPrimitiveName => formatter.write_str("primitive name is required"),
+            Self::MissingObjectFamily => formatter.write_str("object family is required"),
+            Self::UntypedRefPrimitive(name) => write!(formatter, "untyped ref primitive: {name}"),
+            Self::UnversionedPublicRef(name) => write!(formatter, "unversioned public ref: {name}"),
+            Self::MissingPrivacyClass(class) => write!(formatter, "missing privacy class: {class}"),
+            Self::InvalidLifecyclePrimitive(name) => {
+                write!(formatter, "invalid lifecycle primitive: {name}")
+            }
+            Self::InvalidReasonCode(code) => write!(formatter, "invalid reason code: {code}"),
+            Self::MissingCorrectionFields(code) => {
+                write!(formatter, "missing correction fields: {code}")
+            }
+            Self::UndocumentedReasonCode(code) => {
+                write!(formatter, "undocumented reason code: {code}")
+            }
+            Self::MissingUnsupportedVersionReason => {
+                formatter.write_str("missing unsupported-version reason code")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPackageContractError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EnvironmentClass {
@@ -4119,6 +4749,145 @@ mod tests {
                 SUPPORTED_INTEGRATION_HARNESS_SCHEMA_VERSION
             ),
             Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn exposes_shared_schema_package_contract_projection_metadata() {
+        let set = shared_schema_package_contract_set();
+        assert_eq!(set.schema_family, SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY);
+        assert_eq!(
+            set.schema_version,
+            SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION
+        );
+        assert_eq!(set.source_root, CONTRACT_SOURCE_ROOT);
+        assert_eq!(set.projection_status, GENERATED_CONTRACT_STATUS);
+    }
+
+    #[test]
+    fn shared_schema_package_schema_version_accepts_only_shared_schema_family() {
+        let parsed = ensure_supported_shared_schema_package_schema_version(
+            SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.family(), SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY);
+        assert_eq!(parsed.major(), 0);
+        assert_eq!(parsed.minor(), 1);
+        assert!(matches!(
+            ensure_supported_shared_schema_package_schema_version("shared-schema-package.v0.2"),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+        assert!(matches!(
+            ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_LOCAL_DEVELOPMENT_STACK_SCHEMA_VERSION
+            ),
+            Err(ContractError::UnsupportedSchemaVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase2_contract_covers_layout_and_common_primitives() {
+        let contract = SharedSchemaPhase2Contract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        assert!(contract
+            .source_roots
+            .contains(&"packages/schemas/overrid_contracts/v0".to_owned()));
+        assert!(contract
+            .generated_output_roots
+            .contains(&"packages/schemas/overrid_contracts/src/lib.rs".to_owned()));
+        assert!(contract
+            .fixture_roots
+            .contains(&"packages/schemas/overrid_contracts/fixtures/valid".to_owned()));
+
+        for family in REQUIRED_SHARED_SCHEMA_OBJECT_FAMILIES {
+            assert!(contract.has_typed_ref_family(family), "missing {family}");
+        }
+        assert!(contract.has_reason_code("schema.unsupported_version"));
+        assert!(contract.has_reason_code("validation.typed_ref_required"));
+        assert!(contract.has_reason_code("policy.privacy_class_missing"));
+        assert!(contract.has_reason_code("dependency.generated_source_misplaced"));
+    }
+
+    #[test]
+    fn shared_schema_phase2_rejects_generated_outputs_inside_source_roots() {
+        let mut contract = SharedSchemaPhase2Contract::canonical().unwrap();
+        contract.generated_output_roots =
+            vec!["packages/schemas/overrid_contracts/v0/generated_types.rs".to_owned()];
+
+        assert_eq!(
+            contract.validate().unwrap_err(),
+            SharedSchemaPackageContractError::GeneratedOutputInsideSource
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase2_rejects_untyped_or_unversioned_public_refs() {
+        let mut untyped = SharedSchemaTypedRefPrimitive::new(
+            "tenant_ref",
+            "tenant",
+            "",
+            SharedSchemaPrivacyClass::TenantPrivate,
+            true,
+            true,
+        );
+        assert!(matches!(
+            untyped.validate(),
+            Err(SharedSchemaPackageContractError::UntypedRefPrimitive(name))
+                if name == "tenant_ref"
+        ));
+
+        untyped.ref_prefix = "tenant:".to_owned();
+        untyped.unstructured_string_allowed = true;
+        assert!(matches!(
+            untyped.validate(),
+            Err(SharedSchemaPackageContractError::UntypedRefPrimitive(name))
+                if name == "tenant_ref"
+        ));
+
+        let unversioned_public = SharedSchemaTypedRefPrimitive::new(
+            "app_ref",
+            "app",
+            "app:",
+            SharedSchemaPrivacyClass::Public,
+            true,
+            false,
+        );
+        assert!(matches!(
+            unversioned_public.validate(),
+            Err(SharedSchemaPackageContractError::UnversionedPublicRef(name))
+                if name == "app_ref"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase2_lifecycle_privacy_and_reason_codes_are_stable() {
+        let lifecycle = SharedSchemaLifecyclePrimitives::phase2_default().unwrap();
+        lifecycle.validate().unwrap();
+        assert_eq!(lifecycle.trace_id_prefix, "trace_");
+        assert_eq!(lifecycle.idempotency_key_prefix, "idem_");
+        assert_eq!(lifecycle.request_hash_prefix, "hash_");
+        assert!(lifecycle.previous_major_supported);
+
+        assert!(SharedSchemaPrivacyClass::Public.allows_public_object());
+        assert!(SharedSchemaPrivacyClass::RedactedDiagnostic.allows_public_object());
+        assert!(SharedSchemaPrivacyClass::EncryptedPrivate.requires_redaction());
+
+        let mut reason = SharedSchemaReasonCodeEntry::new(
+            "schema.unsupported_version",
+            SharedSchemaRetryability::NotRetryable,
+            vec!["schema_version".to_owned()],
+            true,
+        );
+        reason.validate().unwrap();
+        assert_eq!(reason.retryability.as_str(), "not_retryable");
+
+        reason.correction_fields.clear();
+        assert!(matches!(
+            reason.validate(),
+            Err(SharedSchemaPackageContractError::MissingCorrectionFields(code))
+                if code == "schema.unsupported_version"
         ));
     }
 

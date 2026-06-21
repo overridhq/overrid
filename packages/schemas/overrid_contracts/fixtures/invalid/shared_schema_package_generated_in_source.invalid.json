@@ -1,0 +1,27 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "layout": {
+    "approved_source_roots": [
+      "packages/schemas/overrid_contracts/v0"
+    ],
+    "generated_output_roots": [
+      "packages/schemas/overrid_contracts/v0/generated.rs"
+    ],
+    "fixture_roots": [
+      "packages/schemas/overrid_contracts/fixtures/valid",
+      "packages/schemas/overrid_contracts/fixtures/invalid"
+    ],
+    "compatibility_report_roots": [
+      "packages/schemas/overrid_contracts/compatibility"
+    ],
+    "internal_binary_projection_roots": [
+      "packages/schemas/overrid_contracts/protobuf/internal"
+    ],
+    "generated_in_source_directories": true
+  },
+  "identifier_primitives": [],
+  "lifecycle_primitives": {},
+  "privacy_classes": [],
+  "reason_code_registry": []
+}

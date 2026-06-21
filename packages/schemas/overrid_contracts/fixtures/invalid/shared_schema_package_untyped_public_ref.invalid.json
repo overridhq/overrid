@@ -1,0 +1,24 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "layout": {
+    "generated_in_source_directories": false
+  },
+  "identifier_primitives": [
+    {
+      "primitive_name": "tenant_ref",
+      "object_family": "tenant",
+      "ref_prefix": "",
+      "privacy_class": "tenant_private",
+      "public_object_required": true,
+      "unstructured_string_allowed": true,
+      "versioned_when_external": false,
+      "examples": [
+        "tenant alpha"
+      ]
+    }
+  ],
+  "lifecycle_primitives": {},
+  "privacy_classes": [],
+  "reason_code_registry": []
+}

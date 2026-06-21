@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
+  "title": "Shared Schema Package Phase 2 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout, common identifiers, lifecycle primitives, privacy classes, and reason-code/correction primitives.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_family",
+    "schema_version",
+    "layout",
+    "identifier_primitives",
+    "lifecycle_primitives",
+    "privacy_classes",
+    "reason_code_registry"
+  ],
+  "properties": {
+    "schema_family": {
+      "const": "shared-schema-package"
+    },
+    "schema_version": {
+      "$ref": "#/$defs/schema_version"
+    },
+    "layout": {
+      "$ref": "#/$defs/source_layout"
+    },
+    "identifier_primitives": {
+      "type": "array",
+      "minItems": 19,
+      "items": {
+        "$ref": "#/$defs/typed_ref_primitive"
+      }
+    },
+    "lifecycle_primitives": {
+      "$ref": "#/$defs/lifecycle_primitives"
+    },
+    "privacy_classes": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "$ref": "#/$defs/privacy_class_rule"
+      }
+    },
+    "reason_code_registry": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/reason_code_entry"
+      }
+    }
+  },
+  "$defs": {
+    "schema_version": {
+      "const": "shared-schema-package.v0.1"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ref_prefix": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*:"
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "privacy_class": {
+      "enum": [
+        "public",
+        "tenant_private",
+        "regulated",
+        "encrypted_private",
+        "user_content",
+        "system_service_only",
+        "redacted_diagnostic"
+      ]
+    },
+    "source_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_source_roots",
+        "generated_output_roots",
+        "fixture_roots",
+        "compatibility_report_roots",
+        "internal_binary_projection_roots",
+        "generated_in_source_directories"
+      ],
+      "properties": {
+        "approved_source_roots": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "packages/schemas/README.md",
+              "packages/schemas/overrid_contracts/v0",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "packages/schemas/overrid_contracts/README.md"
+            ]
+          }
+        },
+        "generated_output_roots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/src/lib.rs",
+              "packages/schemas/admin_ui/generated"
+            ]
+          }
+        },
+        "fixture_roots": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/fixtures/valid",
+              "packages/schemas/overrid_contracts/fixtures/invalid"
+            ]
+          }
+        },
+        "compatibility_report_roots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/compatibility",
+              "docs/specs/generated"
+            ]
+          }
+        },
+        "internal_binary_projection_roots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/protobuf/internal"
+            ]
+          }
+        },
+        "generated_in_source_directories": {
+          "const": false
+        }
+      }
+    },
+    "typed_ref_primitive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primitive_name",
+        "object_family",
+        "ref_prefix",
+        "privacy_class",
+        "public_object_required",
+        "unstructured_string_allowed",
+        "versioned_when_external",
+        "examples"
+      ],
+      "properties": {
+        "primitive_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "object_family": {
+          "enum": [
+            "person",
+            "organization",
+            "tenant",
+            "node",
+            "app",
+            "native_service",
+            "service_account",
+            "system_service",
+            "central_ai_actor",
+            "overasset",
+            "namespace",
+            "route",
+            "package",
+            "workload",
+            "queue",
+            "lease",
+            "receipt",
+            "evidence",
+            "secret_reference"
+          ]
+        },
+        "ref_prefix": {
+          "$ref": "#/$defs/ref_prefix"
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "public_object_required": {
+          "type": "boolean"
+        },
+        "unstructured_string_allowed": {
+          "const": false
+        },
+        "versioned_when_external": {
+          "type": "boolean"
+        },
+        "examples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "lifecycle_primitives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timestamp",
+        "logical_sequence",
+        "schema_version",
+        "command_id",
+        "trace_id",
+        "idempotency_key",
+        "request_hash",
+        "payload_hash",
+        "compatibility_window",
+        "deprecation_metadata"
+      ],
+      "properties": {
+        "timestamp": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "logical_sequence": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "command_id": {
+          "$ref": "#/$defs/ref_prefix"
+        },
+        "trace_id": {
+          "const": "trace_"
+        },
+        "idempotency_key": {
+          "const": "idem_"
+        },
+        "request_hash": {
+          "const": "hash_"
+        },
+        "payload_hash": {
+          "const": "hash_"
+        },
+        "compatibility_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_major",
+            "previous_major_supported"
+          ],
+          "properties": {
+            "current_major": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "previous_major_supported": {
+              "const": true
+            }
+          }
+        },
+        "deprecation_metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deprecated_since",
+            "retirement_after",
+            "migration_plan_ref"
+          ],
+          "properties": {
+            "deprecated_since": {
+              "$ref": "#/$defs/non_empty_string"
+            },
+            "retirement_after": {
+              "$ref": "#/$defs/non_empty_string"
+            },
+            "migration_plan_ref": {
+              "$ref": "#/$defs/ref_prefix"
+            }
+          }
+        }
+      }
+    },
+    "privacy_class_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "privacy_class",
+        "allowed_in_public_objects",
+        "requires_redaction",
+        "requires_owner",
+        "validator_rule_ref"
+      ],
+      "properties": {
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "allowed_in_public_objects": {
+          "type": "boolean"
+        },
+        "requires_redaction": {
+          "type": "boolean"
+        },
+        "requires_owner": {
+          "type": "boolean"
+        },
+        "validator_rule_ref": {
+          "$ref": "#/$defs/ref_prefix"
+        }
+      }
+    },
+    "correction_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_name",
+        "required",
+        "field_ref"
+      ],
+      "properties": {
+        "field_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "field_ref": {
+          "$ref": "#/$defs/ref_prefix"
+        }
+      }
+    },
+    "reason_code_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason_code",
+        "reason_family",
+        "retryability",
+        "correction_fields",
+        "dependency_name",
+        "policy_ref",
+        "audit_ref",
+        "unsupported_version",
+        "documented",
+        "rust_first_enum_source"
+      ],
+      "properties": {
+        "reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "reason_family": {
+          "enum": [
+            "schema",
+            "validation",
+            "policy",
+            "dependency",
+            "unsupported_version"
+          ]
+        },
+        "retryability": {
+          "enum": [
+            "not_retryable",
+            "safe_retry",
+            "retry_after",
+            "operator_review"
+          ]
+        },
+        "correction_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/correction_field"
+          }
+        },
+        "dependency_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ref_prefix"
+        },
+        "audit_ref": {
+          "$ref": "#/$defs/ref_prefix"
+        },
+        "unsupported_version": {
+          "type": "boolean"
+        },
+        "documented": {
+          "const": true
+        },
+        "rust_first_enum_source": {
+          "const": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "layout": {
+    "generated_in_source_directories": false
+  },
+  "identifier_primitives": [
+    {
+      "primitive_name": "secret_ref",
+      "object_family": "secret_reference",
+      "ref_prefix": "secret:",
+      "privacy_class": "public",
+      "public_object_required": true,
+      "unstructured_string_allowed": false,
+      "versioned_when_external": true,
+      "examples": [
+        "secret://local_stack/fixture_key_ref"
+      ]
+    }
+  ],
+  "lifecycle_primitives": {},
+  "privacy_classes": [
+    {
+      "privacy_class": "public",
+      "allowed_in_public_objects": true,
+      "requires_redaction": false,
+      "requires_owner": false,
+      "validator_rule_ref": "rule:privacy:public"
+    }
+  ],
+  "reason_code_registry": []
+}

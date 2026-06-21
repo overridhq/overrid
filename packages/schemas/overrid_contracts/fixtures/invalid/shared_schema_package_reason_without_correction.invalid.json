@@ -1,0 +1,24 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "layout": {
+    "generated_in_source_directories": false
+  },
+  "identifier_primitives": [],
+  "lifecycle_primitives": {},
+  "privacy_classes": [],
+  "reason_code_registry": [
+    {
+      "reason_code": "schema.unsupported_version",
+      "reason_family": "unsupported_version",
+      "retryability": "not_retryable",
+      "correction_fields": [],
+      "dependency_name": "shared_schema_package",
+      "policy_ref": "policy:version_window",
+      "audit_ref": "audit:schema:unsupported_version",
+      "unsupported_version": true,
+      "documented": false,
+      "rust_first_enum_source": true
+    }
+  ]
+}

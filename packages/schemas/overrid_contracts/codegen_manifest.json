@@ -42,6 +42,62 @@
       "packages/cli/fixtures/valid/phase10_release_readiness.valid.json"
     ]
   },
+  "shared_schema_package_phase2": {
+    "schema_family": "shared-schema-package",
+    "schema_version": "shared-schema-package.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package",
+      "downstream_consumers": [
+        "Shared Schema Package",
+        "CLI",
+        "SDK",
+        "Integration Test Harness",
+        "Local Development Stack",
+        "Rust contract tests",
+        "Schema validators"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers using SDS #7 Phase 2",
+      "consumer_notes": "Phase 2 canonical source layout and common primitive metadata; JSON Schema remains the authority and Rust projection stays non-authoritative."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "non_authoritative": true
+    },
+    "contracts": [
+      "source_layout",
+      "typed_ref_primitive",
+      "lifecycle_primitives",
+      "privacy_class_rule",
+      "reason_code_entry",
+      "correction_field"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase2.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_generated_in_source.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_missing_privacy_class.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_reason_without_correction.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_untyped_public_ref.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Canonical schema source lives under approved packages/schemas roots and generated outputs stay outside source directories.",
+      "Public object references must use typed ref primitives and must not fall back to unstructured strings.",
+      "Lifecycle primitives must include timestamp, logical sequence, schema version, command id, trace id, idempotency key, request hash, payload hash, compatibility window, and deprecation metadata.",
+      "Privacy classes must distinguish public, tenant-private, regulated, encrypted/private, user-content, system-service-only, and redacted diagnostic data.",
+      "Reason-code entries must be documented, Rust-first enum sources with retryability, correction fields, dependency names, policy refs, audit refs, and unsupported-version metadata."
+    ]
+  },
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",

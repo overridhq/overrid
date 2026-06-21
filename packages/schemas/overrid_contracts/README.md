@@ -13,6 +13,15 @@ The JSON Schema files under `v0/` are the canonical docs-facing source for this
 slice. The Rust crate in `src/` is the initial generated/projection layer that
 CLI and SDK code consume while later phases mature schema generation.
 
+Shared Schema Package Phase 2 contracts define `source_layout`,
+`typed_ref_primitive`, `lifecycle_primitives`, `privacy_class_rule`,
+`reason_code_entry`, and `correction_field`. These keep
+`packages/schemas` source roots separate from generated outputs, require common
+object references to be typed and version-aware, require mutating/external
+records to carry lifecycle primitives, classify privacy/data surfaces, and make
+reason-code/correction metadata stable before downstream services consume the
+package.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

@@ -22,6 +22,7 @@ Rules:
 - Rejection examples live under `fixtures/invalid`.
 - Each schema family keeps a `codegen_manifest.json` that names canonical schema paths, fixture roots, generated or projected output paths, source-of-truth status, and validation target.
 - Top-level and nested manifest entries that name canonical schema sources or phase-gated schema artifacts must carry `schema_ownership` metadata.
+- `packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json` defines the Phase 2 layout and common primitive contract for approved source roots, generated-output roots, typed refs, lifecycle/idempotency fields, privacy classes, and reason-code/correction metadata.
 
 ## Schema Ownership Metadata
 
