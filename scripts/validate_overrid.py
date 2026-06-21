@@ -54,6 +54,7 @@ VALIDATORS = [
     Path("scripts/validate_sdk_phase1.py"),
     Path("scripts/validate_sdk_phase2.py"),
     Path("scripts/validate_sdk_phase3.py"),
+    Path("scripts/validate_sdk_phase4.py"),
 ]
 
 

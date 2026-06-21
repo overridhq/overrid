@@ -2,9 +2,11 @@
 
 use std::fmt;
 
+pub mod command;
 pub mod generated;
 pub mod read;
 
+pub use command::*;
 pub use generated::*;
 use overrid_contracts::{
     cli_contract_set, ensure_supported_schema_version, ContractError, GeneratedContractSet,
@@ -1349,6 +1351,17 @@ pub enum SdkError {
         environment: &'static str,
     },
     MissingReason,
+    IdempotencyConflict {
+        key: String,
+    },
+    TraceMismatch {
+        expected: String,
+        actual: String,
+    },
+    InvalidLifecycleTransition {
+        from: &'static str,
+        to: &'static str,
+    },
 }
 
 impl fmt::Display for SdkError {
@@ -1422,6 +1435,20 @@ impl fmt::Display for SdkError {
                 "mutating {environment} commands require --confirm-profile"
             ),
             Self::MissingReason => formatter.write_str("admin-impacting commands require --reason"),
+            Self::IdempotencyConflict { key } => write!(
+                formatter,
+                "duplicate idempotency key has a conflicting request hash: {key}"
+            ),
+            Self::TraceMismatch { expected, actual } => {
+                write!(
+                    formatter,
+                    "service trace id mismatch: expected {expected}, got {actual}"
+                )
+            }
+            Self::InvalidLifecycleTransition { from, to } => write!(
+                formatter,
+                "invalid command lifecycle transition without explicit service evidence: {from} -> {to}"
+            ),
         }
     }
 }

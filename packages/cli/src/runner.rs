@@ -2653,6 +2653,13 @@ fn sdk_error_result(output: OutputMode, error: SdkError) -> CliRunResult {
         SdkError::UnsupportedScheme(_) => (ExitCodeClass::Config, "unsupported_endpoint_scheme"),
         SdkError::Compatibility(ref rejection) => (ExitCodeClass::Schema, rejection.reason_code()),
         SdkError::Contract(_) => (ExitCodeClass::Schema, "contract_validation_failed"),
+        SdkError::IdempotencyConflict { .. } => {
+            (ExitCodeClass::Idempotency, "duplicate_idempotency_conflict")
+        }
+        SdkError::TraceMismatch { .. } => (ExitCodeClass::Transport, "trace_mismatch"),
+        SdkError::InvalidLifecycleTransition { .. } => {
+            (ExitCodeClass::Phase, "invalid_lifecycle_transition")
+        }
     };
     phase_error_result(
         exit_class,

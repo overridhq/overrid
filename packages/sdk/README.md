@@ -46,3 +46,15 @@ The Phase 3 SDK gate keeps the first SDK binding Rust-first and explicit about g
 - Client construction: `configure_client()` builds an immutable `ConfiguredSdkClient` from `SdkConfigRecord`, preserving retry/timeout policy, credential-provider refs, trace policy, redaction defaults, and local/test loopback protection before network use.
 - Read helpers: `build_control_plane_read_request()` creates read-only request descriptors for tenant, identity, key metadata, manifest, queue status, and audit refs while preserving schema versions, pagination cursors, request ids, trace ids, and audit refs.
 - Version reporting: `sdk_version_report()` reports SDK name, semantic version, schema set, generated-contract revision, supported feature flags, language binding, and Phase 3 capability profile; request builders also attach SDK metadata headers so Overgate compatibility checks can reject unsupported clients with stable upgrade guidance.
+
+## Phase 4 Command Pipeline, Idempotency, Retry, And Errors
+
+The Phase 4 SDK gate turns Phase 2 records and Phase 3 client construction into a safe mutating-command pipeline:
+
+- Command envelopes: `build_command()` validates tenant id, actor id, command type, schema version, trace id, idempotency key, timestamp, signature ref, and payload fields before building a `SignedCommandEnvelope`.
+- Canonical payloads: `SdkCommandPayload::canonical_payload()` sorts and escapes fields deterministically, and `SdkCommandEnvelope` carries a stable request hash for idempotency decisions.
+- Overgate submission: `prepare_overgate_submission()` only prepares `POST /v1/overgate/commands` descriptors and reuses Overgate endpoint validation; it does not call private service storage, queue, worker, policy, accounting, or vault endpoints.
+- Response decoding: `decode_overgate_submission()` accepts only explicit Overgate service responses for accepted, completed, denied, duplicate, retry-wait, and terminal failure states while preserving queue refs, audit refs, trace ids, retry class, duplicate refs, and errors.
+- Idempotency cache: `phase4_idempotency_policy()` and `evaluate_idempotency_cache()` skip read-only caching, store shorter in-flight retry records, keep 24-hour Phase 1 terminal digests, keep 7-day workload refs, apply stricter security-sensitive retention, detect conflicting request hashes, and expose `clear_phase4_idempotency_cache()` for local `dev reset` cleanup.
+- Retry classification: `classify_phase4_retry()` retries only transport failures, timeouts, or service responses explicitly marked retryable/retry-after, and always requires the same idempotency key for safe retries.
+- Stable errors: `decode_stable_overrid_error()` preserves reason code, message, trace id, audit refs, retryable flag, correction fields, dependency name, policy refs, and schema version in caller-facing `overrid_error` records.
