@@ -121,6 +121,8 @@ pub enum Command {
     Help,
     Version,
     Doctor,
+    CommandRegistry,
+    Root(RootCommand),
     Profile(ProfileCommand),
     Credential(CredentialCommand),
     Auth(AuthCommand),
@@ -140,6 +142,25 @@ pub enum Command {
     Dev(DevCommand),
     Test(TestCommand),
     Planned(PlannedCommand),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootCommand {
+    Build,
+    SchemaCheck,
+    DocsCheck,
+    LayoutCheck,
+}
+
+impl RootCommand {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Build => "build",
+            Self::SchemaCheck => "schema:check",
+            Self::DocsCheck => "docs:check",
+            Self::LayoutCheck => "layout:check",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -693,6 +714,17 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "help" => Ok(Command::Help),
         "version" => Ok(Command::Version),
         "doctor" => Ok(Command::Doctor),
+        "command-registry" | "commands" | "root-commands" => Ok(Command::CommandRegistry),
+        "build" => Ok(Command::Root(RootCommand::Build)),
+        "schema:check" | "schema-check" => Ok(Command::Root(RootCommand::SchemaCheck)),
+        "docs:check" | "docs-check" => Ok(Command::Root(RootCommand::DocsCheck)),
+        "layout:check" | "layout-check" => Ok(Command::Root(RootCommand::LayoutCheck)),
+        "test:integration" => Ok(Command::Test(TestCommand::Integration)),
+        "dev:start" => Ok(Command::Dev(DevCommand::Start)),
+        "dev:stop" => Ok(Command::Dev(DevCommand::Stop)),
+        "dev:reset" => Ok(Command::Dev(DevCommand::Reset)),
+        "dev:seed" => Ok(Command::Dev(DevCommand::Seed)),
+        "dev:status" => Ok(Command::Dev(DevCommand::Status)),
         "profile" => profile_command(tokens),
         "credential" => credential_command(tokens),
         "auth" => auth_command(tokens),
@@ -711,6 +743,9 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
         "dispute" => dispute_command(tokens),
         "dev" => dev_command(tokens),
         "test" => test_command(tokens),
+        "schema" => root_check_command(tokens, "schema", RootCommand::SchemaCheck),
+        "docs" => root_check_command(tokens, "docs", RootCommand::DocsCheck),
+        "layout" => root_check_command(tokens, "layout", RootCommand::LayoutCheck),
         "release-readiness" | "readiness" | "phase10" | "phase-10" => {
             Ok(Command::Planned(PlannedCommand::ReleaseReadiness))
         }
@@ -727,6 +762,19 @@ fn command_from_tokens(tokens: &[String]) -> Result<Command, CliParseError> {
             Ok(Command::Planned(PlannedCommand::Governance))
         }
         other => Err(CliParseError::UnknownCommand(other.to_owned())),
+    }
+}
+
+fn root_check_command(
+    tokens: &[String],
+    namespace: &'static str,
+    command: RootCommand,
+) -> Result<Command, CliParseError> {
+    match tokens.get(1).map(String::as_str).unwrap_or("check") {
+        "check" => Ok(Command::Root(command)),
+        other => Err(CliParseError::UnknownCommand(format!(
+            "{namespace} {other}"
+        ))),
     }
 }
 
@@ -979,6 +1027,58 @@ mod tests {
         let parsed = parse_cli(["overrid", "doctor", "--json"]).unwrap();
         assert_eq!(parsed.command, Command::Doctor);
         assert_eq!(parsed.globals.output, OutputMode::Json);
+    }
+
+    #[test]
+    fn maps_repository_layout_phase5_root_commands() {
+        assert_eq!(
+            parse_cli(["overrid", "command-registry"]).unwrap().command,
+            Command::CommandRegistry
+        );
+        assert_eq!(
+            parse_cli(["overrid", "root-commands"]).unwrap().command,
+            Command::CommandRegistry
+        );
+        assert_eq!(
+            parse_cli(["overrid", "build"]).unwrap().command,
+            Command::Root(RootCommand::Build)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "schema:check"]).unwrap().command,
+            Command::Root(RootCommand::SchemaCheck)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "schema", "check"]).unwrap().command,
+            Command::Root(RootCommand::SchemaCheck)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "docs:check"]).unwrap().command,
+            Command::Root(RootCommand::DocsCheck)
+        );
+        assert_eq!(
+            parse_cli(["overrid", "layout", "check"]).unwrap().command,
+            Command::Root(RootCommand::LayoutCheck)
+        );
+        assert_eq!(RootCommand::LayoutCheck.as_str(), "layout:check");
+    }
+
+    #[test]
+    fn maps_colon_aliases_for_existing_semantic_root_commands() {
+        assert_eq!(
+            parse_cli(["overrid", "test:integration"]).unwrap().command,
+            Command::Test(TestCommand::Integration)
+        );
+        for (command, expected) in [
+            ("dev:start", DevCommand::Start),
+            ("dev:stop", DevCommand::Stop),
+            ("dev:reset", DevCommand::Reset),
+            ("dev:seed", DevCommand::Seed),
+            ("dev:status", DevCommand::Status),
+        ] {
+            let parsed = parse_cli(["overrid", command, "--json"]).unwrap();
+            assert_eq!(parsed.command, Command::Dev(expected));
+            assert_eq!(parsed.globals.output, OutputMode::Json);
+        }
     }
 
     #[test]

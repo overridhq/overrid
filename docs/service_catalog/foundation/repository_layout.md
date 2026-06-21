@@ -82,6 +82,15 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `reason_event_contracts_defined`: `docs/specs/reason_codes_and_events.md` and `packages/schemas` define reason-code, event-envelope, audit-record, validation-artifact, and error-shape placement.
 - `phase4_validation_defined`: `scripts/validate_repository_layout_phase4.py` validates the Phase 4 docs, schema package metadata, workspace manifest metadata, planning trail, and local Markdown links.
 
+## Phase 5 Implementation Gates
+
+- `root_command_registry_defined`: `overrid.workspace.toml` and `overrid command-registry` list `build`, `test`, `test:integration`, `dev:start`, `dev:stop`, `dev:reset`, `dev:seed`, `dev:status`, `schema:check`, `docs:check`, and `layout:check` with purpose, inputs, outputs, owner, phase gate, canonical invocation, envelope support, failure classes, and alias metadata.
+- `rust_owned_command_execution_defined`: `packages/cli` owns the canonical command registry and `layout:check` behavior. Thin aliases may call the Rust CLI, but authoritative behavior must not live only in shell, Make, just, npm, or docs.
+- `layout_check_defined`: `overrid layout:check` validates required directories, manifest records, module/test-target markers, service contract stubs, generated-output ignore markers, secret-file absence, package-boundary metadata, local-state markers, and docs contract paths with human and JSON output.
+- `schema_docs_check_orchestration_defined`: `schema:check`, `docs:check`, and `layout:check` are local/CI semantic records with stable pass/fail/block statuses and artifact refs.
+- `validation_artifacts_defined`: `layout_check.passed`, `layout_check.failed`, `package_boundary_violation`, `missing_service_contract`, `missing_test_target`, `generated_file_committed`, and `secret_file_committed` are CI/build artifacts, not Overwatch events.
+- `phase5_validation_defined`: `scripts/validate_repository_layout_phase5.py` validates the Phase 5 docs, manifest root-command registry, Rust CLI parser/runner wiring, secret-free layout-check output, planning trail, and suite registration.
+
 ## Validation
 
 - Fresh checkout has all expected directories.
@@ -91,6 +100,7 @@ Define the physical workspace for Overrid services, packages, SDKs, CLI tools, s
 - `scripts/validate_repository_layout_phase2.py` verifies Phase 2 directory contracts, ownership READMEs, ignored local/generated markers, planning evidence, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase3.py` verifies the root manifest, module records, inventory discovery, deterministic drift fixtures, planning evidence, and Markdown-link evidence.
 - `scripts/validate_repository_layout_phase4.py` verifies schema authority, generated/projection boundaries, optional Protobuf placement, service-contract template content, reason-code/event placement, and phase planning evidence.
+- `scripts/validate_repository_layout_phase5.py` verifies root command registry metadata, Rust-owned CLI wiring, `layout:check` output, validation artifact schema, command orchestration records, and Phase 5 planning evidence.
 
 ## Handoff
 

@@ -1,16 +1,22 @@
 schema_version = 1
-manifest_version = "2026-06-21.repository-layout-phase-4"
+manifest_version = "2026-06-21.repository-layout-phase-5"
 workspace_name = "overrid"
 source_sds = "docs/sds/foundation/repository_layout.md"
 source_build_plan = "docs/build_plan/sub_build_plan_005_repository_layout.md"
 tech_stack_decision = "docs/overrid_tech_stack_choice.md"
 
 [validation_metadata]
-layout_phase = 4
+layout_phase = 5
 command_consumers = [
     "layout:check",
     "build",
     "test",
+    "test:integration",
+    "dev:start",
+    "dev:stop",
+    "dev:reset",
+    "dev:seed",
+    "dev:status",
     "schema:check",
     "docs:check",
 ]
@@ -150,6 +156,161 @@ contract_authority_spec = "docs/specs/contract_authority.md"
 optional_protobuf_root = "packages/schemas/protobuf"
 optional_protobuf_requires_sds_and_spec = true
 source_of_truth = "json_schema"
+
+[root_command_registry]
+registry_version = "repository-layout-phase-5"
+owner = "overrid-cli"
+alias_policy = "thin_alias_only"
+machine_readable_result_envelope = true
+validation_artifacts = [
+    "layout_check.passed",
+    "layout_check.failed",
+    "package_boundary_violation",
+    "missing_service_contract",
+    "missing_test_target",
+    "generated_file_committed",
+    "secret_file_committed",
+]
+
+[[root_commands]]
+name = "build"
+purpose = "Compile and check implemented Rust workspace packages."
+inputs = ["Cargo.toml", "overrid.workspace.toml"]
+outputs = ["build_check.passed", "build_check.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid build"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["cargo check --workspace"]
+
+[[root_commands]]
+name = "test"
+purpose = "Run unit and fast package validation through the Rust CLI command surface."
+inputs = ["Cargo.toml", "overrid.workspace.toml"]
+outputs = ["test_check.passed", "test_check.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid test"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["cargo test --workspace"]
+
+[[root_commands]]
+name = "test:integration"
+purpose = "Run bounded local integration scenarios through the integration harness."
+inputs = ["tests/integration", "infra/local", "overrid.workspace.toml"]
+outputs = ["integration_test.passed", "integration_test.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid test integration"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid test:integration"]
+
+[[root_commands]]
+name = "dev:start"
+purpose = "Start the loopback-only Overrid local development stack."
+inputs = ["infra/local/profiles", "infra/local/service-definitions"]
+outputs = ["local_stack.started", "local_stack.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev start"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:start"]
+
+[[root_commands]]
+name = "dev:stop"
+purpose = "Stop the loopback-only Overrid local development stack."
+inputs = ["infra/local/profiles", "infra/local/service-definitions"]
+outputs = ["local_stack.stopped", "local_stack.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev stop"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:stop"]
+
+[[root_commands]]
+name = "dev:reset"
+purpose = "Reset ignored local state under marker-gated local development paths."
+inputs = ["infra/local/state", "infra/local/job-tables", "infra/local/artifacts"]
+outputs = ["local_stack.reset", "local_stack.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev reset"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:reset"]
+
+[[root_commands]]
+name = "dev:seed"
+purpose = "Seed deterministic local development fixtures through Rust local-stack tooling."
+inputs = ["infra/local/profiles", "tests/integration/scenarios"]
+outputs = ["local_stack.seeded", "local_stack.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev seed"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:seed"]
+
+[[root_commands]]
+name = "dev:status"
+purpose = "Report local development stack health and capability status."
+inputs = ["infra/local/profiles", "infra/local/service-definitions"]
+outputs = ["local_stack.status", "local_stack.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid dev status"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid dev:status"]
+
+[[root_commands]]
+name = "schema:check"
+purpose = "Validate shared JSON Schema sources, fixtures, and generated projection metadata."
+inputs = ["packages/schemas", "docs/specs/contract_authority.md"]
+outputs = ["schema_check.passed", "schema_check.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid schema:check"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["python3 scripts/validate_repository_layout_phase4.py"]
+
+[[root_commands]]
+name = "docs:check"
+purpose = "Validate docs links, headings, stale markers, restricted economics language, and SDS/build-plan alignment."
+inputs = ["docs", "overrid.workspace.toml"]
+outputs = ["docs_check.passed", "docs_check.failed"]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid docs:check"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["python3 scripts/validate_overrid.py"]
+
+[[root_commands]]
+name = "layout:check"
+purpose = "Validate repository layout directories, manifest records, contracts, ignore markers, package boundaries, local state, and docs links."
+inputs = ["overrid.workspace.toml", "docs/specs", "packages", "infra/local", "tests/integration"]
+outputs = [
+    "layout_check.passed",
+    "layout_check.failed",
+    "package_boundary_violation",
+    "missing_service_contract",
+    "missing_test_target",
+    "generated_file_committed",
+    "secret_file_committed",
+]
+owning_tool = "overrid-cli"
+phase_gate = "phase_0"
+canonical_invocation = "overrid layout:check"
+machine_readable_result_envelope = true
+failure_classes = ["usage", "config", "platform"]
+aliases = ["overrid layout check"]
 
 [[modules]]
 name = "shared-schemas"

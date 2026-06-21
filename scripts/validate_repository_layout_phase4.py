@@ -315,10 +315,17 @@ def validate_manifest() -> None:
     manifest = load_toml(MANIFEST)
     if manifest.get("schema_version") != 1:
         raise AssertionError(f"{MANIFEST} schema_version must be 1")
-    if "repository-layout-phase-4" not in str(manifest.get("manifest_version")):
-        raise AssertionError(f"{MANIFEST} manifest_version must identify phase 4")
-    if manifest.get("validation_metadata", {}).get("layout_phase") != 4:
-        raise AssertionError(f"{MANIFEST} validation_metadata.layout_phase must equal 4")
+    manifest_version = manifest.get("manifest_version")
+    manifest_match = (
+        re.search(r"repository-layout-phase-(\d+)", manifest_version)
+        if isinstance(manifest_version, str)
+        else None
+    )
+    if manifest_match is None or int(manifest_match.group(1)) < 4:
+        raise AssertionError(f"{MANIFEST} manifest_version must identify phase 4 or later")
+    layout_phase = manifest.get("validation_metadata", {}).get("layout_phase")
+    if not isinstance(layout_phase, int) or layout_phase < 4:
+        raise AssertionError(f"{MANIFEST} validation_metadata.layout_phase must be at least 4")
 
     contract_authority = manifest.get("contract_authority")
     if not isinstance(contract_authority, dict):

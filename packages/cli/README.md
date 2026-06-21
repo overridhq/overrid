@@ -12,6 +12,17 @@ It is a Cargo workspace member and depends on the Rust contract projection in
 `packages/sdk`. The package must remain a Rust CLI runtime. TypeScript bindings
 may exist elsewhere as generated client projections, but they are not this CLI's runtime.
 
+For `SUB BUILD PLAN #5 - Repository Layout` Phase 5, this package also owns the
+Rust command surface for the semantic root command registry. `overrid
+command-registry` reports `build`, `test`, `test:integration`, `dev:start`,
+`dev:stop`, `dev:reset`, `dev:seed`, `dev:status`, `schema:check`,
+`docs:check`, and `layout:check` with command purpose, inputs, outputs, owner,
+machine-readable result envelope status, and failure classes. `overrid
+layout:check` runs the lightweight Repository Layout checks and emits
+`layout_check.passed` or `layout_check.failed` artifact refs without exposing
+secret values. Shell, Make, just, or npm aliases may only be thin wrappers
+around the Rust-owned command behavior.
+
 The canonical CLI schema source is
 `packages/schemas/overrid_contracts/v0/cli_command.schema.json`; the Rust
 projection is consumed by this crate but is not the contract authority.

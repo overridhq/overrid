@@ -398,6 +398,54 @@ The `reason_event_contracts_defined` gate keeps stable reason codes, event envel
   - Output: Artifact schema and retention rule for layout checks.
   - Validation: Tests prove validation artifacts include reason code, path, owning phase, module id when available, and no raw secret values.
 
+### Phase 5 Gate Outputs
+
+#### Semantic Root Command Registry
+
+The `root_command_registry_defined` gate records these semantic root commands in `overrid.workspace.toml` and the Rust `overrid` CLI:
+
+- `build`
+- `test`
+- `test:integration`
+- `dev:start`
+- `dev:stop`
+- `dev:reset`
+- `dev:seed`
+- `dev:status`
+- `schema:check`
+- `docs:check`
+- `layout:check`
+
+Each command record includes command purpose, inputs, outputs, owning tool, canonical invocation, machine-readable result envelope support, failure classes, phase gate, and thin-alias metadata. Duplicate names, missing owner metadata, missing phase metadata, and commands without machine-readable output are layout violations.
+
+#### Rust-Owned Command Execution
+
+The `rust_owned_command_execution_defined` gate makes `packages/cli` and the `overrid` binary the canonical owner for Repository Layout Phase 5 command behavior. `overrid command-registry` prints the root command registry, and `overrid layout:check` runs the layout check with human and JSON output. Shell, Make, just, npm, or CI aliases may exist only as thin wrappers around the Rust-owned command path and must not become the authoritative behavior.
+
+#### Layout Check Contract
+
+The `layout_check_defined` gate requires `layout:check` to report required directories, workspace manifest presence, module-record/test-target markers, service contract stubs, generated-output ignore markers, forbidden secret-like files, package-boundary metadata, local-state markers, and docs-link contract files. JSON output must use the CLI result envelope and include per-check records with reason code, path, owning phase, and module id where available.
+
+Focused fixture coverage must prove missing directory, unlisted module, missing contract, forbidden dependency, generated file committed, secret-like file committed, and stale docs link failure classes through validator fixtures or equivalent deterministic checks.
+
+#### Schema And Docs Check Orchestration
+
+The `schema_docs_check_orchestration_defined` gate keeps `schema:check`, `docs:check`, and `layout:check` as local and CI-runnable semantic records. `schema:check` validates `packages/schemas` and generated/projection metadata. `docs:check` validates Markdown links, headings, stale markers, restricted pricing/revenue assumptions, SDS/service/build-plan alignment, and crosswalk references. `layout:check` validates workspace shape and hygiene before later phases add runtime code.
+
+#### Validation Artifact Schema
+
+The `validation_artifacts_defined` gate defines the Phase 5 validation artifact names:
+
+- `layout_check.passed`
+- `layout_check.failed`
+- `package_boundary_violation`
+- `missing_service_contract`
+- `missing_test_target`
+- `generated_file_committed`
+- `secret_file_committed`
+
+Artifact records include reason code, path, owning phase, module id when available, and artifact ref. Secret-file artifacts must report only path and reason metadata, never raw secret values. These records are CI/build artifacts and are not Overwatch runtime events.
+
 ## Phase 6: Package Boundary Enforcement And Modular Control-Plane Shape
 
 ### Work Items

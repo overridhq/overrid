@@ -175,6 +175,20 @@ Required Phase 4 source contracts:
 
 Command names may be exposed through a task runner, package scripts, make targets, or CLI shims, but the semantic names should remain stable.
 
+## Phase 5 Root Command Registry And Layout Check Decisions
+
+Phase 5 defines the Rust-owned command registry and `layout:check` validation surface. It does not make Repository Layout a network service, runtime registry, deployment orchestrator, production configuration source, or hidden service discovery path.
+
+Gate states:
+
+- `root_command_registry_defined`: `overrid.workspace.toml` and the Rust `overrid` CLI record `build`, `test`, `test:integration`, `dev:start`, `dev:stop`, `dev:reset`, `dev:seed`, `dev:status`, `schema:check`, `docs:check`, and `layout:check` with purpose, inputs, outputs, owner, canonical invocation, machine-readable result envelope, failure classes, phase gate, and alias metadata.
+- `rust_owned_command_execution_defined`: `packages/cli` owns `overrid command-registry` and `overrid layout:check`; shell, Make, just, npm, and CI aliases may only be thin wrappers around the Rust-owned behavior.
+- `layout_check_defined`: `layout:check` validates required directories, workspace manifest records, module-record/test-target markers, service contract stubs, generated-output ignore markers, secret-file absence, package-boundary metadata, local-state markers, and docs contract paths.
+- `schema_docs_check_orchestration_defined`: `schema:check`, `docs:check`, and `layout:check` remain local and CI-runnable semantic records with stable pass/fail/block output, not runtime Overwatch events.
+- `validation_artifacts_defined`: layout validation artifacts use `layout_check.passed`, `layout_check.failed`, `package_boundary_violation`, `missing_service_contract`, `missing_test_target`, `generated_file_committed`, and `secret_file_committed`.
+
+Phase 5 validation records must include reason code, path, owning phase, module id when available, and artifact refs. Secret-file findings must never include raw secret values.
+
 ## Event Surface
 
 Repository layout does not emit runtime platform events.

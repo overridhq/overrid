@@ -29,7 +29,7 @@ use crate::parser::{
     parse_cli, AuthCommand, Command, CredentialCommand, DevCommand, DisputeCommand, GlobalOptions,
     IdempotencyCacheCommand, IdentityCommand, KeyCommand, LedgerCommand, ManifestCommand,
     NodeCommand, OutputMode, PackageCommand, PlannedCommand, PolicyCommand, ProfileCommand,
-    ReceiptCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
+    ReceiptCommand, RootCommand, TenantCommand, TestCommand, UsageCommand, WorkloadCommand,
 };
 
 const LOCAL_TRACE_ID: &str = "trace_cli_local";
@@ -48,6 +48,183 @@ pub struct CliRunResult {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, Copy)]
+struct RootCommandRecord {
+    name: &'static str,
+    purpose: &'static str,
+    inputs: &'static [&'static str],
+    outputs: &'static [&'static str],
+    owning_tool: &'static str,
+    phase_gate: &'static str,
+    canonical_invocation: &'static str,
+    result_envelope: bool,
+    failure_classes: &'static [&'static str],
+    aliases: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LayoutCheckRecord {
+    check_name: &'static str,
+    status: &'static str,
+    reason_code: &'static str,
+    path: String,
+    owning_phase: &'static str,
+    module_id: Option<&'static str>,
+}
+
+const ROOT_COMMAND_REGISTRY: &[RootCommandRecord] = &[
+    RootCommandRecord {
+        name: "build",
+        purpose: "Compile and check implemented Rust workspace packages.",
+        inputs: &["Cargo.toml", "overrid.workspace.toml"],
+        outputs: &["build_check.passed", "build_check.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid build",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["cargo check --workspace"],
+    },
+    RootCommandRecord {
+        name: "test",
+        purpose: "Run unit and fast package validation through the Rust CLI command surface.",
+        inputs: &["Cargo.toml", "overrid.workspace.toml"],
+        outputs: &["test_check.passed", "test_check.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid test",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["cargo test --workspace"],
+    },
+    RootCommandRecord {
+        name: "test:integration",
+        purpose: "Run bounded local integration scenarios through the integration harness.",
+        inputs: &["tests/integration", "infra/local", "overrid.workspace.toml"],
+        outputs: &["integration_test.passed", "integration_test.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid test integration",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid test:integration"],
+    },
+    RootCommandRecord {
+        name: "dev:start",
+        purpose: "Start the loopback-only Overrid local development stack.",
+        inputs: &["infra/local/profiles", "infra/local/service-definitions"],
+        outputs: &["local_stack.started", "local_stack.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev start",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:start"],
+    },
+    RootCommandRecord {
+        name: "dev:stop",
+        purpose: "Stop the loopback-only Overrid local development stack.",
+        inputs: &["infra/local/profiles", "infra/local/service-definitions"],
+        outputs: &["local_stack.stopped", "local_stack.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev stop",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:stop"],
+    },
+    RootCommandRecord {
+        name: "dev:reset",
+        purpose: "Reset ignored local state under marker-gated local development paths.",
+        inputs: &["infra/local/state", "infra/local/job-tables", "infra/local/artifacts"],
+        outputs: &["local_stack.reset", "local_stack.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev reset",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:reset"],
+    },
+    RootCommandRecord {
+        name: "dev:seed",
+        purpose: "Seed deterministic local development fixtures through Rust local-stack tooling.",
+        inputs: &["infra/local/profiles", "tests/integration/scenarios"],
+        outputs: &["local_stack.seeded", "local_stack.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev seed",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:seed"],
+    },
+    RootCommandRecord {
+        name: "dev:status",
+        purpose: "Report local development stack health and capability status.",
+        inputs: &["infra/local/profiles", "infra/local/service-definitions"],
+        outputs: &["local_stack.status", "local_stack.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid dev status",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid dev:status"],
+    },
+    RootCommandRecord {
+        name: "schema:check",
+        purpose: "Validate shared JSON Schema sources, fixtures, and generated projection metadata.",
+        inputs: &["packages/schemas", "docs/specs/contract_authority.md"],
+        outputs: &["schema_check.passed", "schema_check.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid schema:check",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["python3 scripts/validate_repository_layout_phase4.py"],
+    },
+    RootCommandRecord {
+        name: "docs:check",
+        purpose: "Validate docs links, headings, stale markers, restricted economics language, and SDS/build-plan alignment.",
+        inputs: &["docs", "overrid.workspace.toml"],
+        outputs: &["docs_check.passed", "docs_check.failed"],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid docs:check",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["python3 scripts/validate_overrid.py"],
+    },
+    RootCommandRecord {
+        name: "layout:check",
+        purpose: "Validate repository layout directories, manifest records, contracts, ignore markers, package boundaries, local state, and docs links.",
+        inputs: &["overrid.workspace.toml", "docs/specs", "packages", "infra/local", "tests/integration"],
+        outputs: &[
+            "layout_check.passed",
+            "layout_check.failed",
+            "package_boundary_violation",
+            "missing_service_contract",
+            "missing_test_target",
+            "generated_file_committed",
+            "secret_file_committed",
+        ],
+        owning_tool: "overrid-cli",
+        phase_gate: "phase_0",
+        canonical_invocation: "overrid layout:check",
+        result_envelope: true,
+        failure_classes: &["usage", "config", "platform"],
+        aliases: &["overrid layout check"],
+    },
+];
+
+const LAYOUT_VALIDATION_ARTIFACTS: &[&str] = &[
+    "layout_check.passed",
+    "layout_check.failed",
+    "package_boundary_violation",
+    "missing_service_contract",
+    "missing_test_target",
+    "generated_file_committed",
+    "secret_file_committed",
+];
 
 pub fn main_entry<I, S>(args: I) -> i32
 where
@@ -75,6 +252,8 @@ where
             Command::Help => success(render_help(parsed.globals.all_phases)),
             Command::Version => success(render_version(&parsed.globals)),
             Command::Doctor => success(render_doctor(&parsed.globals)),
+            Command::CommandRegistry => command_registry_result(&parsed.globals),
+            Command::Root(command) => root_command_result(command, &parsed.globals),
             Command::Profile(command) => profile_command_result(command, &parsed.globals),
             Command::Credential(command) => credential_command_result(command, &parsed.globals),
             Command::IdempotencyCache(command) => {
@@ -104,6 +283,94 @@ where
 fn success(stdout: String) -> CliRunResult {
     CliRunResult {
         exit_code: EXIT_SUCCESS,
+        stdout,
+        stderr: String::new(),
+    }
+}
+
+fn command_registry_result(globals: &GlobalOptions) -> CliRunResult {
+    match globals.output {
+        OutputMode::Human => success(render_command_registry_human()),
+        OutputMode::Json => success(render_success_json(
+            "command-registry",
+            &render_command_registry_json(),
+            &["parsed", "registry_loaded", "completed"],
+            globals.profile.as_deref(),
+            None,
+            &[
+                "root_command_registry_defined",
+                "rust_owned_command_execution_defined",
+            ],
+            &[],
+        )),
+    }
+}
+
+fn root_command_result(command: RootCommand, globals: &GlobalOptions) -> CliRunResult {
+    if command == RootCommand::LayoutCheck {
+        return layout_check_result(globals);
+    }
+
+    let record = root_command_record(command.as_str()).expect("root command must be registered");
+    match globals.output {
+        OutputMode::Human => success(render_root_command_human(record)),
+        OutputMode::Json => success(render_success_json(
+            record.name,
+            &render_root_command_execution_json(record),
+            &["parsed", "orchestration_record_loaded", "completed"],
+            globals.profile.as_deref(),
+            None,
+            &[
+                "root_command_registry_defined",
+                "rust_owned_command_execution_defined",
+            ],
+            &[],
+        )),
+    }
+}
+
+fn layout_check_result(globals: &GlobalOptions) -> CliRunResult {
+    let repo_root =
+        resolve_repo_root(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let records = collect_layout_check_records(&repo_root);
+    let ok = records.iter().all(|record| record.status == "passed");
+    let artifact_refs = layout_artifact_refs(ok, &records);
+    let stdout = match globals.output {
+        OutputMode::Human => render_layout_check_human(ok, &repo_root, &records, &artifact_refs),
+        OutputMode::Json if ok => render_success_json_with_trace(
+            "layout:check",
+            &render_layout_check_result_json(ok, &repo_root, &records, &artifact_refs),
+            &["parsed", "layout_scanned", "completed"],
+            globals.profile.as_deref(),
+            None,
+            &["layout_check_defined", "validation_artifacts_defined"],
+            &[],
+            globals.trace_id.as_deref(),
+            &artifact_refs,
+        ),
+        OutputMode::Json => {
+            let error_json = render_layout_check_error_json(&records);
+            render_envelope_json(
+                "layout:check",
+                false,
+                &render_layout_check_result_json(ok, &repo_root, &records, &artifact_refs),
+                &error_json,
+                globals.trace_id.as_deref(),
+                Some("layout_check.failed"),
+                ExitCodeClass::Config,
+                RetryClass::NotRetryable,
+                &["parsed", "layout_scanned", "failed"],
+                globals.profile.as_deref(),
+                None,
+                &["layout_check_defined", "validation_artifacts_defined"],
+                &[],
+                &artifact_refs,
+            )
+        }
+    };
+
+    CliRunResult {
+        exit_code: if ok { EXIT_SUCCESS } else { EXIT_CONFIG },
         stdout,
         stderr: String::new(),
     }
@@ -381,6 +648,421 @@ fn resolve_repo_root(start: impl AsRef<Path>) -> PathBuf {
             None => return start.to_path_buf(),
         }
     }
+}
+
+fn root_command_record(name: &str) -> Option<&'static RootCommandRecord> {
+    ROOT_COMMAND_REGISTRY
+        .iter()
+        .find(|record| record.name == name)
+}
+
+fn render_command_registry_human() -> String {
+    let mut lines = vec![
+        "root command registry".to_owned(),
+        "owner: overrid-cli".to_owned(),
+        "machine_readable_result_envelope: true".to_owned(),
+        "alias_policy: thin_alias_only".to_owned(),
+    ];
+    for record in ROOT_COMMAND_REGISTRY {
+        lines.push(format!(
+            "- {} -> {} ({})",
+            record.name, record.canonical_invocation, record.phase_gate
+        ));
+        lines.push(format!("  purpose: {}", record.purpose));
+        lines.push(format!("  outputs: {}", record.outputs.join(", ")));
+    }
+    lines.join("\n")
+}
+
+fn render_root_command_human(record: &RootCommandRecord) -> String {
+    [
+        format!("root command: {}", record.name),
+        format!("purpose: {}", record.purpose),
+        format!("owner: {}", record.owning_tool),
+        format!("canonical_invocation: {}", record.canonical_invocation),
+        format!(
+            "machine_readable_result_envelope: {}",
+            record.result_envelope
+        ),
+        format!("failure_classes: {}", record.failure_classes.join(", ")),
+        format!("outputs: {}", record.outputs.join(", ")),
+    ]
+    .join("\n")
+}
+
+fn render_command_registry_json() -> String {
+    let commands = ROOT_COMMAND_REGISTRY
+        .iter()
+        .map(render_root_command_record_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        concat!(
+            "{{",
+            "\"registry_version\":\"repository-layout-phase-5\",",
+            "\"owner\":\"overrid-cli\",",
+            "\"alias_policy\":\"thin_alias_only\",",
+            "\"commands\":[{}]",
+            "}}"
+        ),
+        commands
+    )
+}
+
+fn render_root_command_execution_json(record: &RootCommandRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"status\":\"registered\",",
+            "\"phase_gate\":\"{}\",",
+            "\"canonical_invocation\":\"{}\",",
+            "\"owner\":\"{}\",",
+            "\"machine_readable_result_envelope\":{},",
+            "\"record\":{}",
+            "}}"
+        ),
+        json_escape(record.phase_gate),
+        json_escape(record.canonical_invocation),
+        json_escape(record.owning_tool),
+        record.result_envelope,
+        render_root_command_record_json(record),
+    )
+}
+
+fn render_root_command_record_json(record: &RootCommandRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"name\":\"{}\",",
+            "\"purpose\":\"{}\",",
+            "\"inputs\":{},",
+            "\"outputs\":{},",
+            "\"owning_tool\":\"{}\",",
+            "\"phase_gate\":\"{}\",",
+            "\"canonical_invocation\":\"{}\",",
+            "\"machine_readable_result_envelope\":{},",
+            "\"failure_classes\":{},",
+            "\"aliases\":{}",
+            "}}"
+        ),
+        json_escape(record.name),
+        json_escape(record.purpose),
+        json_string_array(record.inputs),
+        json_string_array(record.outputs),
+        json_escape(record.owning_tool),
+        json_escape(record.phase_gate),
+        json_escape(record.canonical_invocation),
+        record.result_envelope,
+        json_string_array(record.failure_classes),
+        json_string_array(record.aliases),
+    )
+}
+
+fn collect_layout_check_records(repo_root: &Path) -> Vec<LayoutCheckRecord> {
+    let mut records = Vec::new();
+    for (path, module_id) in [
+        ("services/control-plane", Some("control-plane-root")),
+        ("services/node-agent", Some("node-agent-root")),
+        ("packages/schemas", Some("shared-schemas")),
+        ("packages/sdk", Some("sdk")),
+        ("packages/cli", Some("cli")),
+        ("infra/local", Some("local-infra")),
+        ("tests/integration", Some("integration-tests")),
+        ("docs/specs", Some("docs-specs")),
+    ] {
+        push_path_presence(
+            &mut records,
+            repo_root,
+            "required_directory",
+            path,
+            module_id,
+            "required_directory_present",
+            "missing_directory",
+        );
+    }
+
+    for (path, module_id) in [
+        ("overrid.workspace.toml", None),
+        (
+            "docs/specs/service_contract_template.md",
+            Some("docs-specs"),
+        ),
+        ("docs/specs/reason_codes_and_events.md", Some("docs-specs")),
+        ("docs/specs/contract_authority.md", Some("docs-specs")),
+        ("packages/cli/README.md", Some("cli")),
+    ] {
+        push_path_presence(
+            &mut records,
+            repo_root,
+            "required_contract_file",
+            path,
+            module_id,
+            "required_contract_present",
+            "missing_service_contract",
+        );
+    }
+
+    for path in [
+        "infra/local/state/.gitignore",
+        "infra/local/job-tables/.gitignore",
+        "infra/local/artifacts/.gitignore",
+        "tests/integration/artifacts/.gitignore",
+        "docs/specs/generated/.gitignore",
+    ] {
+        push_path_presence(
+            &mut records,
+            repo_root,
+            "generated_or_local_ignore_marker",
+            path,
+            None,
+            "ignore_marker_present",
+            "generated_file_committed",
+        );
+    }
+
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "module_records_have_test_targets",
+        "test_targets",
+        "missing_test_target",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "package_boundaries_defined",
+        "allowed_dependency_groups",
+        "package_boundary_violation",
+    );
+    push_manifest_contains(
+        &mut records,
+        repo_root,
+        "root_commands_registered",
+        "[[root_commands]]",
+        "layout_check.failed",
+    );
+    push_generated_specs_clean(&mut records, repo_root);
+    for path in [
+        ".env",
+        ".env.local",
+        "secrets.toml",
+        "private.key",
+        "id_ed25519",
+        "infra/local/secrets.toml",
+    ] {
+        push_forbidden_path_absent(&mut records, repo_root, path);
+    }
+
+    records
+}
+
+fn push_path_presence(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    check_name: &'static str,
+    path: &str,
+    module_id: Option<&'static str>,
+    pass_reason: &'static str,
+    fail_reason: &'static str,
+) {
+    let exists = repo_root.join(path).exists();
+    records.push(LayoutCheckRecord {
+        check_name,
+        status: if exists { "passed" } else { "failed" },
+        reason_code: if exists { pass_reason } else { fail_reason },
+        path: path.to_owned(),
+        owning_phase: "phase_0",
+        module_id,
+    });
+}
+
+fn push_manifest_contains(
+    records: &mut Vec<LayoutCheckRecord>,
+    repo_root: &Path,
+    check_name: &'static str,
+    marker: &str,
+    fail_reason: &'static str,
+) {
+    let manifest_path = repo_root.join("overrid.workspace.toml");
+    let present = std::fs::read_to_string(&manifest_path)
+        .map(|manifest| manifest.contains(marker))
+        .unwrap_or(false);
+    records.push(LayoutCheckRecord {
+        check_name,
+        status: if present { "passed" } else { "failed" },
+        reason_code: if present {
+            "manifest_marker_present"
+        } else {
+            fail_reason
+        },
+        path: "overrid.workspace.toml".to_owned(),
+        owning_phase: "phase_0",
+        module_id: None,
+    });
+}
+
+fn push_generated_specs_clean(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path) {
+    let path = "docs/specs/generated";
+    let clean = std::fs::read_dir(repo_root.join(path))
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .all(|entry| entry.file_name().to_string_lossy() == ".gitignore")
+        })
+        .unwrap_or(false);
+    records.push(LayoutCheckRecord {
+        check_name: "generated_specs_not_committed",
+        status: if clean { "passed" } else { "failed" },
+        reason_code: if clean {
+            "generated_output_clean"
+        } else {
+            "generated_file_committed"
+        },
+        path: path.to_owned(),
+        owning_phase: "phase_0",
+        module_id: Some("docs-specs"),
+    });
+}
+
+fn push_forbidden_path_absent(records: &mut Vec<LayoutCheckRecord>, repo_root: &Path, path: &str) {
+    let absent = !repo_root.join(path).exists();
+    records.push(LayoutCheckRecord {
+        check_name: "secret_file_absence",
+        status: if absent { "passed" } else { "failed" },
+        reason_code: if absent {
+            "secret_file_absent"
+        } else {
+            "secret_file_committed"
+        },
+        path: path.to_owned(),
+        owning_phase: "phase_0",
+        module_id: None,
+    });
+}
+
+fn layout_artifact_refs(ok: bool, records: &[LayoutCheckRecord]) -> Vec<String> {
+    let mut artifacts = vec![if ok {
+        "layout_check.passed:phase_0:repository_layout".to_owned()
+    } else {
+        "layout_check.failed:phase_0:repository_layout".to_owned()
+    }];
+    for record in records.iter().filter(|record| record.status == "failed") {
+        if LAYOUT_VALIDATION_ARTIFACTS.contains(&record.reason_code) {
+            artifacts.push(format!(
+                "{}:{}:{}",
+                record.reason_code, record.owning_phase, record.path
+            ));
+        }
+    }
+    artifacts
+}
+
+fn render_layout_check_human(
+    ok: bool,
+    repo_root: &Path,
+    records: &[LayoutCheckRecord],
+    artifact_refs: &[String],
+) -> String {
+    let mut lines = vec![
+        format!("layout:check {}", if ok { "passed" } else { "failed" }),
+        format!("repo_root: {}", repo_root.display()),
+        format!("artifact_refs: {}", artifact_refs.join(", ")),
+    ];
+    for record in records {
+        lines.push(format!(
+            "- {} {} {}",
+            record.status, record.reason_code, record.path
+        ));
+    }
+    lines.join("\n")
+}
+
+fn render_layout_check_result_json(
+    ok: bool,
+    repo_root: &Path,
+    records: &[LayoutCheckRecord],
+    artifact_refs: &[String],
+) -> String {
+    let checks = records
+        .iter()
+        .map(render_layout_check_record_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        concat!(
+            "{{",
+            "\"command_name\":\"layout:check\",",
+            "\"status\":\"{}\",",
+            "\"artifact\":\"{}\",",
+            "\"repo_root\":\"{}\",",
+            "\"artifact_refs\":{},",
+            "\"validation_artifact_schema\":{},",
+            "\"checks\":[{}]",
+            "}}"
+        ),
+        if ok { "passed" } else { "failed" },
+        if ok {
+            "layout_check.passed"
+        } else {
+            "layout_check.failed"
+        },
+        json_escape(&repo_root.display().to_string()),
+        json_owned_string_array(artifact_refs),
+        json_string_array(LAYOUT_VALIDATION_ARTIFACTS),
+        checks,
+    )
+}
+
+fn render_layout_check_record_json(record: &LayoutCheckRecord) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"check\":\"{}\",",
+            "\"status\":\"{}\",",
+            "\"reason_code\":\"{}\",",
+            "\"path\":\"{}\",",
+            "\"owning_phase\":\"{}\",",
+            "\"module_id\":{}",
+            "}}"
+        ),
+        json_escape(record.check_name),
+        json_escape(record.status),
+        json_escape(record.reason_code),
+        json_escape(&record.path),
+        json_escape(record.owning_phase),
+        json_optional_string(record.module_id),
+    )
+}
+
+fn render_layout_check_error_json(records: &[LayoutCheckRecord]) -> String {
+    let failed = records
+        .iter()
+        .find(|record| record.status == "failed")
+        .expect("failed layout check must have at least one failing record");
+    let message = format!("layout check failed for {}", failed.path);
+    let error_decode_record = decode_phase6_error(
+        failed.reason_code,
+        &message,
+        ExitCodeClass::Config,
+        RetryClass::NotRetryable,
+    );
+    format!(
+        concat!(
+            "{{",
+            "\"reason_code\":\"{}\",",
+            "\"message\":\"{}\",",
+            "\"phase_gate\":\"phase_0\",",
+            "\"retry_class\":\"{}\",",
+            "\"remediation_hint\":\"{}\",",
+            "\"error_decode_record\":{}",
+            "}}"
+        ),
+        json_escape(failed.reason_code),
+        json_escape(&message),
+        json_escape(RetryClass::NotRetryable.as_str()),
+        json_escape(&error_decode_record.remediation_hint),
+        render_error_decode_record_json(&error_decode_record),
+    )
 }
 
 fn auth_command_result(command: AuthCommand, globals: &GlobalOptions) -> CliRunResult {
@@ -1248,8 +1930,13 @@ fn render_help(all_phases: bool) -> String {
         "overrid".to_owned(),
         "".to_owned(),
         "available commands:".to_owned(),
+        "  command-registry                print semantic root command registry".to_owned(),
         "  version                         print CLI, SDK, and schema compatibility metadata".to_owned(),
         "  doctor                          print redacted local diagnostics and capability status".to_owned(),
+        "  build                           print Rust-owned build orchestration record".to_owned(),
+        "  schema:check                    print schema check orchestration record".to_owned(),
+        "  docs:check                      print docs check orchestration record".to_owned(),
+        "  layout:check                    run Repository Layout checks with stable artifacts".to_owned(),
         "  profile create|list|select|inspect|reset".to_owned(),
         "  credential enroll|inspect".to_owned(),
         "  idempotency-cache inspect|reset".to_owned(),
@@ -1267,7 +1954,9 @@ fn render_help(all_phases: bool) -> String {
         "  ledger inspect".to_owned(),
         "  dispute list|inspect".to_owned(),
         "  dev start|stop|restart|status|reset|seed|smoke|logs|doctor|prune".to_owned(),
+        "  dev:start|dev:stop|dev:reset|dev:seed|dev:status".to_owned(),
         "  test integration|scenario|list|reset|artifacts".to_owned(),
+        "  test:integration".to_owned(),
         "  release-readiness               run Phase 10 release, security, and handoff validation evidence".to_owned(),
         "  help                            print command help".to_owned(),
         "".to_owned(),
@@ -3957,6 +4646,10 @@ mod tests {
     fn normal_help_shows_phase7_commands() {
         let result = run_args(["overrid", "help"]);
         assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("command-registry"));
+        assert!(result.stdout.contains("layout:check"));
+        assert!(result.stdout.contains("schema:check"));
+        assert!(result.stdout.contains("docs:check"));
         assert!(result.stdout.contains("node register|inspect|health"));
         assert!(result
             .stdout
@@ -3974,6 +4667,60 @@ mod tests {
         assert!(result.stdout.contains("--changed-path PATH"));
         assert!(result.stdout.contains("--gate-class CLASS"));
         assert!(result.stdout.contains("release-readiness"));
+    }
+
+    #[test]
+    fn command_registry_lists_phase5_semantic_root_commands() {
+        let result = run_args(["overrid", "command-registry", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result
+            .stdout
+            .contains("\"command_name\":\"command-registry\""));
+        for command in [
+            "build",
+            "test",
+            "test:integration",
+            "dev:start",
+            "dev:stop",
+            "dev:reset",
+            "dev:seed",
+            "dev:status",
+            "schema:check",
+            "docs:check",
+            "layout:check",
+        ] {
+            assert!(result.stdout.contains(&format!("\"name\":\"{command}\"")));
+        }
+        assert!(result
+            .stdout
+            .contains("\"machine_readable_result_envelope\":true"));
+        assert!(result.stdout.contains("\"owning_tool\":\"overrid-cli\""));
+    }
+
+    #[test]
+    fn root_command_orchestration_records_are_json_enveloped() {
+        let result = run_args(["overrid", "build", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"command_name\":\"build\""));
+        assert!(result.stdout.contains("\"status\":\"registered\""));
+        assert!(result
+            .stdout
+            .contains("\"canonical_invocation\":\"overrid build\""));
+        assert!(result
+            .stdout
+            .contains("rust_owned_command_execution_defined"));
+    }
+
+    #[test]
+    fn layout_check_emits_stable_validation_artifacts() {
+        let result = run_args(["overrid", "layout:check", "--json"]);
+        assert_eq!(result.exit_code, EXIT_SUCCESS);
+        assert!(result.stdout.contains("\"command_name\":\"layout:check\""));
+        assert!(result.stdout.contains("\"status\":\"passed\""));
+        assert!(result.stdout.contains("layout_check.passed"));
+        assert!(result.stdout.contains("secret_file_committed"));
+        assert!(result.stdout.contains("\"check\":\"secret_file_absence\""));
+        assert!(!result.stdout.to_ascii_lowercase().contains("private key"));
     }
 
     #[test]
