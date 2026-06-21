@@ -69,3 +69,14 @@ The Phase 5 SDK gate keeps signing delegated to credential-provider references w
 - Test signer separation: `validate_fixture_signer_installation()` allows fixture signers only for explicit local or CI test-fixture configuration and rejects production-like or ambiguous fixture use.
 - Redacted diagnostics: `SDK_PHASE5_DIAGNOSTIC_EVENTS` and `redacted_diagnostic_event()` cover request_built, request_signed, request_sent, response_received, retry_scheduled, request_denied, request_failed, and duplicate_resolved while rendering payloads, signatures, and secret refs as redacted.
 - Credential lifecycle failures: `credential_lifecycle_failure()` maps expired, revoked, rotated, missing, mismatched, unknown, insufficient, host-signer-unavailable, and retry-prohibited signing failures to terminal decisions unless Overgate supplies an explicit retryable correction path.
+
+## Phase 6 Workload, Manifest, Status, And Policy Helpers
+
+The Phase 6 SDK gate adds ergonomic workload helpers while keeping runtime authority in Overrid services:
+
+- Workload manifests: `build_workload_manifest()` validates workload class, resources, data refs, policy refs, egress declarations, output declarations, secret refs, and schema version locally while keeping `runtime_acceptance_claimed` false.
+- Workload submission: `submit_workload()` wraps manifest validation, `build_command()`, `phase5_signature_ref()`, `sign_request()`, and `prepare_overgate_submission()` so mutating workload requests still route through Overgate command envelopes.
+- Submission decoding: `decode_workload_submission_response()` preserves accepted, denied, duplicate, retry-wait, and terminal failure responses from Overgate and never invents completed runtime state from a local helper.
+- Status, result, and cancellation helpers: `build_workload_read_request()`, `SdkWorkloadStatusRecord::from_service()`, and `build_workload_cancellation_request()` use public control-plane paths and require service evidence before failed, cancelled, timed-out, duplicate, dead-letter, or completed states are treated as true.
+- Policy dry-run: `build_policy_dry_run_request()` is gated by `negotiate_sdk_capability()` for `SdkOptionalHelper::PolicyDryRun`; `decode_policy_dry_run_result()` returns matched policy refs, reason codes, placement class, and correction fields without mutating runtime state and must never cache dry-run output as policy truth.
+- Runtime authority boundary: `sdk_phase6_authority_review()` and `validate_phase6_authority_review()` document that workload, manifest, status, result, cancellation, and dry-run helpers are wrappers only; they do not become schedulers, policy engines, direct storage readers, metering truth, or bypasses around Overgate, Overguard, Overqueue, Overrun, Overmeter, or Overwatch.

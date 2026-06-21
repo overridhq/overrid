@@ -6,6 +6,7 @@ pub mod command;
 pub mod generated;
 pub mod read;
 pub mod signing;
+pub mod workload;
 
 pub use command::*;
 pub use generated::*;
@@ -22,6 +23,7 @@ pub use overrid_contracts::{
 };
 pub use read::*;
 pub use signing::*;
+pub use workload::*;
 
 pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 pub const DEFAULT_MAX_RETRIES: u8 = 2;
@@ -302,6 +304,10 @@ pub fn sdk_version_report() -> SdkVersionReport {
             SdkFeatureFlag::IdempotencyCache.as_str(),
             SdkFeatureFlag::ErrorDecoding.as_str(),
             SdkFeatureFlag::CapabilityNegotiation.as_str(),
+            SdkFeatureFlag::WorkloadManifest.as_str(),
+            SdkFeatureFlag::WorkloadSubmission.as_str(),
+            SdkFeatureFlag::StatusReaders.as_str(),
+            SdkFeatureFlag::PolicyDryRun.as_str(),
         ],
         language_binding: SDK_LANGUAGE_BINDING,
         service_capability_profile: SDK_PHASE3_CAPABILITY_PROFILE,
@@ -567,6 +573,10 @@ pub enum SdkFeatureFlag {
     ErrorDecoding,
     CapabilityNegotiation,
     TestFixtures,
+    WorkloadManifest,
+    WorkloadSubmission,
+    StatusReaders,
+    PolicyDryRun,
 }
 
 impl SdkFeatureFlag {
@@ -578,6 +588,10 @@ impl SdkFeatureFlag {
             "error_decoding" => Ok(Self::ErrorDecoding),
             "capability_negotiation" => Ok(Self::CapabilityNegotiation),
             "test_fixtures" => Ok(Self::TestFixtures),
+            "workload_manifest" => Ok(Self::WorkloadManifest),
+            "workload_submission" => Ok(Self::WorkloadSubmission),
+            "status_readers" => Ok(Self::StatusReaders),
+            "policy_dry_run" => Ok(Self::PolicyDryRun),
             other => Err(SdkError::UnknownFeatureFlag(other.to_owned())),
         }
     }
@@ -590,6 +604,10 @@ impl SdkFeatureFlag {
             Self::ErrorDecoding => "error_decoding",
             Self::CapabilityNegotiation => "capability_negotiation",
             Self::TestFixtures => "test_fixtures",
+            Self::WorkloadManifest => "workload_manifest",
+            Self::WorkloadSubmission => "workload_submission",
+            Self::StatusReaders => "status_readers",
+            Self::PolicyDryRun => "policy_dry_run",
         }
     }
 }
