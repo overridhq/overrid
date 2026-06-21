@@ -35,6 +35,12 @@ pub const SDK_RELEASE_CHECKLIST_ITEMS: &[&str] = &[
     "deprecation behavior documented",
     "upgrade guidance documented",
     "security-critical emergency break handling documented",
+    "Rust-first binding is the first release target",
+    "TypeScript/web bindings remain generated second target after schema stability",
+    "credential-provider-only signing preserved",
+    "bounded idempotency retention documented",
+    "Mobile SDK boundary remains separate",
+    "current-plus-previous stable major compatibility checked",
     "unsupported_sdk_version returned for unsafe SDK majors",
     "schema_version_unsupported returned for unsafe schema versions",
 ];
@@ -183,13 +189,27 @@ pub fn check_sdk_compatibility(
         });
     }
 
-    ensure_supported_schema_version(schema_version).map_err(|_| {
+    let parsed = ensure_supported_schema_version(schema_version).map_err(|_| {
         SdkCompatibilityRejection::UnsupportedSchemaVersion {
             provided: schema_version.to_owned(),
             supported: SUPPORTED_SCHEMA_VERSION,
             reason_code: SDK_UNSUPPORTED_SCHEMA_REASON_CODE,
         }
-    })
+    })?;
+
+    if !metadata
+        .supported_schema_versions
+        .iter()
+        .any(|supported| *supported == parsed.raw())
+    {
+        return Err(SdkCompatibilityRejection::UnsupportedSchemaVersion {
+            provided: schema_version.to_owned(),
+            supported: SUPPORTED_SCHEMA_VERSION,
+            reason_code: SDK_UNSUPPORTED_SCHEMA_REASON_CODE,
+        });
+    }
+
+    Ok(parsed)
 }
 
 pub fn retry_timeout_policy(
@@ -273,7 +293,8 @@ pub struct OverridSdkClient {
 
 impl OverridSdkClient {
     pub fn new(config: ClientConfig) -> Result<Self, SdkError> {
-        let schema_version = ensure_supported_schema_version(&config.schema_version)?;
+        let schema_version =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, &config.schema_version)?;
         Ok(Self {
             config,
             schema_version,
@@ -415,6 +436,7 @@ pub enum SdkError {
     MissingOvergateTarget(String),
     PrivateServiceTarget(String),
     Contract(ContractError),
+    Compatibility(SdkCompatibilityRejection),
     Profile(ProfileValidationError),
     Credential(ProfileValidationError),
     UnsafeEndpointOverride { environment: &'static str },
@@ -439,6 +461,25 @@ impl fmt::Display for SdkError {
                 )
             }
             Self::Contract(error) => error.fmt(formatter),
+            Self::Compatibility(rejection) => match rejection {
+                SdkCompatibilityRejection::UnsupportedSdkVersion {
+                    provided_major,
+                    current_stable_major,
+                    previous_stable_major,
+                    reason_code,
+                } => write!(
+                    formatter,
+                    "{reason_code}: unsupported SDK major {provided_major}; supported current major is {current_stable_major} and previous supported major is {previous_stable_major:?}"
+                ),
+                SdkCompatibilityRejection::UnsupportedSchemaVersion {
+                    provided,
+                    supported,
+                    reason_code,
+                } => write!(
+                    formatter,
+                    "{reason_code}: unsupported schema version {provided}; supported version is {supported}"
+                ),
+            },
             Self::Profile(error) => error.fmt(formatter),
             Self::Credential(error) => error.fmt(formatter),
             Self::UnsafeEndpointOverride { environment } => write!(
@@ -463,6 +504,12 @@ impl std::error::Error for SdkError {}
 impl From<ContractError> for SdkError {
     fn from(error: ContractError) -> Self {
         Self::Contract(error)
+    }
+}
+
+impl From<SdkCompatibilityRejection> for SdkError {
+    fn from(error: SdkCompatibilityRejection) -> Self {
+        Self::Compatibility(error)
     }
 }
 
@@ -500,8 +547,7 @@ pub fn validate_overgate_target(raw: &str) -> Result<(), SdkError> {
 mod tests {
     use super::*;
     use overrid_contracts::{
-        ConfirmationPolicy, ContractError, CredentialReferenceClass, FixtureAllowance,
-        SUPPORTED_SCHEMA_VERSION,
+        ConfirmationPolicy, CredentialReferenceClass, FixtureAllowance, SUPPORTED_SCHEMA_VERSION,
     };
 
     fn local_profile() -> CliProfile {
@@ -602,8 +648,11 @@ mod tests {
         config.schema_version = "cli-command.v9.0".to_owned();
         assert!(matches!(
             OverridSdkClient::new(config),
-            Err(SdkError::Contract(
-                ContractError::UnsupportedSchemaVersion { .. }
+            Err(SdkError::Compatibility(
+                SdkCompatibilityRejection::UnsupportedSchemaVersion {
+                    reason_code: SDK_UNSUPPORTED_SCHEMA_REASON_CODE,
+                    ..
+                }
             ))
         ));
     }
@@ -619,6 +668,9 @@ mod tests {
             metadata.supported_schema_versions,
             SDK_SUPPORTED_SCHEMA_VERSIONS
         );
+        assert!(metadata
+            .supported_schema_versions
+            .contains(&SUPPORTED_SCHEMA_VERSION));
         assert_eq!(
             metadata.unsupported_sdk_version_reason,
             "unsupported_sdk_version"
@@ -644,6 +696,12 @@ mod tests {
             "deprecation behavior documented",
             "upgrade guidance documented",
             "security-critical emergency break handling documented",
+            "Rust-first binding is the first release target",
+            "TypeScript/web bindings remain generated second target after schema stability",
+            "credential-provider-only signing preserved",
+            "bounded idempotency retention documented",
+            "Mobile SDK boundary remains separate",
+            "current-plus-previous stable major compatibility checked",
             "unsupported_sdk_version returned for unsafe SDK majors",
             "schema_version_unsupported returned for unsafe schema versions",
         ] {
@@ -677,6 +735,17 @@ mod tests {
         );
         assert!(matches!(
             schema_error,
+            SdkCompatibilityRejection::UnsupportedSchemaVersion { .. }
+        ));
+
+        let downgrade_error =
+            check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR, "cli-command.v0.0").unwrap_err();
+        assert_eq!(
+            downgrade_error.reason_code(),
+            SDK_UNSUPPORTED_SCHEMA_REASON_CODE
+        );
+        assert!(matches!(
+            downgrade_error,
             SdkCompatibilityRejection::UnsupportedSchemaVersion { .. }
         ));
     }

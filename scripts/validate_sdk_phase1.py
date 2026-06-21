@@ -22,6 +22,7 @@ PHASE_PLAN = Path("docs/planning/sdk_phase_01_plan.md")
 PHASE_PROGRESS = Path("docs/planning/sdk_phase_01_progress.md")
 SDK_LIB = Path("packages/sdk/src/lib.rs")
 SDK_README = Path("packages/sdk/README.md")
+CLI_RUNNER = Path("packages/cli/src/runner.rs")
 VALIDATION_WRAPPER = Path("scripts/validate_overrid.py")
 
 SCOPED_DOCS = [
@@ -61,6 +62,7 @@ REQUIRED_METADATA_SYMBOLS = [
     "SdkCompatibilityRejection",
     "check_sdk_compatibility",
     "compatibility_metadata",
+    "SdkError::Compatibility",
 ]
 
 REQUIRED_REASON_CODES = [
@@ -200,6 +202,14 @@ def validate_sdk_package() -> None:
         "SDK_SUPPORTED_SCHEMA_VERSIONS",
         "SUPPORTED_SCHEMA_VERSION",
         "phase1-control-plane-thin-client",
+        "Rust-first binding is the first release target",
+        "TypeScript/web bindings remain generated second target after schema stability",
+        "credential-provider-only signing preserved",
+        "bounded idempotency retention documented",
+        "Mobile SDK boundary remains separate",
+        "current-plus-previous stable major compatibility checked",
+        "cli-command.v0.0",
+        "check_sdk_compatibility(SDK_CURRENT_STABLE_MAJOR",
     ]:
         assert_contains(lib, expected, SDK_LIB)
 
@@ -208,6 +218,8 @@ def validate_sdk_package() -> None:
         "First binding: Rust SDK only.",
         "sdk_compatibility_metadata()",
         "sdk_release_checklist()",
+        "accepts only named `SDK_SUPPORTED_SCHEMA_VERSIONS`",
+        "schema_version_unsupported` instead of silently downgrading",
         "unsupported_sdk_version",
         "schema_version_unsupported",
         "Later TypeScript/web, mobile, Python, Swift, or Kotlin bindings",
@@ -218,6 +230,12 @@ def validate_sdk_package() -> None:
 def validate_wrapper() -> None:
     wrapper = read(VALIDATION_WRAPPER)
     assert_contains(wrapper, 'Path("scripts/validate_sdk_phase1.py")', VALIDATION_WRAPPER)
+
+
+def validate_downstream_cli_mapping() -> None:
+    runner = read(CLI_RUNNER)
+    assert_contains(runner, "SdkError::Compatibility", CLI_RUNNER)
+    assert_contains(runner, "rejection.reason_code()", CLI_RUNNER)
 
 
 def validate_local_markdown_links() -> None:
@@ -258,6 +276,7 @@ def main() -> int:
         validate_cross_doc_alignment,
         validate_sdk_package,
         validate_wrapper,
+        validate_downstream_cli_mapping,
         validate_local_markdown_links,
         validate_rust_tests,
     ]

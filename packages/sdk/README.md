@@ -21,5 +21,7 @@ The Phase 1 SDK gate is intentionally narrow:
 - Schema authority: `packages/schemas/overrid_contracts`.
 - Capability profile: `phase1-control-plane-thin-client`.
 - Release checklist: `sdk_release_checklist()`.
+- Resolved SDS decisions: Rust-first binding first; TypeScript/web generated second after schema stability; credential-provider-only signing; bounded idempotency retention; separate Mobile SDK boundary; current-plus-previous stable major compatibility.
+- Compatibility check: `OverridSdkClient::new()` uses `check_sdk_compatibility()` and accepts only named `SDK_SUPPORTED_SCHEMA_VERSIONS`; older or unnamed schema strings fail with `schema_version_unsupported` instead of silently downgrading.
 
 Later TypeScript/web, mobile, Python, Swift, or Kotlin bindings must be generated from the same contracts and pass shared fixture checks before release.

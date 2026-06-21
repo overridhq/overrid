@@ -2639,6 +2639,7 @@ fn sdk_error_result(output: OutputMode, error: SdkError) -> CliRunResult {
             (ExitCodeClass::Config, "invalid_overgate_endpoint")
         }
         SdkError::UnsupportedScheme(_) => (ExitCodeClass::Config, "unsupported_endpoint_scheme"),
+        SdkError::Compatibility(ref rejection) => (ExitCodeClass::Schema, rejection.reason_code()),
         SdkError::Contract(_) => (ExitCodeClass::Schema, "contract_validation_failed"),
     };
     phase_error_result(
