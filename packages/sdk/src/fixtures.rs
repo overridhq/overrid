@@ -212,6 +212,12 @@ pub fn validate_phase8_local_fixture_corpus(
         require_phase8_non_empty(&record.value_ref, "fixture value ref")?;
         require_phase8_non_empty(&record.tenant_id, "tenant id")?;
         require_phase8_non_empty(&record.actor_id, "actor id")?;
+        if record.schema_version != SUPPORTED_SCHEMA_VERSION
+            || !record.tenant_id.starts_with("tenant:")
+            || !record.actor_id.starts_with("actor:")
+        {
+            return Err(SdkPhase8Error::UnsafeFixture(record.kind.as_str()));
+        }
         reject_phase8_sensitive_value(&record.value_ref)?;
         if record.environment != EnvironmentClass::Local
             || record.production_default
@@ -356,6 +362,7 @@ pub fn validate_phase8_contract_tests(
         if !test.public_api_only
             || !test.local_stack_contract
             || test.uses_internal_service_mock
+            || !matches!(test.method, "GET" | "POST")
             || !(test.route.starts_with("/v1/overgate/")
                 || test.route.starts_with("/v1/control-plane/"))
         {
@@ -363,6 +370,14 @@ pub fn validate_phase8_contract_tests(
         }
         if !test.owning_services_available && test.blocker.is_none() {
             return Err(SdkPhase8Error::ContractTestMissingBlocker(test.name));
+        }
+        if test.owning_services_available && test.blocker.is_some() {
+            return Err(SdkPhase8Error::ContractTestMissingBlocker(test.name));
+        }
+        if let Some(blocker) = test.blocker {
+            if !blocker.contains("owning public Overgate/control-plane service") {
+                return Err(SdkPhase8Error::ContractTestMissingBlocker(test.name));
+            }
         }
         if test.assertions.is_empty() {
             return Err(SdkPhase8Error::ContractTestMissingAssertion(test.name));
@@ -452,6 +467,11 @@ pub fn validate_phase8_golden_fixtures(
             || !fixture.typescript_web_release_blocked_until_pass
             || !fixture.later_bindings_blocked_until_pass
             || !GOLDEN_CORPUS_JSON.contains(fixture.content_marker)
+            || !GOLDEN_CORPUS_JSON.contains("\"source_fixture_refs\"")
+            || !GOLDEN_CORPUS_JSON.contains("\"contains_private_material\": false")
+            || !GOLDEN_CORPUS_JSON.contains("\"contains_raw_payload\": false")
+            || !GOLDEN_CORPUS_JSON.contains("\"contains_signature_value\": false")
+            || !GOLDEN_CORPUS_JSON.contains("\"raw_request_body_included\": false")
         {
             return Err(SdkPhase8Error::GoldenCorpusIncomplete(fixture.case_name));
         }
@@ -619,6 +639,9 @@ pub fn validate_phase8_validation_artifacts(
             || artifact.overwatch_runtime_event
             || !artifact.progress_evidence_required
             || !VALIDATION_ARTIFACTS_JSON.contains(artifact.name)
+            || !VALIDATION_ARTIFACTS_JSON.contains("\"docdex_index_expected\": true")
+            || !VALIDATION_ARTIFACTS_JSON.contains("\"overwatch_runtime_event\": false")
+            || !VALIDATION_ARTIFACTS_JSON.contains("\"progress_evidence_required\": true")
         {
             return Err(SdkPhase8Error::ValidationArtifactInvalid(artifact.name));
         }
@@ -637,6 +660,12 @@ pub fn validate_phase8_fixture_artifact_files() -> Result<(), SdkPhase8Error> {
             "credential_redacted_fixture_ref",
             "signature_ref:redacted-ed25519-fixture",
             "test_only",
+            "\"tenant_id\": \"tenant:local-fixture\"",
+            "\"actor_id\": \"actor:local-developer\"",
+            "\"schema_version\": \"overrid.v0\"",
+            "\"environment\": \"local\"",
+            "\"contains_private_material\": false",
+            "\"contains_raw_payload\": false",
             "deterministic_seed",
             "local-dev-resettable-fixture-set",
         ],
@@ -651,6 +680,11 @@ pub fn validate_phase8_fixture_artifact_files() -> Result<(), SdkPhase8Error> {
             "golden_manifest_validation",
             "golden_idempotency_case",
             "golden_redaction_case",
+            "source_fixture_refs",
+            "\"contains_private_material\": false",
+            "\"contains_raw_payload\": false",
+            "\"contains_signature_value\": false",
+            "\"raw_request_body_included\": false",
             "typescript_web_release_blocked_until_pass",
         ],
     )?;
@@ -665,6 +699,12 @@ pub fn validate_phase8_fixture_artifact_files() -> Result<(), SdkPhase8Error> {
             "phase8_redaction_artifact",
             "phase8_compatibility_artifact",
             "phase8_docs_alignment_artifact",
+            "\"contract_tests\"",
+            "phase8_signed_command_submission_public_overgate",
+            "phase8_duplicate_idempotency_public_overgate",
+            "phase8_stable_error_public_overgate",
+            "phase8_status_read_public_control_plane",
+            "blocked until local stack exposes the owning public Overgate/control-plane service",
             "docdex_index_expected",
             "overwatch_runtime_event",
         ],
@@ -863,8 +903,8 @@ const PHASE8_FORBIDDEN_ARTIFACT_MARKERS: &[&str] = &[
     "private_key_value",
     "bearer_token_value",
     "seed_phrase_value",
-    "signature_value",
-    "raw_request_body",
+    "\"signature_value\"",
+    "\"raw_request_body\"",
     "private_payload_value",
     "fixture_credential_material",
     "production_default\": true",

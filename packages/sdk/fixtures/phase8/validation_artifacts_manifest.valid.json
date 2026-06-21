@@ -9,37 +9,124 @@
     {
       "name": "phase8_schema_generation_artifact",
       "kind": "schema_generation",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_contract_test_artifact",
       "kind": "contract_tests",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_signing_golden_artifact",
       "kind": "signing_golden_checks",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_idempotency_artifact",
       "kind": "idempotency_behavior",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_redaction_artifact",
       "kind": "redaction_checks",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_compatibility_artifact",
       "kind": "compatibility_checks",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
     },
     {
       "name": "phase8_docs_alignment_artifact",
       "kind": "docs_alignment",
-      "retention_rule": "keep latest CI artifact plus progress evidence"
+      "retention_rule": "keep latest CI artifact plus progress evidence",
+      "docdex_index_expected": true,
+      "overwatch_runtime_event": false,
+      "progress_evidence_required": true
+    }
+  ],
+  "contract_tests": [
+    {
+      "name": "phase8_signed_command_submission_public_overgate",
+      "kind": "signed_command_submission",
+      "route": "/v1/overgate/commands",
+      "method": "POST",
+      "public_api_only": true,
+      "local_stack_contract": true,
+      "uses_internal_service_mock": false,
+      "owning_services_available": false,
+      "blocker": "blocked until local stack exposes the owning public Overgate/control-plane service",
+      "assertions": [
+        "signed command reaches public Overgate route",
+        "trace id is preserved",
+        "audit ref is returned by service evidence"
+      ]
+    },
+    {
+      "name": "phase8_duplicate_idempotency_public_overgate",
+      "kind": "duplicate_idempotency",
+      "route": "/v1/overgate/commands",
+      "method": "POST",
+      "public_api_only": true,
+      "local_stack_contract": true,
+      "uses_internal_service_mock": false,
+      "owning_services_available": false,
+      "blocker": "blocked until local stack exposes the owning public Overgate/control-plane service",
+      "assertions": [
+        "same idempotency key resolves duplicate response",
+        "conflicting request hash stays a stable error",
+        "terminal digest is preserved"
+      ]
+    },
+    {
+      "name": "phase8_stable_error_public_overgate",
+      "kind": "stable_error_preservation",
+      "route": "/v1/overgate/commands",
+      "method": "POST",
+      "public_api_only": true,
+      "local_stack_contract": true,
+      "uses_internal_service_mock": false,
+      "owning_services_available": false,
+      "blocker": "blocked until local stack exposes the owning public Overgate/control-plane service",
+      "assertions": [
+        "reason code is preserved",
+        "trace id is preserved",
+        "correction fields are not masked"
+      ]
+    },
+    {
+      "name": "phase8_status_read_public_control_plane",
+      "kind": "status_read",
+      "route": "/v1/control-plane/commands/status",
+      "method": "GET",
+      "public_api_only": true,
+      "local_stack_contract": true,
+      "uses_internal_service_mock": false,
+      "owning_services_available": false,
+      "blocker": "blocked until local stack exposes the owning public Overgate/control-plane service",
+      "assertions": [
+        "status reads use public control-plane route",
+        "pending and terminal states are service-returned",
+        "pagination and audit refs are preserved"
+      ]
     }
   ]
 }

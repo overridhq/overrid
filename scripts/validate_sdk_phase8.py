@@ -99,13 +99,40 @@ REQUIRED_VALIDATION_ARTIFACTS = {
     "phase8_docs_alignment_artifact",
 }
 
+REQUIRED_VALIDATION_ARTIFACT_KINDS = {
+    "schema_generation",
+    "contract_tests",
+    "signing_golden_checks",
+    "idempotency_behavior",
+    "redaction_checks",
+    "compatibility_checks",
+    "docs_alignment",
+}
+
+REQUIRED_CONTRACT_TEST_KINDS = {
+    "signed_command_submission",
+    "duplicate_idempotency",
+    "stable_error_preservation",
+    "status_read",
+}
+
+EXPECTED_LOCAL_METADATA = {
+    "schema_version": "overrid.v0",
+    "environment": "local",
+    "deterministic_seed": "sdk-phase8-local-seed-v0",
+    "reset_marker": "local-dev-resettable-fixture-set",
+    "redaction_profile": "phase8_redacted_test_fixture_refs_only",
+    "tenant_id": "tenant:local-fixture",
+    "actor_id": "actor:local-developer",
+}
+
 FORBIDDEN_ARTIFACT_MARKERS = [
     "raw_private_key",
     "private_key_value",
     "bearer_token_value",
     "seed_phrase_value",
-    "signature_value",
-    "raw_request_body",
+    '"signature_value"',
+    '"raw_request_body"',
     "private_payload_value",
     "fixture_credential_material",
     '"production_default": true',
@@ -122,6 +149,14 @@ def read(path: Path) -> str:
 
 def read_json(path: Path) -> Any:
     return json.loads(read(path))
+
+
+def workspace_version() -> str:
+    workspace_toml = read(Path("Cargo.toml"))
+    match = re.search(r"(?m)^version = \"([^\"]+)\"", workspace_toml)
+    if not match:
+        raise AssertionError("Cargo workspace package version is missing")
+    return match.group(1)
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -268,10 +303,35 @@ def validate_fixture_artifacts() -> None:
         raise AssertionError(f"{LOCAL_FIXTURE_SET} must reject production defaults")
     if local.get("contains_private_material") is not False:
         raise AssertionError(f"{LOCAL_FIXTURE_SET} must avoid private material")
+    if local.get("contains_raw_payload") is not False:
+        raise AssertionError(f"{LOCAL_FIXTURE_SET} must avoid raw payloads")
+    for key, expected in EXPECTED_LOCAL_METADATA.items():
+        if key in {"tenant_id", "actor_id"}:
+            continue
+        if local.get(key) != expected:
+            raise AssertionError(f"{LOCAL_FIXTURE_SET} has invalid {key}: {local.get(key)!r}")
     local_kinds = {item["kind"] for item in local.get("fixtures", [])}
     missing_local = REQUIRED_LOCAL_FIXTURE_KINDS - local_kinds
     if missing_local:
         raise AssertionError(f"{LOCAL_FIXTURE_SET} missing fixture kinds: {sorted(missing_local)}")
+    local_fixture_ids = {item["fixture_id"] for item in local.get("fixtures", [])}
+    if len(local_fixture_ids) != len(local.get("fixtures", [])):
+        raise AssertionError(f"{LOCAL_FIXTURE_SET} fixture ids must be unique")
+    for item in local.get("fixtures", []):
+        for key, expected in EXPECTED_LOCAL_METADATA.items():
+            if item.get(key) != expected:
+                raise AssertionError(
+                    f"{LOCAL_FIXTURE_SET} fixture {item.get('fixture_id')} has invalid {key}: "
+                    f"{item.get(key)!r}"
+                )
+        for flag in ("production_default", "contains_private_material", "contains_raw_payload"):
+            if item.get(flag) is not False:
+                raise AssertionError(
+                    f"{LOCAL_FIXTURE_SET} fixture {item.get('fixture_id')} has unsafe {flag}"
+                )
+        value_ref = item.get("value_ref", "")
+        if not isinstance(value_ref, str) or ":" not in value_ref:
+            raise AssertionError(f"{LOCAL_FIXTURE_SET} fixture {item.get('fixture_id')} has invalid value_ref")
 
     if golden.get("rust_required") is not True:
         raise AssertionError(f"{GOLDEN_CORPUS} must require Rust first")
@@ -283,6 +343,33 @@ def validate_fixture_artifacts() -> None:
     missing_golden = REQUIRED_GOLDEN_CASES - golden_cases
     if missing_golden:
         raise AssertionError(f"{GOLDEN_CORPUS} missing golden cases: {sorted(missing_golden)}")
+    for key, expected in {
+        "schema_version": "overrid.v0",
+        "sdk_name": "overrid-rust-sdk",
+        "sdk_version": workspace_version(),
+        "language_binding": "rust",
+        "redaction_profile": EXPECTED_LOCAL_METADATA["redaction_profile"],
+    }.items():
+        if golden.get(key) != expected:
+            raise AssertionError(f"{GOLDEN_CORPUS} has invalid {key}: {golden.get(key)!r}")
+    for case in golden.get("cases", []):
+        if case.get("schema_version") != "overrid.v0":
+            raise AssertionError(f"{GOLDEN_CORPUS} case {case.get('case_name')} has invalid schema version")
+        source_refs = case.get("source_fixture_refs")
+        if not source_refs or not set(source_refs).issubset(local_fixture_ids):
+            raise AssertionError(
+                f"{GOLDEN_CORPUS} case {case.get('case_name')} has invalid source_fixture_refs"
+            )
+        for flag in (
+            "contains_private_material",
+            "contains_raw_payload",
+            "contains_signature_value",
+            "raw_request_body_included",
+        ):
+            if case.get(flag) is not False:
+                raise AssertionError(f"{GOLDEN_CORPUS} case {case.get('case_name')} has unsafe {flag}")
+        if case.get("artifact_safe") is not True:
+            raise AssertionError(f"{GOLDEN_CORPUS} case {case.get('case_name')} must be artifact_safe")
 
     if artifacts.get("docdex_index_expected") is not True:
         raise AssertionError(f"{VALIDATION_ARTIFACTS} must be Docdex-indexable")
@@ -294,6 +381,46 @@ def validate_fixture_artifacts() -> None:
         raise AssertionError(
             f"{VALIDATION_ARTIFACTS} missing artifacts: {sorted(missing_artifacts)}"
         )
+    artifact_kinds = {item["kind"] for item in artifacts.get("artifacts", [])}
+    if artifact_kinds != REQUIRED_VALIDATION_ARTIFACT_KINDS:
+        raise AssertionError(
+            f"{VALIDATION_ARTIFACTS} has invalid artifact kinds: {sorted(artifact_kinds)}"
+        )
+    for item in artifacts.get("artifacts", []):
+        if not item.get("retention_rule"):
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} artifact {item.get('name')} lacks retention_rule")
+        if item.get("docdex_index_expected") is not True:
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} artifact {item.get('name')} must be Docdex-indexed")
+        if item.get("overwatch_runtime_event") is not False:
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} artifact {item.get('name')} must not be runtime event")
+        if item.get("progress_evidence_required") is not True:
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} artifact {item.get('name')} needs progress evidence")
+    contract_tests = artifacts.get("contract_tests", [])
+    contract_kinds = {item["kind"] for item in contract_tests}
+    missing_contracts = REQUIRED_CONTRACT_TEST_KINDS - contract_kinds
+    if missing_contracts:
+        raise AssertionError(f"{VALIDATION_ARTIFACTS} missing contract tests: {sorted(missing_contracts)}")
+    for item in contract_tests:
+        route = item.get("route", "")
+        if not (route.startswith("/v1/overgate/") or route.startswith("/v1/control-plane/")):
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} contract test has private route: {route}")
+        if item.get("method") not in {"GET", "POST"}:
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} contract test has invalid method: {item.get('method')}")
+        for flag, expected in {
+            "public_api_only": True,
+            "local_stack_contract": True,
+            "uses_internal_service_mock": False,
+            "owning_services_available": False,
+        }.items():
+            if item.get(flag) is not expected:
+                raise AssertionError(
+                    f"{VALIDATION_ARTIFACTS} contract test {item.get('name')} has invalid {flag}"
+                )
+        blocker = item.get("blocker", "")
+        if "owning public Overgate/control-plane service" not in blocker:
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} contract test {item.get('name')} lacks blocker")
+        if not item.get("assertions"):
+            raise AssertionError(f"{VALIDATION_ARTIFACTS} contract test {item.get('name')} lacks assertions")
 
 
 def validate_tech_stack_alignment() -> None:
