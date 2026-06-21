@@ -36,3 +36,13 @@ The Phase 2 SDK gate keeps `packages/schemas` and docs/specs as contract authori
 - Request records: `SdkRequestContextRecord` and `SdkSignedRequestRecord` preserve actor id, tenant id, trace id, idempotency key, command type, schema version, credential id, signature metadata, body hash, timestamp, and replay window without raw private material or bearer tokens.
 - Idempotency and errors: `SdkIdempotencyEntry` applies command-class retention and skips read-only cache entries; `OverridErrorRecord` preserves reason codes, trace ids, audit refs, retryability, correction fields, dependency names, policy refs, and schema version.
 - Capability negotiation: `negotiate_sdk_capability()` checks service schema versions, SDK major support, signing, idempotency, policy dry-run, and accounting capability, returning `sdk_capability_unavailable` before unsafe optional helpers run.
+
+## Phase 3 Generated Rust SDK Skeleton
+
+The Phase 3 SDK gate keeps the first SDK binding Rust-first and explicit about generated versus handwritten ownership:
+
+- Package boundary: `sdk_package_boundary()` records generated projection, handwritten client, and read-helper module paths, source authorities, public entrypoints, and the rule that generated SDK output is not contract authority.
+- Generated models: `sdk_generated_model_descriptors()` names Phase 1 command, tenant, identity, key metadata, manifest, queue status, audit ref, and error projections with source contract names, validator symbols, schema versions, stable enum mappings, and reason-code object coverage.
+- Client construction: `configure_client()` builds an immutable `ConfiguredSdkClient` from `SdkConfigRecord`, preserving retry/timeout policy, credential-provider refs, trace policy, redaction defaults, and local/test loopback protection before network use.
+- Read helpers: `build_control_plane_read_request()` creates read-only request descriptors for tenant, identity, key metadata, manifest, queue status, and audit refs while preserving schema versions, pagination cursors, request ids, trace ids, and audit refs.
+- Version reporting: `sdk_version_report()` reports SDK name, semantic version, schema set, generated-contract revision, supported feature flags, language binding, and Phase 3 capability profile.

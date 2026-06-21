@@ -2,16 +2,22 @@
 
 use std::fmt;
 
+pub mod generated;
+pub mod read;
+
+pub use generated::*;
 use overrid_contracts::{
-    cli_contract_set, ensure_supported_schema_version, CapabilitySnapshot, ContractError,
-    GeneratedContractSet, IdempotencyRecord, ProfileValidationError, SchemaVersion, TraceContext,
-    SUPPORTED_SCHEMA_VERSION,
+    cli_contract_set, ensure_supported_schema_version, ContractError, GeneratedContractSet,
+    ProfileValidationError, SchemaVersion, SUPPORTED_SCHEMA_VERSION,
 };
 pub use overrid_contracts::{
-    CliProfile, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
-    EnvironmentClass, ErrorDecodeRecord, ExitCodeClass, FixtureAllowance, RetryClass,
-    RetryTimeoutPolicy, SignerHandoff,
+    BootstrapAcceptanceRecord, BootstrapCommandFamily, CapabilitySnapshot, CliProfile,
+    CommandContext, ConfirmationPolicy, CredentialReference, CredentialReferenceClass,
+    EnvironmentClass, ErrorDecodeRecord, ExitCodeClass, FixtureAllowance, IdempotencyRecord,
+    ManifestBootstrapRef, RetryClass, RetryTimeoutPolicy, SignedCommandEnvelope, SignerHandoff,
+    SyntheticWorkloadPendingState, TraceContext,
 };
+pub use read::*;
 
 pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 pub const DEFAULT_MAX_RETRIES: u8 = 2;
@@ -38,6 +44,8 @@ pub const SDK_UPGRADE_GUIDANCE: &str =
 pub const SDK_EMERGENCY_BREAK_POLICY: &str =
     "security-critical breaks return stable unsupported reason codes";
 pub const SDK_SUPPORTED_SCHEMA_VERSIONS: &[&str] = &[SUPPORTED_SCHEMA_VERSION];
+pub const SDK_DEFAULT_TRACE_POLICY: &str = "generate_if_missing";
+pub const SDK_REDACTION_DEFAULTS_PROFILE: &str = "redact_payloads_signatures_and_secret_refs";
 pub const SDK_RELEASE_CHECKLIST_ITEMS: &[&str] = &[
     "schema versions named",
     "service capability profile named",
@@ -111,6 +119,116 @@ impl ClientConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SdkTracePolicy {
+    GenerateIfMissing,
+    RequireCallerTrace,
+    Inherit,
+}
+
+impl SdkTracePolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::GenerateIfMissing => "generate_if_missing",
+            Self::RequireCallerTrace => "require_caller_trace",
+            Self::Inherit => "inherit",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkRedactionDefaults {
+    pub redact_payloads: bool,
+    pub redact_signatures: bool,
+    pub redact_secret_refs: bool,
+    pub profile: &'static str,
+}
+
+impl SdkRedactionDefaults {
+    pub fn phase3_default() -> Self {
+        Self {
+            redact_payloads: true,
+            redact_signatures: true,
+            redact_secret_refs: true,
+            profile: SDK_REDACTION_DEFAULTS_PROFILE,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkCredentialProviderRef {
+    pub provider_id: String,
+    pub credential_id: String,
+    pub redaction_class: &'static str,
+    pub production_capable: bool,
+    pub stores_private_material: bool,
+}
+
+impl SdkCredentialProviderRef {
+    pub fn from_config(config: &SdkConfigRecord) -> Result<Self, SdkError> {
+        let credential = &config.credential_ref;
+        if credential.revoked {
+            return Err(SdkError::Credential(
+                ProfileValidationError::CredentialRevoked,
+            ));
+        }
+        if credential.expired {
+            return Err(SdkError::Credential(
+                ProfileValidationError::CredentialExpired,
+            ));
+        }
+        Ok(Self {
+            provider_id: format!("provider:{}", credential.credential_class.as_str()),
+            credential_id: credential.credential_id.clone(),
+            redaction_class: credential.redaction_class,
+            production_capable: !matches!(
+                credential.credential_class,
+                CredentialReferenceClass::Fixture
+            ),
+            stores_private_material: false,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfiguredSdkClient {
+    pub client: OverridSdkClient,
+    pub config: SdkConfigRecord,
+    pub trace_policy: SdkTracePolicy,
+    pub redaction_defaults: SdkRedactionDefaults,
+    pub credential_provider: SdkCredentialProviderRef,
+}
+
+pub fn configure_client(config: SdkConfigRecord) -> Result<ConfiguredSdkClient, SdkError> {
+    if matches!(
+        config.environment,
+        EnvironmentClass::Local | EnvironmentClass::Ci
+    ) && !config.live_endpoint_confirmed
+        && !is_loopback_overgate_endpoint(config.endpoint.raw())
+    {
+        return Err(SdkError::LiveEndpointConfirmationRequired {
+            environment: config.environment.as_str(),
+        });
+    }
+
+    let client_config = ClientConfig {
+        endpoint: config.endpoint.clone(),
+        timeout_ms: config.timeout_policy.timeout_ms,
+        max_retries: config.timeout_policy.max_retries,
+        schema_version: config.schema_version.raw().to_owned(),
+    };
+    let client = OverridSdkClient::new(client_config)?;
+    let credential_provider = SdkCredentialProviderRef::from_config(&config)?;
+
+    Ok(ConfiguredSdkClient {
+        client,
+        config,
+        trace_policy: SdkTracePolicy::GenerateIfMissing,
+        redaction_defaults: SdkRedactionDefaults::phase3_default(),
+        credential_provider,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SdkCompatibilityMetadata {
     pub sdk_name: &'static str,
@@ -154,6 +272,35 @@ pub fn sdk_release_checklist() -> SdkReleaseChecklist {
     SdkReleaseChecklist {
         metadata: sdk_compatibility_metadata(),
         required_items: SDK_RELEASE_CHECKLIST_ITEMS,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SdkVersionReport {
+    pub sdk_name: &'static str,
+    pub sdk_version: &'static str,
+    pub schema_set: &'static [&'static str],
+    pub generated_contract_revision: &'static str,
+    pub supported_feature_flags: Vec<&'static str>,
+    pub language_binding: &'static str,
+    pub service_capability_profile: &'static str,
+}
+
+pub fn sdk_version_report() -> SdkVersionReport {
+    SdkVersionReport {
+        sdk_name: SDK_NAME,
+        sdk_version: SDK_VERSION,
+        schema_set: SDK_PHASE3_SCHEMA_SET,
+        generated_contract_revision: SDK_PHASE3_GENERATED_CONTRACT_REVISION,
+        supported_feature_flags: vec![
+            SdkFeatureFlag::CommandEnvelopes.as_str(),
+            SdkFeatureFlag::SigningMetadata.as_str(),
+            SdkFeatureFlag::IdempotencyCache.as_str(),
+            SdkFeatureFlag::ErrorDecoding.as_str(),
+            SdkFeatureFlag::CapabilityNegotiation.as_str(),
+        ],
+        language_binding: SDK_LANGUAGE_BINDING,
+        service_capability_profile: SDK_PHASE3_CAPABILITY_PROFILE,
     }
 }
 
@@ -1338,6 +1485,11 @@ pub fn validate_overgate_target(raw: &str) -> Result<(), SdkError> {
     Ok(())
 }
 
+fn is_loopback_overgate_endpoint(raw: &str) -> bool {
+    let lower = raw.to_ascii_lowercase();
+    lower.contains("://localhost") || lower.contains("://127.0.0.1") || lower.contains("://[::1]")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1651,6 +1803,108 @@ mod tests {
                 reason_code: SDK_CAPABILITY_UNAVAILABLE_REASON_CODE
             })
         ));
+    }
+
+    #[test]
+    fn phase3_package_boundary_and_generated_models_are_validated() {
+        let boundary = sdk_package_boundary();
+        let descriptors = sdk_generated_model_descriptors();
+
+        validate_sdk_package_boundary(&boundary).unwrap();
+        validate_generated_model_descriptors(&descriptors).unwrap();
+        assert!(boundary.iter().all(|module| !module.contract_authority));
+        assert!(descriptors
+            .iter()
+            .any(|descriptor| descriptor.kind == SdkGeneratedModelKind::Error
+                && descriptor.reason_code_object));
+    }
+
+    #[test]
+    fn phase3_configure_client_applies_trace_redaction_and_provider_refs() {
+        let config = SdkConfigRecord::from_input(phase2_config_input()).unwrap();
+
+        let configured = configure_client(config).unwrap();
+
+        assert_eq!(configured.trace_policy.as_str(), SDK_DEFAULT_TRACE_POLICY);
+        assert_eq!(
+            configured.redaction_defaults.profile,
+            SDK_REDACTION_DEFAULTS_PROFILE
+        );
+        assert!(configured.redaction_defaults.redact_payloads);
+        assert!(configured.redaction_defaults.redact_signatures);
+        assert!(configured.redaction_defaults.redact_secret_refs);
+        assert_eq!(
+            configured.credential_provider.credential_id,
+            "fixture://local-dev/key-1"
+        );
+        assert!(!configured.credential_provider.stores_private_material);
+        assert_eq!(
+            configured.client.endpoint().raw(),
+            "http://127.0.0.1:18080/overgate"
+        );
+    }
+
+    #[test]
+    fn phase3_configure_client_blocks_non_loopback_local_without_explicit_confirmation() {
+        let mut input = phase2_config_input();
+        input.base_url = "https://dev-overgate.example.test".to_owned();
+        input.live_endpoint_confirmed = false;
+        let config = SdkConfigRecord::from_input(input).unwrap();
+
+        assert!(matches!(
+            configure_client(config),
+            Err(SdkError::LiveEndpointConfirmationRequired { environment })
+                if environment == "local"
+        ));
+    }
+
+    #[test]
+    fn phase3_read_helpers_preserve_control_plane_refs() {
+        let config = SdkConfigRecord::from_input(phase2_config_input()).unwrap();
+        let pagination = SdkPagination::new(Some(50), Some("cursor_next".to_owned())).unwrap();
+
+        let request = build_control_plane_read_request(
+            &config.endpoint,
+            SdkControlPlaneReadKind::Identity,
+            "identity:alice",
+            "request_phase3",
+            "trace_phase3",
+            SUPPORTED_SCHEMA_VERSION,
+            pagination,
+            vec!["audit:identity:alice".to_owned()],
+        )
+        .unwrap();
+
+        assert!(request.read_only);
+        assert_eq!(request.route, "/v1/control-plane/identities");
+        assert_eq!(request.object_ref, "identity:alice");
+        assert_eq!(request.request_id, "request_phase3");
+        assert_eq!(request.trace_id, "trace_phase3");
+        assert_eq!(request.pagination.cursor.as_deref(), Some("cursor_next"));
+        assert_eq!(request.audit_refs, vec!["audit:identity:alice"]);
+    }
+
+    #[test]
+    fn phase3_version_report_names_schema_revision_and_features() {
+        let report = sdk_version_report();
+
+        assert_eq!(report.sdk_name, SDK_NAME);
+        assert_eq!(report.schema_set, SDK_PHASE3_SCHEMA_SET);
+        assert_eq!(
+            report.generated_contract_revision,
+            SDK_PHASE3_GENERATED_CONTRACT_REVISION
+        );
+        assert_eq!(report.language_binding, SDK_LANGUAGE_BINDING);
+        assert_eq!(
+            report.service_capability_profile,
+            SDK_PHASE3_CAPABILITY_PROFILE
+        );
+        assert!(report
+            .supported_feature_flags
+            .contains(&"command_envelopes"));
+        assert!(report
+            .supported_feature_flags
+            .contains(&"capability_negotiation"));
     }
 
     #[test]
