@@ -284,6 +284,7 @@ pub fn sdk_phase9_product_convenience_modules() -> Vec<SdkPhase9ProductConvenien
                 "read_status",
                 "cancel_job",
                 "read_results",
+                "read_usage_rollup",
                 "read_usage_receipt",
             ],
         ),
@@ -297,6 +298,7 @@ pub fn sdk_phase9_product_convenience_modules() -> Vec<SdkPhase9ProductConvenien
                 "read_status",
                 "cancel_job",
                 "read_results",
+                "read_usage_rollup",
                 "read_usage_receipt",
             ],
         ),
@@ -310,6 +312,7 @@ pub fn sdk_phase9_product_convenience_modules() -> Vec<SdkPhase9ProductConvenien
                 "read_status",
                 "cancel_job",
                 "read_results",
+                "read_usage_rollup",
                 "read_usage_receipt",
             ],
         ),
@@ -321,6 +324,7 @@ pub fn sdk_phase9_product_convenience_modules() -> Vec<SdkPhase9ProductConvenien
                 "validate_package",
                 "read_status",
                 "read_failure_case",
+                "read_usage_rollup",
                 "read_usage_receipt",
             ],
         ),
@@ -343,6 +347,8 @@ pub fn validate_phase9_product_convenience_modules(
         require_phase9_non_empty(module.module_name, "product module name")?;
         require_phase9_non_empty(module.feature_flag, "product feature flag")?;
         if module.helpers.is_empty()
+            || !module.helpers.contains(&"read_usage_rollup")
+            || !module.helpers.contains(&"read_usage_receipt")
             || module.public_routes.is_empty()
             || !module.public_routes.iter().all(|route| {
                 route.starts_with("/v1/overgate/")
@@ -584,6 +590,8 @@ pub fn validate_phase9_artifact_files() -> Result<(), SdkPhase9Error> {
             "successful_job",
             "retryable_failure",
             "final_failure",
+            "read_usage_rollup",
+            "read_usage_receipt",
             "cancellation",
             "timeout",
             "policy_denial",
@@ -929,6 +937,8 @@ mod tests {
             .iter()
             .all(|module| module.capability_checks_required
                 && module.uses_overgate_admin_api_only
+                && module.helpers.contains(&"read_usage_rollup")
+                && module.helpers.contains(&"read_usage_receipt")
                 && !module.bypasses_internal_services));
         assert!(modules.iter().all(|module| {
             REQUIRED_PRODUCT_FAILURE_CASES

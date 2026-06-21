@@ -334,6 +334,11 @@ def validate_product_modules() -> None:
             raise AssertionError(f"failure case set drifted for {entry['module_name']}")
         if not entry["helpers"]:
             raise AssertionError(f"missing helpers for {entry['module_name']}")
+        for helper in ["read_usage_rollup", "read_usage_receipt"]:
+            if helper not in entry["helpers"]:
+                raise AssertionError(
+                    f"{entry['module_name']} must expose explicit {helper} helper"
+                )
         if not all(
             route.startswith(("/v1/overgate/", "/v1/control-plane/", "/v1/accounting/"))
             for route in entry["public_routes"]

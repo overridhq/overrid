@@ -42,6 +42,7 @@
         "read_status",
         "cancel_job",
         "read_results",
+        "read_usage_rollup",
         "read_usage_receipt"
       ],
       "public_routes": [
@@ -83,6 +84,7 @@
         "read_status",
         "cancel_job",
         "read_results",
+        "read_usage_rollup",
         "read_usage_receipt"
       ],
       "public_routes": [
@@ -124,6 +126,7 @@
         "read_status",
         "cancel_job",
         "read_results",
+        "read_usage_rollup",
         "read_usage_receipt"
       ],
       "public_routes": [
@@ -163,6 +166,7 @@
         "validate_package",
         "read_status",
         "read_failure_case",
+        "read_usage_rollup",
         "read_usage_receipt"
       ],
       "public_routes": [
