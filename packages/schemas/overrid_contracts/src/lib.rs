@@ -1623,6 +1623,575 @@ impl fmt::Display for SharedSchemaPhase3ContractError {
 
 impl std::error::Error for SharedSchemaPhase3ContractError {}
 
+pub const PHASE4_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE4_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE4_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE4_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE4_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE4_GENERATED_DOCS_PATH: &str =
+    "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase4_reference.md";
+pub const PHASE4_TYPESCRIPT_OUTPUT_ROOT: &str = "packages/schemas/admin_ui/generated";
+pub const PHASE4_PROTOBUF_INTERNAL_ROOT: &str =
+    "packages/schemas/overrid_contracts/protobuf/internal";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE4_REASON_CODES: &[&str] = &[
+    "schema.generation_not_reproducible",
+    "schema.generated_output_hand_edited",
+    "schema.docs_trace_missing",
+    "schema.typescript_source_authority",
+    "schema.protobuf_public_only",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedSchemaPhase4ProjectionTarget {
+    Rust,
+    Docs,
+    TypeScriptWeb,
+    ProtobufInternal,
+}
+
+impl SharedSchemaPhase4ProjectionTarget {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Rust => "rust",
+            Self::Docs => "docs",
+            Self::TypeScriptWeb => "typescript_web",
+            Self::ProtobufInternal => "protobuf_internal",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4GenerationCommand {
+    pub command_name: String,
+    pub command: String,
+    pub deterministic: bool,
+    pub source_inputs: Vec<String>,
+    pub output_paths: Vec<String>,
+    pub dry_run_reason_code: String,
+}
+
+impl SharedSchemaPhase4GenerationCommand {
+    pub fn new(
+        command_name: impl Into<String>,
+        command: impl Into<String>,
+        source_inputs: Vec<String>,
+        output_paths: Vec<String>,
+        dry_run_reason_code: impl Into<String>,
+    ) -> Self {
+        Self {
+            command_name: command_name.into(),
+            command: command.into(),
+            deterministic: true,
+            source_inputs,
+            output_paths,
+            dry_run_reason_code: dry_run_reason_code.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.command_name.trim().is_empty() || self.command.trim().is_empty() {
+            return Err(SharedSchemaPhase4ContractError::MissingGenerationCommand);
+        }
+        if !self.deterministic {
+            return Err(SharedSchemaPhase4ContractError::NonDeterministicCommand(
+                self.command_name.clone(),
+            ));
+        }
+        if self.source_inputs.is_empty() || self.output_paths.is_empty() {
+            return Err(
+                SharedSchemaPhase4ContractError::IncompleteGenerationCommand(
+                    self.command_name.clone(),
+                ),
+            );
+        }
+        if !self.dry_run_reason_code.contains('.') {
+            return Err(SharedSchemaPhase4ContractError::MissingReasonCode(
+                self.command_name.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4ProjectionOutput {
+    pub target: SharedSchemaPhase4ProjectionTarget,
+    pub path: String,
+    pub source_schema: String,
+    pub non_authoritative: bool,
+    pub validator_entrypoint: String,
+    pub contains_redaction_metadata: bool,
+    pub contains_reason_code_metadata: bool,
+}
+
+impl SharedSchemaPhase4ProjectionOutput {
+    pub fn rust() -> Self {
+        Self {
+            target: SharedSchemaPhase4ProjectionTarget::Rust,
+            path: PHASE4_RUST_OUTPUT_PATH.to_owned(),
+            source_schema: PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+            non_authoritative: true,
+            validator_entrypoint: "SharedSchemaPhase4GenerationContract::canonical().validate()"
+                .to_owned(),
+            contains_redaction_metadata: true,
+            contains_reason_code_metadata: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.source_schema != PHASE4_CANONICAL_SCHEMA_SOURCE {
+            return Err(SharedSchemaPhase4ContractError::AuthorityDrift);
+        }
+        if !self.non_authoritative {
+            return Err(
+                SharedSchemaPhase4ContractError::GeneratedOutputAuthoritative(self.path.clone()),
+            );
+        }
+        if self.target == SharedSchemaPhase4ProjectionTarget::Rust {
+            if self.path != PHASE4_RUST_OUTPUT_PATH {
+                return Err(SharedSchemaPhase4ContractError::MissingRustOutput);
+            }
+            if !self
+                .validator_entrypoint
+                .contains("SharedSchemaPhase4GenerationContract")
+            {
+                return Err(SharedSchemaPhase4ContractError::MissingRustValidator);
+            }
+            if !self.contains_redaction_metadata || !self.contains_reason_code_metadata {
+                return Err(SharedSchemaPhase4ContractError::IncompleteRustOutput);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4DocsProjection {
+    pub output_path: String,
+    pub source_to_doc_trace: bool,
+    pub required_sections: Vec<String>,
+    pub requires_descriptions: bool,
+    pub requires_examples: bool,
+    pub requires_privacy_class: bool,
+    pub requires_reason_code_links: bool,
+}
+
+impl SharedSchemaPhase4DocsProjection {
+    pub fn canonical() -> Self {
+        Self {
+            output_path: PHASE4_GENERATED_DOCS_PATH.to_owned(),
+            source_to_doc_trace: true,
+            required_sections: vec![
+                "Object Families".to_owned(),
+                "Required Fields".to_owned(),
+                "Privacy And Redaction".to_owned(),
+                "Reason Codes".to_owned(),
+                "Compatibility And Authority".to_owned(),
+            ],
+            requires_descriptions: true,
+            requires_examples: true,
+            requires_privacy_class: true,
+            requires_reason_code_links: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.output_path != PHASE4_GENERATED_DOCS_PATH || !self.source_to_doc_trace {
+            return Err(SharedSchemaPhase4ContractError::MissingDocsTrace);
+        }
+        for required in [
+            "Object Families",
+            "Required Fields",
+            "Privacy And Redaction",
+            "Reason Codes",
+            "Compatibility And Authority",
+        ] {
+            if !self
+                .required_sections
+                .iter()
+                .any(|section| section == required)
+            {
+                return Err(SharedSchemaPhase4ContractError::MissingDocsSection(
+                    required,
+                ));
+            }
+        }
+        if !self.requires_descriptions
+            || !self.requires_examples
+            || !self.requires_privacy_class
+            || !self.requires_reason_code_links
+        {
+            return Err(SharedSchemaPhase4ContractError::MissingDocsTrace);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4TypeScriptProjection {
+    pub status: String,
+    pub source_schema: String,
+    pub output_root: String,
+    pub blocked_until: Vec<String>,
+    pub browser_safe_redaction: bool,
+    pub source_of_truth_allowed: bool,
+}
+
+impl SharedSchemaPhase4TypeScriptProjection {
+    pub fn canonical() -> Self {
+        Self {
+            status: "blocked_until_rust_and_fixtures_stable".to_owned(),
+            source_schema: PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+            output_root: PHASE4_TYPESCRIPT_OUTPUT_ROOT.to_owned(),
+            blocked_until: vec![
+                "rust_projection_validated".to_owned(),
+                "golden_fixtures_stable".to_owned(),
+                "docs_trace_validated".to_owned(),
+                "compatibility_checks_stable".to_owned(),
+            ],
+            browser_safe_redaction: true,
+            source_of_truth_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.source_of_truth_allowed
+            || self.status != "blocked_until_rust_and_fixtures_stable"
+            || self.source_schema != PHASE4_CANONICAL_SCHEMA_SOURCE
+        {
+            return Err(SharedSchemaPhase4ContractError::TypeScriptSourceAuthority);
+        }
+        for required in [
+            "rust_projection_validated",
+            "golden_fixtures_stable",
+            "docs_trace_validated",
+            "compatibility_checks_stable",
+        ] {
+            if !self.blocked_until.iter().any(|gate| gate == required) {
+                return Err(SharedSchemaPhase4ContractError::MissingTypeScriptGate(
+                    required,
+                ));
+            }
+        }
+        if self.output_root != PHASE4_TYPESCRIPT_OUTPUT_ROOT || !self.browser_safe_redaction {
+            return Err(SharedSchemaPhase4ContractError::TypeScriptSourceAuthority);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4ProtobufProjection {
+    pub status: String,
+    pub scope: String,
+    pub output_root: String,
+    pub json_schema_source_required: bool,
+    pub public_object_definition_allowed: bool,
+    pub public_payload_families_blocked: Vec<String>,
+}
+
+impl SharedSchemaPhase4ProtobufProjection {
+    pub fn canonical() -> Self {
+        Self {
+            status: "internal_only_when_owning_sds_approves".to_owned(),
+            scope: "compact_internal_service_rpc_event_contracts".to_owned(),
+            output_root: PHASE4_PROTOBUF_INTERNAL_ROOT.to_owned(),
+            json_schema_source_required: true,
+            public_object_definition_allowed: false,
+            public_payload_families_blocked: vec![
+                "command_payloads".to_owned(),
+                "signed_payloads".to_owned(),
+                "manifests".to_owned(),
+                "policy_declarations".to_owned(),
+                "fixtures".to_owned(),
+                "docs_examples".to_owned(),
+                "api_errors".to_owned(),
+                "reason_codes".to_owned(),
+                "audit_records".to_owned(),
+            ],
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.status != "internal_only_when_owning_sds_approves"
+            || self.scope != "compact_internal_service_rpc_event_contracts"
+            || self.output_root != PHASE4_PROTOBUF_INTERNAL_ROOT
+            || !self.json_schema_source_required
+            || self.public_object_definition_allowed
+        {
+            return Err(SharedSchemaPhase4ContractError::ProtobufPublicAuthority);
+        }
+        for required in [
+            "command_payloads",
+            "signed_payloads",
+            "manifests",
+            "policy_declarations",
+            "fixtures",
+            "docs_examples",
+            "api_errors",
+            "reason_codes",
+            "audit_records",
+        ] {
+            if !self
+                .public_payload_families_blocked
+                .iter()
+                .any(|family| family == required)
+            {
+                return Err(SharedSchemaPhase4ContractError::ProtobufPublicAuthority);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4Reproducibility {
+    pub deterministic: bool,
+    pub source_to_output_trace_required: bool,
+    pub generated_diff_required: bool,
+    pub hand_edit_policy: String,
+    pub failure_reason_codes: Vec<String>,
+}
+
+impl SharedSchemaPhase4Reproducibility {
+    pub fn canonical() -> Self {
+        Self {
+            deterministic: true,
+            source_to_output_trace_required: true,
+            generated_diff_required: true,
+            hand_edit_policy: "prohibited".to_owned(),
+            failure_reason_codes: REQUIRED_SHARED_SCHEMA_PHASE4_REASON_CODES
+                .iter()
+                .map(|reason| (*reason).to_owned())
+                .collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if !self.deterministic
+            || !self.source_to_output_trace_required
+            || !self.generated_diff_required
+            || self.hand_edit_policy != "prohibited"
+        {
+            return Err(SharedSchemaPhase4ContractError::GeneratedOutputHandEditAllowed);
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE4_REASON_CODES {
+            if !self
+                .failure_reason_codes
+                .iter()
+                .any(|reason| reason == required)
+            {
+                return Err(SharedSchemaPhase4ContractError::MissingReasonCode(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase4GenerationContract {
+    pub schema_version: SchemaVersion,
+    pub toolchain_name: String,
+    pub canonical_source: String,
+    pub source_of_truth: String,
+    pub rust_first: bool,
+    pub typescript_second: bool,
+    pub generated_outputs_non_authoritative: bool,
+    pub hand_edited_generated_files_allowed: bool,
+    pub protobuf_public_authority_allowed: bool,
+    pub generation_commands: Vec<SharedSchemaPhase4GenerationCommand>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_outputs: Vec<SharedSchemaPhase4ProjectionOutput>,
+    pub docs_projection: SharedSchemaPhase4DocsProjection,
+    pub typescript_web_projection: SharedSchemaPhase4TypeScriptProjection,
+    pub protobuf_projection: SharedSchemaPhase4ProtobufProjection,
+    pub reproducibility: SharedSchemaPhase4Reproducibility,
+}
+
+impl SharedSchemaPhase4GenerationContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            toolchain_name: "rust-json-schema-projection-v0".to_owned(),
+            canonical_source: PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+            source_of_truth: "json_schema".to_owned(),
+            rust_first: true,
+            typescript_second: true,
+            generated_outputs_non_authoritative: true,
+            hand_edited_generated_files_allowed: false,
+            protobuf_public_authority_allowed: false,
+            generation_commands: vec![
+                SharedSchemaPhase4GenerationCommand::new(
+                    "rust_projection_check",
+                    "cargo test -p overrid-contracts shared_schema_phase4",
+                    vec![
+                        PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+                        PHASE4_MANIFEST_SOURCE.to_owned(),
+                    ],
+                    vec![PHASE4_RUST_OUTPUT_PATH.to_owned()],
+                    "schema.generation_not_reproducible",
+                ),
+                SharedSchemaPhase4GenerationCommand::new(
+                    "docs_trace_check",
+                    "python3 scripts/validate_shared_schema_package_phase4.py",
+                    vec![
+                        PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+                        PHASE4_MANIFEST_SOURCE.to_owned(),
+                        PHASE4_BUILD_PLAN_SOURCE.to_owned(),
+                    ],
+                    vec![PHASE4_GENERATED_DOCS_PATH.to_owned()],
+                    "schema.docs_trace_missing",
+                ),
+            ],
+            source_hash_inputs: vec![
+                PHASE4_CANONICAL_SCHEMA_SOURCE.to_owned(),
+                PHASE4_MANIFEST_SOURCE.to_owned(),
+                PHASE4_BUILD_PLAN_SOURCE.to_owned(),
+                PHASE4_TECH_STACK_SOURCE.to_owned(),
+            ],
+            rust_outputs: vec![SharedSchemaPhase4ProjectionOutput::rust()],
+            docs_projection: SharedSchemaPhase4DocsProjection::canonical(),
+            typescript_web_projection: SharedSchemaPhase4TypeScriptProjection::canonical(),
+            protobuf_projection: SharedSchemaPhase4ProtobufProjection::canonical(),
+            reproducibility: SharedSchemaPhase4Reproducibility::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase4ContractError> {
+        if self.toolchain_name != "rust-json-schema-projection-v0"
+            || self.canonical_source != PHASE4_CANONICAL_SCHEMA_SOURCE
+            || self.source_of_truth != "json_schema"
+            || !self.rust_first
+            || !self.typescript_second
+            || !self.generated_outputs_non_authoritative
+        {
+            return Err(SharedSchemaPhase4ContractError::AuthorityDrift);
+        }
+        if self.hand_edited_generated_files_allowed {
+            return Err(SharedSchemaPhase4ContractError::GeneratedOutputHandEditAllowed);
+        }
+        if self.protobuf_public_authority_allowed {
+            return Err(SharedSchemaPhase4ContractError::ProtobufPublicAuthority);
+        }
+        for required in [
+            PHASE4_CANONICAL_SCHEMA_SOURCE,
+            PHASE4_MANIFEST_SOURCE,
+            PHASE4_BUILD_PLAN_SOURCE,
+            PHASE4_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase4ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        if self.generation_commands.len() < 2 {
+            return Err(SharedSchemaPhase4ContractError::MissingGenerationCommand);
+        }
+        for command in &self.generation_commands {
+            command.validate()?;
+        }
+        if !self.generation_commands.iter().any(|command| {
+            command
+                .command
+                .contains("cargo test -p overrid-contracts shared_schema_phase4")
+        }) {
+            return Err(SharedSchemaPhase4ContractError::MissingGenerationCommand);
+        }
+        if self.rust_outputs.is_empty()
+            || !self
+                .rust_outputs
+                .iter()
+                .any(|output| output.target == SharedSchemaPhase4ProjectionTarget::Rust)
+        {
+            return Err(SharedSchemaPhase4ContractError::MissingRustOutput);
+        }
+        for output in &self.rust_outputs {
+            output.validate()?;
+        }
+        self.docs_projection.validate()?;
+        self.typescript_web_projection.validate()?;
+        self.protobuf_projection.validate()?;
+        self.reproducibility.validate()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase4ContractError {
+    AuthorityDrift,
+    GeneratedOutputHandEditAllowed,
+    MissingSourceInput(&'static str),
+    MissingGenerationCommand,
+    NonDeterministicCommand(String),
+    IncompleteGenerationCommand(String),
+    MissingReasonCode(String),
+    MissingRustOutput,
+    MissingRustValidator,
+    IncompleteRustOutput,
+    GeneratedOutputAuthoritative(String),
+    MissingDocsTrace,
+    MissingDocsSection(&'static str),
+    TypeScriptSourceAuthority,
+    MissingTypeScriptGate(&'static str),
+    ProtobufPublicAuthority,
+}
+
+impl fmt::Display for SharedSchemaPhase4ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthorityDrift => formatter.write_str("Phase 4 authority drift"),
+            Self::GeneratedOutputHandEditAllowed => {
+                formatter.write_str("generated output hand edits are allowed")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::MissingGenerationCommand => formatter.write_str("missing generation command"),
+            Self::NonDeterministicCommand(name) => {
+                write!(formatter, "non-deterministic generation command: {name}")
+            }
+            Self::IncompleteGenerationCommand(name) => {
+                write!(formatter, "incomplete generation command: {name}")
+            }
+            Self::MissingReasonCode(reason) => write!(formatter, "missing reason code: {reason}"),
+            Self::MissingRustOutput => formatter.write_str("missing Rust output"),
+            Self::MissingRustValidator => formatter.write_str("missing Rust validator entrypoint"),
+            Self::IncompleteRustOutput => formatter.write_str("incomplete Rust output metadata"),
+            Self::GeneratedOutputAuthoritative(path) => {
+                write!(formatter, "generated output is authoritative: {path}")
+            }
+            Self::MissingDocsTrace => formatter.write_str("missing generated docs trace"),
+            Self::MissingDocsSection(section) => {
+                write!(formatter, "missing generated docs section: {section}")
+            }
+            Self::TypeScriptSourceAuthority => {
+                formatter.write_str("TypeScript/web projection became source authority")
+            }
+            Self::MissingTypeScriptGate(gate) => {
+                write!(
+                    formatter,
+                    "missing TypeScript/web blocked-until gate: {gate}"
+                )
+            }
+            Self::ProtobufPublicAuthority => {
+                formatter.write_str("Protobuf projection became public authority")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase4ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -5938,6 +6507,137 @@ mod tests {
         assert!(matches!(
             credential.validate(),
             Err(SharedSchemaPhase3ContractError::IncompleteCredentialKeyMetadata)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase4_contract_covers_generation_outputs() {
+        let contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        assert_eq!(contract.toolchain_name, "rust-json-schema-projection-v0");
+        assert_eq!(contract.canonical_source, PHASE4_CANONICAL_SCHEMA_SOURCE);
+        assert!(contract.rust_first);
+        assert!(contract.typescript_second);
+        assert!(contract.generated_outputs_non_authoritative);
+        assert!(!contract.hand_edited_generated_files_allowed);
+        assert!(!contract.protobuf_public_authority_allowed);
+        assert!(contract
+            .source_hash_inputs
+            .contains(&PHASE4_TECH_STACK_SOURCE.to_owned()));
+        assert!(contract.generation_commands.iter().any(|command| {
+            command.command_name == "rust_projection_check"
+                && command
+                    .command
+                    .contains("cargo test -p overrid-contracts shared_schema_phase4")
+        }));
+
+        let rust = contract
+            .rust_outputs
+            .iter()
+            .find(|output| output.target == SharedSchemaPhase4ProjectionTarget::Rust)
+            .unwrap();
+        assert_eq!(rust.path, PHASE4_RUST_OUTPUT_PATH);
+        assert!(rust.non_authoritative);
+        assert!(rust.contains_redaction_metadata);
+        assert!(rust.contains_reason_code_metadata);
+        assert_eq!(SharedSchemaPhase4ProjectionTarget::Docs.as_str(), "docs");
+
+        assert_eq!(
+            contract.docs_projection.output_path,
+            PHASE4_GENERATED_DOCS_PATH
+        );
+        assert!(contract.docs_projection.source_to_doc_trace);
+        assert!(contract
+            .docs_projection
+            .required_sections
+            .contains(&"Reason Codes".to_owned()));
+        assert_eq!(
+            contract.typescript_web_projection.output_root,
+            PHASE4_TYPESCRIPT_OUTPUT_ROOT
+        );
+        assert!(!contract.typescript_web_projection.source_of_truth_allowed);
+        assert_eq!(
+            contract.protobuf_projection.output_root,
+            PHASE4_PROTOBUF_INTERNAL_ROOT
+        );
+        assert!(contract.protobuf_projection.json_schema_source_required);
+        assert!(
+            !contract
+                .protobuf_projection
+                .public_object_definition_allowed
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase4_rejects_authority_and_generation_drift() {
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.hand_edited_generated_files_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::GeneratedOutputHandEditAllowed)
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract
+            .source_hash_inputs
+            .retain(|input| input != "packages/schemas/overrid_contracts/codegen_manifest.json");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::MissingSourceInput(path))
+                if path == "packages/schemas/overrid_contracts/codegen_manifest.json"
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.generation_commands[0].deterministic = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::NonDeterministicCommand(name))
+                if name == "rust_projection_check"
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.rust_outputs[0].validator_entrypoint.clear();
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::MissingRustValidator)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase4_rejects_docs_typescript_and_protobuf_drift() {
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.docs_projection.source_to_doc_trace = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::MissingDocsTrace)
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract
+            .typescript_web_projection
+            .blocked_until
+            .retain(|gate| gate != "docs_trace_validated");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::MissingTypeScriptGate(gate))
+                if gate == "docs_trace_validated"
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract.typescript_web_projection.source_of_truth_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::TypeScriptSourceAuthority)
+        ));
+
+        let mut contract = SharedSchemaPhase4GenerationContract::canonical().unwrap();
+        contract
+            .protobuf_projection
+            .public_object_definition_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase4ContractError::ProtobufPublicAuthority)
         ));
     }
 

@@ -24,6 +24,7 @@ Rules:
 - Top-level and nested manifest entries that name canonical schema sources or phase-gated schema artifacts must carry `schema_ownership` metadata.
 - `packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json` defines the Phase 2 layout and common primitive contract for approved source roots, generated-output roots, fixture roots, compatibility-report roots, internal binary projection roots, typed refs, lifecycle/idempotency fields, privacy classes, and reason-code/correction metadata.
 - The same Shared Schema Package schema defines Phase 3 contract-module metadata for identity/tenant, command/API error, event/audit, manifest/registry, and queue/lease/credential/key module groups. These modules are schema definitions only; runtime authority stays with the owning Overrid services.
+- Shared Schema Package Phase 4 defines Rust-first generation toolchain metadata, deterministic generation command contracts, Rust projection output metadata, generated documentation trace metadata, TypeScript/web blocked-until rules, and internal-only Protobuf boundaries.
 
 ## Schema Ownership Metadata
 
@@ -49,14 +50,17 @@ Approved Phase 4 generated/projection roots:
 
 - `packages/schemas/admin_ui/generated`
 - `packages/schemas/overrid_contracts/src/lib.rs`
+- `packages/schemas/overrid_contracts/generated/docs`
 
-`packages/schemas/overrid_contracts/src/lib.rs` is a Rust projection from JSON Schema source contracts, not an independent source of truth. TypeScript declaration files under `packages/schemas/admin_ui/generated/typescript` are web/client projections only.
+`packages/schemas/overrid_contracts/src/lib.rs` is a Rust projection from JSON Schema source contracts, not an independent source of truth. Generated reference docs under `packages/schemas/overrid_contracts/generated/docs` must carry source-to-doc trace metadata and remain non-authoritative. TypeScript declaration files under `packages/schemas/admin_ui/generated/typescript` are web/client projections only.
 
 ## Optional Protobuf Placement
 
 Protobuf is optional and internal-only. It may be added for compact internal service/RPC/event contracts only after an owning SDS, `docs/specs` entry, package metadata, generated-output root, and validator justify it.
 
 Protobuf must not replace JSON Schema for commands, signed payloads, manifests, fixtures, docs-facing examples, reason codes, audit records, or errors.
+
+Phase 4 validation rejects Protobuf-only public object definitions and requires every public object, command payload, signed payload, manifest, policy declaration, fixture, docs example, API error, reason code, and audit record to retain canonical JSON Schema source.
 
 ## Reason Codes, Events, Audit, And Errors
 

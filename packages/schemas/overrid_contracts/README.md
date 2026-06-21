@@ -33,6 +33,16 @@ events and audit records, typed secret refs in manifests, ref-only queue and
 lease state, and credential/key metadata without raw secrets or private key
 material.
 
+Shared Schema Package Phase 4 contracts define the generation toolchain and
+projection metadata for `rust-json-schema-projection-v0`. The canonical JSON
+Schema remains the source of truth; Rust projection checks run first through
+`SharedSchemaPhase4GenerationContract::canonical().validate()`, generated docs
+under `generated/docs/` carry source-to-doc trace metadata, TypeScript/web
+models remain blocked until Rust projection, golden fixture, docs trace, and
+compatibility gates are stable, and Protobuf is internal-only for compact
+service/RPC/event contracts with canonical JSON Schema source required for
+every public object.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

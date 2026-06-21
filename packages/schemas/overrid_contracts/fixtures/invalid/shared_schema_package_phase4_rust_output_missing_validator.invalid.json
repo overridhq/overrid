@@ -1,0 +1,97 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase4_generation_toolchain": {
+    "toolchain_decision": {
+      "toolchain_name": "rust-json-schema-projection-v0",
+      "canonical_source": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "source_of_truth": "json_schema",
+      "rust_first": true,
+      "typescript_second": true,
+      "generated_outputs_non_authoritative": true,
+      "hand_edited_generated_files_allowed": false,
+      "protobuf_public_authority_allowed": false
+    },
+    "generation_commands": [
+      {
+        "command_name": "rust_projection_check",
+        "command": "cargo test -p overrid-contracts shared_schema_phase4",
+        "deterministic": true,
+        "source_inputs": [
+          "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+        ],
+        "output_paths": [
+          "packages/schemas/overrid_contracts/src/lib.rs"
+        ],
+        "dry_run_reason_code": "schema.generation_not_reproducible"
+      }
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md"
+    ],
+    "rust_outputs": [
+      {
+        "target": "rust",
+        "path": "packages/schemas/overrid_contracts/src/lib.rs",
+        "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+        "non_authoritative": true,
+        "validator_entrypoint": "",
+        "contains_redaction_metadata": true,
+        "contains_reason_code_metadata": false
+      }
+    ],
+    "docs_projection": {
+      "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase4_reference.md",
+      "source_to_doc_trace": true,
+      "required_sections": [
+        "Object Families",
+        "Required Fields",
+        "Privacy And Redaction",
+        "Reason Codes",
+        "Compatibility And Authority"
+      ],
+      "requires_descriptions": true,
+      "requires_examples": true,
+      "requires_privacy_class": true,
+      "requires_reason_code_links": true
+    },
+    "typescript_web_projection": {
+      "status": "blocked_until_rust_and_fixtures_stable",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "output_root": "packages/schemas/admin_ui/generated",
+      "blocked_until": [
+        "rust_projection_validated",
+        "golden_fixtures_stable",
+        "docs_trace_validated",
+        "compatibility_checks_stable"
+      ],
+      "browser_safe_redaction": true,
+      "source_of_truth_allowed": false
+    },
+    "protobuf_projection": {
+      "status": "internal_only_when_owning_sds_approves",
+      "scope": "compact_internal_service_rpc_event_contracts",
+      "output_root": "packages/schemas/overrid_contracts/protobuf/internal",
+      "json_schema_source_required": true,
+      "public_object_definition_allowed": false,
+      "public_payload_families_blocked": [
+        "command_payloads",
+        "signed_payloads",
+        "manifests",
+        "policy_declarations",
+        "fixtures"
+      ]
+    },
+    "reproducibility": {
+      "deterministic": true,
+      "source_to_output_trace_required": true,
+      "generated_diff_required": true,
+      "hand_edit_policy": "prohibited",
+      "failure_reason_codes": [
+        "schema.generation_not_reproducible"
+      ]
+    }
+  }
+}

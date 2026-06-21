@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 And Phase 3 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives and Phase 3 Phase 0/1 contract modules.",
+  "title": "Shared Schema Package Phase 2 Through Phase 4 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, and Phase 4 generation toolchain/projection metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -50,6 +50,9 @@
     },
     "phase3_contract_modules": {
       "$ref": "#/$defs/phase3_contract_modules"
+    },
+    "phase4_generation_toolchain": {
+      "$ref": "#/$defs/phase4_generation_toolchain"
     }
   },
   "$defs": {
@@ -109,6 +112,7 @@
           "items": {
             "enum": [
               "packages/schemas/overrid_contracts/src/lib.rs",
+              "packages/schemas/overrid_contracts/generated/docs",
               "packages/schemas/admin_ui/generated"
             ]
           }
@@ -609,6 +613,343 @@
             "preserve_append_only",
             "require_typed_ref"
           ]
+        }
+      }
+    },
+    "phase4_generation_toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolchain_decision",
+        "generation_commands",
+        "source_hash_inputs",
+        "rust_outputs",
+        "docs_projection",
+        "typescript_web_projection",
+        "protobuf_projection",
+        "reproducibility"
+      ],
+      "properties": {
+        "toolchain_decision": {
+          "$ref": "#/$defs/phase4_toolchain_decision"
+        },
+        "generation_commands": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase4_generation_command"
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase4_projection_output"
+          }
+        },
+        "docs_projection": {
+          "$ref": "#/$defs/phase4_docs_projection"
+        },
+        "typescript_web_projection": {
+          "$ref": "#/$defs/phase4_typescript_projection"
+        },
+        "protobuf_projection": {
+          "$ref": "#/$defs/phase4_protobuf_projection"
+        },
+        "reproducibility": {
+          "$ref": "#/$defs/phase4_reproducibility"
+        }
+      }
+    },
+    "phase4_toolchain_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolchain_name",
+        "canonical_source",
+        "source_of_truth",
+        "rust_first",
+        "typescript_second",
+        "generated_outputs_non_authoritative",
+        "hand_edited_generated_files_allowed",
+        "protobuf_public_authority_allowed"
+      ],
+      "properties": {
+        "toolchain_name": {
+          "const": "rust-json-schema-projection-v0"
+        },
+        "canonical_source": {
+          "const": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+        },
+        "source_of_truth": {
+          "const": "json_schema"
+        },
+        "rust_first": {
+          "const": true
+        },
+        "typescript_second": {
+          "const": true
+        },
+        "generated_outputs_non_authoritative": {
+          "const": true
+        },
+        "hand_edited_generated_files_allowed": {
+          "const": false
+        },
+        "protobuf_public_authority_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase4_generation_command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_name",
+        "command",
+        "deterministic",
+        "source_inputs",
+        "output_paths",
+        "dry_run_reason_code"
+      ],
+      "properties": {
+        "command_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "command": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "deterministic": {
+          "const": true
+        },
+        "source_inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "output_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "dry_run_reason_code": {
+          "$ref": "#/$defs/reason_code"
+        }
+      }
+    },
+    "phase4_projection_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "path",
+        "source_schema",
+        "non_authoritative",
+        "validator_entrypoint",
+        "contains_redaction_metadata",
+        "contains_reason_code_metadata"
+      ],
+      "properties": {
+        "target": {
+          "enum": [
+            "rust",
+            "docs",
+            "typescript_web",
+            "protobuf_internal"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_schema": {
+          "const": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+        },
+        "non_authoritative": {
+          "const": true
+        },
+        "validator_entrypoint": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "contains_redaction_metadata": {
+          "type": "boolean"
+        },
+        "contains_reason_code_metadata": {
+          "type": "boolean"
+        }
+      }
+    },
+    "phase4_docs_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_path",
+        "source_to_doc_trace",
+        "required_sections",
+        "requires_descriptions",
+        "requires_examples",
+        "requires_privacy_class",
+        "requires_reason_code_links"
+      ],
+      "properties": {
+        "output_path": {
+          "const": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase4_reference.md"
+        },
+        "source_to_doc_trace": {
+          "const": true
+        },
+        "required_sections": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "requires_descriptions": {
+          "const": true
+        },
+        "requires_examples": {
+          "const": true
+        },
+        "requires_privacy_class": {
+          "const": true
+        },
+        "requires_reason_code_links": {
+          "const": true
+        }
+      }
+    },
+    "phase4_typescript_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "source_schema",
+        "output_root",
+        "blocked_until",
+        "browser_safe_redaction",
+        "source_of_truth_allowed"
+      ],
+      "properties": {
+        "status": {
+          "const": "blocked_until_rust_and_fixtures_stable"
+        },
+        "source_schema": {
+          "const": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+        },
+        "output_root": {
+          "const": "packages/schemas/admin_ui/generated"
+        },
+        "blocked_until": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "rust_projection_validated",
+              "golden_fixtures_stable",
+              "docs_trace_validated",
+              "compatibility_checks_stable"
+            ]
+          }
+        },
+        "browser_safe_redaction": {
+          "const": true
+        },
+        "source_of_truth_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase4_protobuf_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scope",
+        "output_root",
+        "json_schema_source_required",
+        "public_object_definition_allowed",
+        "public_payload_families_blocked"
+      ],
+      "properties": {
+        "status": {
+          "const": "internal_only_when_owning_sds_approves"
+        },
+        "scope": {
+          "const": "compact_internal_service_rpc_event_contracts"
+        },
+        "output_root": {
+          "const": "packages/schemas/overrid_contracts/protobuf/internal"
+        },
+        "json_schema_source_required": {
+          "const": true
+        },
+        "public_object_definition_allowed": {
+          "const": false
+        },
+        "public_payload_families_blocked": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "enum": [
+              "command_payloads",
+              "signed_payloads",
+              "manifests",
+              "policy_declarations",
+              "fixtures",
+              "docs_examples",
+              "api_errors",
+              "reason_codes",
+              "audit_records"
+            ]
+          }
+        }
+      }
+    },
+    "phase4_reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deterministic",
+        "source_to_output_trace_required",
+        "generated_diff_required",
+        "hand_edit_policy",
+        "failure_reason_codes"
+      ],
+      "properties": {
+        "deterministic": {
+          "const": true
+        },
+        "source_to_output_trace_required": {
+          "const": true
+        },
+        "generated_diff_required": {
+          "const": true
+        },
+        "hand_edit_policy": {
+          "const": "prohibited"
+        },
+        "failure_reason_codes": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
         }
       }
     }

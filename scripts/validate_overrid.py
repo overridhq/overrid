@@ -64,6 +64,7 @@ VALIDATORS = [
     Path("scripts/validate_shared_schema_package_phase1.py"),
     Path("scripts/validate_shared_schema_package_phase2.py"),
     Path("scripts/validate_shared_schema_package_phase3.py"),
+    Path("scripts/validate_shared_schema_package_phase4.py"),
 ]
 
 
