@@ -2192,6 +2192,763 @@ impl fmt::Display for SharedSchemaPhase4ContractError {
 
 impl std::error::Error for SharedSchemaPhase4ContractError {}
 
+pub const PHASE5_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE5_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE5_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE5_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE5_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE5_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase5.py";
+pub const PHASE5_SENTINEL_SECRET: &str = "OVERRID_SENTINEL_SECRET_NEVER_EMIT";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE5_SENSITIVE_FAMILIES: &[&str] = &[
+    "command",
+    "identity",
+    "tenant",
+    "credential",
+    "signature",
+    "api_error",
+    "audit",
+    "policy",
+    "usage",
+    "oru",
+    "seal_ledger",
+    "overasset",
+    "dispute",
+    "namespace_ownership",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE5_ENVELOPE_FAMILIES: &[&str] = &[
+    "command",
+    "event",
+    "audit",
+    "usage",
+    "ledger",
+    "public_response",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE5_REASON_DOMAINS: &[&str] = &[
+    "validation",
+    "identity",
+    "tenancy",
+    "credentials",
+    "policy",
+    "queue",
+    "execution",
+    "accounting",
+    "storage",
+    "namespace",
+    "ai",
+    "compatibility",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE5_PARSE_ERRORS: &[&str] = &[
+    "schema.parse_malformed_payload",
+    "schema.unsupported_version",
+    "schema.missing_required_field",
+    "schema.wrong_privacy_class",
+    "schema.unknown_sensitive_field",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE5_VALIDATION_REASON_CODES: &[&str] = &[
+    "schema.unknown_sensitive_field",
+    "schema.extension_map_not_permitted",
+    "schema.parse_malformed_payload",
+    "schema.unsupported_version",
+    "schema.missing_required_field",
+    "schema.wrong_privacy_class",
+    "schema.envelope_incomplete",
+    "schema.reason_code_undocumented",
+    "schema.diagnostic_secret_leak",
+];
+
+fn owned_values(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5ExtensionMapRule {
+    pub surface: String,
+    pub namespace_prefix_required: bool,
+    pub typed_values_required: bool,
+    pub privacy_class_required: bool,
+    pub compatibility_class_required: bool,
+    pub privacy_class: SharedSchemaPrivacyClass,
+    pub compatibility_class: String,
+}
+
+impl SharedSchemaPhase5ExtensionMapRule {
+    pub fn low_risk_metadata() -> Self {
+        Self {
+            surface: "low_risk_metadata".to_owned(),
+            namespace_prefix_required: true,
+            typed_values_required: true,
+            privacy_class_required: true,
+            compatibility_class_required: true,
+            privacy_class: SharedSchemaPrivacyClass::Public,
+            compatibility_class: "additive".to_owned(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if self.surface != "low_risk_metadata"
+            || !self.namespace_prefix_required
+            || !self.typed_values_required
+            || !self.privacy_class_required
+            || !self.compatibility_class_required
+        {
+            return Err(SharedSchemaPhase5ContractError::ExtensionMapRuleIncomplete(
+                self.surface.clone(),
+            ));
+        }
+        if self.privacy_class.requires_redaction() {
+            return Err(SharedSchemaPhase5ContractError::ExtensionMapRuleIncomplete(
+                self.surface.clone(),
+            ));
+        }
+        if self.compatibility_class != "additive" && self.compatibility_class != "phase-gated" {
+            return Err(SharedSchemaPhase5ContractError::ExtensionMapRuleIncomplete(
+                self.surface.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5StrictValidationDefaults {
+    pub unknown_fields_rejected_for_sensitive_families: bool,
+    pub extension_maps_default_denied: bool,
+    pub sensitive_families: Vec<String>,
+    pub allowed_extension_maps: Vec<SharedSchemaPhase5ExtensionMapRule>,
+}
+
+impl SharedSchemaPhase5StrictValidationDefaults {
+    pub fn canonical() -> Self {
+        Self {
+            unknown_fields_rejected_for_sensitive_families: true,
+            extension_maps_default_denied: true,
+            sensitive_families: owned_values(REQUIRED_SHARED_SCHEMA_PHASE5_SENSITIVE_FAMILIES),
+            allowed_extension_maps: vec![SharedSchemaPhase5ExtensionMapRule::low_risk_metadata()],
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if !self.unknown_fields_rejected_for_sensitive_families {
+            return Err(SharedSchemaPhase5ContractError::UnknownSensitiveFieldsAllowed);
+        }
+        if !self.extension_maps_default_denied {
+            return Err(SharedSchemaPhase5ContractError::ExtensionMapsDefaultAllowed);
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE5_SENSITIVE_FAMILIES {
+            if !self
+                .sensitive_families
+                .iter()
+                .any(|family| family == required)
+            {
+                return Err(SharedSchemaPhase5ContractError::MissingSensitiveFamily(
+                    required,
+                ));
+            }
+        }
+        for rule in &self.allowed_extension_maps {
+            rule.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5ParseHelper {
+    pub helper_name: String,
+    pub schema_name: String,
+    pub combines_schema_validation: bool,
+    pub constructs_typed_object: bool,
+    pub normalizes_errors: bool,
+    pub checks_privacy_class: bool,
+    pub references_reason_codes: bool,
+    pub stable_error_reasons: Vec<String>,
+}
+
+impl SharedSchemaPhase5ParseHelper {
+    pub fn canonical() -> Self {
+        Self {
+            helper_name: "parse_shared_schema_payload".to_owned(),
+            schema_name: SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY.to_owned(),
+            combines_schema_validation: true,
+            constructs_typed_object: true,
+            normalizes_errors: true,
+            checks_privacy_class: true,
+            references_reason_codes: true,
+            stable_error_reasons: owned_values(REQUIRED_SHARED_SCHEMA_PHASE5_PARSE_ERRORS),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if self.helper_name.trim().is_empty()
+            || self.schema_name != SHARED_SCHEMA_PACKAGE_SCHEMA_FAMILY
+            || !self.combines_schema_validation
+            || !self.constructs_typed_object
+            || !self.normalizes_errors
+            || !self.checks_privacy_class
+            || !self.references_reason_codes
+        {
+            return Err(SharedSchemaPhase5ContractError::IncompleteParseHelper(
+                self.helper_name.clone(),
+            ));
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE5_PARSE_ERRORS {
+            if !self
+                .stable_error_reasons
+                .iter()
+                .any(|reason| reason == required)
+            {
+                return Err(SharedSchemaPhase5ContractError::MissingStableErrorReason(
+                    required,
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5EnvelopeAssertion {
+    pub envelope_family: String,
+    pub required_fields: Vec<String>,
+    pub required_refs: Vec<String>,
+    pub reason_code: String,
+}
+
+impl SharedSchemaPhase5EnvelopeAssertion {
+    pub fn new(
+        envelope_family: impl Into<String>,
+        required_fields: Vec<String>,
+        required_refs: Vec<String>,
+    ) -> Self {
+        Self {
+            envelope_family: envelope_family.into(),
+            required_fields,
+            required_refs,
+            reason_code: "schema.envelope_incomplete".to_owned(),
+        }
+    }
+
+    pub fn command() -> Self {
+        Self::new(
+            "command",
+            owned_values(&[
+                "tenant_id",
+                "actor_id",
+                "trace_id",
+                "idempotency_key",
+                "command_type",
+                "timestamp",
+                "schema_version",
+                "signature_metadata",
+            ]),
+            owned_values(&["tenant_ref", "actor_ref", "signature_ref"]),
+        )
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE5_ENVELOPE_FAMILIES
+            .iter()
+            .any(|family| self.envelope_family == *family)
+        {
+            return Err(SharedSchemaPhase5ContractError::IncompleteEnvelope(
+                self.envelope_family.clone(),
+            ));
+        }
+        if self.reason_code != "schema.envelope_incomplete" || self.required_fields.is_empty() {
+            return Err(SharedSchemaPhase5ContractError::IncompleteEnvelope(
+                self.envelope_family.clone(),
+            ));
+        }
+        if self.envelope_family == "command" {
+            for required in [
+                "tenant_id",
+                "actor_id",
+                "trace_id",
+                "idempotency_key",
+                "command_type",
+                "timestamp",
+                "schema_version",
+                "signature_metadata",
+            ] {
+                if !self.required_fields.iter().any(|field| field == required) {
+                    return Err(SharedSchemaPhase5ContractError::MissingEnvelopeField {
+                        envelope: self.envelope_family.clone(),
+                        field: required,
+                    });
+                }
+            }
+            for required in ["tenant_ref", "actor_ref", "signature_ref"] {
+                if !self.required_refs.iter().any(|field| field == required) {
+                    return Err(SharedSchemaPhase5ContractError::MissingEnvelopeField {
+                        envelope: self.envelope_family.clone(),
+                        field: required,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5ReasonCodeRegistry {
+    pub domain: String,
+    pub reason_codes: Vec<String>,
+    pub generated_enum_binding: String,
+    pub free_form_replacements_allowed: bool,
+}
+
+impl SharedSchemaPhase5ReasonCodeRegistry {
+    pub fn new(domain: impl Into<String>, reason_codes: Vec<String>) -> Self {
+        Self {
+            domain: domain.into(),
+            reason_codes,
+            generated_enum_binding: "SharedSchemaPhase5ReasonCode".to_owned(),
+            free_form_replacements_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE5_REASON_DOMAINS
+            .iter()
+            .any(|domain| self.domain == *domain)
+        {
+            return Err(SharedSchemaPhase5ContractError::MissingReasonDomain(
+                self.domain.clone(),
+            ));
+        }
+        if self.generated_enum_binding != "SharedSchemaPhase5ReasonCode"
+            || self.free_form_replacements_allowed
+        {
+            return Err(SharedSchemaPhase5ContractError::FreeFormReasonCodesAllowed(
+                self.domain.clone(),
+            ));
+        }
+        if self.reason_codes.is_empty() {
+            return Err(SharedSchemaPhase5ContractError::MissingReasonDomain(
+                self.domain.clone(),
+            ));
+        }
+        for code in &self.reason_codes {
+            if !code.contains('.') {
+                return Err(SharedSchemaPhase5ContractError::InvalidReasonCode(
+                    code.clone(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5RedactionDiagnostic {
+    pub surface: String,
+    pub redaction_hints: Vec<String>,
+    pub sentinel_secret: String,
+    pub private_payload_leak_allowed: bool,
+    pub diagnostic_outputs: Vec<String>,
+}
+
+impl SharedSchemaPhase5RedactionDiagnostic {
+    pub fn generated_docs() -> Self {
+        Self {
+            surface: "generated_docs".to_owned(),
+            redaction_hints: owned_values(&[
+                "secret_ref",
+                "credential_ref",
+                "signature_ref",
+                "private_payload",
+            ]),
+            sentinel_secret: PHASE5_SENTINEL_SECRET.to_owned(),
+            private_payload_leak_allowed: false,
+            diagnostic_outputs: owned_values(&[
+                "generated_docs",
+                "validation_output",
+                "fixture_report",
+                "compatibility_report",
+                "logs",
+            ]),
+        }
+    }
+
+    pub fn validation_output() -> Self {
+        Self {
+            surface: "validation_output".to_owned(),
+            redaction_hints: owned_values(&[
+                "user_content",
+                "regulated_payload",
+                "encrypted_private_payload",
+            ]),
+            sentinel_secret: PHASE5_SENTINEL_SECRET.to_owned(),
+            private_payload_leak_allowed: false,
+            diagnostic_outputs: owned_values(&["validation_output", "fixture_report", "logs"]),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if self.private_payload_leak_allowed || self.sentinel_secret != PHASE5_SENTINEL_SECRET {
+            return Err(SharedSchemaPhase5ContractError::DiagnosticLeakAllowed(
+                self.surface.clone(),
+            ));
+        }
+        if self.redaction_hints.is_empty() || self.diagnostic_outputs.is_empty() {
+            return Err(SharedSchemaPhase5ContractError::MissingRedactionHint(
+                self.surface.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase5RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE5_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint: "SharedSchemaPhase5ValidationContract::canonical().validate()"
+                .to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        if self.path != PHASE5_RUST_OUTPUT_PATH
+            || !self
+                .validator_entrypoint
+                .contains("SharedSchemaPhase5ValidationContract")
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase5ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase5ValidationContract {
+    pub schema_version: SchemaVersion,
+    pub strict_validation_defaults: SharedSchemaPhase5StrictValidationDefaults,
+    pub parse_helpers: Vec<SharedSchemaPhase5ParseHelper>,
+    pub envelope_assertions: Vec<SharedSchemaPhase5EnvelopeAssertion>,
+    pub reason_code_registries: Vec<SharedSchemaPhase5ReasonCodeRegistry>,
+    pub redaction_diagnostics: Vec<SharedSchemaPhase5RedactionDiagnostic>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase5RustProjection,
+}
+
+impl SharedSchemaPhase5ValidationContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            strict_validation_defaults: SharedSchemaPhase5StrictValidationDefaults::canonical(),
+            parse_helpers: vec![SharedSchemaPhase5ParseHelper::canonical()],
+            envelope_assertions: vec![
+                SharedSchemaPhase5EnvelopeAssertion::command(),
+                SharedSchemaPhase5EnvelopeAssertion::new(
+                    "event",
+                    owned_values(&[
+                        "event_id",
+                        "source_service",
+                        "subject_id",
+                        "sequence",
+                        "occurred_at",
+                        "privacy_class",
+                        "schema_version",
+                    ]),
+                    owned_values(&["actor_ref", "evidence_ref"]),
+                ),
+                SharedSchemaPhase5EnvelopeAssertion::new(
+                    "audit",
+                    owned_values(&[
+                        "audit_id",
+                        "source_service",
+                        "subject_id",
+                        "sequence",
+                        "actor_id",
+                        "action",
+                        "decision",
+                        "privacy_class",
+                        "schema_version",
+                    ]),
+                    owned_values(&["actor_ref", "policy_ref", "evidence_ref"]),
+                ),
+                SharedSchemaPhase5EnvelopeAssertion::new(
+                    "usage",
+                    owned_values(&[
+                        "usage_id",
+                        "tenant_id",
+                        "actor_id",
+                        "resource_ref",
+                        "trace_id",
+                        "metered_at",
+                        "schema_version",
+                    ]),
+                    owned_values(&["tenant_ref", "resource_ref"]),
+                ),
+                SharedSchemaPhase5EnvelopeAssertion::new(
+                    "ledger",
+                    owned_values(&[
+                        "ledger_ref",
+                        "tenant_id",
+                        "entry_sequence",
+                        "reason_code",
+                        "trace_id",
+                        "schema_version",
+                    ]),
+                    owned_values(&["tenant_ref", "ledger_ref"]),
+                ),
+                SharedSchemaPhase5EnvelopeAssertion::new(
+                    "public_response",
+                    owned_values(&["request_id", "trace_id", "schema_version", "reason_code"]),
+                    owned_values(&["evidence_ref"]),
+                ),
+            ],
+            reason_code_registries: phase5_reason_code_registries(),
+            redaction_diagnostics: vec![
+                SharedSchemaPhase5RedactionDiagnostic::generated_docs(),
+                SharedSchemaPhase5RedactionDiagnostic::validation_output(),
+            ],
+            source_hash_inputs: owned_values(&[
+                PHASE5_CANONICAL_SCHEMA_SOURCE,
+                PHASE5_MANIFEST_SOURCE,
+                PHASE5_BUILD_PLAN_SOURCE,
+                PHASE5_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase5RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase5ContractError> {
+        self.strict_validation_defaults.validate()?;
+        if self.parse_helpers.is_empty() {
+            return Err(SharedSchemaPhase5ContractError::IncompleteParseHelper(
+                "missing".to_owned(),
+            ));
+        }
+        for helper in &self.parse_helpers {
+            helper.validate()?;
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE5_ENVELOPE_FAMILIES {
+            if !self
+                .envelope_assertions
+                .iter()
+                .any(|assertion| assertion.envelope_family == *required)
+            {
+                return Err(SharedSchemaPhase5ContractError::MissingEnvelopeFamily(
+                    required,
+                ));
+            }
+        }
+        for assertion in &self.envelope_assertions {
+            assertion.validate()?;
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE5_REASON_DOMAINS {
+            if !self
+                .reason_code_registries
+                .iter()
+                .any(|registry| registry.domain == *required)
+            {
+                return Err(SharedSchemaPhase5ContractError::MissingReasonDomain(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for registry in &self.reason_code_registries {
+            registry.validate()?;
+        }
+        let validation_registry = self
+            .reason_code_registries
+            .iter()
+            .find(|registry| registry.domain == "validation")
+            .ok_or_else(|| {
+                SharedSchemaPhase5ContractError::MissingReasonDomain("validation".to_owned())
+            })?;
+        for required in REQUIRED_SHARED_SCHEMA_PHASE5_VALIDATION_REASON_CODES {
+            if !validation_registry
+                .reason_codes
+                .iter()
+                .any(|reason| reason == required)
+            {
+                return Err(SharedSchemaPhase5ContractError::InvalidReasonCode(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        if self.redaction_diagnostics.is_empty() {
+            return Err(SharedSchemaPhase5ContractError::MissingRedactionHint(
+                "redaction_diagnostics".to_owned(),
+            ));
+        }
+        for diagnostic in &self.redaction_diagnostics {
+            diagnostic.validate()?;
+        }
+        for required in [
+            PHASE5_CANONICAL_SCHEMA_SOURCE,
+            PHASE5_MANIFEST_SOURCE,
+            PHASE5_BUILD_PLAN_SOURCE,
+            PHASE5_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase5ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+pub fn phase5_reason_code_registries() -> Vec<SharedSchemaPhase5ReasonCodeRegistry> {
+    vec![
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "validation",
+            owned_values(REQUIRED_SHARED_SCHEMA_PHASE5_VALIDATION_REASON_CODES),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "identity",
+            owned_values(&["identity.invalid_actor_ref"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "tenancy",
+            owned_values(&["tenant.missing_scope"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "credentials",
+            owned_values(&["credential.raw_material_rejected"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "policy",
+            owned_values(&["policy.denied_by_rule"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "queue",
+            owned_values(&["queue.invalid_transition"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "execution",
+            owned_values(&["execution.lease_missing"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "accounting",
+            owned_values(&["accounting.ledger_ref_missing"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "storage",
+            owned_values(&["storage.private_ref_required"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "namespace",
+            owned_values(&["namespace.ownership_ref_missing"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "ai",
+            owned_values(&["ai.private_context_redacted"]),
+        ),
+        SharedSchemaPhase5ReasonCodeRegistry::new(
+            "compatibility",
+            owned_values(&["compatibility.unsupported_schema_version"]),
+        ),
+    ]
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase5ContractError {
+    UnknownSensitiveFieldsAllowed,
+    ExtensionMapsDefaultAllowed,
+    MissingSensitiveFamily(&'static str),
+    ExtensionMapRuleIncomplete(String),
+    IncompleteParseHelper(String),
+    MissingStableErrorReason(&'static str),
+    IncompleteEnvelope(String),
+    MissingEnvelopeFamily(&'static str),
+    MissingEnvelopeField {
+        envelope: String,
+        field: &'static str,
+    },
+    MissingReasonDomain(String),
+    FreeFormReasonCodesAllowed(String),
+    InvalidReasonCode(String),
+    DiagnosticLeakAllowed(String),
+    MissingRedactionHint(String),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase5ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownSensitiveFieldsAllowed => {
+                formatter.write_str("unknown sensitive fields are allowed")
+            }
+            Self::ExtensionMapsDefaultAllowed => {
+                formatter.write_str("extension maps are allowed by default")
+            }
+            Self::MissingSensitiveFamily(family) => {
+                write!(formatter, "missing sensitive family: {family}")
+            }
+            Self::ExtensionMapRuleIncomplete(surface) => {
+                write!(formatter, "extension map rule is incomplete: {surface}")
+            }
+            Self::IncompleteParseHelper(helper) => {
+                write!(formatter, "incomplete parse helper: {helper}")
+            }
+            Self::MissingStableErrorReason(reason) => {
+                write!(formatter, "missing stable parse error reason: {reason}")
+            }
+            Self::IncompleteEnvelope(envelope) => {
+                write!(formatter, "incomplete envelope: {envelope}")
+            }
+            Self::MissingEnvelopeFamily(family) => {
+                write!(formatter, "missing envelope family: {family}")
+            }
+            Self::MissingEnvelopeField { envelope, field } => {
+                write!(formatter, "missing envelope field {field} on {envelope}")
+            }
+            Self::MissingReasonDomain(domain) => {
+                write!(formatter, "missing reason domain: {domain}")
+            }
+            Self::FreeFormReasonCodesAllowed(domain) => {
+                write!(formatter, "free-form reason codes allowed for {domain}")
+            }
+            Self::InvalidReasonCode(code) => {
+                write!(formatter, "invalid or missing reason code: {code}")
+            }
+            Self::DiagnosticLeakAllowed(surface) => {
+                write!(formatter, "diagnostic leak allowed for {surface}")
+            }
+            Self::MissingRedactionHint(surface) => {
+                write!(formatter, "missing redaction hint for {surface}")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 5 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase5ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -6638,6 +7395,155 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase4ContractError::ProtobufPublicAuthority)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase5_contract_covers_strict_validation_parse_and_envelopes() {
+        let contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        assert!(
+            contract
+                .strict_validation_defaults
+                .unknown_fields_rejected_for_sensitive_families
+        );
+        assert!(
+            contract
+                .strict_validation_defaults
+                .extension_maps_default_denied
+        );
+        for family in REQUIRED_SHARED_SCHEMA_PHASE5_SENSITIVE_FAMILIES {
+            assert!(contract
+                .strict_validation_defaults
+                .sensitive_families
+                .contains(&(*family).to_owned()));
+        }
+        assert!(contract.parse_helpers[0]
+            .stable_error_reasons
+            .contains(&"schema.unsupported_version".to_owned()));
+
+        let command = contract
+            .envelope_assertions
+            .iter()
+            .find(|assertion| assertion.envelope_family == "command")
+            .unwrap();
+        assert!(command.required_fields.contains(&"trace_id".to_owned()));
+        assert!(command
+            .required_fields
+            .contains(&"idempotency_key".to_owned()));
+        assert!(command.required_refs.contains(&"signature_ref".to_owned()));
+
+        let validation_registry = contract
+            .reason_code_registries
+            .iter()
+            .find(|registry| registry.domain == "validation")
+            .unwrap();
+        assert!(validation_registry
+            .reason_codes
+            .contains(&"schema.diagnostic_secret_leak".to_owned()));
+        assert!(!validation_registry.free_form_replacements_allowed);
+
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase5ValidationContract::canonical().validate()"
+        );
+        assert!(contract
+            .source_hash_inputs
+            .contains(&PHASE5_TECH_STACK_SOURCE.to_owned()));
+    }
+
+    #[test]
+    fn shared_schema_phase5_rejects_unknown_fields_and_untyped_extension_maps() {
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract
+            .strict_validation_defaults
+            .unknown_fields_rejected_for_sensitive_families = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::UnknownSensitiveFieldsAllowed)
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract
+            .strict_validation_defaults
+            .extension_maps_default_denied = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::ExtensionMapsDefaultAllowed)
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.strict_validation_defaults.allowed_extension_maps[0].typed_values_required = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::ExtensionMapRuleIncomplete(surface))
+                if surface == "low_risk_metadata"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase5_rejects_parse_envelope_and_reason_code_drift() {
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.parse_helpers[0]
+            .stable_error_reasons
+            .retain(|reason| reason != "schema.unsupported_version");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::MissingStableErrorReason(reason))
+                if reason == "schema.unsupported_version"
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        let command = contract
+            .envelope_assertions
+            .iter_mut()
+            .find(|assertion| assertion.envelope_family == "command")
+            .unwrap();
+        command.required_fields.retain(|field| field != "trace_id");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::MissingEnvelopeField { envelope, field })
+                if envelope == "command" && field == "trace_id"
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        let registry = contract
+            .reason_code_registries
+            .iter_mut()
+            .find(|registry| registry.domain == "validation")
+            .unwrap();
+        registry.free_form_replacements_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::FreeFormReasonCodesAllowed(domain))
+                if domain == "validation"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase5_rejects_diagnostic_and_projection_leaks() {
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.redaction_diagnostics[0].private_payload_leak_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::DiagnosticLeakAllowed(surface))
+                if surface == "generated_docs"
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.redaction_diagnostics[0].redaction_hints.clear();
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::MissingRedactionHint(surface))
+                if surface == "generated_docs"
+        ));
+
+        let mut contract = SharedSchemaPhase5ValidationContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase5ContractError::RustProjectionAuthorityDrift)
         ));
     }
 

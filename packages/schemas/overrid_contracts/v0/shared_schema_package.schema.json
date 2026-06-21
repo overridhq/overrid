@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 4 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, and Phase 4 generation toolchain/projection metadata.",
+  "title": "Shared Schema Package Phase 2 Through Phase 5 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, and Phase 5 strict validation metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -53,6 +53,9 @@
     },
     "phase4_generation_toolchain": {
       "$ref": "#/$defs/phase4_generation_toolchain"
+    },
+    "phase5_validation_contract": {
+      "$ref": "#/$defs/phase5_validation_contract"
     }
   },
   "$defs": {
@@ -950,6 +953,354 @@
           "items": {
             "$ref": "#/$defs/reason_code"
           }
+        }
+      }
+    },
+    "phase5_validation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strict_validation_defaults",
+        "parse_helpers",
+        "envelope_assertions",
+        "reason_code_registries",
+        "redaction_diagnostics",
+        "source_hash_inputs",
+        "rust_projection"
+      ],
+      "properties": {
+        "strict_validation_defaults": {
+          "$ref": "#/$defs/phase5_strict_validation_defaults"
+        },
+        "parse_helpers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase5_parse_helper"
+          }
+        },
+        "envelope_assertions": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase5_envelope_assertion"
+          }
+        },
+        "reason_code_registries": {
+          "type": "array",
+          "minItems": 12,
+          "items": {
+            "$ref": "#/$defs/phase5_reason_code_registry"
+          }
+        },
+        "redaction_diagnostics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase5_redaction_diagnostic"
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_projection": {
+          "$ref": "#/$defs/phase5_rust_projection"
+        }
+      }
+    },
+    "phase5_sensitive_family": {
+      "enum": [
+        "command",
+        "identity",
+        "tenant",
+        "credential",
+        "signature",
+        "api_error",
+        "audit",
+        "policy",
+        "usage",
+        "oru",
+        "seal_ledger",
+        "overasset",
+        "dispute",
+        "namespace_ownership"
+      ]
+    },
+    "phase5_reason_domain": {
+      "enum": [
+        "validation",
+        "identity",
+        "tenancy",
+        "credentials",
+        "policy",
+        "queue",
+        "execution",
+        "accounting",
+        "storage",
+        "namespace",
+        "ai",
+        "compatibility"
+      ]
+    },
+    "phase5_envelope_family": {
+      "enum": [
+        "command",
+        "event",
+        "audit",
+        "usage",
+        "ledger",
+        "public_response"
+      ]
+    },
+    "phase5_strict_validation_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unknown_fields_rejected_for_sensitive_families",
+        "extension_maps_default_denied",
+        "sensitive_families",
+        "allowed_extension_maps"
+      ],
+      "properties": {
+        "unknown_fields_rejected_for_sensitive_families": {
+          "const": true
+        },
+        "extension_maps_default_denied": {
+          "const": true
+        },
+        "sensitive_families": {
+          "type": "array",
+          "minItems": 14,
+          "items": {
+            "$ref": "#/$defs/phase5_sensitive_family"
+          }
+        },
+        "allowed_extension_maps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/phase5_extension_map_rule"
+          }
+        }
+      }
+    },
+    "phase5_extension_map_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "namespace_prefix_required",
+        "typed_values_required",
+        "privacy_class_required",
+        "compatibility_class_required",
+        "privacy_class",
+        "compatibility_class"
+      ],
+      "properties": {
+        "surface": {
+          "enum": [
+            "low_risk_metadata"
+          ]
+        },
+        "namespace_prefix_required": {
+          "const": true
+        },
+        "typed_values_required": {
+          "const": true
+        },
+        "privacy_class_required": {
+          "const": true
+        },
+        "compatibility_class_required": {
+          "const": true
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "compatibility_class": {
+          "enum": [
+            "additive",
+            "phase-gated"
+          ]
+        }
+      }
+    },
+    "phase5_parse_helper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "helper_name",
+        "schema_name",
+        "combines_schema_validation",
+        "constructs_typed_object",
+        "normalizes_errors",
+        "checks_privacy_class",
+        "references_reason_codes",
+        "stable_error_reasons"
+      ],
+      "properties": {
+        "helper_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "schema_name": {
+          "const": "shared-schema-package"
+        },
+        "combines_schema_validation": {
+          "const": true
+        },
+        "constructs_typed_object": {
+          "const": true
+        },
+        "normalizes_errors": {
+          "const": true
+        },
+        "checks_privacy_class": {
+          "const": true
+        },
+        "references_reason_codes": {
+          "const": true
+        },
+        "stable_error_reasons": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        }
+      }
+    },
+    "phase5_envelope_assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envelope_family",
+        "required_fields",
+        "required_refs",
+        "reason_code"
+      ],
+      "properties": {
+        "envelope_family": {
+          "$ref": "#/$defs/phase5_envelope_family"
+        },
+        "required_fields": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "required_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "reason_code": {
+          "const": "schema.envelope_incomplete"
+        }
+      }
+    },
+    "phase5_reason_code_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "reason_codes",
+        "generated_enum_binding",
+        "free_form_replacements_allowed"
+      ],
+      "properties": {
+        "domain": {
+          "$ref": "#/$defs/phase5_reason_domain"
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reason_code"
+          }
+        },
+        "generated_enum_binding": {
+          "const": "SharedSchemaPhase5ReasonCode"
+        },
+        "free_form_replacements_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase5_redaction_diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "redaction_hints",
+        "sentinel_secret",
+        "private_payload_leak_allowed",
+        "diagnostic_outputs"
+      ],
+      "properties": {
+        "surface": {
+          "enum": [
+            "generated_docs",
+            "validation_output",
+            "fixture_report",
+            "compatibility_report",
+            "logs"
+          ]
+        },
+        "redaction_hints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "sentinel_secret": {
+          "const": "OVERRID_SENTINEL_SECRET_NEVER_EMIT"
+        },
+        "private_payload_leak_allowed": {
+          "const": false
+        },
+        "diagnostic_outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "generated_docs",
+              "validation_output",
+              "fixture_report",
+              "compatibility_report",
+              "logs"
+            ]
+          }
+        }
+      }
+    },
+    "phase5_rust_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "validator_entrypoint",
+        "non_authoritative"
+      ],
+      "properties": {
+        "path": {
+          "const": "packages/schemas/overrid_contracts/src/lib.rs"
+        },
+        "validator_entrypoint": {
+          "const": "SharedSchemaPhase5ValidationContract::canonical().validate()"
+        },
+        "non_authoritative": {
+          "const": true
         }
       }
     }

@@ -1,0 +1,311 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase5_validation_contract": {
+    "strict_validation_defaults": {
+      "unknown_fields_rejected_for_sensitive_families": true,
+      "extension_maps_default_denied": true,
+      "sensitive_families": [
+        "command",
+        "identity",
+        "tenant",
+        "credential",
+        "signature",
+        "api_error",
+        "audit",
+        "policy",
+        "usage",
+        "oru",
+        "seal_ledger",
+        "overasset",
+        "dispute",
+        "namespace_ownership"
+      ],
+      "allowed_extension_maps": [
+        {
+          "surface": "low_risk_metadata",
+          "namespace_prefix_required": true,
+          "typed_values_required": true,
+          "privacy_class_required": true,
+          "compatibility_class_required": true,
+          "privacy_class": "public",
+          "compatibility_class": "additive"
+        }
+      ]
+    },
+    "parse_helpers": [
+      {
+        "helper_name": "parse_shared_schema_payload",
+        "schema_name": "shared-schema-package",
+        "combines_schema_validation": true,
+        "constructs_typed_object": true,
+        "normalizes_errors": true,
+        "checks_privacy_class": true,
+        "references_reason_codes": true,
+        "stable_error_reasons": [
+          "schema.parse_malformed_payload",
+          "schema.unsupported_version",
+          "schema.missing_required_field",
+          "schema.wrong_privacy_class",
+          "schema.unknown_sensitive_field"
+        ]
+      }
+    ],
+    "envelope_assertions": [
+      {
+        "envelope_family": "command",
+        "required_fields": [
+          "tenant_id",
+          "actor_id",
+          "trace_id",
+          "idempotency_key",
+          "command_type",
+          "timestamp",
+          "schema_version",
+          "signature_metadata"
+        ],
+        "required_refs": [
+          "tenant_ref",
+          "actor_ref",
+          "signature_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      },
+      {
+        "envelope_family": "event",
+        "required_fields": [
+          "event_id",
+          "source_service",
+          "subject_id",
+          "sequence",
+          "occurred_at",
+          "privacy_class",
+          "schema_version"
+        ],
+        "required_refs": [
+          "actor_ref",
+          "evidence_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      },
+      {
+        "envelope_family": "audit",
+        "required_fields": [
+          "audit_id",
+          "source_service",
+          "subject_id",
+          "sequence",
+          "actor_id",
+          "action",
+          "decision",
+          "privacy_class",
+          "schema_version"
+        ],
+        "required_refs": [
+          "actor_ref",
+          "policy_ref",
+          "evidence_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      },
+      {
+        "envelope_family": "usage",
+        "required_fields": [
+          "usage_id",
+          "tenant_id",
+          "actor_id",
+          "resource_ref",
+          "trace_id",
+          "metered_at",
+          "schema_version"
+        ],
+        "required_refs": [
+          "tenant_ref",
+          "resource_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      },
+      {
+        "envelope_family": "ledger",
+        "required_fields": [
+          "ledger_ref",
+          "tenant_id",
+          "entry_sequence",
+          "reason_code",
+          "trace_id",
+          "schema_version"
+        ],
+        "required_refs": [
+          "tenant_ref",
+          "ledger_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      },
+      {
+        "envelope_family": "public_response",
+        "required_fields": [
+          "request_id",
+          "trace_id",
+          "schema_version",
+          "reason_code"
+        ],
+        "required_refs": [
+          "evidence_ref"
+        ],
+        "reason_code": "schema.envelope_incomplete"
+      }
+    ],
+    "reason_code_registries": [
+      {
+        "domain": "validation",
+        "reason_codes": [
+          "schema.unknown_sensitive_field",
+          "schema.extension_map_not_permitted",
+          "schema.parse_malformed_payload",
+          "schema.unsupported_version",
+          "schema.missing_required_field",
+          "schema.wrong_privacy_class",
+          "schema.envelope_incomplete",
+          "schema.reason_code_undocumented",
+          "schema.diagnostic_secret_leak"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "identity",
+        "reason_codes": [
+          "identity.invalid_actor_ref"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "tenancy",
+        "reason_codes": [
+          "tenant.missing_scope"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "credentials",
+        "reason_codes": [
+          "credential.raw_material_rejected"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "policy",
+        "reason_codes": [
+          "policy.denied_by_rule"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "queue",
+        "reason_codes": [
+          "queue.invalid_transition"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "execution",
+        "reason_codes": [
+          "execution.lease_missing"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "accounting",
+        "reason_codes": [
+          "accounting.ledger_ref_missing"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "storage",
+        "reason_codes": [
+          "storage.private_ref_required"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "namespace",
+        "reason_codes": [
+          "namespace.ownership_ref_missing"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "ai",
+        "reason_codes": [
+          "ai.private_context_redacted"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      },
+      {
+        "domain": "compatibility",
+        "reason_codes": [
+          "compatibility.unsupported_schema_version"
+        ],
+        "generated_enum_binding": "SharedSchemaPhase5ReasonCode",
+        "free_form_replacements_allowed": false
+      }
+    ],
+    "redaction_diagnostics": [
+      {
+        "surface": "generated_docs",
+        "redaction_hints": [
+          "secret_ref",
+          "credential_ref",
+          "signature_ref",
+          "private_payload"
+        ],
+        "sentinel_secret": "OVERRID_SENTINEL_SECRET_NEVER_EMIT",
+        "private_payload_leak_allowed": false,
+        "diagnostic_outputs": [
+          "generated_docs",
+          "validation_output",
+          "fixture_report",
+          "compatibility_report",
+          "logs"
+        ]
+      },
+      {
+        "surface": "validation_output",
+        "redaction_hints": [
+          "user_content",
+          "regulated_payload",
+          "encrypted_private_payload"
+        ],
+        "sentinel_secret": "OVERRID_SENTINEL_SECRET_NEVER_EMIT",
+        "private_payload_leak_allowed": false,
+        "diagnostic_outputs": [
+          "validation_output",
+          "fixture_report",
+          "logs"
+        ]
+      }
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase5ValidationContract::canonical().validate()",
+      "non_authoritative": true
+    }
+  }
+}

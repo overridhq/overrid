@@ -43,6 +43,17 @@ compatibility gates are stable, and Protobuf is internal-only for compact
 service/RPC/event contracts with canonical JSON Schema source required for
 every public object.
 
+Shared Schema Package Phase 5 contracts define strict validator, parse helper,
+common envelope assertion, reason-code registry, and redaction diagnostic
+metadata. Sensitive command, identity, tenant, credential, signature, error,
+audit, policy, usage, ORU, Seal Ledger, Overasset, dispute, and namespace
+ownership families reject unknown fields by default; extension maps are allowed
+only for explicitly low-risk metadata with namespace prefixes, typed values,
+privacy class, and compatibility class. Rust projection checks run through
+`SharedSchemaPhase5ValidationContract::canonical().validate()` and diagnostics
+must fail closed before sentinel private material can appear in generated docs,
+compatibility reports, fixture reports, logs, or validation output.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

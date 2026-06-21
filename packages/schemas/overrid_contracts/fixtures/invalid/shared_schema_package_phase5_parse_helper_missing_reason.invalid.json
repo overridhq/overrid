@@ -1,0 +1,53 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase5_validation_contract": {
+    "strict_validation_defaults": {
+      "unknown_fields_rejected_for_sensitive_families": true,
+      "extension_maps_default_denied": true,
+      "sensitive_families": [
+        "command",
+        "identity",
+        "tenant",
+        "credential",
+        "signature",
+        "api_error",
+        "audit",
+        "policy",
+        "usage",
+        "oru",
+        "seal_ledger",
+        "overasset",
+        "dispute",
+        "namespace_ownership"
+      ],
+      "allowed_extension_maps": []
+    },
+    "parse_helpers": [
+      {
+        "helper_name": "parse_shared_schema_payload",
+        "schema_name": "shared-schema-package",
+        "combines_schema_validation": true,
+        "constructs_typed_object": true,
+        "normalizes_errors": true,
+        "checks_privacy_class": true,
+        "references_reason_codes": false,
+        "stable_error_reasons": [
+          "schema.parse_malformed_payload",
+          "schema.missing_required_field",
+          "schema.wrong_privacy_class",
+          "schema.unknown_sensitive_field"
+        ]
+      }
+    ],
+    "envelope_assertions": [],
+    "reason_code_registries": [],
+    "redaction_diagnostics": [],
+    "source_hash_inputs": [],
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase5ValidationContract::canonical().validate()",
+      "non_authoritative": true
+    }
+  }
+}
