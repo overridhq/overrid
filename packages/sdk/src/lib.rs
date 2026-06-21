@@ -1202,6 +1202,20 @@ impl OverridSdkClient {
                     self.schema_version.raw().to_owned(),
                 ),
                 ("x-overrid-target".to_owned(), "overgate".to_owned()),
+                ("x-overrid-sdk-name".to_owned(), SDK_NAME.to_owned()),
+                ("x-overrid-sdk-version".to_owned(), SDK_VERSION.to_owned()),
+                (
+                    "x-overrid-sdk-language-binding".to_owned(),
+                    SDK_LANGUAGE_BINDING.to_owned(),
+                ),
+                (
+                    "x-overrid-sdk-capability-profile".to_owned(),
+                    SDK_PHASE3_CAPABILITY_PROFILE.to_owned(),
+                ),
+                (
+                    "x-overrid-generated-contract-revision".to_owned(),
+                    SDK_PHASE3_GENERATED_CONTRACT_REVISION.to_owned(),
+                ),
             ],
         }
     }
@@ -2063,6 +2077,16 @@ mod tests {
         assert!(request
             .headers
             .contains(&("x-overrid-target".to_owned(), "overgate".to_owned())));
+        assert!(request
+            .headers
+            .contains(&("x-overrid-sdk-name".to_owned(), SDK_NAME.to_owned())));
+        assert!(request
+            .headers
+            .contains(&("x-overrid-sdk-version".to_owned(), SDK_VERSION.to_owned())));
+        assert!(request.headers.contains(&(
+            "x-overrid-sdk-capability-profile".to_owned(),
+            SDK_PHASE3_CAPABILITY_PROFILE.to_owned()
+        )));
     }
 
     #[test]

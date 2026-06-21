@@ -185,10 +185,23 @@ def validate_sdk_code_and_readme() -> None:
         "x-overrid-request-id",
         "x-overrid-trace-id",
         "x-overrid-read-only",
+        "x-overrid-sdk-name",
+        "x-overrid-sdk-version",
+        "x-overrid-sdk-language-binding",
+        "x-overrid-sdk-capability-profile",
+        "x-overrid-generated-contract-revision",
         "SDK_PHASE3_DEFAULT_PAGE_LIMIT",
         "SDK_PHASE3_MAX_PAGE_LIMIT",
     ]:
         assert_contains(read_helpers, expected, SDK_READ)
+    for expected in [
+        "x-overrid-sdk-name",
+        "x-overrid-sdk-version",
+        "x-overrid-sdk-language-binding",
+        "x-overrid-sdk-capability-profile",
+        "x-overrid-generated-contract-revision",
+    ]:
+        assert_contains(lib, expected, SDK_LIB)
     for expected in [
         "## Phase 3 Generated Rust SDK Skeleton",
         "sdk_package_boundary()",

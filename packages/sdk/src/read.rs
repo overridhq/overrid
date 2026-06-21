@@ -1,4 +1,8 @@
-use crate::{check_sdk_compatibility, OvergateEndpoint, SdkError, SDK_CURRENT_STABLE_MAJOR};
+use crate::{
+    check_sdk_compatibility, OvergateEndpoint, SdkError, SDK_CURRENT_STABLE_MAJOR,
+    SDK_LANGUAGE_BINDING, SDK_NAME, SDK_PHASE3_CAPABILITY_PROFILE,
+    SDK_PHASE3_GENERATED_CONTRACT_REVISION, SDK_VERSION,
+};
 use overrid_contracts::{BootstrapCommandFamily, CapabilitySnapshot, SchemaVersion};
 
 pub const SDK_PHASE3_DEFAULT_PAGE_LIMIT: u16 = 100;
@@ -142,6 +146,20 @@ pub fn build_control_plane_read_request(
             ("x-overrid-request-id".to_owned(), request_id),
             ("x-overrid-trace-id".to_owned(), trace_id),
             ("x-overrid-read-only".to_owned(), "true".to_owned()),
+            ("x-overrid-sdk-name".to_owned(), SDK_NAME.to_owned()),
+            ("x-overrid-sdk-version".to_owned(), SDK_VERSION.to_owned()),
+            (
+                "x-overrid-sdk-language-binding".to_owned(),
+                SDK_LANGUAGE_BINDING.to_owned(),
+            ),
+            (
+                "x-overrid-sdk-capability-profile".to_owned(),
+                SDK_PHASE3_CAPABILITY_PROFILE.to_owned(),
+            ),
+            (
+                "x-overrid-generated-contract-revision".to_owned(),
+                SDK_PHASE3_GENERATED_CONTRACT_REVISION.to_owned(),
+            ),
         ],
         read_only: true,
     })
@@ -195,6 +213,16 @@ mod tests {
         assert!(request.headers.iter().any(|(name, value)| {
             name == "x-overrid-schema-version" && value == SUPPORTED_SCHEMA_VERSION
         }));
+        assert!(request
+            .headers
+            .contains(&("x-overrid-sdk-name".to_owned(), SDK_NAME.to_owned())));
+        assert!(request
+            .headers
+            .contains(&("x-overrid-sdk-version".to_owned(), SDK_VERSION.to_owned())));
+        assert!(request.headers.contains(&(
+            "x-overrid-sdk-capability-profile".to_owned(),
+            SDK_PHASE3_CAPABILITY_PROFILE.to_owned()
+        )));
     }
 
     #[test]
