@@ -78,6 +78,80 @@ The Shared Schema Package is a canonical contract package, not a deployed micros
   - Output: Schema ownership metadata model and review checklist.
   - Validation: Schema lint fails draft modules without owner, status, privacy class, compatibility metadata, and consumer notes.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Attachment point | Required link | Gate state |
+| --- | --- | --- |
+| Numbered SDS | `docs/sds/foundation/shared_schema_package.md` links to `docs/build_plan/sub_build_plan_007_shared_schema_package.md`. | `attached` |
+| Service catalog | `docs/service_catalog/foundation/shared_schema_package.md` links to this sub-build plan and the detailed SDS. | `attached` |
+| Master build plan | `docs/build_plan/master_plan.md` lists SDS #7 and this sub-build plan in the per-SDS table. | `attached` |
+| Build-plan crosswalk | `docs/build_plan/service_catalog_alignment.md` lists SDS #7, the service catalog entry, this sub-build plan, and Phase 0. | `attached` |
+| Tech-stack decision | `docs/overrid_tech_stack_choice.md` names canonical JSON plus JSON Schema, Rust-first generation, TypeScript/web second, and Protobuf only for compact internal RPC/event contracts. | `attached` |
+| Package docs | `packages/schemas/README.md` records schema naming, generated-output authority, Protobuf boundaries, and ownership metadata. | `attached` |
+| Local planning trail | `docs/planning/shared_schema_package_phase_01_plan.md` and `docs/planning/shared_schema_package_phase_01_progress.md` record implementation scope and validation evidence when present. | `attached` |
+
+#### Frozen Package Boundary
+
+The Shared Schema Package is a versioned contract package and library. It is not a deployed microservice, not a runtime registry, not a policy engine, not an audit authority, not an accounting authority, and not a production record store.
+
+The package may define canonical JSON Schema files, Rust-first validators and generated/projection types, deterministic fixtures, generated documentation, compatibility reports, reason-code registries, parse helpers, and schema ownership metadata. Runtime authority stays with the owning Overrid services named in the relevant SDS files.
+
+The package must not own runtime policy decisions, service state transitions, audit finality, ledger/accounting finality, production queue state, production registry state, production storage, secret storage, pricing, revenue assumptions, blockchain mechanics, NFT mechanics, PostgreSQL/Redis/S3/Vault product boundaries, or TypeScript core runtime authority.
+
+#### Master Phase Gate Matrix
+
+| Master phase | Shared Schema Package authority |
+| --- | --- |
+| 0 | `phase_0_authority`: define canonical schema source, package boundary, common primitives, validators, fixtures, and schema ownership metadata. |
+| 1 | `downstream_phase_gated`: consume Phase 0 contracts for control-plane command, identity, tenant, key, registry, audit, and queue shapes. |
+| 2 | `downstream_phase_gated`: add only seed-swarm schema families approved by owning SDS gates. |
+| 3 | `downstream_phase_gated`: add workload, lease, runner, result, and metering contracts only through owning execution-service phases. |
+| 4 | `downstream_phase_gated`: add policy, verification, classifier, challenge, dispute, and mesh contracts only through owning service phases. |
+| 5 | `downstream_phase_gated`: add ORU, Seal Ledger, usage, receipt, grant, asset, payout, and billing shapes only through accounting owners. |
+| 6 | `downstream_phase_gated`: add product adapter, SDK, CLI, admin UI, AI gateway, Docdex RAG, Mcoda, Codali, and mSwarm bridge projections only after owning contracts exist. |
+| 7 | `downstream_phase_gated`: add grid-resident backbone packaging, backup, restore, failover, recovery, migration, and system-service contracts only after Phase 7 owners define them. |
+| 8 | `downstream_phase_gated`: add Overbase, Overstore, Overvault, namespace, storage entitlement, and route contracts only after native data/storage owners define them. |
+| 9 | `downstream_phase_gated`: add Overpack deployment, deployment planning, release strategy, and package validation expansion only through owning Phase 9 services. |
+| 10 | `downstream_phase_gated`: add federation template, public-interest pool, purpose tag, and cross-tenant grant contracts only through Phase 10 owners. |
+| 11 | `downstream_phase_gated`: add public-provider, sandbox, fraud, reputation, anti-Sybil, and public-pool constraints only through Phase 11 owners. |
+| 12 | `downstream_phase_gated`: add native app, AI assistant, mobile, wallet, directory, search, maps, messaging, workspace, social, and desktop contracts only through Phase 12 owners. |
+| 13 | `downstream_phase_gated`: add governance, compliance, incident, reporting, PIP, migration, security review, and scale-hardening contracts only through Phase 13 owners. |
+
+#### Resolved SDS Decision Checklist
+
+| Decision | Gate state |
+| --- | --- |
+| Canonical JSON plus JSON Schema remains the docs-facing, fixture-facing, command, manifest, signed-payload, and public API source of truth. | `resolved_decision_carried` |
+| Rust generation, Rust validators, Rust fixture checks, and Rust docs/diff tooling are first because Overrid core is Rust-first. | `resolved_decision_carried` |
+| TypeScript/web projections are generated second from the same contracts and must never become the source of truth. | `resolved_decision_carried` |
+| Protobuf is allowed only for compact internal service/RPC/event contracts and never as a Protobuf-only public object definition. | `resolved_decision_carried` |
+| Security-sensitive and accounting-sensitive families use strict unknown-field rejection by default. | `resolved_decision_carried` |
+| Extension maps are allowed only for explicitly named low-risk metadata surfaces with typed values, namespace prefixes, privacy class, and compatibility class. | `resolved_decision_carried` |
+| Current-plus-previous stable major support applies once external consumers depend on the package. | `resolved_decision_carried` |
+| Authority-sensitive schema changes require formal migration plans, consumer impact, rollback guidance, and stable unsupported-version reason codes. | `resolved_decision_carried` |
+
+#### Schema Ownership Metadata Model
+
+Each schema module must carry metadata before it can move from `draft` to `released`:
+
+- `owning_service_family`: SDS/service family responsible for the schema.
+- `downstream_consumers`: service, SDK, CLI, UI, adapter, native app, mobile, test, or fixture consumers.
+- `release_status`: one of `draft`, `reviewed`, `validated`, `compatible`, `released`, `deprecated`, `retired`, or `blocked`.
+- `privacy_class`: public, tenant-private, regulated, encrypted/private, user-content, system-service-only, redacted-diagnostic, or mixed boundary classification.
+- `compatibility_class`: additive, deprecated, breaking, migration-required, phase-gated, or current-plus-previous stable major.
+- `review_authority`: owning SDS, package maintainer, protocol/schema reviewer, security/privacy reviewer, accounting reviewer, or service owner required for release.
+- `consumer_notes`: known downstream consumers, blockers, and handoff constraints.
+
+#### Schema Review Lifecycle
+
+Schema modules move through `draft`, `reviewed`, `validated`, `compatible`, `released`, `deprecated`, `retired`, or `blocked`. Draft modules without owner, status, privacy class, compatibility metadata, and consumer notes remain `metadata_required` and cannot be promoted. Released modules must have `boundary_frozen` package authority, stable validation evidence, and consumer impact notes.
+
+#### Documentation Update Rule
+
+Any Phase 1 change to the package boundary or schema metadata model must update this sub-build plan, the numbered SDS, the service catalog entry, `packages/schemas/README.md`, relevant `codegen_manifest.json` files, the validation script, and the local progress trail. The change must preserve Phase 0 as the first build point and avoid moving schema authority into Phase 1 runtime services.
+
 ## Phase 2: Canonical Schema Source Layout And Common Primitives
 
 ### Work Items

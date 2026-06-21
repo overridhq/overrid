@@ -1,6 +1,21 @@
 {
   "schema_family": "cli-command",
   "schema_version": "cli-command.v0.1",
+  "schema_ownership": {
+    "owning_service_family": "SDS #7 Shared Schema Package",
+    "downstream_consumers": [
+      "CLI",
+      "SDK",
+      "Integration Test Harness",
+      "Local Development Stack",
+      "Rust contract tests"
+    ],
+    "release_status": "validated",
+    "privacy_class": "mixed_boundary_metadata",
+    "compatibility_class": "phase_gated_current_plus_previous_major",
+    "review_authority": "Shared Schema Package maintainers using SDS #7 plus owning service SDS refs",
+    "consumer_notes": "Canonical JSON Schema and Rust projection metadata for CLI, local stack, and integration harness contract slices; later released external consumers require compatibility and migration gates."
+  },
   "canonical_schema": "packages/schemas/overrid_contracts/v0/cli_command.schema.json",
   "source_of_truth": "json_schema",
   "rust_first_validation": true,

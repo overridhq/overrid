@@ -71,6 +71,10 @@ Overdesk should become the default desktop entry point for Overrid users, provid
 
 The detailed design contract is [Overdesk Desktop Client SDS](../../sds/native_apps/overdesk_desktop_client.md).
 
+## Desktop Page Map
+
+- [Overdesk Desktop App Page Map](../../overdesk/page_map.md)
+
 ## Sub-Build Plan
 
 - [SUB BUILD PLAN #84 - Overdesk Desktop Client](../../build_plan/sub_build_plan_084_overdesk_desktop_client.md)

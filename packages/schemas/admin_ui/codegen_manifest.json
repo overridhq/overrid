@@ -1,6 +1,20 @@
 {
   "schema_family": "admin_ui",
   "schema_version": "admin-ui.v0.1",
+  "schema_ownership": {
+    "owning_service_family": "SDS #7 Shared Schema Package and SDS #1 Admin and Developer UI",
+    "downstream_consumers": [
+      "Admin and Developer UI",
+      "Overgate admin API clients",
+      "TypeScript web projection tests",
+      "UI fixture validators"
+    ],
+    "release_status": "reviewed",
+    "privacy_class": "mixed_boundary_metadata",
+    "compatibility_class": "phase_gated_current_plus_previous_major",
+    "review_authority": "Shared Schema Package maintainers with Admin and Developer UI service owner review",
+    "consumer_notes": "TypeScript/web declarations are non-authoritative projections from canonical JSON Schema and stay blocked from source-of-truth status."
+  },
   "canonical_schema": "packages/schemas/admin_ui/v0/admin_ui_contracts.schema.json",
   "source_of_truth": "json_schema",
   "rust_first_validation": true,

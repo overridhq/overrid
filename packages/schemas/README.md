@@ -22,6 +22,20 @@ Rules:
 - Rejection examples live under `fixtures/invalid`.
 - Each schema family keeps a `codegen_manifest.json` that names canonical schema paths, fixture roots, generated or projected output paths, source-of-truth status, and validation target.
 
+## Schema Ownership Metadata
+
+Each schema module must carry ownership metadata before it can move from `draft` to `released`:
+
+- `owning_service_family`: SDS/service family responsible for the schema.
+- `downstream_consumers`: service, SDK, CLI, UI, adapter, native app, mobile, test, or fixture consumers.
+- `release_status`: one of `draft`, `reviewed`, `validated`, `compatible`, `released`, `deprecated`, `retired`, or `blocked`.
+- `privacy_class`: public, tenant-private, regulated, encrypted/private, user-content, system-service-only, redacted-diagnostic, or mixed boundary classification.
+- `compatibility_class`: additive, deprecated, breaking, migration-required, phase-gated, or current-plus-previous stable major.
+- `review_authority`: owning SDS, package maintainer, protocol/schema reviewer, security/privacy reviewer, accounting reviewer, or service owner required for release.
+- `consumer_notes`: known downstream consumers, blockers, and handoff constraints.
+
+Draft schema modules without owner, status, privacy class, compatibility metadata, and consumer notes are `metadata_required` and cannot be released. Released modules must preserve canonical JSON Schema authority, Rust-first validation, typed low-risk extension maps only, strict unknown-field rejection for sensitive objects, current-plus-previous stable major compatibility where external consumers exist, and formal migration plans for authority-sensitive fields.
+
 ## Generated Binding Boundaries
 
 Generated or projected Rust and TypeScript/web bindings are consumers only. They must cite their canonical JSON Schema source and mark generated/projection output as non-authoritative.

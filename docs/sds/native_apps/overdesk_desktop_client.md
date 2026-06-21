@@ -29,6 +29,7 @@ The name is intentionally short, practical, and product-facing. It signals that 
 | Build-plan crosswalk | [service_catalog_alignment.md](../../build_plan/service_catalog_alignment.md) |
 | Build phase alignment | [Phase 12: Native Application Layer](../../build_plan/phase_12_native_application_layer.md) |
 | Sub-build plan | [SUB BUILD PLAN #84 - Overdesk Desktop Client](../../build_plan/sub_build_plan_084_overdesk_desktop_client.md) |
+| Desktop app page map | [page_map.md](../../overdesk/page_map.md) |
 
 ## Service Family
 

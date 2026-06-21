@@ -45,6 +45,31 @@ Create the canonical schemas and generated types used across Overrid service bou
 - Make mutating command schemas require tenant, actor, trace id, idempotency key, command type, and schema version.
 - Block public API, worker, SDK, or CLI surfaces that use untyped or forked payload definitions.
 
+## Phase 1 Implementation Gates
+
+Phase 1 freezes SDS #7 as a package boundary and metadata gate:
+
+- `attached`: keep links among the SDS, service catalog entry, master build plan, crosswalk, tech-stack decision, package docs, and sub-build plan.
+- `boundary_frozen`: treat the package as canonical contract source plus generated/projection outputs, not as runtime authority.
+- `phase_0_authority`: keep the first build point in Phase 0.
+- `downstream_phase_gated`: expand later schema families only through owning service phase gates.
+- `resolved_decision_carried`: preserve the resolved source-of-truth and compatibility decisions.
+- `metadata_required`: require schema ownership metadata before release.
+
+The Shared Schema Package is not a deployed microservice, not a runtime registry, not a policy engine, not an audit authority, not an accounting authority, and not a production record store. It must not own runtime policy decisions, service state transitions, audit finality, ledger/accounting finality, production queue state, production registry state, production storage, secret storage, pricing, revenue assumptions, blockchain mechanics, NFT mechanics, PostgreSQL/Redis/S3/Vault product boundaries, or TypeScript core runtime authority.
+
+Required schema ownership metadata:
+
+- `owning_service_family`
+- `downstream_consumers`
+- `release_status`
+- `privacy_class`
+- `compatibility_class`
+- `review_authority`
+- `consumer_notes`
+
+Resolved decisions remain canonical JSON plus JSON Schema authority, Rust generation first, TypeScript/web projections second, Protobuf internal-only, strict unknown-field rejection for sensitive objects, typed low-risk extension maps only, current-plus-previous stable major support, and formal migration plans for authority-sensitive fields.
+
 ## Validation
 
 - Valid fixtures pass and invalid fixtures fail deterministically.

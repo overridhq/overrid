@@ -81,6 +81,32 @@ Shared Schema Package owns:
 
 It does not own service state transitions, policy decisions, audit finality, or accounting finality.
 
+## Phase-Gate Boundary Decisions
+
+SDS #7 Phase 1 freezes the Shared Schema Package as a versioned contract package and library. It is not a deployed microservice, not a runtime registry, not a policy engine, not an audit authority, not an accounting authority, and not a production record store.
+
+Required Phase 1 gate states:
+
+- `attached`: the SDS, service catalog, master build plan, crosswalk, tech-stack decision, package docs, and sub-build plan point to each other.
+- `boundary_frozen`: schema authority stays in canonical schema sources, Rust-first validation, fixtures, generated docs, compatibility reports, and generated/projection outputs.
+- `phase_0_authority`: the first build point remains Phase 0.
+- `downstream_phase_gated`: later schema families expand only through owning service phase gates.
+- `resolved_decision_carried`: resolved SDS decisions remain closed unless a later formal plan changes them.
+- `metadata_required`: draft schema modules cannot release without owner, status, privacy class, compatibility metadata, and consumer notes.
+
+Resolved decisions:
+
+- Canonical JSON plus JSON Schema remains the docs-facing, fixture-facing, command, manifest, signed-payload, and public API source of truth.
+- Rust generation, Rust validators, Rust fixture checks, and Rust docs/diff tooling are first.
+- TypeScript/web projections are generated second from the same contracts and must never become the source of truth.
+- Protobuf is allowed only for compact internal service/RPC/event contracts and never as a Protobuf-only public object definition.
+- Security-sensitive and accounting-sensitive families use strict unknown-field rejection by default.
+- Extension maps are allowed only for explicitly named low-risk metadata surfaces with typed values, namespace prefixes, privacy class, and compatibility class.
+- Current-plus-previous stable major support applies once external consumers depend on the package.
+- Authority-sensitive schema changes require formal migration plans, consumer impact, rollback guidance, and stable unsupported-version reason codes.
+
+Schema modules move through `draft`, `reviewed`, `validated`, `compatible`, `released`, `deprecated`, `retired`, or `blocked`. Release metadata must name the owning service family, downstream consumers, release status, privacy class, compatibility class, review authority, and consumer notes before a schema module can become released.
+
 ## Data Model
 
 The first package should define these schema modules:
