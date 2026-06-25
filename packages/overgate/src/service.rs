@@ -3,6 +3,7 @@ use axum::Router;
 use crate::admin;
 use crate::dependencies::DependencyMatrix;
 use crate::idempotency::IdempotencyStore;
+use crate::prechecks::PrecheckStore;
 use crate::routes;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +50,7 @@ pub struct OvergateState {
     pub config: OvergateConfig,
     pub dependencies: DependencyMatrix,
     pub idempotency: IdempotencyStore,
+    pub prechecks: PrecheckStore,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +69,7 @@ impl OvergateService {
                 config,
                 dependencies,
                 idempotency: IdempotencyStore::default(),
+                prechecks: PrecheckStore::default(),
             },
         }
     }

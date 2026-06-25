@@ -7,6 +7,7 @@ use serde::Serialize;
 use crate::admission::{operator_admission_record, overwatch_ready, OperatorAdmissionRecord};
 use crate::dependencies::DependencyMatrix;
 use crate::idempotency::{IdempotencyMutation, IdempotencyRecord};
+use crate::prechecks::RateLimitBucketView;
 use crate::routes::{
     header_value, stable_short_token, trace_id, ApiResponse, TENANT_HEADER, TRACE_HEADER,
 };
@@ -44,6 +45,9 @@ struct AdminLookupData {
     visibility: &'static str,
     audit_hook_ref: String,
     idempotency_records: Vec<IdempotencyRecord>,
+    rate_limit_buckets: Vec<RateLimitBucketView>,
+    quota_precheck_refs: Vec<String>,
+    policy_decision_refs: Vec<String>,
 }
 
 pub fn admin_routes() -> Router<OvergateState> {
@@ -81,6 +85,9 @@ async fn admin_ingress_lookup(
             visibility: "signed_operator_tenant_scoped_phase4",
             audit_hook_ref,
             idempotency_records: Vec::new(),
+            rate_limit_buckets: Vec::new(),
+            quota_precheck_refs: Vec::new(),
+            policy_decision_refs: Vec::new(),
         },
     )))
 }
@@ -109,6 +116,9 @@ async fn admin_idempotency_lookup(
             visibility: "tenant_scoped_operator_phase5",
             audit_hook_ref,
             idempotency_records,
+            rate_limit_buckets: Vec::new(),
+            quota_precheck_refs: Vec::new(),
+            policy_decision_refs: Vec::new(),
         },
     )))
 }
@@ -157,6 +167,9 @@ async fn admin_idempotency_expire(
             visibility: "signed_operator_expire_phase5",
             audit_hook_ref,
             idempotency_records,
+            rate_limit_buckets: Vec::new(),
+            quota_precheck_refs: Vec::new(),
+            policy_decision_refs: Vec::new(),
         },
     )))
 }
@@ -168,19 +181,23 @@ async fn admin_rate_limits(
     let trace_id = trace_id(&headers, "trace_overgate_admin_rate_limits");
     let operator = authorize_operator(&headers, None, &trace_id, &state.dependencies)?;
     let audit_hook_ref = admin_audit_ref(ADMIN_ROUTE_RATE_LIMITS, &trace_id);
+    let precheck_summary = state.prechecks.limit_summary(&operator.tenant_id);
     Ok(Json(ApiResponse::new(
         trace_id.clone(),
         "ok",
-        "overgate.admin_rate_limits_admitted_phase4",
+        "overgate.admin_rate_limits_phase6",
         AdminLookupData {
             route: ADMIN_ROUTE_RATE_LIMITS,
-            requested_ref: "rate_limits:phase4_operator_view".to_owned(),
+            requested_ref: "rate_limits:phase6_operator_view".to_owned(),
             operator_tenant: operator.tenant_id,
             operator_role: operator.role,
             operator_admission: operator.admission,
-            visibility: "signed_operator_tenant_scoped_phase4",
+            visibility: "signed_operator_tenant_scoped_phase6",
             audit_hook_ref,
             idempotency_records: Vec::new(),
+            rate_limit_buckets: precheck_summary.buckets,
+            quota_precheck_refs: precheck_summary.quota_precheck_refs,
+            policy_decision_refs: precheck_summary.policy_decision_refs,
         },
     )))
 }

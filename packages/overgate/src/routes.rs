@@ -14,6 +14,9 @@ use crate::idempotency::{
     CommandLookup, IdempotencyLimitSummary, IdempotencyOutcome, IdempotencyRecord,
     IdempotencyReservationInput, TraceSummary,
 };
+use crate::prechecks::{
+    accepted_quota_refs, precheck_digest_ref, PrecheckInput, PrecheckLimitSummary, PrecheckOutcome,
+};
 use crate::retention::RetentionDecision;
 use crate::schema::{validate_command_envelope, SchemaValidationReport};
 use crate::service::OvergateState;
@@ -25,6 +28,9 @@ pub const PHASE4_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase4.response.v0";
 pub const PHASE4_COMMAND_ADMITTED_REASON: &str = "overgate.command_admitted_phase4";
 pub const PHASE4_ADMISSION_FORWARDING_STATE: &str = "not_forwarded_phase4_admission_only";
 pub const PHASE5_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase5.response.v0";
+pub const PHASE5_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase5";
+pub const PHASE5_LIMITS_REASON: &str = "overgate.limits_phase5";
+pub const PHASE6_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase6.response.v0";
 pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
 pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
@@ -55,7 +61,7 @@ impl<T: Serialize> ApiResponse<T> {
         data: T,
     ) -> Self {
         Self {
-            schema_version: PHASE5_RESPONSE_SCHEMA_VERSION,
+            schema_version: PHASE6_RESPONSE_SCHEMA_VERSION,
             service: "service:overgate",
             trace_id: trace_id.into(),
             status,
@@ -80,6 +86,9 @@ struct CommandAcceptedData {
     admission: AdmissionContext,
     retention: RetentionDecision,
     idempotency: IdempotencyOutcome,
+    phase6_prechecks: PrecheckOutcome,
+    accepted_command_quota_refs: Vec<String>,
+    phase6_precheck_digest_ref: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -112,6 +121,7 @@ struct LimitsData {
     rate_limit_refs: Vec<String>,
     quota_precheck_refs: Vec<String>,
     idempotency_summary: IdempotencyLimitSummary,
+    phase6_precheck_summary: PrecheckLimitSummary,
 }
 
 #[derive(Debug, Serialize)]
@@ -119,7 +129,8 @@ struct PolicyDryRunData {
     route: &'static str,
     policy_state: &'static str,
     mutation_allowed: bool,
-    policy_ref: &'static str,
+    policy_ref: String,
+    policy_check: crate::prechecks::PolicyCheckRecord,
 }
 
 #[derive(Debug, Serialize)]
@@ -200,15 +211,32 @@ async fn submit_command(
                 error,
             )
         })?;
+    let phase6_prechecks = state
+        .prechecks
+        .precheck_command(PrecheckInput::from_parts(
+            &parsed.envelope,
+            &admission,
+            &idempotency,
+            body.len(),
+        ))
+        .map_err(|error| {
+            api_error_response(
+                parsed.envelope.trace_id.clone(),
+                Some(request_id.clone()),
+                error,
+            )
+        })?;
     let (http_status, response_status, reason_code) = if idempotency.replayed {
         (StatusCode::OK, "ok", "overgate.idempotency_replayed")
     } else {
         (
             StatusCode::ACCEPTED,
             "accepted",
-            "overgate.command_accepted_phase5",
+            "overgate.command_accepted_phase6",
         )
     };
+    let accepted_command_quota_refs = accepted_quota_refs(&phase6_prechecks);
+    let phase6_precheck_digest_ref = precheck_digest_ref(&phase6_prechecks);
 
     Ok((
         http_status,
@@ -230,6 +258,9 @@ async fn submit_command(
                 admission,
                 retention,
                 idempotency,
+                phase6_prechecks,
+                accepted_command_quota_refs,
+                phase6_precheck_digest_ref,
             },
         )),
     ))
@@ -304,38 +335,45 @@ async fn limits(
     let tenant_scope =
         header_value(&headers, TENANT_HEADER).unwrap_or_else(|| "tenant:local:test".to_owned());
     let idempotency_summary = _state.idempotency.limit_summary(&tenant_scope);
+    let phase6_precheck_summary = _state.prechecks.limit_summary(&tenant_scope);
     Json(ApiResponse::new(
-        trace_id(&headers, "trace_overgate_phase5_limits"),
+        trace_id(&headers, "trace_overgate_phase6_limits"),
         "ok",
-        "overgate.limits_phase5",
+        "overgate.limits_phase6",
         LimitsData {
             route: ROUTE_LIMITS,
             tenant_scope: tenant_scope.clone(),
-            rate_limit_refs: vec![format!(
-                "rate_limit:overgate:phase5:{}",
-                stable_short_token(&[tenant_scope.as_str()])
-            )],
-            quota_precheck_refs: idempotency_summary.quota_precheck_refs.clone(),
+            rate_limit_refs: phase6_precheck_summary
+                .buckets
+                .iter()
+                .map(|bucket| bucket.bucket_id.clone())
+                .collect(),
+            quota_precheck_refs: phase6_precheck_summary.quota_precheck_refs.clone(),
             idempotency_summary,
+            phase6_precheck_summary,
         },
     ))
 }
 
 async fn policy_dry_run(
+    State(state): State<OvergateState>,
     headers: HeaderMap,
-    Json(_payload): Json<Value>,
+    Json(payload): Json<Value>,
 ) -> (StatusCode, Json<ApiResponse<PolicyDryRunData>>) {
+    let trace_id = trace_id(&headers, "trace_overgate_phase6_policy_dry_run");
+    let policy_check = state.prechecks.policy_dry_run(&payload, &trace_id);
     (
         StatusCode::ACCEPTED,
         Json(ApiResponse::new(
-            trace_id(&headers, "trace_overgate_phase2_policy_dry_run"),
+            trace_id,
             "accepted",
-            "overgate.policy_dry_run_route_skeleton",
+            "overgate.policy_dry_run_phase6",
             PolicyDryRunData {
                 route: ROUTE_POLICY_DRY_RUN,
-                policy_state: "overguard_not_configured_phase2",
-                mutation_allowed: false,
-                policy_ref: "policy:dry_run:phase2_placeholder",
+                policy_state: policy_check.handoff_state,
+                mutation_allowed: policy_check.allowed,
+                policy_ref: policy_check.decision_ref.clone(),
+                policy_check,
             },
         )),
     )
@@ -530,8 +568,8 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["schema_version"], PHASE5_RESPONSE_SCHEMA_VERSION);
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
+        assert_eq!(body["schema_version"], PHASE6_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
         assert_eq!(
@@ -573,6 +611,18 @@ mod tests {
         assert_eq!(
             body["data"]["retention"]["idempotency_retention_class"],
             "low_risk_metadata_write"
+        );
+        assert_eq!(
+            body["data"]["phase6_prechecks"]["precheck_state"],
+            "prechecked_before_forwarding_phase6"
+        );
+        assert_eq!(
+            body["data"]["phase6_prechecks"]["quota_precheck"]["no_balance_mutation"],
+            true
+        );
+        assert_eq!(
+            body["data"]["phase6_prechecks"]["quota_precheck"]["no_seal_ledger_entry"],
+            true
         );
 
         let response = app
@@ -644,7 +694,7 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(
             body["data"]["forwarding_state"],
@@ -869,7 +919,7 @@ mod tests {
         let first_body = body_json(first).await;
         assert_eq!(
             first_body["reason_code"],
-            "overgate.command_accepted_phase5"
+            "overgate.command_accepted_phase6"
         );
         assert_eq!(
             first_body["data"]["idempotency"]["outcome_state"],
@@ -961,11 +1011,12 @@ mod tests {
             .expect("limits route should respond");
         assert_eq!(limits.status(), StatusCode::OK);
         let body = body_json(limits).await;
-        assert_eq!(body["reason_code"], "overgate.limits_phase5");
+        assert_eq!(body["reason_code"], "overgate.limits_phase6");
         assert_eq!(
             body["data"]["idempotency_summary"]["visible_record_count"],
             1
         );
+        assert_eq!(body["data"]["phase6_precheck_summary"]["bucket_count"], 1);
 
         let cross_tenant = app
             .clone()
@@ -990,6 +1041,196 @@ mod tests {
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
         let body = body_json(missing).await;
         assert_eq!(body["reason_code"], "overgate.status_not_found");
+    }
+
+    #[tokio::test]
+    async fn phase6_rate_limits_deny_before_forwarding_and_reset_by_window() {
+        let app = OvergateService::default().router();
+        for index in 0..2 {
+            let mut envelope = valid_command_envelope(&format!("trace_phase6_rate_{index}"));
+            envelope["command_id"] = json!(format!("command:overgate:phase6:rate:{index}"));
+            envelope["command_type"] = json!("overgate.phase6.tenant.update");
+            envelope["idempotency_key"] = json!(format!("idem:overgate:phase6:rate:{index}"));
+            envelope["request_hash"] = json!(format!("hash:fixture:phase6_rate_request_{index}"));
+            envelope["payload_hash"] = json!(format!("hash:fixture:phase6_rate_payload_{index}"));
+            envelope["timestamp"] = json!("2026-06-25T00:10:00Z");
+            let response = app
+                .clone()
+                .oneshot(command_post("/v1/commands", envelope))
+                .await
+                .expect("rate command should respond");
+            assert_eq!(response.status(), StatusCode::ACCEPTED);
+            let body = body_json(response).await;
+            assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+            assert_eq!(
+                body["data"]["phase6_prechecks"]["rate_limit"]["reason_code"],
+                "overgate.rate_limit_allowed_phase6"
+            );
+        }
+
+        let mut exhausted = valid_command_envelope("trace_phase6_rate_exhausted");
+        exhausted["command_id"] = json!("command:overgate:phase6:rate:exhausted");
+        exhausted["command_type"] = json!("overgate.phase6.tenant.update");
+        exhausted["idempotency_key"] = json!("idem:overgate:phase6:rate:exhausted");
+        exhausted["request_hash"] = json!("hash:fixture:phase6_rate_request_exhausted");
+        exhausted["payload_hash"] = json!("hash:fixture:phase6_rate_payload_exhausted");
+        exhausted["timestamp"] = json!("2026-06-25T00:20:00Z");
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", exhausted))
+            .await
+            .expect("exhausted rate command should respond");
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.rate_limited");
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("client denial refs should be present")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("rate_limit_reset:overgate:phase6:")));
+
+        let mut reset = valid_command_envelope("trace_phase6_rate_reset");
+        reset["command_id"] = json!("command:overgate:phase6:rate:reset");
+        reset["command_type"] = json!("overgate.phase6.tenant.update");
+        reset["idempotency_key"] = json!("idem:overgate:phase6:rate:reset");
+        reset["request_hash"] = json!("hash:fixture:phase6_rate_request_reset");
+        reset["payload_hash"] = json!("hash:fixture:phase6_rate_payload_reset");
+        reset["timestamp"] = json!("2026-06-25T01:00:00Z");
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", reset))
+            .await
+            .expect("reset-window rate command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+        let admin_view = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/admin/rate-limits")
+                    .header(
+                        crate::admin::OPERATOR_SIGNATURE_HEADER,
+                        "signature:fixture:operator",
+                    )
+                    .header(crate::admin::OPERATOR_ROLE_HEADER, "operator")
+                    .body(Body::empty())
+                    .expect("admin rate-limit request should build"),
+            )
+            .await
+            .expect("admin rate-limit route should respond");
+        assert_eq!(admin_view.status(), StatusCode::OK);
+        let body = body_json(admin_view).await;
+        assert_eq!(body["reason_code"], "overgate.admin_rate_limits_phase6");
+        assert!(
+            body["data"]["rate_limit_buckets"]
+                .as_array()
+                .expect("rate buckets should be visible")
+                .len()
+                >= 2
+        );
+    }
+
+    #[tokio::test]
+    async fn phase6_quota_policy_and_dry_run_surfaces_are_structured() {
+        let app = OvergateService::default().router();
+        let mut quota_denied = valid_command_envelope("trace_phase6_quota_denied");
+        quota_denied["command_id"] = json!("command:overgate:phase6:quota:denied");
+        quota_denied["command_type"] = json!("overgate.phase6.quota.denied");
+        quota_denied["idempotency_key"] = json!("idem:overgate:phase6:quota_denied");
+        quota_denied["request_hash"] = json!("hash:fixture:phase6_quota_denied_request");
+        quota_denied["payload_hash"] = json!("hash:fixture:phase6_quota_denied_payload");
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", quota_denied))
+            .await
+            .expect("quota-denied command should respond");
+        assert_eq!(response.status(), StatusCode::PAYMENT_REQUIRED);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.quota_precheck_denied");
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("quota refs should be present")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("budget:overgate:phase6:")));
+
+        let mut policy_denied = valid_command_envelope("trace_phase6_policy_denied");
+        policy_denied["command_id"] = json!("command:overgate:phase6:policy:denied");
+        policy_denied["command_type"] = json!("overgate.phase6.policy.deny");
+        policy_denied["idempotency_key"] = json!("idem:overgate:phase6:policy_denied");
+        policy_denied["request_hash"] = json!("hash:fixture:phase6_policy_denied_request");
+        policy_denied["payload_hash"] = json!("hash:fixture:phase6_policy_denied_payload");
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", policy_denied))
+            .await
+            .expect("policy-denied command should respond");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.policy_denied");
+        assert_eq!(body["data"]["dependency_name"], "overguard");
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("policy refs should be present")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("policy_decision:overguard:phase6:")));
+
+        let dry_run = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/policy/dry-run")
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "command_type": "overgate.phase6.policy.evaluate",
+                            "simulate_decision": "deny"
+                        })
+                        .to_string(),
+                    ))
+                    .expect("policy dry-run request should build"),
+            )
+            .await
+            .expect("policy dry-run route should respond");
+        assert_eq!(dry_run.status(), StatusCode::ACCEPTED);
+        let body = body_json(dry_run).await;
+        assert_eq!(body["reason_code"], "overgate.policy_dry_run_phase6");
+        assert_eq!(body["data"]["mutation_allowed"], false);
+        assert_eq!(
+            body["data"]["policy_check"]["stored_policy_truth_in_overgate"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn phase6_command_class_matrix_covers_required_classes() {
+        assert!(crate::prechecks::validate_command_class_matrix());
+        let classes = crate::prechecks::command_class_matrix();
+        let names = classes
+            .iter()
+            .map(|entry| entry.command_class)
+            .collect::<std::collections::HashSet<_>>();
+        for expected in [
+            "low_risk_read",
+            "phase1_control_plane_mutation",
+            "queue_producing_workload",
+            "policy_heavy",
+            "accounting_affecting",
+            "storage_namespace",
+            "native_app_side_effect",
+            "admin",
+            "break_glass",
+        ] {
+            assert!(names.contains(expected), "missing {expected}");
+        }
     }
 
     #[tokio::test]
@@ -1062,7 +1303,7 @@ mod tests {
             .expect("service account admission should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         let body = body_json(response).await;
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
         assert_eq!(
             body["data"]["admission"]["service_account_admission"]["reason_code"],
             "auth.service_account_admitted_phase4"

@@ -1,0 +1,135 @@
+{
+  "schema_version": "overgate.phase6.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate_phase6_precheck_denials",
+  "rate_limit_sequence": [
+    {
+      "command_id": "command:overgate:phase6:rate:1",
+      "command_type": "overgate.phase6.tenant.update",
+      "tenant_id": "tenant:local:test",
+      "actor_id": "actor:local:test",
+      "trace_id": "trace_overgate_phase6_rate_1",
+      "idempotency_key": "idem:overgate:phase6:rate:1",
+      "credential_id": "credential:local:test",
+      "schema_version": "shared-schema-package.v0.1",
+      "payload_type": "application/vnd.overrid.command.tenant-update+json",
+      "request_hash": "hash:fixture:phase6_rate_1_request",
+      "payload_hash": "hash:fixture:phase6_rate_1_payload",
+      "timestamp": "2026-06-25T00:00:00Z",
+      "signature_metadata": {
+        "signature_ref": "signature:fixture:phase6_rate_1",
+        "algorithm": "ed25519",
+        "key_version": "key_version:local:test",
+        "canonicalization_version": "overgate.canonical.v0.1"
+      },
+      "privacy_class": "tenant_private",
+      "payload_ref": "fixture://overgate/phase6/rate_1_payload"
+    },
+    {
+      "command_id": "command:overgate:phase6:rate:2",
+      "command_type": "overgate.phase6.tenant.update",
+      "tenant_id": "tenant:local:test",
+      "actor_id": "actor:local:test",
+      "trace_id": "trace_overgate_phase6_rate_2",
+      "idempotency_key": "idem:overgate:phase6:rate:2",
+      "credential_id": "credential:local:test",
+      "schema_version": "shared-schema-package.v0.1",
+      "payload_type": "application/vnd.overrid.command.tenant-update+json",
+      "request_hash": "hash:fixture:phase6_rate_2_request",
+      "payload_hash": "hash:fixture:phase6_rate_2_payload",
+      "timestamp": "2026-06-25T00:00:00Z",
+      "signature_metadata": {
+        "signature_ref": "signature:fixture:phase6_rate_2",
+        "algorithm": "ed25519",
+        "key_version": "key_version:local:test",
+        "canonicalization_version": "overgate.canonical.v0.1"
+      },
+      "privacy_class": "tenant_private",
+      "payload_ref": "fixture://overgate/phase6/rate_2_payload"
+    },
+    {
+      "command_id": "command:overgate:phase6:rate:3",
+      "command_type": "overgate.phase6.tenant.update",
+      "tenant_id": "tenant:local:test",
+      "actor_id": "actor:local:test",
+      "trace_id": "trace_overgate_phase6_rate_3",
+      "idempotency_key": "idem:overgate:phase6:rate:3",
+      "credential_id": "credential:local:test",
+      "schema_version": "shared-schema-package.v0.1",
+      "payload_type": "application/vnd.overrid.command.tenant-update+json",
+      "request_hash": "hash:fixture:phase6_rate_3_request",
+      "payload_hash": "hash:fixture:phase6_rate_3_payload",
+      "timestamp": "2026-06-25T00:00:00Z",
+      "signature_metadata": {
+        "signature_ref": "signature:fixture:phase6_rate_3",
+        "algorithm": "ed25519",
+        "key_version": "key_version:local:test",
+        "canonicalization_version": "overgate.canonical.v0.1"
+      },
+      "privacy_class": "tenant_private",
+      "payload_ref": "fixture://overgate/phase6/rate_3_payload"
+    }
+  ],
+  "quota_denied_command_envelope": {
+    "command_id": "command:overgate:phase6:quota:denied",
+    "command_type": "overgate.phase6.quota.denied",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase6_quota_denied",
+    "idempotency_key": "idem:overgate:phase6:quota_denied",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.quota-precheck+json",
+    "request_hash": "hash:fixture:phase6_quota_denied_request",
+    "payload_hash": "hash:fixture:phase6_quota_denied_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase6_quota_denied",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase6/quota_denied_payload"
+  },
+  "policy_denied_command_envelope": {
+    "command_id": "command:overgate:phase6:policy:denied",
+    "command_type": "overgate.phase6.policy.deny",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase6_policy_denied",
+    "idempotency_key": "idem:overgate:phase6:policy_denied",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.policy-check+json",
+    "request_hash": "hash:fixture:phase6_policy_denied_request",
+    "payload_hash": "hash:fixture:phase6_policy_denied_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase6_policy_denied",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase6/policy_denied_payload"
+  },
+  "expected_denials": {
+    "rate_limit": {
+      "status": 429,
+      "reason_code": "overgate.rate_limited",
+      "client_denial_ref_prefix": "rate_limit_reset:overgate:phase6:"
+    },
+    "quota": {
+      "status": 402,
+      "reason_code": "overgate.quota_precheck_denied",
+      "client_denial_ref_prefix": "budget:overgate:phase6:"
+    },
+    "policy": {
+      "status": 403,
+      "reason_code": "overgate.policy_denied",
+      "client_denial_ref_prefix": "policy_decision:overguard:phase6:"
+    }
+  },
+  "local_only": true,
+  "test_only": true
+}

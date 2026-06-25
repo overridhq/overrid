@@ -5702,8 +5702,7 @@ impl SharedSchemaPhase10RustProjection {
         Self {
             path: PHASE10_RUST_OUTPUT_PATH.to_owned(),
             validator_entrypoint:
-                "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
-                    .to_owned(),
+                "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()".to_owned(),
             non_authoritative: true,
         }
     }
@@ -5740,8 +5739,12 @@ impl SharedSchemaPhase10ValidationHandoffContract {
                 SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
             )?,
             structure_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_STRUCTURE_CHECKS),
-            tech_stack_alignment_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS),
-            master_plan_alignment_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS),
+            tech_stack_alignment_checks: owned_values(
+                REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS,
+            ),
+            master_plan_alignment_checks: owned_values(
+                REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS,
+            ),
             source_alignment_documents: owned_values(
                 REQUIRED_SHARED_SCHEMA_PHASE10_SOURCE_ALIGNMENT_DOCS,
             ),
@@ -5928,7 +5931,10 @@ impl fmt::Display for SharedSchemaPhase10ContractError {
                 "Phase 10 downstream handoff authority drift: {consumer}"
             ),
             Self::ForbiddenAssumptionScanDrift(term) => {
-                write!(formatter, "Phase 10 forbidden assumption scan drift: {term}")
+                write!(
+                    formatter,
+                    "Phase 10 forbidden assumption scan drift: {term}"
+                )
             }
             Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
             Self::RustProjectionAuthorityDrift => {

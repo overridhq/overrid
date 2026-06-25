@@ -1,6 +1,6 @@
 # Overrid Overgate
 
-Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, and Phase 5 idempotency/status records.
+Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, Phase 5 idempotency/status records, and Phase 6 rate-limit/quota/policy precheck refs.
 
 ## Local Entrypoint
 
@@ -77,6 +77,22 @@ Accepted command responses use `overgate.phase5.response.v0`, `overgate.command_
 
 Admin idempotency lookup and expiration routes now expose tenant-scoped Phase 5 idempotency records to signed operators without bypassing Overwatch fail-closed behavior. Expiration is also constrained by the operator tenant, so a cross-tenant operator cannot mutate a record by knowing its record id.
 
+## Phase 6 Rate Limits, Quota Prechecks, And Policy Handoff
+
+`POST /v1/commands` now runs Phase 6 prechecks after Phase 4 admission, Phase 3 schema validation, and Phase 5 idempotency scoping, before any forwarding or downstream state write. Accepted command responses use `overgate.phase6.response.v0`, `overgate.command_accepted_phase6`, and `prechecked_before_forwarding_phase6`.
+
+The Phase 6 response includes:
+
+- Deterministic local rate-limit buckets scoped by tenant, actor, service-account ref, source-app ref, command class, environment, and timestamp window.
+- `overgate.rate_limited` denials with reset refs and `overgate.rate_limited` audit evidence before forwarding.
+- Conservative quota-precheck records with quota scope refs, budget refs, grant placeholder refs, local counter refs, optional Overmeter snapshot refs, accepted-command quota refs, `overgate.quota_precheck_denied` denials, and `not_settled_by_overgate`.
+- `no_balance_mutation: true` and `no_seal_ledger_entry: true` on quota prechecks so Overgate does not mutate accounting balances or create Seal Ledger entries.
+- Overguard policy dry-run handoff records with `overguard.policy.v0`, matched rule refs, decision refs, `overgate.policy_denied` denials, missing-prerequisite reasons, and `stored_policy_truth_in_overgate: false`.
+- A command-class matrix covering `low_risk_read`, `phase1_control_plane_mutation`, `queue_producing_workload`, `policy_heavy`, `accounting_affecting`, `storage_namespace`, `native_app_side_effect`, `admin`, and `break_glass`.
+- Client-safe rate-limit, quota, budget, grant, and policy refs in `client_denial_refs` so SDK, CLI, UI, and native apps do not parse free-form text.
+
+`GET /v1/limits` returns `overgate.limits_phase6` with Phase 6 bucket and quota summaries. `POST /v1/policy/dry-run` returns `overgate.policy_dry_run_phase6` and records an Overguard handoff without storing policy truth. `GET /v1/admin/rate-limits` returns `overgate.admin_rate_limits_phase6` for signed operators while preserving existing Overwatch fail-closed behavior.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -95,5 +111,7 @@ Admin idempotency lookup and expiration routes now expose tenant-scoped Phase 5 
 - `fixtures/invalid/phase4_service_account_broad.invalid.json` proves broad service-account command classes are rejected.
 - `fixtures/valid/phase5_command.valid.json` defines the Phase 5 idempotency reservation, response digest, retention class, and pending-forwarding fixture.
 - `fixtures/invalid/phase5_idempotency_conflict.invalid.json` proves duplicate scoped idempotency keys with different request hashes deny before downstream side effects.
+- `fixtures/valid/phase6_command.valid.json` defines the Phase 6 rate-limit, quota-precheck, policy-handoff, and command-class matrix accepted response fixture.
+- `fixtures/invalid/phase6_precheck_denials.invalid.json` proves rate-limit, quota-precheck, and policy denials surface stable client-denial refs before forwarding.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

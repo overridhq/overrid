@@ -29,6 +29,7 @@ pub struct OvergateError {
     pub correction_hint: &'static str,
     pub dependency_name: Option<&'static str>,
     pub diagnostic: &'static str,
+    pub client_denial_refs: Vec<String>,
 }
 
 impl OvergateError {
@@ -262,6 +263,55 @@ impl OvergateError {
         )
     }
 
+    pub fn rate_limited(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "overgate.rate_limited",
+            Retryability::RetryAfter,
+            vec!["rate_limit_bucket", "reset_ref"],
+            "Wait for the deterministic rate-limit reset window or reduce command frequency.",
+            "rate_limit_bucket_exhausted_phase6",
+        )
+        .with_client_denial_refs(client_denial_refs)
+    }
+
+    pub fn quota_precheck_denied(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::PAYMENT_REQUIRED,
+            "overgate.quota_precheck_denied",
+            Retryability::OperatorReview,
+            vec!["quota_precheck_ref", "budget_ref", "grant_ref"],
+            "Resolve quota, budget, or grant eligibility before retrying this command.",
+            "quota_precheck_denied_phase6_no_settlement",
+        )
+        .with_dependency("overmeter_or_oru_placeholder")
+        .with_client_denial_refs(client_denial_refs)
+    }
+
+    pub fn policy_denied(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            "overgate.policy_denied",
+            Retryability::OperatorReview,
+            vec!["policy_decision_ref", "policy_rule_ref"],
+            "Use the Overguard policy decision ref to inspect the denial before retrying.",
+            "overguard_policy_dry_run_denied_phase6",
+        )
+        .with_dependency("overguard")
+        .with_client_denial_refs(client_denial_refs)
+    }
+
+    pub fn command_class_matrix_denied() -> Self {
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "overgate.command_class_matrix_invalid",
+            Retryability::NotRetryable,
+            vec!["command_type"],
+            "Use a command type with a complete Phase 6 command-class matrix entry.",
+            "command_class_matrix_missing_required_gate",
+        )
+    }
+
     fn new(
         status: StatusCode,
         reason_code: &'static str,
@@ -278,11 +328,17 @@ impl OvergateError {
             correction_hint,
             dependency_name: None,
             diagnostic,
+            client_denial_refs: Vec::new(),
         }
     }
 
     fn with_dependency(mut self, dependency_name: &'static str) -> Self {
         self.dependency_name = Some(dependency_name);
+        self
+    }
+
+    fn with_client_denial_refs(mut self, client_denial_refs: Vec<String>) -> Self {
+        self.client_denial_refs = client_denial_refs;
         self
     }
 
@@ -294,6 +350,7 @@ impl OvergateError {
             correction_fields: self.correction_fields.clone(),
             correction_hint: self.correction_hint,
             dependency_name: self.dependency_name,
+            client_denial_refs: self.client_denial_refs.clone(),
             diagnostics: RedactedDiagnostics {
                 privacy_class: "redacted_diagnostic",
                 redacted: true,
@@ -311,6 +368,7 @@ pub struct ApiErrorData {
     pub correction_fields: Vec<&'static str>,
     pub correction_hint: &'static str,
     pub dependency_name: Option<&'static str>,
+    pub client_denial_refs: Vec<String>,
     pub diagnostics: RedactedDiagnostics,
 }
 

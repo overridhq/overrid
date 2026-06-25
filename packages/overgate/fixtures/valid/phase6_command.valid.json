@@ -1,0 +1,39 @@
+{
+  "schema_version": "overgate.phase6.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase6_prechecks_allowed",
+  "command_envelope": {
+    "command_id": "command:overgate:phase6:0001",
+    "command_type": "overgate.phase6.tenant.update",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase6_prechecked",
+    "idempotency_key": "idem:overgate:phase6:0001",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.tenant-update+json",
+    "request_hash": "hash:fixture:phase6_request",
+    "payload_hash": "hash:fixture:phase6_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase6",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase6/tenant_update_payload"
+  },
+  "expected_response": {
+    "status": 202,
+    "schema_version": "overgate.phase6.response.v0",
+    "reason_code": "overgate.command_accepted_phase6",
+    "precheck_state": "prechecked_before_forwarding_phase6",
+    "rate_limit_reason_code": "overgate.rate_limit_allowed_phase6",
+    "quota_reason_code": "overgate.quota_precheck_allowed_phase6",
+    "policy_reason_code": "overgate.policy_not_required_phase6",
+    "command_class": "phase1_control_plane_mutation",
+    "settlement_state": "not_settled_by_overgate"
+  },
+  "local_only": true,
+  "test_only": true
+}
