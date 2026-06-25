@@ -141,22 +141,21 @@ async fn submit_command(
     let fallback_trace = trace_id_hint(&headers, &body, "trace_overgate_phase3_parse_denied");
     let parsed = CommandEnvelope::parse_http(&headers, &body)
         .map_err(|error| api_error_response(fallback_trace.clone(), None, error))?;
-    let schema_validation = validate_command_envelope(&parsed.envelope)
-        .map_err(|error| api_error_response(parsed.envelope.trace_id.clone(), None, error))?;
     let canonical_request = CanonicalRequestInput::from_envelope(
         "POST",
         "/v1/commands",
         &parsed.envelope,
         &parsed.body_hash,
     );
+    let request_id = command_request_id(&canonical_request, &parsed.envelope.trace_id);
+    let schema_validation = validate_command_envelope(&parsed.envelope).map_err(|error| {
+        api_error_response(
+            parsed.envelope.trace_id.clone(),
+            Some(request_id.clone()),
+            error,
+        )
+    })?;
     let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
-    let request_id = format!(
-        "request_{}",
-        stable_short_token(&[
-            canonical_request.canonical_hash.as_str(),
-            parsed.envelope.trace_id.as_str()
-        ])
-    );
 
     Ok((
         StatusCode::ACCEPTED,
@@ -316,6 +315,13 @@ pub(crate) fn stable_short_token(parts: &[&str]) -> String {
     crate::canonical::stable_short_token(parts)
 }
 
+fn command_request_id(canonical_request: &CanonicalRequestInput, trace_id: &str) -> String {
+    format!(
+        "request_{}",
+        stable_short_token(&[canonical_request.canonical_hash.as_str(), trace_id])
+    )
+}
+
 fn api_error_response(
     trace_id: String,
     request_id: Option<String>,
@@ -448,6 +454,10 @@ mod tests {
         assert_eq!(
             body["data"]["canonical_request"]["canonicalization_version"],
             "overgate.canonical.v0.1"
+        );
+        assert_eq!(
+            body["data"]["canonical_request"]["request_hash"],
+            "hash:fixture:phase3_request"
         );
         assert_eq!(
             body["data"]["retention"]["body_retention"],
@@ -642,6 +652,26 @@ mod tests {
         assert_eq!(unsupported.status(), StatusCode::BAD_REQUEST);
         let body = body_json(unsupported).await;
         assert_eq!(body["reason_code"], "schema.unsupported_version");
+
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_bad_canonicalization_version");
+        envelope["signature_metadata"]["canonicalization_version"] =
+            json!("overgate.canonical.v99.0");
+        let unsupported_canonicalization = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("unsupported-canonicalization request should respond");
+        assert_eq!(
+            unsupported_canonicalization.status(),
+            StatusCode::BAD_REQUEST
+        );
+        let body = body_json(unsupported_canonicalization).await;
+        assert_eq!(body["reason_code"], "schema.unsupported_version");
+        assert!(body["data"]["correction_fields"]
+            .as_array()
+            .expect("correction fields should be an array")
+            .iter()
+            .any(|value| value == "signature_metadata.canonicalization_version"));
     }
 
     #[tokio::test]
@@ -670,6 +700,10 @@ mod tests {
             first_body["data"]["canonical_request"]["canonical_hash"],
             second_body["data"]["canonical_request"]["canonical_hash"]
         );
+        assert_eq!(
+            first_body["data"]["canonical_request"]["request_hash"],
+            "hash:fixture:phase3_request"
+        );
 
         let app = OvergateService::default().router();
         let mut changed = valid_command_envelope("trace_canonical");
@@ -682,6 +716,23 @@ mod tests {
         assert_ne!(
             first_body["data"]["canonical_request"]["canonical_hash"],
             changed_body["data"]["canonical_request"]["canonical_hash"]
+        );
+
+        let app = OvergateService::default().router();
+        let mut changed_request_hash = valid_command_envelope("trace_canonical");
+        changed_request_hash["request_hash"] = json!("hash:fixture:phase3_request_changed");
+        let changed_request_hash_response = app
+            .oneshot(command_post("/v1/commands", changed_request_hash))
+            .await
+            .expect("request-hash changed canonical request should respond");
+        let changed_request_hash_body = body_json(changed_request_hash_response).await;
+        assert_ne!(
+            first_body["data"]["canonical_request"]["canonical_hash"],
+            changed_request_hash_body["data"]["canonical_request"]["canonical_hash"]
+        );
+        assert_eq!(
+            changed_request_hash_body["data"]["canonical_request"]["request_hash"],
+            "hash:fixture:phase3_request_changed"
         );
     }
 

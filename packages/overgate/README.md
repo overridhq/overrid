@@ -41,10 +41,11 @@ Accepted command responses include:
 
 - Shared schema adapter evidence: `overgate.phase3.shared_schema_adapter`
 - Canonicalization version: `overgate.canonical.v0.1`
+- Canonical request inputs including `request_hash`, `payload_hash`, `body_hash`, tenant, actor, idempotency, timestamp, and credential metadata
 - Hash/ref-only retention policy: `overgate.phase3.hashes_and_refs_only`
 - Forwarding state: `not_forwarded_phase3_validation_only`
 
-Denied command responses use stable API error fields: `reason_code`, `trace_id`, `retryability`, `correction_fields`, `correction_hint`, dependency name when relevant, and redacted diagnostics. Private payloads, raw secrets, and credential material must not appear in error bodies.
+Denied command responses use stable API error fields: `reason_code`, `trace_id`, `request_id` when the envelope parsed far enough to derive one, `retryability`, `correction_fields`, `correction_hint`, dependency name when relevant, and redacted diagnostics. Private payloads, raw secrets, and credential material must not appear in error bodies.
 
 ## Fixtures
 
@@ -54,5 +55,6 @@ Denied command responses use stable API error fields: `reason_code`, `trace_id`,
 - `fixtures/invalid/phase3_missing_tenant.invalid.json` proves missing required command fields deny with a stable schema error.
 - `fixtures/invalid/phase3_unknown_private_payload.invalid.json` proves sensitive unknown fields are rejected.
 - `fixtures/invalid/phase3_raw_secret.invalid.json` proves raw secret markers are rejected before storage or diagnostics.
+- `fixtures/invalid/phase3_wrong_canonicalization_version.invalid.json` proves signed command envelopes must use the current Overgate canonicalization version.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

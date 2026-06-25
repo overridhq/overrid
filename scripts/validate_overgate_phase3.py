@@ -28,6 +28,9 @@ INVALID_UNKNOWN_FIELD = Path(
     "packages/overgate/fixtures/invalid/phase3_unknown_private_payload.invalid.json"
 )
 INVALID_RAW_SECRET = Path("packages/overgate/fixtures/invalid/phase3_raw_secret.invalid.json")
+INVALID_CANONICALIZATION_VERSION = Path(
+    "packages/overgate/fixtures/invalid/phase3_wrong_canonicalization_version.invalid.json"
+)
 SUB_PLAN = Path("docs/build_plan/sub_build_plan_008_overgate.md")
 TECH_STACK = Path("docs/overrid_tech_stack_choice.md")
 PHASE_PLAN = Path("docs/planning/overgate_phase_03_plan.md")
@@ -146,6 +149,7 @@ def validate_rust_sources() -> None:
         "tenant_id",
         "actor_id",
         "idempotency_key",
+        "request_hash",
         "payload_hash",
         "timestamp",
         "credential_id",
@@ -163,6 +167,8 @@ def validate_rust_sources() -> None:
         "schema.parse_malformed_payload",
         "schema.unsupported_version",
         "schema.wrong_privacy_class",
+        "unsupported_canonicalization_version",
+        "signature_metadata.canonicalization_version",
     ):
         assert_contains(errors, expected, ERRORS)
 
@@ -191,6 +197,7 @@ def validate_fixtures() -> None:
     missing_tenant = load_json(INVALID_MISSING_TENANT)
     unknown_field = load_json(INVALID_UNKNOWN_FIELD)
     raw_secret = load_json(INVALID_RAW_SECRET)
+    bad_canonicalization = load_json(INVALID_CANONICALIZATION_VERSION)
 
     for fixture, path in (
         (valid_phase2, VALID_PHASE2_FIXTURE),
@@ -225,6 +232,23 @@ def validate_fixtures() -> None:
         raise AssertionError("raw secret fixture must expect schema.raw_secret_rejected")
     if raw_secret["command_envelope"]["payload_ref"] != "raw_secret_value":
         raise AssertionError("raw secret fixture must carry the sentinel marker")
+    if bad_canonicalization["expected_denial"]["reason_code"] != "schema.unsupported_version":
+        raise AssertionError(
+            "wrong canonicalization fixture must expect schema.unsupported_version"
+        )
+    if (
+        bad_canonicalization["command_envelope"]["signature_metadata"][
+            "canonicalization_version"
+        ]
+        == "overgate.canonical.v0.1"
+    ):
+        raise AssertionError("wrong canonicalization fixture must use a non-current version")
+    if "signature_metadata.canonicalization_version" not in bad_canonicalization[
+        "expected_denial"
+    ]["correction_fields"]:
+        raise AssertionError(
+            "wrong canonicalization fixture must correct canonicalization version"
+        )
 
 
 def validate_tests_and_readme() -> None:
@@ -255,6 +279,7 @@ def validate_tests_and_readme() -> None:
         "correction_fields",
         "redacted diagnostics",
         "fixtures/valid/phase3_command.valid.json",
+        "fixtures/invalid/phase3_wrong_canonicalization_version.invalid.json",
     ):
         assert_contains(readme, expected, README)
 

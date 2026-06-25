@@ -2,7 +2,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::HeaderMap;
 use serde::{Deserialize, Serialize};
 
-use crate::canonical::body_hash_ref;
+use crate::canonical::{body_hash_ref, CANONICALIZATION_VERSION};
 use crate::errors::OvergateError;
 
 pub const MAX_COMMAND_ENVELOPE_BYTES: usize = 16 * 1024;
@@ -140,6 +140,9 @@ impl SignatureMetadata {
         }
         if self.algorithm != "ed25519" {
             return Err(OvergateError::malformed_ref("signature_metadata.algorithm"));
+        }
+        if self.canonicalization_version != CANONICALIZATION_VERSION {
+            return Err(OvergateError::unsupported_canonicalization_version());
         }
         Ok(())
     }

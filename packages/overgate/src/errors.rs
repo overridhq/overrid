@@ -98,6 +98,17 @@ impl OvergateError {
         )
     }
 
+    pub fn unsupported_canonicalization_version() -> Self {
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "schema.unsupported_version",
+            Retryability::NotRetryable,
+            vec!["signature_metadata.canonicalization_version"],
+            "Use the Overgate canonicalization version for signed command envelopes.",
+            "unsupported_canonicalization_version",
+        )
+    }
+
     pub fn unsupported_command_type() -> Self {
         Self::new(
             StatusCode::BAD_REQUEST,
