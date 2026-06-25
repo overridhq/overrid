@@ -53,12 +53,12 @@ Denied command responses use stable API error fields: `reason_code`, `trace_id`,
 
 Accepted command responses use `overgate.phase4.response.v0`, `overgate.command_admitted_phase4`, and `not_forwarded_phase4_admission_only`. The response includes:
 
-- Overkey-lite signature evidence with `credential_id`, public-key ref, key version, algorithm, canonicalization version, replay-window state, revocation state, rotation state, and `auth.signature_verified_phase4`.
+- Overkey-lite signature evidence with `credential_id`, public-key ref, key version, algorithm allowlisting, canonicalization version, replay-window state, revocation state, rotation state, and `auth.signature_verified_phase4`.
 - Overpass actor-resolution evidence with actor type, active state, identity ref, local environment ref, and `auth.actor_resolved_phase4`.
 - Overtenant authorization evidence with tenant state, membership, app ownership, delegated access, role binding, service-account permission, quota scope ref, and `auth.tenant_authorized_phase4`.
 - Service-account and node-agent admission evidence with narrow command-class state, scoped credential state, callback signature state, trace/audit context state, and signed command requirements.
 
-The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-tenant, wrong-key-version, disabled, suspended, deleted-marker, wrong-type, environment-mismatched, cross-tenant, role-denied, broad service-account, wrong callback-class, and missing audit-context cases using stable `auth.*` reason codes. Operator/admin routes require typed signed operator or system-service credentials, remain tenant-scoped, emit audit-hook refs, and fail closed with `auth.operator_audit_unavailable` when Overwatch readiness is unavailable.
+The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-tenant, wrong-key-version, unsupported-algorithm, disabled, suspended, deleted-marker, wrong-type, environment-mismatched, cross-tenant, role-denied, broad service-account, wrong callback-class, and missing audit-context cases using stable `auth.*` reason codes. Operator/admin routes require typed signed operator or system-service credentials, remain tenant-scoped, emit audit-hook refs, and fail closed with `auth.operator_audit_unavailable` when Overwatch readiness is unavailable.
 
 ## Fixtures
 
@@ -71,6 +71,8 @@ The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-ten
 - `fixtures/invalid/phase3_wrong_canonicalization_version.invalid.json` proves signed command envelopes must use the current Overgate canonicalization version.
 - `fixtures/valid/phase4_command.valid.json` defines a Phase 4 service-account admission fixture with signature, actor, tenant, and audit evidence expectations.
 - `fixtures/invalid/phase4_revoked_credential.invalid.json` proves revoked credentials deny through Overkey-lite admission before side effects.
+- `fixtures/invalid/phase4_unsupported_algorithm.invalid.json` proves unsupported signature algorithms deny through Overkey-lite admission before side effects.
+- `fixtures/invalid/phase4_actor_unknown.invalid.json` proves unknown actors deny through Overpass admission before idempotency or forwarding.
 - `fixtures/invalid/phase4_actor_disabled.invalid.json` proves disabled actors deny through Overpass admission before idempotency or forwarding.
 - `fixtures/invalid/phase4_tenant_role_denied.invalid.json` proves role-denied tenant authorization fails through Overtenant admission.
 - `fixtures/invalid/phase4_service_account_broad.invalid.json` proves broad service-account command classes are rejected.

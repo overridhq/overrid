@@ -21,6 +21,10 @@ ERRORS = Path("packages/overgate/src/errors.rs")
 README = Path("packages/overgate/README.md")
 VALID_PHASE4_FIXTURE = Path("packages/overgate/fixtures/valid/phase4_command.valid.json")
 INVALID_REVOKED = Path("packages/overgate/fixtures/invalid/phase4_revoked_credential.invalid.json")
+INVALID_UNSUPPORTED_ALGORITHM = Path(
+    "packages/overgate/fixtures/invalid/phase4_unsupported_algorithm.invalid.json"
+)
+INVALID_ACTOR_UNKNOWN = Path("packages/overgate/fixtures/invalid/phase4_actor_unknown.invalid.json")
 INVALID_ACTOR_DISABLED = Path("packages/overgate/fixtures/invalid/phase4_actor_disabled.invalid.json")
 INVALID_TENANT_ROLE = Path("packages/overgate/fixtures/invalid/phase4_tenant_role_denied.invalid.json")
 INVALID_SERVICE_BROAD = Path("packages/overgate/fixtures/invalid/phase4_service_account_broad.invalid.json")
@@ -135,6 +139,8 @@ def validate_rust_sources() -> None:
         "auth.credential_rotation_denied",
         "auth.credential_wrong_tenant",
         "auth.key_version_denied",
+        "auth.signature_algorithm_denied",
+        "auth.actor_unknown",
         "auth.actor_disabled",
         "auth.actor_suspended",
         "auth.actor_deleted",
@@ -193,6 +199,13 @@ def validate_fixtures() -> None:
     valid = load_json(VALID_PHASE4_FIXTURE)
     invalid_cases = [
         (INVALID_REVOKED, "auth.credential_revoked", "overkey_lite", 401),
+        (
+            INVALID_UNSUPPORTED_ALGORITHM,
+            "auth.signature_algorithm_denied",
+            "overkey_lite",
+            401,
+        ),
+        (INVALID_ACTOR_UNKNOWN, "auth.actor_unknown", "overpass", 403),
         (INVALID_ACTOR_DISABLED, "auth.actor_disabled", "overpass", 403),
         (INVALID_TENANT_ROLE, "auth.tenant_role_denied", "overtenant", 403),
         (INVALID_SERVICE_BROAD, "auth.service_account_scope_denied", "overtenant", 403),
@@ -255,6 +268,8 @@ def validate_tests_and_readme() -> None:
         "not_forwarded_phase4_admission_only",
         "auth.operator_audit_unavailable",
         "fixtures/valid/phase4_command.valid.json",
+        "fixtures/invalid/phase4_unsupported_algorithm.invalid.json",
+        "fixtures/invalid/phase4_actor_unknown.invalid.json",
         "fixtures/invalid/phase4_service_account_broad.invalid.json",
     ):
         assert_contains(readme, expected, README)

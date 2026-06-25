@@ -138,9 +138,6 @@ impl SignatureMetadata {
                 "signature_metadata.signature_ref",
             ));
         }
-        if self.algorithm != "ed25519" {
-            return Err(OvergateError::malformed_ref("signature_metadata.algorithm"));
-        }
         if self.canonicalization_version != CANONICALIZATION_VERSION {
             return Err(OvergateError::unsupported_canonicalization_version());
         }

@@ -875,6 +875,18 @@ mod tests {
                 "auth.key_version_denied",
             ),
             (
+                "algorithm",
+                json!("rsa-pkcs1v15"),
+                StatusCode::UNAUTHORIZED,
+                "auth.signature_algorithm_denied",
+            ),
+            (
+                "actor_id",
+                json!("actor:unknown:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_unknown",
+            ),
+            (
                 "actor_id",
                 json!("actor:disabled:local"),
                 StatusCode::FORBIDDEN,
@@ -968,6 +980,7 @@ mod tests {
                 "timestamp" => envelope["timestamp"] = value,
                 "signature_ref" => envelope["signature_metadata"]["signature_ref"] = value,
                 "key_version" => envelope["signature_metadata"]["key_version"] = value,
+                "algorithm" => envelope["signature_metadata"]["algorithm"] = value,
                 "actor_id" => envelope["actor_id"] = value,
                 "tenant_id" => envelope["tenant_id"] = value,
                 "service_account_broad" => {

@@ -144,6 +144,7 @@ fn verify_signature(
     let signature_ref = envelope.signature_metadata.signature_ref.as_str();
     let credential_id = envelope.credential_id.as_str();
     let key_version = envelope.signature_metadata.key_version.as_str();
+    let algorithm = envelope.signature_metadata.algorithm.as_str();
     let timestamp = envelope.timestamp.as_str();
 
     if signature_ref.contains("malformed") || signature_ref.contains("invalid") {
@@ -200,6 +201,13 @@ fn verify_signature(
             "auth.key_version_denied",
             "signature_metadata.key_version",
             "key_version_denied",
+        ));
+    }
+    if algorithm != "ed25519" {
+        return Err(OvergateError::credential_denied(
+            "auth.signature_algorithm_denied",
+            "signature_metadata.algorithm",
+            "signature_algorithm_denied",
         ));
     }
 
