@@ -131,6 +131,18 @@ Admin routes now return `overgate.phase9.response.v0` responses with the shared 
 
 `GET /v1/admin/rate-limits` returns role-scoped operations diagnostics for rate-limit buckets, quota-precheck refs, local counter refs, grant placeholder refs, policy decision refs, denial reason distribution, dependency refs, incident hooks, and operator runbook steps. Budget, grant, tenant-private, and raw payload values remain redacted; clients should render typed fields and must not parse free-form messages.
 
+## Phase 10 Validation, Documentation Alignment, And Downstream Handoff
+
+Phase 10 closes the Overgate sub-build plan without adding new route authority. It validates the sub-build-plan structure, tech-stack alignment, master-plan/crosswalk/SDS/service-catalog links, and downstream handoff rules while preserving Overgate as an ingress boundary.
+
+Phase 10 artifacts:
+
+- `packages/overgate/handoff/phase10/structure_validation.valid.json`
+- `packages/overgate/handoff/phase10/alignment_checklist.valid.json`
+- `packages/overgate/handoff/phase10/downstream_handoff_rules.valid.json`
+
+The focused validator is `scripts/validate_overgate_phase10.py`. It checks the Phase 10 docs and artifacts, confirms aggregate validation wiring, and verifies that downstream consumers use Overgate admission records, trace ids, audit refs, idempotency refs, quota refs, policy refs, forwarding records, and typed client denial refs without moving owner-service runtime authority into Overgate.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.

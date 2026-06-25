@@ -402,6 +402,19 @@ Any new Overgate command type, authority exception, idempotency class, quota-pre
   - Output: Downstream handoff checklist and owner-service expansion rules.
   - Validation: Handoff review confirms later services can depend on Overgate admission records, trace ids, audit refs, idempotency refs, quota refs, and forwarding records without moving their runtime authority into Overgate.
 
+### Phase 10 Gate Outputs
+
+| Artifact | Phase 10 output | Authority state |
+| --- | --- | --- |
+| [Structure validation](../../packages/overgate/handoff/phase10/structure_validation.valid.json) | Script-readable result for title prefix, attached SDS link, phase headings, work-item fields, exit gate, and local Markdown links. | `non_runtime_validation_artifact` |
+| [Alignment checklist](../../packages/overgate/handoff/phase10/alignment_checklist.valid.json) | Script-readable checklist for Rust-first Overgate service boundaries, signed command envelopes, canonical JSON plus JSON Schema, native Overqueue/Overwatch handoff, master-plan order, SDS, service-catalog, and crosswalk alignment. | `non_runtime_validation_artifact` |
+| [Downstream handoff rules](../../packages/overgate/handoff/phase10/downstream_handoff_rules.valid.json) | Owner-service handoff rules for admission records, trace ids, request ids, command refs, audit refs, idempotency refs, quota refs, policy refs, forwarding records, and client denial refs. | `owner_services_retain_runtime_authority` |
+| [Phase 10 plan](../planning/overgate_phase_10_plan.md) | Implementation and validation plan for the Phase 10 closure slice. | `planning_only` |
+| [Phase 10 progress](../planning/overgate_phase_10_progress.md) | Progress and validation evidence trail for the Phase 10 closure slice. | `planning_only` |
+| [Overgate README](../../packages/overgate/README.md) | Operator-facing summary of Phase 10 artifacts and downstream handoff expectations. | `documentation_only` |
+
+Phase 10 confirms that Overpass, Overtenant, Overkey, Overregistry, Overwatch, Overqueue, Overguard, Overmeter, ORU, Seal Ledger, Overpack, Overrun, SDK, CLI, admin UI, adapters, native apps, mobile clients, and grid-resident system services can consume Overgate outputs without moving runtime authority into Overgate.
+
 ## Alignment Review
 
 - The sub-build plan keeps Overgate's first build point in master Phase 1, matching SDS #8, the service catalog entry, Phase 1 plan, master build plan, and build-plan crosswalk.

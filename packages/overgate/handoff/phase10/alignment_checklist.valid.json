@@ -1,0 +1,75 @@
+{
+  "artifact_id": "overgate_phase10_alignment_checklist",
+  "capability_profile": "phase10-validation-documentation-downstream-handoff",
+  "artifact_path": "packages/overgate/handoff/phase10/alignment_checklist.valid.json",
+  "source_build_plan": "docs/build_plan/sub_build_plan_008_overgate.md",
+  "phase": 10,
+  "master_alignment": "phase1_control_plane_with_phase0_prerequisites_and_later_hardening",
+  "runtime_authority": false,
+  "checks": [
+    "rust_first_control_plane_service",
+    "signed_command_envelopes",
+    "canonical_json_plus_json_schema",
+    "native_overqueue_boundary",
+    "native_overwatch_boundary",
+    "no_conventional_cloud_product_boundary",
+    "no_downstream_finality_or_lifecycle_authority"
+  ],
+  "items": [
+    {
+      "domain": "tech_stack",
+      "source_path": "docs/overrid_tech_stack_choice.md",
+      "expected_marker": "Overrid should use a Rust-first infrastructure stack.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "preserves_signed_envelopes": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "master_plan",
+      "source_path": "docs/build_plan/master_plan.md",
+      "expected_marker": "SDS #8: [Overgate]",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "preserves_signed_envelopes": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "crosswalk",
+      "source_path": "docs/build_plan/service_catalog_alignment.md",
+      "expected_marker": "| SDS #8 | [Overgate]",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "preserves_signed_envelopes": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "sds",
+      "source_path": "docs/sds/control_plane/overgate.md",
+      "expected_marker": "Downstream services own their domain state. Overgate must not write their private records directly.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "preserves_signed_envelopes": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    },
+    {
+      "domain": "service_catalog",
+      "source_path": "docs/service_catalog/control_plane/overgate.md",
+      "expected_marker": "Overgate must not write private downstream records directly.",
+      "preserves_phase_order": true,
+      "preserves_rust_first": true,
+      "preserves_signed_envelopes": true,
+      "owner_authority_retained": true,
+      "no_conventional_cloud_boundary": true,
+      "runtime_authority": false
+    }
+  ]
+}

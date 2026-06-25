@@ -1,0 +1,194 @@
+{
+  "artifact_id": "overgate_phase10_downstream_handoff_rules",
+  "capability_profile": "phase10-validation-documentation-downstream-handoff",
+  "artifact_path": "packages/overgate/handoff/phase10/downstream_handoff_rules.valid.json",
+  "source_build_plan": "docs/build_plan/sub_build_plan_008_overgate.md",
+  "phase": 10,
+  "runtime_authority_profile": "owner_services_not_overgate",
+  "runtime_authority": false,
+  "admission_outputs": [
+    "admission_record",
+    "trace_id",
+    "request_id",
+    "command_ref",
+    "audit_refs",
+    "idempotency_ref",
+    "quota_ref",
+    "policy_decision_ref",
+    "forwarding_record",
+    "client_denial_refs"
+  ],
+  "consumers": [
+    {
+      "consumer": "overpass",
+      "consumed_outputs": ["trace_id", "request_id", "admission_record"],
+      "required_handoff_ref": "actor_resolution_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overtenant",
+      "consumed_outputs": ["trace_id", "request_id", "admission_record", "quota_ref"],
+      "required_handoff_ref": "tenant_authorization_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overkey",
+      "consumed_outputs": ["trace_id", "request_id", "admission_record"],
+      "required_handoff_ref": "signature_check_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overregistry",
+      "consumed_outputs": ["command_ref", "trace_id", "audit_refs"],
+      "required_handoff_ref": "manifest_command_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overwatch",
+      "consumed_outputs": ["audit_refs", "trace_id", "admission_record", "client_denial_refs"],
+      "required_handoff_ref": "overwatch_event_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overqueue",
+      "consumed_outputs": ["forwarding_record", "command_ref", "idempotency_ref", "audit_refs"],
+      "required_handoff_ref": "overqueue_item_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overguard",
+      "consumed_outputs": ["policy_decision_ref", "trace_id", "client_denial_refs"],
+      "required_handoff_ref": "policy_dry_run_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overmeter",
+      "consumed_outputs": ["quota_ref", "trace_id", "audit_refs"],
+      "required_handoff_ref": "usage_snapshot_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "oru_account_service",
+      "consumed_outputs": ["quota_ref", "trace_id", "audit_refs"],
+      "required_handoff_ref": "oru_precheck_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "seal_ledger",
+      "consumed_outputs": ["audit_refs", "trace_id", "command_ref"],
+      "required_handoff_ref": "ledger_append_candidate_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overpack",
+      "consumed_outputs": ["command_ref", "forwarding_record", "trace_id"],
+      "required_handoff_ref": "package_manifest_command_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "overrun",
+      "consumed_outputs": ["command_ref", "forwarding_record", "audit_refs"],
+      "required_handoff_ref": "lease_bound_execution_command_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "sdk",
+      "consumed_outputs": ["trace_id", "request_id", "command_ref", "client_denial_refs"],
+      "required_handoff_ref": "typed_client_response_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "cli",
+      "consumed_outputs": ["trace_id", "request_id", "command_ref", "client_denial_refs"],
+      "required_handoff_ref": "stable_json_output_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "admin_developer_ui",
+      "consumed_outputs": ["trace_id", "request_id", "audit_refs", "client_denial_refs"],
+      "required_handoff_ref": "operator_view_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "adapters",
+      "consumed_outputs": ["trace_id", "request_id", "command_ref", "forwarding_record"],
+      "required_handoff_ref": "adapter_command_envelope_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "native_apps",
+      "consumed_outputs": ["trace_id", "request_id", "command_ref", "client_denial_refs"],
+      "required_handoff_ref": "native_app_client_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "mobile_clients",
+      "consumed_outputs": ["trace_id", "request_id", "command_ref", "client_denial_refs"],
+      "required_handoff_ref": "mobile_command_response_contract",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    },
+    {
+      "consumer": "grid_resident_system_services",
+      "consumed_outputs": ["trace_id", "audit_refs", "forwarding_record", "idempotency_ref"],
+      "required_handoff_ref": "grid_resident_operation_ref",
+      "owner_authority_retained": true,
+      "overgate_runtime_authority": false,
+      "direct_downstream_state_write": false,
+      "finality_stays_with_owner": true
+    }
+  ]
+}
