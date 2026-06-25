@@ -50,6 +50,9 @@ packages/**/generated/**
 !packages/schemas/admin_ui/generated/typescript/
 !packages/schemas/admin_ui/generated/typescript/admin_ui_contracts.d.ts
 !packages/schemas/admin_ui/generated/typescript/admin_read_api_contracts.d.ts
+!packages/schemas/overrid_contracts/generated/
+!packages/schemas/overrid_contracts/generated/docs/
+!packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_*.md
 infra/local/state/*
 !infra/local/state/.gitignore
 infra/local/job-tables/*

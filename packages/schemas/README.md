@@ -29,7 +29,7 @@ Rules:
 - Shared Schema Package Phase 6 defines fixture builders, golden envelope fixtures, SDS #3 integration-harness reuse, SDS #4 local-stack reset bundles, and non-authoritative validation artifact metadata.
 - Shared Schema Package Phase 7 defines schema comparison, deprecation metadata, current-plus-previous stable major compatibility, authority-sensitive migration gates, and consumer impact report metadata.
 - Shared Schema Package Phase 8 defines owner-gated downstream domain schema expansion metadata for execution/scheduling, trust/policy/verification, accounting/rights/settlement, data/storage/namespace/secret refs, and AI/Docdex/mobile/native-app/ADES-facing contracts.
-- Shared Schema Package Phase 9 defines release workflow, CI enforcement, consumer registry, schema coverage reports, generated docs publishing, and product-hardening metadata for public contract consumers.
+- Shared Schema Package Phase 9 defines release workflow, CI enforcement, consumer registry, schema coverage reports, generated docs publishing, and product-hardening metadata for public contract consumers. The Phase 9 generated docs bundle is published under `packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_*.md` and remains non-authoritative.
 
 ## Schema Ownership Metadata
 

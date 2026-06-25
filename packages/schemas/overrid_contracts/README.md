@@ -105,6 +105,15 @@ build-plan phase gates, and Phase 6 product integrations must not bypass
 generated contracts, Overgate envelopes, stable errors, privacy classes, or
 redaction rules.
 
+Published Phase 9 generated documentation artifacts:
+
+- `generated/docs/shared_schema_package_phase9_schema_reference.md`
+- `generated/docs/shared_schema_package_phase9_reason_codes.md`
+- `generated/docs/shared_schema_package_phase9_migration_notes.md`
+- `generated/docs/shared_schema_package_phase9_compatibility_report.md`
+- `generated/docs/shared_schema_package_phase9_fixture_examples.md`
+- `generated/docs/shared_schema_package_phase9_consumer_registry.md`
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

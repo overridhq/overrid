@@ -35,6 +35,15 @@ VALID_FIXTURES = [
     Path("packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase9.valid.json"),
 ]
 
+GENERATED_DOCS = [
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_schema_reference.md"),
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_reason_codes.md"),
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_migration_notes.md"),
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_compatibility_report.md"),
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_fixture_examples.md"),
+    Path("packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_consumer_registry.md"),
+]
+
 INVALID_FIXTURES = {
     Path(
         "packages/schemas/overrid_contracts/fixtures/invalid/"
@@ -160,6 +169,7 @@ def check_required_files() -> None:
         PHASE_PROGRESS,
         TECH_STACK,
         SUITE_VALIDATOR,
+        *GENERATED_DOCS,
         *VALID_FIXTURES,
         *INVALID_FIXTURES.keys(),
     ]:
@@ -364,11 +374,33 @@ def check_docs_and_planning() -> None:
     schemas_readme = read_text(SCHEMAS_README)
     assert_contains(schemas_readme, "Shared Schema Package Phase 9", SCHEMAS_README)
     assert_contains(schemas_readme, "release workflow, CI enforcement, consumer registry", SCHEMAS_README)
+    assert_contains(schemas_readme, "shared_schema_package_phase9_*.md", SCHEMAS_README)
+    for doc_path in GENERATED_DOCS:
+        assert_contains(contracts_readme, doc_path.name, CONTRACTS_README)
 
     phase_plan = read_text(PHASE_PLAN)
     phase_progress = read_text(PHASE_PROGRESS)
     assert_contains(phase_plan, "Complete SUB BUILD PLAN #7 Phase 9", PHASE_PLAN)
     assert_contains(phase_progress, "Shared Schema Package Phase 9 Progress", PHASE_PROGRESS)
+
+
+def check_generated_docs_bundle(manifest: dict[str, Any]) -> None:
+    entry = manifest.get("shared_schema_package_phase9", {})
+    items = entry.get("documentation_publishing_items", [])
+    expected_paths = {str(path) for path in GENERATED_DOCS}
+    manifest_paths = {item.get("output_path") for item in items if isinstance(item, dict)}
+    assert_true(expected_paths == manifest_paths, "Phase 9 generated docs bundle drifted from manifest")
+
+    for doc_path in GENERATED_DOCS:
+        text = read_text(doc_path)
+        assert_contains(text, "Shared Schema Package Phase 9", doc_path)
+        assert_contains(text, f"Source of truth: `{CANONICAL_SCHEMA}`", doc_path)
+        assert_contains(text, f"Source manifest: `{MANIFEST_PATH}`", doc_path)
+        assert_contains(text, "Owning SDS: `docs/sds/foundation/shared_schema_package.md`", doc_path)
+        assert_contains(text, "Build-plan phase gate:", doc_path)
+        assert_contains(text, BUILD_PLAN_PATH, doc_path)
+        assert_contains(text, f"Tech-stack authority: `{TECH_STACK_PATH}`", doc_path)
+        assert_contains(text, "Authority: `non_authoritative_projection`", doc_path)
 
 
 def check_rust_projection() -> None:
@@ -407,6 +439,7 @@ def main() -> int:
     check_manifest(manifest)
     check_fixtures()
     check_docs_and_planning()
+    check_generated_docs_bundle(manifest)
     check_rust_projection()
     check_suite_wiring()
     run(["cargo", "test", "-p", "overrid-contracts", "shared_schema_phase9"])
