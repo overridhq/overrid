@@ -24,6 +24,7 @@ struct PrecheckState {
     rate_buckets: HashMap<RateLimitScope, RateLimitBucket>,
     quota_records: Vec<QuotaPrecheckRecord>,
     policy_records: Vec<PolicyCheckRecord>,
+    precheck_results: HashMap<String, Result<PrecheckOutcome, OvergateError>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -129,6 +130,7 @@ pub struct QuotaPrecheckRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PolicyCheckRecord {
+    pub tenant_id: String,
     pub dependency_id: &'static str,
     pub handoff_state: &'static str,
     pub required: bool,
@@ -202,26 +204,46 @@ impl PrecheckInput {
 
 impl PrecheckStore {
     pub fn precheck_command(&self, input: PrecheckInput) -> Result<PrecheckOutcome, OvergateError> {
+        if input.idempotency_reason_code == "overgate.idempotency_replayed" {
+            let state = self.lock_state();
+            if let Some(result) = state.precheck_results.get(&input.idempotency_record_ref) {
+                return result.clone();
+            }
+        }
+
         let command_class = CommandClassAdmission::from_command_type(&input.command_type);
         if !command_class.matrix_complete() {
-            return Err(OvergateError::command_class_matrix_denied());
+            let error = OvergateError::command_class_matrix_denied();
+            let mut state = self.lock_state();
+            state
+                .precheck_results
+                .insert(input.idempotency_record_ref.clone(), Err(error.clone()));
+            return Err(error);
         }
 
         let mut state = self.lock_state();
         let rate_limit = state.consume_rate_limit(&input, command_class.command_class);
         if rate_limit.denied {
-            return Err(OvergateError::rate_limited(vec![
+            let error = OvergateError::rate_limited(vec![
                 rate_limit.bucket_id.clone(),
                 rate_limit.audit_ref.clone(),
                 rate_limit.reset_ref.clone(),
-            ]));
+            ]);
+            state
+                .precheck_results
+                .insert(input.idempotency_record_ref.clone(), Err(error.clone()));
+            return Err(error);
         }
 
         let quota_precheck = QuotaPrecheckRecord::from_input(&input, &command_class, &rate_limit);
         if !quota_precheck.allowed {
             let refs = quota_precheck.client_denial_refs();
             state.quota_records.push(quota_precheck);
-            return Err(OvergateError::quota_precheck_denied(refs));
+            let error = OvergateError::quota_precheck_denied(refs);
+            state
+                .precheck_results
+                .insert(input.idempotency_record_ref.clone(), Err(error.clone()));
+            return Err(error);
         }
 
         let policy_check = PolicyCheckRecord::from_input(&input, &command_class);
@@ -236,7 +258,11 @@ impl PrecheckStore {
             ];
             state.quota_records.push(quota_precheck);
             state.policy_records.push(policy_check);
-            return Err(OvergateError::policy_denied(refs));
+            let error = OvergateError::policy_denied(refs);
+            state
+                .precheck_results
+                .insert(input.idempotency_record_ref.clone(), Err(error.clone()));
+            return Err(error);
         }
 
         let client_denial_surface =
@@ -244,7 +270,7 @@ impl PrecheckStore {
         state.quota_records.push(quota_precheck.clone());
         state.policy_records.push(policy_check.clone());
 
-        Ok(PrecheckOutcome {
+        let outcome = PrecheckOutcome {
             adapter_id: PHASE6_PRECHECK_ADAPTER_ID,
             precheck_state: "prechecked_before_forwarding_phase6",
             command_class,
@@ -252,10 +278,19 @@ impl PrecheckStore {
             quota_precheck,
             policy_check,
             client_denial_surface,
-        })
+        };
+        state
+            .precheck_results
+            .insert(input.idempotency_record_ref.clone(), Ok(outcome.clone()));
+        Ok(outcome)
     }
 
-    pub fn policy_dry_run(&self, payload: &Value, trace_id: &str) -> PolicyCheckRecord {
+    pub fn policy_dry_run(
+        &self,
+        tenant_id: &str,
+        payload: &Value,
+        trace_id: &str,
+    ) -> PolicyCheckRecord {
         let command_type = payload
             .get("command_type")
             .and_then(Value::as_str)
@@ -265,7 +300,8 @@ impl PrecheckStore {
             .and_then(Value::as_str)
             .unwrap_or("allow");
         let class = CommandClassAdmission::from_command_type(command_type);
-        let mut record = PolicyCheckRecord::from_command_type(command_type, &class, trace_id);
+        let mut record =
+            PolicyCheckRecord::from_command_type(command_type, tenant_id, &class, trace_id);
         if decision == "deny" {
             record.allowed = false;
             record.reason_code = "overgate.policy_dry_run_denied_phase6";
@@ -313,6 +349,7 @@ impl PrecheckStore {
         let policy_decision_refs = state
             .policy_records
             .iter()
+            .filter(|record| record.tenant_id == tenant_id)
             .map(|record| record.decision_ref.clone())
             .collect::<Vec<_>>();
 
@@ -623,11 +660,17 @@ impl QuotaPrecheckRecord {
 
 impl PolicyCheckRecord {
     fn from_input(input: &PrecheckInput, command_class: &CommandClassAdmission) -> Self {
-        Self::from_command_type(&input.command_type, command_class, &input.trace_id)
+        Self::from_command_type(
+            &input.command_type,
+            &input.tenant_id,
+            command_class,
+            &input.trace_id,
+        )
     }
 
     fn from_command_type(
         command_type: &str,
+        tenant_id: &str,
         command_class: &CommandClassAdmission,
         trace_id: &str,
     ) -> Self {
@@ -644,6 +687,7 @@ impl PolicyCheckRecord {
             Vec::new()
         };
         Self {
+            tenant_id: tenant_id.to_owned(),
             dependency_id: "overguard",
             handoff_state: if required {
                 "overguard_dry_run_handoff_phase6"

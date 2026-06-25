@@ -361,7 +361,11 @@ async fn policy_dry_run(
     Json(payload): Json<Value>,
 ) -> (StatusCode, Json<ApiResponse<PolicyDryRunData>>) {
     let trace_id = trace_id(&headers, "trace_overgate_phase6_policy_dry_run");
-    let policy_check = state.prechecks.policy_dry_run(&payload, &trace_id);
+    let tenant_scope =
+        header_value(&headers, TENANT_HEADER).unwrap_or_else(|| "tenant:local:test".to_owned());
+    let policy_check = state
+        .prechecks
+        .policy_dry_run(&tenant_scope, &payload, &trace_id);
     (
         StatusCode::ACCEPTED,
         Json(ApiResponse::new(
@@ -1134,6 +1138,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase6_idempotency_replays_reuse_prechecks_without_recounting_rate_limits() {
+        let app = OvergateService::default().router();
+        let mut original = valid_command_envelope("trace_phase6_replay_original");
+        original["command_id"] = json!("command:overgate:phase6:replay:original");
+        original["command_type"] = json!("overgate.phase6.tenant.update");
+        original["idempotency_key"] = json!("idem:overgate:phase6:replay");
+        original["request_hash"] = json!("hash:fixture:phase6_replay_request");
+        original["payload_hash"] = json!("hash:fixture:phase6_replay_payload");
+        original["timestamp"] = json!("2026-06-25T02:00:00Z");
+
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", original.clone()))
+            .await
+            .expect("original replay command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+        let replay = app
+            .clone()
+            .oneshot(command_post("/v1/commands", original))
+            .await
+            .expect("idempotency replay command should respond");
+        assert_eq!(replay.status(), StatusCode::OK);
+        let body = body_json(replay).await;
+        assert_eq!(body["reason_code"], "overgate.idempotency_replayed");
+        assert_eq!(
+            body["data"]["phase6_prechecks"]["rate_limit"]["consumed"],
+            1
+        );
+
+        let mut second_real_command = valid_command_envelope("trace_phase6_replay_second_real");
+        second_real_command["command_id"] = json!("command:overgate:phase6:replay:second_real");
+        second_real_command["command_type"] = json!("overgate.phase6.tenant.update");
+        second_real_command["idempotency_key"] = json!("idem:overgate:phase6:replay_second_real");
+        second_real_command["request_hash"] = json!("hash:fixture:phase6_replay_second_request");
+        second_real_command["payload_hash"] = json!("hash:fixture:phase6_replay_second_payload");
+        second_real_command["timestamp"] = json!("2026-06-25T02:00:00Z");
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", second_real_command))
+            .await
+            .expect("second real command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+        let mut third_real_command = valid_command_envelope("trace_phase6_replay_third_real");
+        third_real_command["command_id"] = json!("command:overgate:phase6:replay:third_real");
+        third_real_command["command_type"] = json!("overgate.phase6.tenant.update");
+        third_real_command["idempotency_key"] = json!("idem:overgate:phase6:replay_third_real");
+        third_real_command["request_hash"] = json!("hash:fixture:phase6_replay_third_request");
+        third_real_command["payload_hash"] = json!("hash:fixture:phase6_replay_third_payload");
+        third_real_command["timestamp"] = json!("2026-06-25T02:00:00Z");
+        let response = app
+            .oneshot(command_post("/v1/commands", third_real_command))
+            .await
+            .expect("third real command should respond");
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
     async fn phase6_quota_policy_and_dry_run_surfaces_are_structured() {
         let app = OvergateService::default().router();
         let mut quota_denied = valid_command_envelope("trace_phase6_quota_denied");
@@ -1205,9 +1268,62 @@ mod tests {
         assert_eq!(body["reason_code"], "overgate.policy_dry_run_phase6");
         assert_eq!(body["data"]["mutation_allowed"], false);
         assert_eq!(
+            body["data"]["policy_check"]["tenant_id"],
+            "tenant:local:test"
+        );
+        assert_eq!(
             body["data"]["policy_check"]["stored_policy_truth_in_overgate"],
             false
         );
+    }
+
+    #[tokio::test]
+    async fn phase6_policy_summaries_are_tenant_scoped() {
+        let app = OvergateService::default().router();
+        for (tenant, trace) in [
+            ("tenant:phase6:alpha", "trace_phase6_policy_alpha"),
+            ("tenant:phase6:beta", "trace_phase6_policy_beta"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/v1/policy/dry-run")
+                        .header(CONTENT_TYPE, "application/json")
+                        .header(TENANT_HEADER, tenant)
+                        .header(TRACE_HEADER, trace)
+                        .body(Body::from(
+                            json!({
+                                "command_type": "overgate.phase6.policy.evaluate",
+                                "simulate_decision": "allow"
+                            })
+                            .to_string(),
+                        ))
+                        .expect("tenant policy dry-run request should build"),
+                )
+                .await
+                .expect("tenant policy dry-run should respond");
+            assert_eq!(response.status(), StatusCode::ACCEPTED);
+        }
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/limits")
+                    .header(TENANT_HEADER, "tenant:phase6:alpha")
+                    .body(Body::empty())
+                    .expect("tenant limits request should build"),
+            )
+            .await
+            .expect("tenant limits should respond");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = body_json(response).await;
+        let policy_refs = body["data"]["phase6_precheck_summary"]["policy_decision_refs"]
+            .as_array()
+            .expect("policy refs should be an array");
+        assert_eq!(policy_refs.len(), 1);
     }
 
     #[tokio::test]
