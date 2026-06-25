@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 8 Contracts",
+  "title": "Shared Schema Package Phase 2 Through Phase 7 And Phase 8 Contracts",
   "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, Phase 7 compatibility/deprecation/migration gate metadata, and Phase 8 downstream domain schema expansion metadata.",
   "type": "object",
   "additionalProperties": false,

@@ -4504,7 +4504,8 @@ impl SharedSchemaPhase8DomainModule {
             ));
         }
         if self.raw_secret_values_allowed
-            || (self.domain_family == "data_storage_namespace_secret_refs" && self.untyped_refs_allowed)
+            || (self.domain_family == "data_storage_namespace_secret_refs"
+                && self.untyped_refs_allowed)
         {
             return Err(SharedSchemaPhase8ContractError::StorageSecretRefInvalid);
         }
@@ -4574,11 +4575,9 @@ impl SharedSchemaPhase8GuardrailCheck {
                         self.domain_family.clone(),
                     ),
                 ),
-                "owner_phase_gate" => Err(
-                    SharedSchemaPhase8ContractError::DomainOwnerGateMissing(
-                        self.domain_family.clone(),
-                    ),
-                ),
+                "owner_phase_gate" => Err(SharedSchemaPhase8ContractError::DomainOwnerGateMissing(
+                    self.domain_family.clone(),
+                )),
                 _ => Err(SharedSchemaPhase8ContractError::StrictGuardrailMissing(
                     self.guardrail_name.clone(),
                 )),
@@ -4881,9 +4880,7 @@ impl SharedSchemaPhase8DomainExpansionContract {
             .collect();
         for required in REQUIRED_SHARED_SCHEMA_PHASE8_GUARDRAILS {
             if !guardrails.contains(required) {
-                return Err(SharedSchemaPhase8ContractError::MissingGuardrail(
-                    required,
-                ));
+                return Err(SharedSchemaPhase8ContractError::MissingGuardrail(required));
             }
         }
         for guardrail in &self.guardrail_checks {
@@ -9898,19 +9895,19 @@ mod tests {
                 .iter()
                 .any(|check| check.guardrail_name == *guardrail));
         }
-        assert!(contract
-            .domain_modules
-            .iter()
-            .all(|module| module.generated_contract_consumption_required
-                && !module.private_duplicate_types_allowed
-                && module.strict_unknown_fields_required
-                && !module.raw_secret_values_allowed
-                && !module.untyped_refs_allowed
-                && !module.raw_private_payload_allowed
-                && module.runtime_authority_stays_with_owner));
-        assert!(!contract
-            .typescript_projection_requirement
-            .source_authority_allowed);
+        assert!(contract.domain_modules.iter().all(|module| module
+            .generated_contract_consumption_required
+            && !module.private_duplicate_types_allowed
+            && module.strict_unknown_fields_required
+            && !module.raw_secret_values_allowed
+            && !module.untyped_refs_allowed
+            && !module.raw_private_payload_allowed
+            && module.runtime_authority_stays_with_owner));
+        assert!(
+            !contract
+                .typescript_projection_requirement
+                .source_authority_allowed
+        );
         assert_eq!(
             contract.rust_projection.validator_entrypoint,
             "SharedSchemaPhase8DomainExpansionContract::canonical().validate()"
