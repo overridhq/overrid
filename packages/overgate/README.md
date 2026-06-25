@@ -1,6 +1,6 @@
 # Overrid Overgate
 
-Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, Phase 5 idempotency/status records, Phase 6 rate-limit/quota/policy precheck refs, and Phase 7 Overwatch-compatible audit, metrics, emergency WAL, and grid operations evidence.
+Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, Phase 5 idempotency/status records, Phase 6 rate-limit/quota/policy precheck refs, Phase 7 Overwatch-compatible audit, metrics, emergency WAL, and grid operations evidence, Phase 8 forwarding/Overqueue dispatch boundaries, Phase 9 tenant-isolated admin and client ergonomics, and Phase 10 validation and downstream handoff documentation.
 
 ## Local Entrypoint
 

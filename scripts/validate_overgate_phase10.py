@@ -281,6 +281,15 @@ def validate_alignment_sources() -> None:
 
 def validate_readme_and_wrapper() -> None:
     readme = read(README)
+    intro_parts = readme.split("\n\n", 2)
+    assert_true(len(intro_parts) >= 2, "README must include an opening summary paragraph")
+    opening_summary = intro_parts[1]
+    for expected in [
+        "Phase 8 forwarding/Overqueue dispatch boundaries",
+        "Phase 9 tenant-isolated admin and client ergonomics",
+        "Phase 10 validation and downstream handoff documentation",
+    ]:
+        assert_contains(opening_summary, expected, README)
     for expected in [
         "Phase 10 Validation, Documentation Alignment, And Downstream Handoff",
         "packages/overgate/handoff/phase10/structure_validation.valid.json",
