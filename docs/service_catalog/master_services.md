@@ -108,7 +108,7 @@ flowchart TB
 | 10 | Federation templates, cross-tenant Overgrant, purpose tags, public-interest pool services |
 | 11 | Public provider onboarding, anti-Sybil checks, public sandbox profile, fraud controls, payout holds |
 | 12 | Overdesk desktop client, wallet, personal AI assistant, workspace, directory listings, search, messaging, social photo/video, maps, central AI stewardship interface |
-| 13 | PIP registry, stewardship reporting, central AI evidence rules, compliance boundaries, threat modeling, incident drills, migration tooling |
+| 13 | PIP registry, stewardship reporting, central AI evidence rules, compliance boundaries, internal KYC/KYB and AML fact bundles, manual high-credit review, cash-out eligibility, threat modeling, incident drills, migration tooling |
 
 ## Per-Service Implementation Files
 
