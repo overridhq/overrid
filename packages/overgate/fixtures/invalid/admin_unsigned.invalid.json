@@ -1,0 +1,18 @@
+{
+  "schema_version": "overgate.phase2.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase2_admin_unsigned",
+  "request": {
+    "method": "GET",
+    "path": "/v1/admin/ingress/request_local_1",
+    "headers": {
+      "x-overrid-trace-id": "trace_overgate_admin_unsigned"
+    }
+  },
+  "expected_denial": {
+    "status": 401,
+    "reason_code": "auth.operator_signature_required"
+  },
+  "local_only": true,
+  "test_only": true,
+  "raw_secret_present": false
+}

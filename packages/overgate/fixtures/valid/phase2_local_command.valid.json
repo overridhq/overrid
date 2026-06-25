@@ -1,0 +1,50 @@
+{
+  "schema_version": "overgate.phase2.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase2_command_smoke",
+  "harness_scenario_ref": "scenario:overgate_phase2_command_smoke",
+  "local_stack_service": {
+    "service_id": "service:overgate",
+    "command": [
+      "cargo",
+      "run",
+      "-p",
+      "overrid-overgate",
+      "--bin",
+      "overgate"
+    ],
+    "bind_host": "127.0.0.1",
+    "port": 18080,
+    "base_path": "/overgate",
+    "health_endpoint": "http://127.0.0.1:18080/overgate/v1/healthz",
+    "ready_endpoint": "http://127.0.0.1:18080/overgate/v1/readyz",
+    "local_only": true,
+    "test_only": true
+  },
+  "command_envelope": {
+    "command_type": "overgate.phase2.noop",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase2_command",
+    "idempotency_key": "idem:overgate:phase2:0001",
+    "payload_ref": "fixture://overgate/phase2/noop_payload",
+    "payload_hash_ref": "hash:placeholder:phase2"
+  },
+  "dependency_refs": [
+    "schema_validation",
+    "overkey_lite",
+    "overpass",
+    "overtenant",
+    "overwatch",
+    "overqueue",
+    "forwarding_targets"
+  ],
+  "assertions": [
+    "route:v1_commands_registered",
+    "route:v1_readyz_fails_when_required_dependency_unavailable",
+    "route:v1_admin_denies_unsigned_request",
+    "fixture:local_only",
+    "fixture:test_only",
+    "fixture:no_raw_secret"
+  ],
+  "raw_secret_present": false
+}
