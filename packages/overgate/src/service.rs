@@ -1,6 +1,7 @@
 use axum::Router;
 
 use crate::admin;
+use crate::audit::AuditStore;
 use crate::dependencies::DependencyMatrix;
 use crate::idempotency::IdempotencyStore;
 use crate::prechecks::PrecheckStore;
@@ -51,6 +52,7 @@ pub struct OvergateState {
     pub dependencies: DependencyMatrix,
     pub idempotency: IdempotencyStore,
     pub prechecks: PrecheckStore,
+    pub audit: AuditStore,
 }
 
 #[derive(Debug, Clone)]
@@ -64,12 +66,21 @@ impl OvergateService {
     }
 
     pub fn with_dependencies(config: OvergateConfig, dependencies: DependencyMatrix) -> Self {
+        Self::with_dependencies_and_audit(config, dependencies, AuditStore::default())
+    }
+
+    pub fn with_dependencies_and_audit(
+        config: OvergateConfig,
+        dependencies: DependencyMatrix,
+        audit: AuditStore,
+    ) -> Self {
         Self {
             state: OvergateState {
                 config,
                 dependencies,
                 idempotency: IdempotencyStore::default(),
                 prechecks: PrecheckStore::default(),
+                audit,
             },
         }
     }

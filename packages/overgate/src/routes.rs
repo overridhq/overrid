@@ -7,6 +7,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::admission::{admit_command, AdmissionContext};
+use crate::audit::{AuditGuardInput, Phase7AuditEvidence, Phase7AuditInput};
 use crate::canonical::CanonicalRequestInput;
 use crate::envelope::{trace_id_hint, CommandEnvelope};
 use crate::errors::{ApiErrorData, OvergateError};
@@ -31,6 +32,7 @@ pub const PHASE5_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase5.response.v0";
 pub const PHASE5_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase5";
 pub const PHASE5_LIMITS_REASON: &str = "overgate.limits_phase5";
 pub const PHASE6_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase6.response.v0";
+pub const PHASE7_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase7.response.v0";
 pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
 pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
@@ -89,6 +91,7 @@ struct CommandAcceptedData {
     phase6_prechecks: PrecheckOutcome,
     accepted_command_quota_refs: Vec<String>,
     phase6_precheck_digest_ref: String,
+    phase7_audit: Phase7AuditEvidence,
 }
 
 #[derive(Debug, Serialize)]
@@ -194,6 +197,19 @@ async fn submit_command(
         )
     })?;
     let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
+    let audit_decision = state
+        .audit
+        .guard_before_acceptance(AuditGuardInput::from_envelope(
+            &parsed.envelope,
+            state.dependencies.dependency_ready("overwatch"),
+        ))
+        .map_err(|error| {
+            api_error_response(
+                parsed.envelope.trace_id.clone(),
+                Some(request_id.clone()),
+                error,
+            )
+        })?;
     let audit_ref = format!("audit:overgate:request_received:{request_id}");
     let idempotency = state
         .idempotency
@@ -237,6 +253,16 @@ async fn submit_command(
     };
     let accepted_command_quota_refs = accepted_quota_refs(&phase6_prechecks);
     let phase6_precheck_digest_ref = precheck_digest_ref(&phase6_prechecks);
+    let phase7_audit = state.audit.record_acceptance(Phase7AuditInput::from_parts(
+        &parsed.envelope,
+        request_id.clone(),
+        admission.audit_context_ref.clone(),
+        idempotency.record.record_id.clone(),
+        idempotency.reason_code,
+        idempotency.record.forwarding_state,
+        audit_decision,
+        phase6_prechecks.clone(),
+    ));
 
     Ok((
         http_status,
@@ -261,6 +287,7 @@ async fn submit_command(
                 phase6_prechecks,
                 accepted_command_quota_refs,
                 phase6_precheck_digest_ref,
+                phase7_audit,
             },
         )),
     ))
@@ -489,6 +516,7 @@ mod tests {
 
     use super::*;
     use crate::admin::{OPERATOR_ROLE_HEADER, OPERATOR_SIGNATURE_HEADER};
+    use crate::audit::AuditStore;
     use crate::dependencies::{DependencyMatrix, DependencyState};
     use crate::envelope::{MAX_COMMAND_ENVELOPE_BYTES, SUPPORTED_COMMAND_SCHEMA_VERSION};
     use crate::service::{OvergateConfig, OvergateService};
@@ -1347,6 +1375,136 @@ mod tests {
         ] {
             assert!(names.contains(expected), "missing {expected}");
         }
+    }
+
+    #[tokio::test]
+    async fn phase7_accepted_command_returns_overwatch_compatible_audit_evidence() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase7_audit_response");
+        envelope["command_id"] = json!("command:overgate:phase7:audit_response");
+        envelope["command_type"] = json!("overgate.phase7.tenant.profile_update");
+        envelope["idempotency_key"] = json!("idem:overgate:phase7:audit_response");
+        envelope["request_hash"] = json!("hash:fixture:phase7_audit_response_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase7_audit_response_payload");
+        envelope["timestamp"] = json!("2026-06-25T03:00:00Z");
+
+        let response = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase7 audit response should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+        assert_eq!(
+            body["data"]["phase7_audit"]["evidence_state"],
+            "phase7_audit_evidence_recorded"
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["overwatch_client_ref"],
+            "overwatch.audit.v0"
+        );
+        let event_types = body["data"]["phase7_audit"]["ordered_events"]
+            .as_array()
+            .expect("ordered audit events should be present")
+            .iter()
+            .map(|event| event["event_type"].as_str().expect("event type"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            event_types,
+            vec![
+                "overgate.request_received",
+                "overgate.signature_verified",
+                "overgate.idempotency_reserved",
+                "overgate.command_accepted",
+            ]
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["emergency_wal"]["enabled"],
+            false
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["metrics"]["labels"]["private_data_in_labels"],
+            false
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["metrics"]["labels"]["secrets_in_labels"],
+            false
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["grid_operations"]["system_service_workload_class"],
+            "system_service_workload:overgate:phase7"
+        );
+        assert_eq!(
+            body["data"]["phase7_audit"]["raw_private_payload_stored"],
+            false
+        );
+        assert_eq!(body["data"]["phase7_audit"]["raw_secret_stored"], false);
+    }
+
+    #[tokio::test]
+    async fn phase7_overwatch_unavailable_fails_closed_for_high_risk_commands() {
+        let dependencies = DependencyMatrix::default()
+            .with_dependency_state("overwatch", DependencyState::Unavailable);
+        let service = OvergateService::with_dependencies(OvergateConfig::default(), dependencies);
+        let mut envelope = valid_command_envelope("trace_phase7_fail_closed_route");
+        envelope["command_id"] = json!("command:overgate:phase7:fail_closed");
+        envelope["command_type"] = json!("overgate.phase7.accounting.ledger.transfer");
+        envelope["idempotency_key"] = json!("idem:overgate:phase7:fail_closed");
+        envelope["request_hash"] = json!("hash:fixture:phase7_fail_closed_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase7_fail_closed_payload");
+
+        let response = service
+            .router()
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase7 fail-closed route should respond");
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.audit_fail_closed");
+        assert_eq!(body["data"]["dependency_name"], "overwatch");
+        assert_eq!(body["data"]["retryability"], "retry_after");
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("client denial refs should be present")
+            .iter()
+            .any(|value| value == "dependency:overwatch"));
+    }
+
+    #[tokio::test]
+    async fn phase7_emergency_wal_allows_low_risk_phase1_mutation_only() {
+        let dependencies = DependencyMatrix::default()
+            .with_dependency_state("overwatch", DependencyState::Unavailable);
+        let service = OvergateService::with_dependencies_and_audit(
+            OvergateConfig::default(),
+            dependencies,
+            AuditStore::with_emergency_wal_enabled(4),
+        );
+        let mut envelope = valid_command_envelope("trace_phase7_emergency_route");
+        envelope["command_id"] = json!("command:overgate:phase7:emergency_wal");
+        envelope["command_type"] = json!("overgate.phase7.tenant.profile_update");
+        envelope["idempotency_key"] = json!("idem:overgate:phase7:emergency_wal");
+        envelope["request_hash"] = json!("hash:fixture:phase7_emergency_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase7_emergency_payload");
+
+        let response = service
+            .router()
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase7 emergency WAL route should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        let wal = &body["data"]["phase7_audit"]["emergency_wal"];
+        assert_eq!(wal["enabled"], true);
+        assert_eq!(wal["degraded_mode"], true);
+        assert_eq!(wal["entries"].as_array().expect("entries").len(), 4);
+        assert_eq!(wal["hash_chain_verified"], true);
+        assert_eq!(wal["fsync_before_side_effect"], true);
+        assert_eq!(wal["replay_to_overwatch_required"], true);
+        assert_eq!(
+            wal["readiness_state"],
+            "degraded_until_replayed_to_overwatch"
+        );
+        assert_eq!(wal["external_log_dependency"], "none_rust_owned_local_wal");
     }
 
     #[tokio::test]

@@ -312,6 +312,19 @@ impl OvergateError {
         )
     }
 
+    pub fn audit_fail_closed(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "overgate.audit_fail_closed",
+            Retryability::RetryAfter,
+            vec!["overwatch", "emergency_audit_wal"],
+            "Retry after Overwatch audit evidence is available, or use an explicitly configured low-risk emergency audit WAL path.",
+            "overwatch_unavailable_fail_closed_phase7",
+        )
+        .with_dependency("overwatch")
+        .with_client_denial_refs(client_denial_refs)
+    }
+
     fn new(
         status: StatusCode,
         reason_code: &'static str,

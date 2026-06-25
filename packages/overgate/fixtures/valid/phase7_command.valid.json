@@ -1,0 +1,47 @@
+{
+  "schema_version": "overgate.phase7.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase7_audit_ops_allowed",
+  "command_envelope": {
+    "command_id": "command:overgate:phase7:0001",
+    "command_type": "overgate.phase7.tenant.profile_update",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase7_audit",
+    "idempotency_key": "idem:overgate:phase7:0001",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.tenant-profile+json",
+    "request_hash": "hash:fixture:phase7_request",
+    "payload_hash": "hash:fixture:phase7_payload",
+    "timestamp": "2026-06-25T03:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase7",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase7/tenant_profile_payload"
+  },
+  "expected_response": {
+    "status": 202,
+    "schema_version": "overgate.phase6.response.v0",
+    "reason_code": "overgate.command_accepted_phase6",
+    "phase7_evidence_state": "phase7_audit_evidence_recorded",
+    "ordered_event_types": [
+      "overgate.request_received",
+      "overgate.signature_verified",
+      "overgate.idempotency_reserved",
+      "overgate.command_accepted"
+    ],
+    "emergency_wal_enabled": false,
+    "hash_chain_verified": true,
+    "metric_policy_ref": "metric_label_policy:overgate:phase7",
+    "grid_operations_ref": "grid_operations:overgate:phase7",
+    "external_log_dependency": "none_overwatch_contract_only",
+    "raw_private_payload_stored": false,
+    "raw_secret_stored": false
+  },
+  "local_only": true,
+  "test_only": true
+}

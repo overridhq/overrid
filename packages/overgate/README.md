@@ -1,6 +1,6 @@
 # Overrid Overgate
 
-Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, Phase 5 idempotency/status records, and Phase 6 rate-limit/quota/policy precheck refs.
+Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, Phase 5 idempotency/status records, Phase 6 rate-limit/quota/policy precheck refs, and Phase 7 Overwatch-compatible audit, metrics, emergency WAL, and grid operations evidence.
 
 ## Local Entrypoint
 
@@ -93,6 +93,20 @@ The Phase 6 response includes:
 
 `GET /v1/limits` returns `overgate.limits_phase6` with Phase 6 bucket and quota summaries. `POST /v1/policy/dry-run` returns `overgate.policy_dry_run_phase6` and records an Overguard handoff without storing policy truth. `GET /v1/admin/rate-limits` returns `overgate.admin_rate_limits_phase6` for signed operators while preserving existing Overwatch fail-closed behavior.
 
+## Phase 7 Audit, Observability, Degraded Mode, And Grid-Ready Operations
+
+`POST /v1/commands` now records Phase 7 audit evidence after Phase 6 prechecks and before any future forwarding side effect. The evidence is Overwatch-compatible and still Rust-owned in local-stack mode: it emits ordered ingress events for request receipt, signature verification, idempotency reservation or replay, and command acceptance, with transition metadata for accepted and denied paths.
+
+The Phase 7 response includes:
+
+- Overwatch audit client and event-transition refs: `overwatch.audit.v0` and `event_transition_map:overgate:phase7`.
+- Fail-closed behavior with `overgate.audit_fail_closed` when Overwatch is unavailable for high-risk, admin, break-glass, accounting, ledger, rights, credential, secret, or policy-override command types.
+- An explicit emergency audit WAL path for low-risk Phase 1 control-plane mutations only. The WAL is bounded, append-only, hash chained, redacted to refs and hashes, fsync-marked before side effects, and reports `degraded_until_replayed_to_overwatch` until replay is required.
+- Operational metrics and trace summaries with safe low-cardinality labels only. Tenant, actor, command, request, trace, payload, credential, and secret values are excluded from labels.
+- A grid-resident operations checklist covering readiness, maintenance mode, rolling updates, rollback, break-glass controls, backup/restore, failover drills, and founder-hardware removal from the normal path.
+
+The emergency WAL is disabled by default; tests enable it explicitly to prove degraded-mode behavior without adding PostgreSQL, Redis, Kafka, NATS, or another external core boundary.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -113,5 +127,6 @@ The Phase 6 response includes:
 - `fixtures/invalid/phase5_idempotency_conflict.invalid.json` proves duplicate scoped idempotency keys with different request hashes deny before downstream side effects.
 - `fixtures/valid/phase6_command.valid.json` defines the Phase 6 rate-limit, quota-precheck, policy-handoff, and command-class matrix accepted response fixture.
 - `fixtures/invalid/phase6_precheck_denials.invalid.json` proves rate-limit, quota-precheck, and policy denials surface stable client-denial refs before forwarding.
+- `fixtures/valid/phase7_command.valid.json` defines the Phase 7 Overwatch-compatible audit events, emergency-WAL default state, safe metric labels, and grid-operations checklist fixture.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.
