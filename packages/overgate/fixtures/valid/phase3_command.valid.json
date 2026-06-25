@@ -1,0 +1,43 @@
+{
+  "schema_version": "overgate.phase3.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase3_command_validation",
+  "harness_scenario_ref": "scenario:overgate_phase3_command_validation",
+  "command_envelope": {
+    "command_id": "command:overgate:phase3:0001",
+    "command_type": "overgate.phase3.noop",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase3_command",
+    "idempotency_key": "idem:overgate:phase3:0001",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase3_request",
+    "payload_hash": "hash:fixture:overgate_phase3_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase3",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase3/noop_payload"
+  },
+  "expected_response": {
+    "status": 202,
+    "reason_code": "overgate.command_validated_phase3",
+    "forwarding_state": "not_forwarded_phase3_validation_only",
+    "body_retention": "raw_body_not_retained",
+    "diagnostics_privacy_class": "redacted_diagnostic"
+  },
+  "assertions": [
+    "schema:shared_schema_package_v0_1",
+    "schema:strict_unknown_fields",
+    "schema:stable_api_error_shape",
+    "canonicalization:deterministic_inputs",
+    "retention:hashes_and_refs_only",
+    "redaction:no_raw_secret_or_private_payload"
+  ],
+  "raw_secret_present": false
+}

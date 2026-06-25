@@ -1,0 +1,33 @@
+{
+  "schema_version": "overgate.phase3.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate_phase3_missing_tenant",
+  "command_envelope": {
+    "command_id": "command:overgate:phase3:missing_tenant",
+    "command_type": "overgate.phase3.noop",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase3_missing_tenant",
+    "idempotency_key": "idem:overgate:phase3:missing_tenant",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase3_missing_tenant_request",
+    "payload_hash": "hash:fixture:overgate_phase3_missing_tenant_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase3_missing_tenant",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase3/noop_payload"
+  },
+  "expected_denial": {
+    "status": 400,
+    "reason_code": "schema.missing_required_field",
+    "retryability": "not_retryable",
+    "correction_fields": [
+      "tenant_id"
+    ]
+  }
+}

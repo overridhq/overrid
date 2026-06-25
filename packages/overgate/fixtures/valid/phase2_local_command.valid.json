@@ -22,13 +22,26 @@
     "test_only": true
   },
   "command_envelope": {
-    "command_type": "overgate.phase2.noop",
+    "command_id": "command:overgate:phase3:fixture",
+    "command_type": "overgate.phase3.noop",
     "tenant_id": "tenant:local:test",
     "actor_id": "actor:local:test",
     "trace_id": "trace_overgate_phase2_command",
     "idempotency_key": "idem:overgate:phase2:0001",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase3_request",
     "payload_ref": "fixture://overgate/phase2/noop_payload",
-    "payload_hash_ref": "hash:placeholder:phase2"
+    "payload_hash": "hash:fixture:overgate_phase3_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase3",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private"
   },
   "dependency_refs": [
     "schema_validation",
@@ -45,7 +58,10 @@
     "route:v1_admin_denies_unsigned_request",
     "fixture:local_only",
     "fixture:test_only",
-    "fixture:no_raw_secret"
+    "fixture:no_raw_secret",
+    "phase3:strict_command_envelope",
+    "phase3:canonicalization_inputs",
+    "phase3:hashes_and_refs_only_retention"
   ],
   "raw_secret_present": false
 }

@@ -1,3 +1,4 @@
+use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
@@ -5,10 +6,17 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::canonical::CanonicalRequestInput;
+use crate::envelope::{trace_id_hint, CommandEnvelope};
+use crate::errors::{ApiErrorData, OvergateError};
+use crate::retention::RetentionDecision;
+use crate::schema::{validate_command_envelope, SchemaValidationReport};
 use crate::service::OvergateState;
 
 pub const TRACE_HEADER: &str = "x-overrid-trace-id";
 pub const TENANT_HEADER: &str = "x-overrid-tenant-id";
+pub const PHASE3_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase3.response.v0";
+// Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
 
 pub const ROUTE_SUBMIT_COMMAND: &str = "POST /v1/commands";
 pub const ROUTE_COMMAND_STATUS: &str = "GET /v1/commands/{command_id}";
@@ -36,7 +44,7 @@ impl<T: Serialize> ApiResponse<T> {
         data: T,
     ) -> Self {
         Self {
-            schema_version: "overgate.phase2.response.v0",
+            schema_version: PHASE3_RESPONSE_SCHEMA_VERSION,
             service: "service:overgate",
             trace_id: trace_id.into(),
             status,
@@ -54,6 +62,11 @@ struct CommandAcceptedData {
     audit_ref: String,
     forwarding_state: &'static str,
     payload_hash_ref: String,
+    request_hash_ref: String,
+    body_hash_ref: String,
+    schema_validation: SchemaValidationReport,
+    canonical_request: CanonicalRequestInput,
+    retention: RetentionDecision,
 }
 
 #[derive(Debug, Serialize)]
@@ -120,31 +133,52 @@ pub fn public_routes() -> Router<OvergateState> {
 async fn submit_command(
     State(_state): State<OvergateState>,
     headers: HeaderMap,
-    Json(payload): Json<Value>,
-) -> (StatusCode, Json<ApiResponse<CommandAcceptedData>>) {
-    let trace_id = trace_id(&headers, "trace_overgate_phase2_command");
-    let request_id = format!("request_{}", stable_short_token(&[&trace_id, "command"]));
-    let command_id = format!("command_{}", stable_short_token(&[&trace_id, "accepted"]));
-    let payload_hash_ref = format!(
-        "hash:placeholder:{}",
-        stable_short_token(&[&payload.to_string()])
+    body: Bytes,
+) -> Result<
+    (StatusCode, Json<ApiResponse<CommandAcceptedData>>),
+    (StatusCode, Json<ApiResponse<ApiErrorData>>),
+> {
+    let fallback_trace = trace_id_hint(&headers, &body, "trace_overgate_phase3_parse_denied");
+    let parsed = CommandEnvelope::parse_http(&headers, &body)
+        .map_err(|error| api_error_response(fallback_trace.clone(), None, error))?;
+    let schema_validation = validate_command_envelope(&parsed.envelope)
+        .map_err(|error| api_error_response(parsed.envelope.trace_id.clone(), None, error))?;
+    let canonical_request = CanonicalRequestInput::from_envelope(
+        "POST",
+        "/v1/commands",
+        &parsed.envelope,
+        &parsed.body_hash,
     );
-    (
+    let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
+    let request_id = format!(
+        "request_{}",
+        stable_short_token(&[
+            canonical_request.canonical_hash.as_str(),
+            parsed.envelope.trace_id.as_str()
+        ])
+    );
+
+    Ok((
         StatusCode::ACCEPTED,
         Json(ApiResponse::new(
-            trace_id,
+            parsed.envelope.trace_id.clone(),
             "accepted",
-            "overgate.command_route_skeleton",
+            "overgate.command_validated_phase3",
             CommandAcceptedData {
                 route: ROUTE_SUBMIT_COMMAND,
                 request_id: request_id.clone(),
-                command_id,
+                command_id: parsed.envelope.command_id.clone(),
                 audit_ref: format!("audit:overgate:request_received:{request_id}"),
-                forwarding_state: "not_forwarded_phase2_placeholder",
-                payload_hash_ref,
+                forwarding_state: "not_forwarded_phase3_validation_only",
+                payload_hash_ref: parsed.envelope.payload_hash.clone(),
+                request_hash_ref: parsed.envelope.request_hash.clone(),
+                body_hash_ref: parsed.body_hash,
+                schema_validation,
+                canonical_request,
+                retention,
             },
         )),
-    )
+    ))
 }
 
 async fn command_status(
@@ -279,16 +313,24 @@ pub(crate) fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
 }
 
 pub(crate) fn stable_short_token(parts: &[&str]) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for part in parts {
-        for byte in part.as_bytes() {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        }
-        hash ^= 0xff;
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("{hash:016x}").chars().take(12).collect()
+    crate::canonical::stable_short_token(parts)
+}
+
+fn api_error_response(
+    trace_id: String,
+    request_id: Option<String>,
+    error: OvergateError,
+) -> (StatusCode, Json<ApiResponse<ApiErrorData>>) {
+    let status = error.status;
+    (
+        status,
+        Json(ApiResponse::new(
+            trace_id,
+            "denied",
+            error.reason_code,
+            error.to_data(request_id),
+        )),
+    )
 }
 
 pub fn documented_public_routes() -> Value {
@@ -308,12 +350,13 @@ mod tests {
     use axum::body::{to_bytes, Body};
     use axum::http::header::CONTENT_TYPE;
     use axum::http::{Request, StatusCode};
-    use serde_json::Value;
+    use serde_json::{json, Value};
     use tower::ServiceExt;
 
     use super::*;
     use crate::admin::{OPERATOR_ROLE_HEADER, OPERATOR_SIGNATURE_HEADER};
     use crate::dependencies::{DependencyMatrix, DependencyState};
+    use crate::envelope::{MAX_COMMAND_ENVELOPE_BYTES, SUPPORTED_COMMAND_SCHEMA_VERSION};
     use crate::service::{OvergateConfig, OvergateService};
 
     async fn body_json(response: axum::response::Response) -> Value {
@@ -331,6 +374,40 @@ mod tests {
             .expect("request should build")
     }
 
+    fn valid_command_envelope(trace_id: &str) -> Value {
+        json!({
+            "command_id": "command:overgate:phase3:0001",
+            "command_type": "overgate.phase3.noop",
+            "tenant_id": "tenant:local:test",
+            "actor_id": "actor:local:test",
+            "trace_id": trace_id,
+            "idempotency_key": "idem:overgate:phase3:0001",
+            "credential_id": "credential:local:test",
+            "schema_version": SUPPORTED_COMMAND_SCHEMA_VERSION,
+            "payload_type": "application/vnd.overrid.command.noop+json",
+            "request_hash": "hash:fixture:phase3_request",
+            "payload_hash": "hash:fixture:phase3_payload",
+            "timestamp": "2026-06-25T00:00:00Z",
+            "signature_metadata": {
+                "signature_ref": "signature:fixture:phase3",
+                "algorithm": "ed25519",
+                "key_version": "key_version:local:test",
+                "canonicalization_version": "overgate.canonical.v0.1"
+            },
+            "privacy_class": "tenant_private",
+            "payload_ref": "fixture://overgate/phase3/noop_payload"
+        })
+    }
+
+    fn command_post(uri: &str, envelope: Value) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header(CONTENT_TYPE, "application/json")
+            .body(Body::from(envelope.to_string()))
+            .expect("request should build")
+    }
+
     #[tokio::test]
     async fn public_routes_register_and_preserve_trace_json() {
         let app = OvergateService::default().router();
@@ -341,7 +418,9 @@ mod tests {
                     .uri("/v1/commands")
                     .header(CONTENT_TYPE, "application/json")
                     .header(TRACE_HEADER, "trace_test_command")
-                    .body(Body::from(r#"{"command_type":"overgate.phase2.noop"}"#))
+                    .body(Body::from(
+                        valid_command_envelope("trace_test_command").to_string(),
+                    ))
                     .expect("request should build"),
             )
             .await
@@ -358,8 +437,22 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["reason_code"], "overgate.command_route_skeleton");
+        assert_eq!(body["schema_version"], PHASE3_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.command_validated_phase3");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
+        assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
+        assert_eq!(
+            body["data"]["schema_validation"]["adapter_id"],
+            "overgate.phase3.shared_schema_adapter"
+        );
+        assert_eq!(
+            body["data"]["canonical_request"]["canonicalization_version"],
+            "overgate.canonical.v0.1"
+        );
+        assert_eq!(
+            body["data"]["retention"]["body_retention"],
+            "raw_body_not_retained"
+        );
 
         let app = OvergateService::default().router();
         let response = app
@@ -423,20 +516,173 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
-        assert_eq!(body["reason_code"], "overgate.command_route_skeleton");
+        assert_eq!(body["reason_code"], "overgate.command_validated_phase3");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(
             body["data"]["forwarding_state"],
-            "not_forwarded_phase2_placeholder"
+            "not_forwarded_phase3_validation_only"
         );
         assert!(body["data"]["request_id"]
             .as_str()
             .expect("request id should be present")
             .starts_with("request_"));
+        assert!(body["data"]["request_hash_ref"]
+            .as_str()
+            .expect("request hash ref should be present")
+            .starts_with("hash:"));
         assert!(body["data"]["payload_hash_ref"]
             .as_str()
             .expect("payload hash ref should be present")
-            .starts_with("hash:placeholder:"));
+            .starts_with("hash:"));
+        assert_eq!(
+            body["data"]["retention"]["redaction"]["raw_secrets_redacted"],
+            true
+        );
+    }
+
+    #[tokio::test]
+    async fn command_envelope_errors_are_stable_and_redacted() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_missing_tenant");
+        envelope
+            .as_object_mut()
+            .expect("fixture should be an object")
+            .remove("tenant_id");
+        let missing = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("missing-field request should respond");
+        assert_eq!(missing.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(missing).await;
+        assert_eq!(body["status"], "denied");
+        assert_eq!(body["reason_code"], "schema.missing_required_field");
+        assert_eq!(body["data"]["retryability"], "not_retryable");
+        assert_eq!(body["data"]["diagnostics"]["redacted"], true);
+        assert_eq!(
+            body["data"]["diagnostics"]["privacy_class"],
+            "redacted_diagnostic"
+        );
+
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_unknown_field");
+        envelope
+            .as_object_mut()
+            .expect("fixture should be an object")
+            .insert("private_payload".to_owned(), json!("do-not-store"));
+        let unknown = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("unknown-field request should respond");
+        assert_eq!(unknown.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(unknown).await;
+        assert_eq!(body["reason_code"], "schema.unknown_sensitive_field");
+
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_raw_secret");
+        envelope
+            .as_object_mut()
+            .expect("fixture should be an object")
+            .insert("payload_ref".to_owned(), json!("raw_secret_value"));
+        let secret = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("secret request should respond");
+        assert_eq!(secret.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(secret).await;
+        assert_eq!(body["reason_code"], "schema.raw_secret_rejected");
+        let body_text = body.to_string();
+        assert!(!body_text.contains("raw_secret_value"));
+    }
+
+    #[tokio::test]
+    async fn command_envelope_rejects_wrong_content_type_oversized_and_unsupported() {
+        let app = OvergateService::default().router();
+        let wrong_content_type = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/commands")
+                    .body(Body::from(
+                        valid_command_envelope("trace_wrong_type").to_string(),
+                    ))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("wrong-content-type request should respond");
+        assert_eq!(
+            wrong_content_type.status(),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
+        let body = body_json(wrong_content_type).await;
+        assert_eq!(body["reason_code"], "schema.wrong_content_type");
+
+        let app = OvergateService::default().router();
+        let oversized = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/commands")
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(Body::from(" ".repeat(MAX_COMMAND_ENVELOPE_BYTES + 1)))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("oversized request should respond");
+        assert_eq!(oversized.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        let body = body_json(oversized).await;
+        assert_eq!(body["reason_code"], "schema.payload_too_large");
+
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_unsupported");
+        envelope["schema_version"] = json!("shared-schema-package.v99.0");
+        let unsupported = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("unsupported-version request should respond");
+        assert_eq!(unsupported.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(unsupported).await;
+        assert_eq!(body["reason_code"], "schema.unsupported_version");
+    }
+
+    #[tokio::test]
+    async fn canonicalization_is_deterministic_and_input_sensitive() {
+        let app = OvergateService::default().router();
+        let first = app
+            .oneshot(command_post(
+                "/v1/commands",
+                valid_command_envelope("trace_canonical"),
+            ))
+            .await
+            .expect("first canonical request should respond");
+        assert_eq!(first.status(), StatusCode::ACCEPTED);
+        let first_body = body_json(first).await;
+
+        let app = OvergateService::default().router();
+        let second = app
+            .oneshot(command_post(
+                "/v1/commands",
+                valid_command_envelope("trace_canonical"),
+            ))
+            .await
+            .expect("second canonical request should respond");
+        let second_body = body_json(second).await;
+        assert_eq!(
+            first_body["data"]["canonical_request"]["canonical_hash"],
+            second_body["data"]["canonical_request"]["canonical_hash"]
+        );
+
+        let app = OvergateService::default().router();
+        let mut changed = valid_command_envelope("trace_canonical");
+        changed["idempotency_key"] = json!("idem:overgate:phase3:changed");
+        let changed_response = app
+            .oneshot(command_post("/v1/commands", changed))
+            .await
+            .expect("changed canonical request should respond");
+        let changed_body = body_json(changed_response).await;
+        assert_ne!(
+            first_body["data"]["canonical_request"]["canonical_hash"],
+            changed_body["data"]["canonical_request"]["canonical_hash"]
+        );
     }
 
     #[tokio::test]

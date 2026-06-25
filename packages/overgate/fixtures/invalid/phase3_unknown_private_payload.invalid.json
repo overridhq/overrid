@@ -1,0 +1,32 @@
+{
+  "schema_version": "overgate.phase3.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate_phase3_unknown_private_payload",
+  "command_envelope": {
+    "command_id": "command:overgate:phase3:unknown_field",
+    "command_type": "overgate.phase3.noop",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase3_unknown_field",
+    "idempotency_key": "idem:overgate:phase3:unknown_field",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase3_unknown_field_request",
+    "payload_hash": "hash:fixture:overgate_phase3_unknown_field_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase3_unknown_field",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase3/noop_payload",
+    "private_payload": "redacted fixture payload placeholder"
+  },
+  "expected_denial": {
+    "status": 400,
+    "reason_code": "schema.unknown_sensitive_field",
+    "retryability": "not_retryable"
+  }
+}
