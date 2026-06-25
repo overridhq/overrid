@@ -30,6 +30,7 @@ Rules:
 - Shared Schema Package Phase 7 defines schema comparison, deprecation metadata, current-plus-previous stable major compatibility, authority-sensitive migration gates, and consumer impact report metadata.
 - Shared Schema Package Phase 8 defines owner-gated downstream domain schema expansion metadata for execution/scheduling, trust/policy/verification, accounting/rights/settlement, data/storage/namespace/secret refs, and AI/Docdex/mobile/native-app/ADES-facing contracts.
 - Shared Schema Package Phase 9 defines release workflow, CI enforcement, consumer registry, schema coverage reports, generated docs publishing, and product-hardening metadata for public contract consumers. The Phase 9 generated docs bundle is published under `packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_*.md` and remains non-authoritative.
+- Shared Schema Package Phase 10 defines validation and downstream handoff metadata for sub-build-plan structure, tech-stack alignment, master-plan alignment, SDS/service-catalog source alignment, local Markdown links, rejected conventional product-boundary assumptions, and owner-retained downstream consumer rules.
 
 ## Schema Ownership Metadata
 

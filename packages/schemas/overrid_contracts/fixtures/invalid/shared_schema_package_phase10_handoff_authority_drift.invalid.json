@@ -1,0 +1,20 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase10_validation_handoff_contract": {
+    "downstream_handoff_rules": [
+      {
+        "consumer_family": "control_plane_services",
+        "owning_service_authority_retained": false,
+        "schema_request_path": "direct schema package runtime authority",
+        "generated_contract_consumption_required": false,
+        "runtime_authority_allowed": true,
+        "audit_finality_allowed": true,
+        "policy_truth_allowed": true,
+        "accounting_finality_allowed": true,
+        "storage_truth_allowed": true,
+        "secret_custody_allowed": true
+      }
+    ]
+  }
+}

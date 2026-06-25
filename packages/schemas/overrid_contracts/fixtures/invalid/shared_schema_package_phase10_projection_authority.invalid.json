@@ -1,0 +1,11 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase10_validation_handoff_contract": {
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()",
+      "non_authoritative": false
+    }
+  }
+}

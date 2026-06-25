@@ -1,0 +1,14 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase10_validation_handoff_contract": {
+    "tech_stack_alignment_checks": [
+      "canonical_json_schema_authority",
+      "typescript_web_second",
+      "protobuf_internal_only"
+    ],
+    "forbidden_assumption_terms": [
+      "PostgreSQL"
+    ]
+  }
+}

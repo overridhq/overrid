@@ -5559,6 +5559,387 @@ impl fmt::Display for SharedSchemaPhase9ContractError {
 
 impl std::error::Error for SharedSchemaPhase9ContractError {}
 
+pub const PHASE10_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE10_MANIFEST_SOURCE: &str =
+    "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE10_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE10_MASTER_PLAN_SOURCE: &str = "docs/build_plan/master_plan.md";
+pub const PHASE10_CROSSWALK_SOURCE: &str = "docs/build_plan/service_catalog_alignment.md";
+pub const PHASE10_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE10_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE10_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase10.py";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_STRUCTURE_CHECKS: &[&str] = &[
+    "title_prefix",
+    "attached_sds_link",
+    "phase_headings_1_through_10",
+    "work_item_design_output_validation_fields",
+    "exit_gate_present",
+    "local_markdown_links",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS: &[&str] = &[
+    "canonical_json_schema_authority",
+    "rust_first_generation",
+    "typescript_web_second",
+    "protobuf_internal_only",
+    "strict_sensitive_validation",
+    "no_conventional_cloud_product_boundary",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS: &[&str] = &[
+    "phase_0_through_13_order_unchanged",
+    "sds7_phase0_foundation_package",
+    "downstream_expansion_owner_gated",
+    "master_crosswalk_link_preserved",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_SOURCE_ALIGNMENT_DOCS: &[&str] = &[
+    "docs/sds/foundation/shared_schema_package.md",
+    "docs/service_catalog/foundation/shared_schema_package.md",
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+    "docs/build_plan/master_plan.md",
+    "docs/build_plan/service_catalog_alignment.md",
+    "docs/overrid_tech_stack_choice.md",
+    "docs/planning/shared_schema_package_phase_10_plan.md",
+    "docs/planning/shared_schema_package_phase_10_progress.md",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_DOWNSTREAM_CONSUMERS: &[&str] = &[
+    "control_plane_services",
+    "execution_services",
+    "trust_policy_services",
+    "accounting_services",
+    "data_storage_namespace_services",
+    "adapters",
+    "sdk",
+    "cli",
+    "admin_developer_ui",
+    "native_apps",
+    "mobile",
+    "ai_gateway_services",
+    "docdex_rag",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE10_FORBIDDEN_ASSUMPTIONS: &[&str] = &[
+    "PostgreSQL",
+    "Redis",
+    "S3",
+    "MinIO",
+    "NATS",
+    "Kafka",
+    "Vault",
+    "blockchain",
+    "NFT",
+    "pricing",
+    "revenue",
+    "customer-count",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase10DownstreamHandoffRule {
+    pub consumer_family: String,
+    pub owning_service_authority_retained: bool,
+    pub schema_request_path: String,
+    pub generated_contract_consumption_required: bool,
+    pub runtime_authority_allowed: bool,
+    pub audit_finality_allowed: bool,
+    pub policy_truth_allowed: bool,
+    pub accounting_finality_allowed: bool,
+    pub storage_truth_allowed: bool,
+    pub secret_custody_allowed: bool,
+}
+
+impl SharedSchemaPhase10DownstreamHandoffRule {
+    pub fn new(consumer_family: impl Into<String>, schema_request_path: impl Into<String>) -> Self {
+        Self {
+            consumer_family: consumer_family.into(),
+            schema_request_path: schema_request_path.into(),
+            owning_service_authority_retained: true,
+            generated_contract_consumption_required: true,
+            runtime_authority_allowed: false,
+            audit_finality_allowed: false,
+            policy_truth_allowed: false,
+            accounting_finality_allowed: false,
+            storage_truth_allowed: false,
+            secret_custody_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase10ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE10_DOWNSTREAM_CONSUMERS
+            .iter()
+            .any(|consumer| self.consumer_family == *consumer)
+            || self.schema_request_path.trim().is_empty()
+            || !self.owning_service_authority_retained
+            || !self.generated_contract_consumption_required
+            || self.runtime_authority_allowed
+            || self.audit_finality_allowed
+            || self.policy_truth_allowed
+            || self.accounting_finality_allowed
+            || self.storage_truth_allowed
+            || self.secret_custody_allowed
+        {
+            return Err(SharedSchemaPhase10ContractError::HandoffAuthorityDrift(
+                self.consumer_family.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase10RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase10RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE10_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint:
+                "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
+                    .to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase10ContractError> {
+        if self.path != PHASE10_RUST_OUTPUT_PATH
+            || self.validator_entrypoint
+                != "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase10ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase10ValidationHandoffContract {
+    pub schema_version: SchemaVersion,
+    pub structure_checks: Vec<String>,
+    pub tech_stack_alignment_checks: Vec<String>,
+    pub master_plan_alignment_checks: Vec<String>,
+    pub source_alignment_documents: Vec<String>,
+    pub downstream_handoff_rules: Vec<SharedSchemaPhase10DownstreamHandoffRule>,
+    pub forbidden_assumption_terms: Vec<String>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase10RustProjection,
+}
+
+impl SharedSchemaPhase10ValidationHandoffContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            structure_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_STRUCTURE_CHECKS),
+            tech_stack_alignment_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS),
+            master_plan_alignment_checks: owned_values(REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS),
+            source_alignment_documents: owned_values(
+                REQUIRED_SHARED_SCHEMA_PHASE10_SOURCE_ALIGNMENT_DOCS,
+            ),
+            downstream_handoff_rules: vec![
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "control_plane_services",
+                    "owner-gated schema request through control-plane reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "execution_services",
+                    "owner-gated schema request through execution reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "trust_policy_services",
+                    "owner-gated schema request through trust-policy reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "accounting_services",
+                    "owner-gated schema request through accounting reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "data_storage_namespace_services",
+                    "owner-gated schema request through data/storage/namespace reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "adapters",
+                    "owner-gated schema request through adapter SDS reviewers",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "sdk",
+                    "consume generated contracts after owning schema release",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "cli",
+                    "consume generated contracts through SDK/Overgate envelopes only",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "admin_developer_ui",
+                    "consume TypeScript/web projections generated second",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "native_apps",
+                    "consume native-app schemas after Phase 12 owner approval",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "mobile",
+                    "consume mobile bindings after shared schema compatibility checks",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "ai_gateway_services",
+                    "consume AI schemas through owner-gated refs and privacy classes",
+                ),
+                SharedSchemaPhase10DownstreamHandoffRule::new(
+                    "docdex_rag",
+                    "consume encrypted Docdex RAG schemas through ref-only contracts",
+                ),
+            ],
+            forbidden_assumption_terms: owned_values(
+                REQUIRED_SHARED_SCHEMA_PHASE10_FORBIDDEN_ASSUMPTIONS,
+            ),
+            source_hash_inputs: owned_values(&[
+                PHASE10_CANONICAL_SCHEMA_SOURCE,
+                PHASE10_MANIFEST_SOURCE,
+                PHASE10_BUILD_PLAN_SOURCE,
+                PHASE10_MASTER_PLAN_SOURCE,
+                PHASE10_CROSSWALK_SOURCE,
+                PHASE10_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase10RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase10ContractError> {
+        require_phase10_items(
+            &self.structure_checks,
+            REQUIRED_SHARED_SCHEMA_PHASE10_STRUCTURE_CHECKS,
+            SharedSchemaPhase10ContractError::MissingStructureCheck,
+        )?;
+        require_phase10_items(
+            &self.tech_stack_alignment_checks,
+            REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS,
+            SharedSchemaPhase10ContractError::TechStackAlignmentDrift,
+        )?;
+        require_phase10_items(
+            &self.master_plan_alignment_checks,
+            REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS,
+            SharedSchemaPhase10ContractError::MasterPlanAlignmentDrift,
+        )?;
+        require_phase10_items(
+            &self.source_alignment_documents,
+            REQUIRED_SHARED_SCHEMA_PHASE10_SOURCE_ALIGNMENT_DOCS,
+            SharedSchemaPhase10ContractError::SourceAlignmentMissing,
+        )?;
+
+        let consumers: BTreeSet<&str> = self
+            .downstream_handoff_rules
+            .iter()
+            .map(|rule| rule.consumer_family.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE10_DOWNSTREAM_CONSUMERS {
+            if !consumers.contains(required) {
+                return Err(SharedSchemaPhase10ContractError::HandoffAuthorityDrift(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for rule in &self.downstream_handoff_rules {
+            rule.validate()?;
+        }
+
+        require_phase10_items(
+            &self.forbidden_assumption_terms,
+            REQUIRED_SHARED_SCHEMA_PHASE10_FORBIDDEN_ASSUMPTIONS,
+            SharedSchemaPhase10ContractError::ForbiddenAssumptionScanDrift,
+        )?;
+        for required in [
+            PHASE10_CANONICAL_SCHEMA_SOURCE,
+            PHASE10_MANIFEST_SOURCE,
+            PHASE10_BUILD_PLAN_SOURCE,
+            PHASE10_MASTER_PLAN_SOURCE,
+            PHASE10_CROSSWALK_SOURCE,
+            PHASE10_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase10ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+fn require_phase10_items<F>(
+    actual: &[String],
+    required: &[&'static str],
+    error: F,
+) -> Result<(), SharedSchemaPhase10ContractError>
+where
+    F: Fn(&'static str) -> SharedSchemaPhase10ContractError,
+{
+    for item in required {
+        if !actual.iter().any(|actual_item| actual_item == item) {
+            return Err(error(item));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase10ContractError {
+    MissingStructureCheck(&'static str),
+    TechStackAlignmentDrift(&'static str),
+    MasterPlanAlignmentDrift(&'static str),
+    SourceAlignmentMissing(&'static str),
+    HandoffAuthorityDrift(String),
+    ForbiddenAssumptionScanDrift(&'static str),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase10ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingStructureCheck(check) => {
+                write!(formatter, "missing Phase 10 structure check: {check}")
+            }
+            Self::TechStackAlignmentDrift(check) => {
+                write!(formatter, "Phase 10 tech-stack alignment drift: {check}")
+            }
+            Self::MasterPlanAlignmentDrift(check) => {
+                write!(formatter, "Phase 10 master-plan alignment drift: {check}")
+            }
+            Self::SourceAlignmentMissing(path) => {
+                write!(formatter, "Phase 10 source alignment missing: {path}")
+            }
+            Self::HandoffAuthorityDrift(consumer) => write!(
+                formatter,
+                "Phase 10 downstream handoff authority drift: {consumer}"
+            ),
+            Self::ForbiddenAssumptionScanDrift(term) => {
+                write!(formatter, "Phase 10 forbidden assumption scan drift: {term}")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 10 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase10ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -10693,6 +11074,144 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase9ContractError::RustProjectionAuthorityDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase10_contract_covers_validation_alignment_and_handoff() {
+        let contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for check in REQUIRED_SHARED_SCHEMA_PHASE10_STRUCTURE_CHECKS {
+            assert!(contract
+                .structure_checks
+                .iter()
+                .any(|candidate| candidate == check));
+        }
+        for check in REQUIRED_SHARED_SCHEMA_PHASE10_TECH_STACK_CHECKS {
+            assert!(contract
+                .tech_stack_alignment_checks
+                .iter()
+                .any(|candidate| candidate == check));
+        }
+        for check in REQUIRED_SHARED_SCHEMA_PHASE10_MASTER_PLAN_CHECKS {
+            assert!(contract
+                .master_plan_alignment_checks
+                .iter()
+                .any(|candidate| candidate == check));
+        }
+        for source in REQUIRED_SHARED_SCHEMA_PHASE10_SOURCE_ALIGNMENT_DOCS {
+            assert!(contract
+                .source_alignment_documents
+                .iter()
+                .any(|candidate| candidate == source));
+        }
+        for consumer in REQUIRED_SHARED_SCHEMA_PHASE10_DOWNSTREAM_CONSUMERS {
+            assert!(contract
+                .downstream_handoff_rules
+                .iter()
+                .any(|rule| rule.consumer_family == *consumer));
+        }
+        assert!(contract.downstream_handoff_rules.iter().all(|rule| {
+            rule.owning_service_authority_retained
+                && rule.generated_contract_consumption_required
+                && !rule.runtime_authority_allowed
+                && !rule.audit_finality_allowed
+                && !rule.policy_truth_allowed
+                && !rule.accounting_finality_allowed
+                && !rule.storage_truth_allowed
+                && !rule.secret_custody_allowed
+        }));
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
+        );
+        assert!(contract.rust_projection.non_authoritative);
+    }
+
+    #[test]
+    fn shared_schema_phase10_rejects_structure_tech_master_and_source_drift() {
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .structure_checks
+            .retain(|check| check != "local_markdown_links");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::MissingStructureCheck(check))
+                if check == "local_markdown_links"
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .tech_stack_alignment_checks
+            .retain(|check| check != "protobuf_internal_only");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::TechStackAlignmentDrift(check))
+                if check == "protobuf_internal_only"
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .master_plan_alignment_checks
+            .retain(|check| check != "master_crosswalk_link_preserved");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::MasterPlanAlignmentDrift(check))
+                if check == "master_crosswalk_link_preserved"
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .source_alignment_documents
+            .retain(|source| source != PHASE10_TECH_STACK_SOURCE);
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::SourceAlignmentMissing(path))
+                if path == PHASE10_TECH_STACK_SOURCE
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase10_rejects_handoff_assumption_source_and_projection_drift() {
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        let control_plane = contract
+            .downstream_handoff_rules
+            .iter_mut()
+            .find(|rule| rule.consumer_family == "control_plane_services")
+            .unwrap();
+        control_plane.runtime_authority_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::HandoffAuthorityDrift(consumer))
+                if consumer == "control_plane_services"
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .forbidden_assumption_terms
+            .retain(|term| term != "Redis");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::ForbiddenAssumptionScanDrift(term))
+                if term == "Redis"
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract
+            .source_hash_inputs
+            .retain(|source| source != PHASE10_CROSSWALK_SOURCE);
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::MissingSourceInput(path))
+                if path == PHASE10_CROSSWALK_SOURCE
+        ));
+
+        let mut contract = SharedSchemaPhase10ValidationHandoffContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase10ContractError::RustProjectionAuthorityDrift)
         ));
     }
 

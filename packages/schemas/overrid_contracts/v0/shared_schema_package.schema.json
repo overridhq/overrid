@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 7, Phase 8, And Phase 9 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, Phase 7 compatibility/deprecation/migration gate metadata, Phase 8 downstream domain schema expansion metadata, and Phase 9 package release/CI/consumer registry metadata.",
+  "title": "Shared Schema Package Phase 2 Through Phase 7, Phase 8, Phase 9, And Phase 10 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, Phase 7 compatibility/deprecation/migration gate metadata, Phase 8 downstream domain schema expansion metadata, Phase 9 package release/CI/consumer registry metadata, and Phase 10 validation/documentation alignment/downstream handoff metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -68,6 +68,9 @@
     },
     "phase9_release_ci_contract": {
       "$ref": "#/$defs/phase9_release_ci_contract"
+    },
+    "phase10_validation_handoff_contract": {
+      "$ref": "#/$defs/phase10_validation_handoff_contract"
     }
   },
   "$defs": {
@@ -2626,6 +2629,216 @@
         },
         "non_authoritative": {
           "const": true
+        }
+      }
+    },
+    "phase10_structure_check": {
+      "enum": [
+        "title_prefix",
+        "attached_sds_link",
+        "phase_headings_1_through_10",
+        "work_item_design_output_validation_fields",
+        "exit_gate_present",
+        "local_markdown_links"
+      ]
+    },
+    "phase10_tech_stack_alignment_check": {
+      "enum": [
+        "canonical_json_schema_authority",
+        "rust_first_generation",
+        "typescript_web_second",
+        "protobuf_internal_only",
+        "strict_sensitive_validation",
+        "no_conventional_cloud_product_boundary"
+      ]
+    },
+    "phase10_master_plan_alignment_check": {
+      "enum": [
+        "phase_0_through_13_order_unchanged",
+        "sds7_phase0_foundation_package",
+        "downstream_expansion_owner_gated",
+        "master_crosswalk_link_preserved"
+      ]
+    },
+    "phase10_source_alignment_document": {
+      "enum": [
+        "docs/sds/foundation/shared_schema_package.md",
+        "docs/service_catalog/foundation/shared_schema_package.md",
+        "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+        "docs/build_plan/master_plan.md",
+        "docs/build_plan/service_catalog_alignment.md",
+        "docs/overrid_tech_stack_choice.md",
+        "docs/planning/shared_schema_package_phase_10_plan.md",
+        "docs/planning/shared_schema_package_phase_10_progress.md"
+      ]
+    },
+    "phase10_downstream_handoff_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_family",
+        "owning_service_authority_retained",
+        "schema_request_path",
+        "generated_contract_consumption_required",
+        "runtime_authority_allowed",
+        "audit_finality_allowed",
+        "policy_truth_allowed",
+        "accounting_finality_allowed",
+        "storage_truth_allowed",
+        "secret_custody_allowed"
+      ],
+      "properties": {
+        "consumer_family": {
+          "enum": [
+            "control_plane_services",
+            "execution_services",
+            "trust_policy_services",
+            "accounting_services",
+            "data_storage_namespace_services",
+            "adapters",
+            "sdk",
+            "cli",
+            "admin_developer_ui",
+            "native_apps",
+            "mobile",
+            "ai_gateway_services",
+            "docdex_rag"
+          ]
+        },
+        "owning_service_authority_retained": {
+          "const": true
+        },
+        "schema_request_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "generated_contract_consumption_required": {
+          "const": true
+        },
+        "runtime_authority_allowed": {
+          "const": false
+        },
+        "audit_finality_allowed": {
+          "const": false
+        },
+        "policy_truth_allowed": {
+          "const": false
+        },
+        "accounting_finality_allowed": {
+          "const": false
+        },
+        "storage_truth_allowed": {
+          "const": false
+        },
+        "secret_custody_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase10_rust_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "validator_entrypoint",
+        "non_authoritative"
+      ],
+      "properties": {
+        "path": {
+          "const": "packages/schemas/overrid_contracts/src/lib.rs"
+        },
+        "validator_entrypoint": {
+          "const": "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
+        },
+        "non_authoritative": {
+          "const": true
+        }
+      }
+    },
+    "phase10_validation_handoff_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "structure_checks",
+        "tech_stack_alignment_checks",
+        "master_plan_alignment_checks",
+        "source_alignment_documents",
+        "downstream_handoff_rules",
+        "forbidden_assumption_terms",
+        "source_hash_inputs",
+        "rust_projection"
+      ],
+      "properties": {
+        "structure_checks": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase10_structure_check"
+          }
+        },
+        "tech_stack_alignment_checks": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase10_tech_stack_alignment_check"
+          }
+        },
+        "master_plan_alignment_checks": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "$ref": "#/$defs/phase10_master_plan_alignment_check"
+          }
+        },
+        "source_alignment_documents": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "$ref": "#/$defs/phase10_source_alignment_document"
+          }
+        },
+        "downstream_handoff_rules": {
+          "type": "array",
+          "minItems": 13,
+          "items": {
+            "$ref": "#/$defs/phase10_downstream_handoff_rule"
+          }
+        },
+        "forbidden_assumption_terms": {
+          "type": "array",
+          "minItems": 12,
+          "items": {
+            "enum": [
+              "PostgreSQL",
+              "Redis",
+              "S3",
+              "MinIO",
+              "NATS",
+              "Kafka",
+              "Vault",
+              "blockchain",
+              "NFT",
+              "pricing",
+              "revenue",
+              "customer-count"
+            ]
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/build_plan/master_plan.md",
+              "docs/build_plan/service_catalog_alignment.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_projection": {
+          "$ref": "#/$defs/phase10_rust_projection"
         }
       }
     }

@@ -114,6 +114,16 @@ Published Phase 9 generated documentation artifacts:
 - `generated/docs/shared_schema_package_phase9_fixture_examples.md`
 - `generated/docs/shared_schema_package_phase9_consumer_registry.md`
 
+Shared Schema Package Phase 10 contracts define validation, documentation
+alignment, and downstream handoff metadata. Rust projection checks run through
+`SharedSchemaPhase10ValidationHandoffContract::canonical().validate()`. The
+Phase 10 contract locks sub-build-plan structure checks, tech-stack alignment
+checks, master-plan alignment checks, SDS/service-catalog source alignment
+links, rejected conventional product-boundary assumptions, and downstream
+handoff rules. Later consumers may request and consume schemas through the
+package, but runtime authority, audit finality, policy truth, accounting
+finality, storage truth, and secret custody stay with owning services.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

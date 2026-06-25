@@ -1,0 +1,11 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase10_validation_handoff_contract": {
+    "structure_checks": [
+      "title_prefix",
+      "attached_sds_link",
+      "phase_headings_1_through_10"
+    ]
+  }
+}

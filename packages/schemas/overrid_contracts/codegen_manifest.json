@@ -1812,6 +1812,139 @@
       "Phase 6 product integration surfaces must not bypass generated contracts, Overgate command envelopes, stable errors, privacy classifications, or redaction rules."
     ]
   },
+  "shared_schema_package_phase10": {
+    "schema_family": "shared-schema-package",
+    "schema_version": "shared-schema-package.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package",
+      "downstream_consumers": [
+        "Shared Schema Package",
+        "CI validation",
+        "Service contract reviewers",
+        "SDK",
+        "CLI",
+        "Adapters",
+        "Admin/developer UI",
+        "Native apps",
+        "Mobile services",
+        "AI gateway services",
+        "Docdex RAG adapters",
+        "Rust contract tests",
+        "Schema validators"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers using SDS #7 Phase 10 validation and handoff review",
+      "consumer_notes": "Phase 10 structure validation, tech-stack alignment, master/SDS/service-catalog alignment, and downstream handoff metadata. JSON Schema remains the authority, Rust projection stays non-authoritative, and runtime authority remains with owning services."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "non_authoritative": true,
+      "validator_entrypoint": "SharedSchemaPhase10ValidationHandoffContract::canonical().validate()"
+    },
+    "structure_checks": [
+      "title_prefix",
+      "attached_sds_link",
+      "phase_headings_1_through_10",
+      "work_item_design_output_validation_fields",
+      "exit_gate_present",
+      "local_markdown_links"
+    ],
+    "tech_stack_alignment_checks": [
+      "canonical_json_schema_authority",
+      "rust_first_generation",
+      "typescript_web_second",
+      "protobuf_internal_only",
+      "strict_sensitive_validation",
+      "no_conventional_cloud_product_boundary"
+    ],
+    "master_plan_alignment_checks": [
+      "phase_0_through_13_order_unchanged",
+      "sds7_phase0_foundation_package",
+      "downstream_expansion_owner_gated",
+      "master_crosswalk_link_preserved"
+    ],
+    "source_alignment_documents": [
+      "docs/sds/foundation/shared_schema_package.md",
+      "docs/service_catalog/foundation/shared_schema_package.md",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/build_plan/master_plan.md",
+      "docs/build_plan/service_catalog_alignment.md",
+      "docs/overrid_tech_stack_choice.md",
+      "docs/planning/shared_schema_package_phase_10_plan.md",
+      "docs/planning/shared_schema_package_phase_10_progress.md"
+    ],
+    "downstream_handoff_rules": [
+      { "consumer_family": "control_plane_services", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through SDS #10/#14/#15/#21/#11/#26/#44 reviewers", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "execution_services", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through Overpack/Oversched/Overlease/Overrun/Overmeter/Overcell reviewers", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "trust_policy_services", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through Overguard/Oververify/challenge/reputation/workload-classifier reviewers", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "accounting_services", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through Overmeter/ORU/Seal Ledger/Overasset/Overgrant/Overbill/provider-payout reviewers", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "data_storage_namespace_services", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through Overbase/Overstore/Overvault/Universal Namespace/Overmesh/Overasset reviewers", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "adapters", "owning_service_authority_retained": true, "schema_request_path": "owner-gated schema request through adapter SDS reviewers after owning service contracts exist", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "sdk", "owning_service_authority_retained": true, "schema_request_path": "consume generated contracts after owning schema release and compatibility evidence", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "cli", "owning_service_authority_retained": true, "schema_request_path": "consume generated contracts through SDK/Overgate envelopes only", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "admin_developer_ui", "owning_service_authority_retained": true, "schema_request_path": "consume TypeScript/web projections generated second from released contracts", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "native_apps", "owning_service_authority_retained": true, "schema_request_path": "consume native-app schemas after Phase 12 owner approval and compatibility checks", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "mobile", "owning_service_authority_retained": true, "schema_request_path": "consume mobile bindings after shared schema compatibility checks and golden fixtures", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "ai_gateway_services", "owning_service_authority_retained": true, "schema_request_path": "consume AI gateway/model-routing schemas through owner-gated refs and privacy classes", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false },
+      { "consumer_family": "docdex_rag", "owning_service_authority_retained": true, "schema_request_path": "consume encrypted Docdex RAG schemas through ref-only privacy-classified contracts", "generated_contract_consumption_required": true, "runtime_authority_allowed": false, "audit_finality_allowed": false, "policy_truth_allowed": false, "accounting_finality_allowed": false, "storage_truth_allowed": false, "secret_custody_allowed": false }
+    ],
+    "forbidden_assumption_terms": [
+      "PostgreSQL",
+      "Redis",
+      "S3",
+      "MinIO",
+      "NATS",
+      "Kafka",
+      "Vault",
+      "blockchain",
+      "NFT",
+      "pricing",
+      "revenue",
+      "customer-count"
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/build_plan/master_plan.md",
+      "docs/build_plan/service_catalog_alignment.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "contracts": [
+      "phase10_validation_handoff_contract",
+      "phase10_structure_check",
+      "phase10_tech_stack_alignment_check",
+      "phase10_master_plan_alignment_check",
+      "phase10_downstream_handoff_rule",
+      "phase10_rust_projection"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase10.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase10_structure_missing.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase10_tech_stack_drift.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase10_master_link_missing.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase10_handoff_authority_drift.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase10_projection_authority.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Phase 10 structure checks must validate the title prefix, attached SDS link, phase headings 1 through 10, Design/Output/Validation fields, exit gate, and local Markdown links.",
+      "Tech-stack alignment must preserve canonical JSON plus JSON Schema authority, Rust-first generation, TypeScript/web second, Protobuf internal-only projection, strict validation, and no conventional cloud product boundary.",
+      "Master-plan alignment must preserve the Phase 0 through Phase 13 order and keep SDS #7 as a Phase 0 foundation package with downstream schema expansion gated by owning service phases.",
+      "SDS and service-catalog alignment must preserve package-only, Phase 0, schema-source authority and backlink coverage.",
+      "Downstream consumers may request and consume shared schemas, but runtime authority, audit finality, policy truth, accounting finality, storage truth, and secret custody remain with owning services."
+    ]
+  },
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",
