@@ -3632,6 +3632,648 @@ impl fmt::Display for SharedSchemaPhase6ContractError {
 
 impl std::error::Error for SharedSchemaPhase6ContractError {}
 
+pub const PHASE7_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE7_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE7_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE7_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE7_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE7_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase7.py";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE7_CHANGE_CLASSIFICATIONS: &[&str] = &[
+    "additive",
+    "deprecated",
+    "breaking",
+    "blocked",
+    "migration_required",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS: &[&str] = &[
+    "field_removal",
+    "type_narrowing",
+    "envelope_change",
+    "signing_input_change",
+    "privacy_class_change",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES: &[&str] = &[
+    "identity",
+    "tenant",
+    "command",
+    "api_error",
+    "event",
+    "audit",
+    "queue",
+    "usage",
+    "oru",
+    "seal_ledger",
+    "policy",
+    "asset",
+    "namespace",
+    "credential",
+    "secret_ref",
+    "overvault",
+    "overbase",
+    "overstore",
+    "native_app",
+    "mobile",
+    "ai",
+    "docdex_rag",
+    "ades",
+    "cross_client_compatibility",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE7_CONSUMER_KINDS: &[&str] = &[
+    "service",
+    "sdk",
+    "cli",
+    "adapter",
+    "native_app",
+    "test_fixture",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7SchemaComparison {
+    pub comparison_name: String,
+    pub object_family: String,
+    pub field_path: String,
+    pub change_classification: String,
+    pub breaking_change_kind: String,
+    pub previous_schema_ref: String,
+    pub next_schema_ref: String,
+    pub migration_metadata_required: bool,
+    pub migration_metadata_present: bool,
+    pub compatibility_report_ref: String,
+    pub blocked_without_migration: bool,
+}
+
+impl SharedSchemaPhase7SchemaComparison {
+    pub fn new(
+        comparison_name: impl Into<String>,
+        object_family: impl Into<String>,
+        field_path: impl Into<String>,
+        change_classification: impl Into<String>,
+        breaking_change_kind: impl Into<String>,
+        report_suffix: impl Into<String>,
+    ) -> Self {
+        let object_family = object_family.into();
+        let report_suffix = report_suffix.into();
+        Self {
+            comparison_name: comparison_name.into(),
+            field_path: field_path.into(),
+            change_classification: change_classification.into(),
+            breaking_change_kind: breaking_change_kind.into(),
+            previous_schema_ref: format!("schema:shared-schema-package/{object_family}@previous"),
+            next_schema_ref: format!("schema:shared-schema-package/{object_family}@next"),
+            object_family,
+            migration_metadata_required: true,
+            migration_metadata_present: true,
+            compatibility_report_ref: format!("compat:shared-schema-phase7:{report_suffix}"),
+            blocked_without_migration: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if self.comparison_name.trim().is_empty()
+            || self.object_family.trim().is_empty()
+            || self.field_path.trim().is_empty()
+            || !self.previous_schema_ref.starts_with("schema:")
+            || !self.next_schema_ref.starts_with("schema:")
+            || !self.compatibility_report_ref.starts_with("compat:")
+            || !REQUIRED_SHARED_SCHEMA_PHASE7_CHANGE_CLASSIFICATIONS
+                .iter()
+                .any(|classification| self.change_classification == *classification)
+        {
+            return Err(SharedSchemaPhase7ContractError::InvalidComparison(
+                self.comparison_name.clone(),
+            ));
+        }
+
+        if matches!(
+            self.change_classification.as_str(),
+            "breaking" | "migration_required"
+        ) {
+            if !REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS
+                .iter()
+                .any(|kind| self.breaking_change_kind == *kind)
+            {
+                return Err(SharedSchemaPhase7ContractError::InvalidComparison(
+                    self.comparison_name.clone(),
+                ));
+            }
+            if !self.migration_metadata_required
+                || !self.migration_metadata_present
+                || !self.blocked_without_migration
+            {
+                return Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(
+                    self.comparison_name.clone(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7DeprecationMetadata {
+    pub object_family: String,
+    pub deprecated_field: String,
+    pub replacement_mapping: String,
+    pub consumer_list: Vec<String>,
+    pub first_deprecated_version: String,
+    pub last_supported_version: String,
+    pub migration_reason: String,
+    pub owner: String,
+    pub support_window: String,
+    pub active_consumers_require_notes: bool,
+}
+
+impl SharedSchemaPhase7DeprecationMetadata {
+    pub fn new(
+        object_family: impl Into<String>,
+        deprecated_field: impl Into<String>,
+        replacement_mapping: impl Into<String>,
+        consumer_list: Vec<String>,
+        migration_reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            object_family: object_family.into(),
+            deprecated_field: deprecated_field.into(),
+            replacement_mapping: replacement_mapping.into(),
+            consumer_list,
+            first_deprecated_version: SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION.to_owned(),
+            last_supported_version: SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION.to_owned(),
+            migration_reason: migration_reason.into(),
+            owner: "SDS #7 Shared Schema Package maintainers".to_owned(),
+            support_window:
+                "current stable major plus previous stable major after external consumer gate"
+                    .to_owned(),
+            active_consumers_require_notes: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if self.object_family.trim().is_empty()
+            || self.deprecated_field.trim().is_empty()
+            || self.replacement_mapping.trim().is_empty()
+            || self.consumer_list.is_empty()
+            || self.first_deprecated_version.trim().is_empty()
+            || self.last_supported_version.trim().is_empty()
+            || self.migration_reason.trim().is_empty()
+            || self.owner.trim().is_empty()
+            || self.support_window.trim().is_empty()
+            || !self.active_consumers_require_notes
+        {
+            return Err(SharedSchemaPhase7ContractError::InvalidDeprecation(
+                self.deprecated_field.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7StableMajorSupport {
+    pub policy_name: String,
+    pub current_stable_major: u16,
+    pub previous_stable_major_supported: bool,
+    pub external_consumer_gate: String,
+    pub unsupported_version_reason_code: String,
+    pub silent_downgrade_allowed: bool,
+    pub contract_tests_required: bool,
+}
+
+impl SharedSchemaPhase7StableMajorSupport {
+    pub fn canonical() -> Self {
+        Self {
+            policy_name: "current_plus_previous_stable_major".to_owned(),
+            current_stable_major: 0,
+            previous_stable_major_supported: true,
+            external_consumer_gate: "external_native_app_adapter_mobile_or_sdk_consumer".to_owned(),
+            unsupported_version_reason_code: "schema.schema_version_unsupported".to_owned(),
+            silent_downgrade_allowed: false,
+            contract_tests_required: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if self.policy_name != "current_plus_previous_stable_major"
+            || !self.previous_stable_major_supported
+            || self.external_consumer_gate.trim().is_empty()
+            || self.unsupported_version_reason_code != "schema.schema_version_unsupported"
+            || self.silent_downgrade_allowed
+            || !self.contract_tests_required
+        {
+            return Err(SharedSchemaPhase7ContractError::StableMajorPolicyDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7AuthorityMigrationGate {
+    pub module: String,
+    pub migration_plan_required: bool,
+    pub consumer_impact_required: bool,
+    pub rollback_guidance_required: bool,
+    pub stable_error_behavior_required: bool,
+    pub owner_signoff_required: bool,
+    pub release_blocked_without_gate: bool,
+}
+
+impl SharedSchemaPhase7AuthorityMigrationGate {
+    pub fn new(module: impl Into<String>) -> Self {
+        Self {
+            module: module.into(),
+            migration_plan_required: true,
+            consumer_impact_required: true,
+            rollback_guidance_required: true,
+            stable_error_behavior_required: true,
+            owner_signoff_required: true,
+            release_blocked_without_gate: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES
+            .iter()
+            .any(|module| self.module == *module)
+            || !self.migration_plan_required
+            || !self.consumer_impact_required
+            || !self.rollback_guidance_required
+            || !self.stable_error_behavior_required
+            || !self.owner_signoff_required
+            || !self.release_blocked_without_gate
+        {
+            return Err(
+                SharedSchemaPhase7ContractError::InvalidAuthorityMigrationGate(
+                    self.module.clone(),
+                ),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7ConsumerImpactReport {
+    pub schema_module: String,
+    pub field_path: String,
+    pub consumer_kind: String,
+    pub consumers: Vec<String>,
+    pub owner_signoff_ref: String,
+    pub compatibility_report_ref: String,
+    pub migration_notes_ref: String,
+    pub breaking_change_requires_report: bool,
+    pub identified_consumers_required: bool,
+}
+
+impl SharedSchemaPhase7ConsumerImpactReport {
+    pub fn new(
+        schema_module: impl Into<String>,
+        field_path: impl Into<String>,
+        consumer_kind: impl Into<String>,
+        consumers: Vec<String>,
+        report_suffix: impl Into<String>,
+        migration_suffix: impl Into<String>,
+    ) -> Self {
+        let consumer_kind = consumer_kind.into();
+        Self {
+            schema_module: schema_module.into(),
+            field_path: field_path.into(),
+            owner_signoff_ref: format!("signoff:sds7:{consumer_kind}"),
+            compatibility_report_ref: format!("compat:shared-schema-phase7:{}", report_suffix.into()),
+            migration_notes_ref: format!(
+                "migration:shared-schema-phase7:{}",
+                migration_suffix.into()
+            ),
+            consumer_kind,
+            consumers,
+            breaking_change_requires_report: true,
+            identified_consumers_required: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if self.schema_module.trim().is_empty()
+            || self.field_path.trim().is_empty()
+            || !REQUIRED_SHARED_SCHEMA_PHASE7_CONSUMER_KINDS
+                .iter()
+                .any(|kind| self.consumer_kind == *kind)
+            || self.consumers.is_empty()
+            || !self.owner_signoff_ref.starts_with("signoff:")
+            || !self.compatibility_report_ref.starts_with("compat:")
+            || !self.migration_notes_ref.starts_with("migration:")
+            || !self.breaking_change_requires_report
+            || !self.identified_consumers_required
+        {
+            return Err(SharedSchemaPhase7ContractError::InvalidConsumerImpact(
+                self.consumer_kind.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase7RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE7_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint:
+                "SharedSchemaPhase7CompatibilityContract::canonical().validate()".to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        if self.path != PHASE7_RUST_OUTPUT_PATH
+            || !self
+                .validator_entrypoint
+                .contains("SharedSchemaPhase7CompatibilityContract")
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase7CompatibilityContract {
+    pub schema_version: SchemaVersion,
+    pub schema_comparisons: Vec<SharedSchemaPhase7SchemaComparison>,
+    pub deprecation_metadata: Vec<SharedSchemaPhase7DeprecationMetadata>,
+    pub stable_major_support: SharedSchemaPhase7StableMajorSupport,
+    pub authority_sensitive_migration_gates: Vec<SharedSchemaPhase7AuthorityMigrationGate>,
+    pub consumer_impact_reports: Vec<SharedSchemaPhase7ConsumerImpactReport>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase7RustProjection,
+}
+
+impl SharedSchemaPhase7CompatibilityContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            schema_comparisons: vec![
+                SharedSchemaPhase7SchemaComparison::new(
+                    "field_removal_is_breaking",
+                    "command",
+                    "command.payload_hash",
+                    "breaking",
+                    "field_removal",
+                    "field-removal",
+                ),
+                SharedSchemaPhase7SchemaComparison::new(
+                    "type_narrowing_requires_migration",
+                    "tenant",
+                    "tenant.quota_scope",
+                    "migration_required",
+                    "type_narrowing",
+                    "type-narrowing",
+                ),
+                SharedSchemaPhase7SchemaComparison::new(
+                    "envelope_change_is_breaking",
+                    "event",
+                    "event.envelope.sequence",
+                    "breaking",
+                    "envelope_change",
+                    "envelope-change",
+                ),
+                SharedSchemaPhase7SchemaComparison::new(
+                    "signing_input_change_is_breaking",
+                    "command",
+                    "command.signing_input.signature_metadata",
+                    "breaking",
+                    "signing_input_change",
+                    "signing-input",
+                ),
+                SharedSchemaPhase7SchemaComparison::new(
+                    "privacy_class_change_requires_review",
+                    "audit",
+                    "audit.privacy_class",
+                    "migration_required",
+                    "privacy_class_change",
+                    "privacy-class",
+                ),
+            ],
+            deprecation_metadata: vec![
+                SharedSchemaPhase7DeprecationMetadata::new(
+                    "command",
+                    "command.legacy_actor_id",
+                    "command.actor_ref",
+                    owned_values(&["CLI", "SDK", "Integration Test Harness"]),
+                    "replace unstructured actor strings with typed actor refs",
+                ),
+                SharedSchemaPhase7DeprecationMetadata::new(
+                    "api_error",
+                    "api_error.free_form_message",
+                    "api_error.reason_code plus correction_fields",
+                    owned_values(&["CLI", "SDK", "Rust contract tests"]),
+                    "preserve stable reason-code behavior without free-form parsing",
+                ),
+            ],
+            stable_major_support: SharedSchemaPhase7StableMajorSupport::canonical(),
+            authority_sensitive_migration_gates: REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES
+                .iter()
+                .map(|module| SharedSchemaPhase7AuthorityMigrationGate::new(*module))
+                .collect(),
+            consumer_impact_reports: vec![
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "command",
+                    "command.payload_hash",
+                    "service",
+                    owned_values(&["Overgate", "Overqueue"]),
+                    "field-removal",
+                    "command-payload-hash",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "command",
+                    "command.payload_hash",
+                    "sdk",
+                    owned_values(&["Rust SDK"]),
+                    "field-removal",
+                    "sdk-command",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "command",
+                    "command.payload_hash",
+                    "cli",
+                    owned_values(&["Overrid CLI"]),
+                    "field-removal",
+                    "cli-command",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "event",
+                    "event.envelope.sequence",
+                    "adapter",
+                    owned_values(&["Future product adapters"]),
+                    "envelope-change",
+                    "adapter-event",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "audit",
+                    "audit.privacy_class",
+                    "native_app",
+                    owned_values(&["Future native apps"]),
+                    "privacy-class",
+                    "native-audit",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
+                    "tenant",
+                    "tenant.quota_scope",
+                    "test_fixture",
+                    owned_values(&["Integration Test Harness", "Local Development Stack"]),
+                    "type-narrowing",
+                    "fixture-tenant",
+                ),
+            ],
+            source_hash_inputs: owned_values(&[
+                PHASE7_CANONICAL_SCHEMA_SOURCE,
+                PHASE7_MANIFEST_SOURCE,
+                PHASE7_BUILD_PLAN_SOURCE,
+                PHASE7_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase7RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        for required in REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS {
+            if !self
+                .schema_comparisons
+                .iter()
+                .any(|comparison| comparison.breaking_change_kind == *required)
+            {
+                return Err(SharedSchemaPhase7ContractError::MissingComparisonKind(
+                    required,
+                ));
+            }
+        }
+        for comparison in &self.schema_comparisons {
+            comparison.validate()?;
+        }
+        for deprecation in &self.deprecation_metadata {
+            deprecation.validate()?;
+        }
+        self.stable_major_support.validate()?;
+        for required in REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES {
+            if !self
+                .authority_sensitive_migration_gates
+                .iter()
+                .any(|gate| gate.module == *required)
+            {
+                return Err(
+                    SharedSchemaPhase7ContractError::MissingAuthorityMigrationGate(
+                        required,
+                    ),
+                );
+            }
+        }
+        for gate in &self.authority_sensitive_migration_gates {
+            gate.validate()?;
+        }
+        for required in REQUIRED_SHARED_SCHEMA_PHASE7_CONSUMER_KINDS {
+            if !self
+                .consumer_impact_reports
+                .iter()
+                .any(|report| report.consumer_kind == *required)
+            {
+                return Err(SharedSchemaPhase7ContractError::MissingConsumerImpact(
+                    (*required).to_owned(),
+                ));
+            }
+        }
+        for report in &self.consumer_impact_reports {
+            report.validate()?;
+        }
+        for required in [
+            PHASE7_CANONICAL_SCHEMA_SOURCE,
+            PHASE7_MANIFEST_SOURCE,
+            PHASE7_BUILD_PLAN_SOURCE,
+            PHASE7_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase7ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase7ContractError {
+    MissingComparisonKind(&'static str),
+    InvalidComparison(String),
+    MissingMigrationMetadata(String),
+    InvalidDeprecation(String),
+    StableMajorPolicyDrift,
+    MissingAuthorityMigrationGate(&'static str),
+    InvalidAuthorityMigrationGate(String),
+    MissingConsumerImpact(String),
+    InvalidConsumerImpact(String),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase7ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingComparisonKind(kind) => {
+                write!(formatter, "missing Phase 7 schema comparison kind: {kind}")
+            }
+            Self::InvalidComparison(comparison) => {
+                write!(formatter, "invalid Phase 7 schema comparison: {comparison}")
+            }
+            Self::MissingMigrationMetadata(comparison) => write!(
+                formatter,
+                "Phase 7 comparison lacks required migration metadata: {comparison}"
+            ),
+            Self::InvalidDeprecation(field) => {
+                write!(formatter, "invalid Phase 7 deprecation metadata: {field}")
+            }
+            Self::StableMajorPolicyDrift => {
+                formatter.write_str("Phase 7 stable-major support policy drift")
+            }
+            Self::MissingAuthorityMigrationGate(module) => {
+                write!(formatter, "missing Phase 7 authority migration gate: {module}")
+            }
+            Self::InvalidAuthorityMigrationGate(module) => {
+                write!(formatter, "invalid Phase 7 authority migration gate: {module}")
+            }
+            Self::MissingConsumerImpact(consumer_kind) => write!(
+                formatter,
+                "missing Phase 7 consumer impact report: {consumer_kind}"
+            ),
+            Self::InvalidConsumerImpact(consumer_kind) => {
+                write!(formatter, "invalid Phase 7 consumer impact report: {consumer_kind}")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 7 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase7ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -8379,6 +9021,126 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase6ContractError::RustProjectionAuthorityDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase7_contract_covers_compatibility_and_migration_gates() {
+        let contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for kind in REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS {
+            assert!(contract
+                .schema_comparisons
+                .iter()
+                .any(|comparison| comparison.breaking_change_kind == *kind));
+        }
+        assert!(contract.schema_comparisons.iter().all(|comparison| {
+            comparison.migration_metadata_required
+                && comparison.migration_metadata_present
+                && comparison.blocked_without_migration
+        }));
+        for module in REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES {
+            assert!(contract
+                .authority_sensitive_migration_gates
+                .iter()
+                .any(|gate| gate.module == *module));
+        }
+        for consumer_kind in REQUIRED_SHARED_SCHEMA_PHASE7_CONSUMER_KINDS {
+            assert!(contract
+                .consumer_impact_reports
+                .iter()
+                .any(|report| report.consumer_kind == *consumer_kind));
+        }
+        assert_eq!(
+            contract
+                .stable_major_support
+                .unsupported_version_reason_code,
+            "schema.schema_version_unsupported"
+        );
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase7CompatibilityContract::canonical().validate()"
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase7_rejects_breaking_change_without_migration_metadata() {
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        let comparison = contract
+            .schema_comparisons
+            .iter_mut()
+            .find(|comparison| comparison.breaking_change_kind == "field_removal")
+            .unwrap();
+        comparison.migration_metadata_present = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(name))
+                if name == "field_removal_is_breaking"
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        let comparison = contract
+            .schema_comparisons
+            .iter_mut()
+            .find(|comparison| comparison.breaking_change_kind == "type_narrowing")
+            .unwrap();
+        comparison.blocked_without_migration = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(name))
+                if name == "type_narrowing_requires_migration"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase7_rejects_deprecation_and_stable_major_drift() {
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract.deprecation_metadata[0].support_window.clear();
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::InvalidDeprecation(field))
+                if field == "command.legacy_actor_id"
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract.stable_major_support.silent_downgrade_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::StableMajorPolicyDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase7_rejects_authority_gate_consumer_and_projection_drift() {
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        let command_gate = contract
+            .authority_sensitive_migration_gates
+            .iter_mut()
+            .find(|gate| gate.module == "command")
+            .unwrap();
+        command_gate.migration_plan_required = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::InvalidAuthorityMigrationGate(module))
+                if module == "command"
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract
+            .consumer_impact_reports
+            .retain(|report| report.consumer_kind != "cli");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::MissingConsumerImpact(kind))
+                if kind == "cli"
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift)
         ));
     }
 

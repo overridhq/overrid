@@ -67,6 +67,18 @@ harness bundles must stay test-only and secret-free, and schema lint/generated
 diff/fixture count/redaction/compatibility artifacts remain non-authoritative CI
 evidence rather than Overwatch runtime events.
 
+Shared Schema Package Phase 7 contracts define schema comparison,
+deprecation metadata, current-plus-previous stable major support,
+authority-sensitive migration gates, and consumer impact report metadata. Rust
+projection checks run through
+`SharedSchemaPhase7CompatibilityContract::canonical().validate()`. Breaking or
+migration-required changes must carry migration metadata and compatibility
+reports, deprecated fields must name replacements and active consumers, stable
+major support must fail with `schema.schema_version_unsupported` instead of
+silent downgrade behavior, and authority-sensitive modules must block release
+without migration plans, owner signoff, rollback guidance, and consumer impact
+reports.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

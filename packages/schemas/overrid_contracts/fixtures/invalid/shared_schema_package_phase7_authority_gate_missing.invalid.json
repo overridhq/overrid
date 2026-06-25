@@ -1,0 +1,26 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "authority_sensitive_migration_gates": [
+      {
+        "module": "identity",
+        "migration_plan_required": true,
+        "consumer_impact_required": true,
+        "rollback_guidance_required": true,
+        "stable_error_behavior_required": true,
+        "owner_signoff_required": true,
+        "release_blocked_without_gate": true
+      },
+      {
+        "module": "command",
+        "migration_plan_required": false,
+        "consumer_impact_required": true,
+        "rollback_guidance_required": true,
+        "stable_error_behavior_required": true,
+        "owner_signoff_required": true,
+        "release_blocked_without_gate": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "schema_comparisons": [
+      {
+        "comparison_name": "field_removal_is_breaking",
+        "object_family": "command",
+        "field_path": "command.payload_hash",
+        "change_classification": "breaking",
+        "breaking_change_kind": "field_removal",
+        "previous_schema_ref": "schema:shared-schema-package/command@previous",
+        "next_schema_ref": "schema:shared-schema-package/command@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:field-removal",
+        "blocked_without_migration": true
+      },
+      {
+        "comparison_name": "type_narrowing_requires_migration",
+        "object_family": "tenant",
+        "field_path": "tenant.quota_scope",
+        "change_classification": "migration_required",
+        "breaking_change_kind": "type_narrowing",
+        "previous_schema_ref": "schema:shared-schema-package/tenant@previous",
+        "next_schema_ref": "schema:shared-schema-package/tenant@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:type-narrowing",
+        "blocked_without_migration": true
+      },
+      {
+        "comparison_name": "envelope_change_is_breaking",
+        "object_family": "event",
+        "field_path": "event.envelope.sequence",
+        "change_classification": "breaking",
+        "breaking_change_kind": "envelope_change",
+        "previous_schema_ref": "schema:shared-schema-package/event@previous",
+        "next_schema_ref": "schema:shared-schema-package/event@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:envelope-change",
+        "blocked_without_migration": true
+      },
+      {
+        "comparison_name": "signing_input_change_is_breaking",
+        "object_family": "command",
+        "field_path": "command.signing_input.signature_metadata",
+        "change_classification": "breaking",
+        "breaking_change_kind": "signing_input_change",
+        "previous_schema_ref": "schema:shared-schema-package/command-signing@previous",
+        "next_schema_ref": "schema:shared-schema-package/command-signing@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:signing-input",
+        "blocked_without_migration": true
+      },
+      {
+        "comparison_name": "privacy_class_change_requires_review",
+        "object_family": "audit",
+        "field_path": "audit.privacy_class",
+        "change_classification": "migration_required",
+        "breaking_change_kind": "privacy_class_change",
+        "previous_schema_ref": "schema:shared-schema-package/audit@previous",
+        "next_schema_ref": "schema:shared-schema-package/audit@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:privacy-class",
+        "blocked_without_migration": true
+      }
+    ],
+    "deprecation_metadata": [
+      {
+        "object_family": "command",
+        "deprecated_field": "command.legacy_actor_id",
+        "replacement_mapping": "command.actor_ref",
+        "consumer_list": ["CLI", "SDK", "Integration Test Harness"],
+        "first_deprecated_version": "shared-schema-package.v0.1",
+        "last_supported_version": "shared-schema-package.v0.1",
+        "migration_reason": "replace unstructured actor strings with typed actor refs",
+        "owner": "SDS #7 Shared Schema Package maintainers",
+        "support_window": "current stable major plus previous stable major after external consumer gate",
+        "active_consumers_require_notes": true
+      },
+      {
+        "object_family": "api_error",
+        "deprecated_field": "api_error.free_form_message",
+        "replacement_mapping": "api_error.reason_code plus correction_fields",
+        "consumer_list": ["CLI", "SDK", "Rust contract tests"],
+        "first_deprecated_version": "shared-schema-package.v0.1",
+        "last_supported_version": "shared-schema-package.v0.1",
+        "migration_reason": "preserve stable reason-code behavior without free-form parsing",
+        "owner": "SDS #7 Shared Schema Package maintainers",
+        "support_window": "current stable major plus previous stable major after external consumer gate",
+        "active_consumers_require_notes": true
+      }
+    ],
+    "stable_major_support": {
+      "policy_name": "current_plus_previous_stable_major",
+      "current_stable_major": 0,
+      "previous_stable_major_supported": true,
+      "external_consumer_gate": "external_native_app_adapter_mobile_or_sdk_consumer",
+      "unsupported_version_reason_code": "schema.schema_version_unsupported",
+      "silent_downgrade_allowed": false,
+      "contract_tests_required": true
+    },
+    "authority_sensitive_migration_gates": [
+      { "module": "identity", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "tenant", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "command", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "api_error", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "event", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "audit", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "queue", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "usage", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "oru", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "seal_ledger", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "policy", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "asset", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "namespace", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "credential", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "secret_ref", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "overvault", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "overbase", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "overstore", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "native_app", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "mobile", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "ai", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "docdex_rag", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "ades", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true },
+      { "module": "cross_client_compatibility", "migration_plan_required": true, "consumer_impact_required": true, "rollback_guidance_required": true, "stable_error_behavior_required": true, "owner_signoff_required": true, "release_blocked_without_gate": true }
+    ],
+    "consumer_impact_reports": [
+      { "schema_module": "command", "field_path": "command.payload_hash", "consumer_kind": "service", "consumers": ["Overgate", "Overqueue"], "owner_signoff_ref": "signoff:sds7:command", "compatibility_report_ref": "compat:shared-schema-phase7:field-removal", "migration_notes_ref": "migration:shared-schema-phase7:command-payload-hash", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "command", "field_path": "command.payload_hash", "consumer_kind": "sdk", "consumers": ["Rust SDK"], "owner_signoff_ref": "signoff:sds7:sdk", "compatibility_report_ref": "compat:shared-schema-phase7:field-removal", "migration_notes_ref": "migration:shared-schema-phase7:sdk-command", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "command", "field_path": "command.payload_hash", "consumer_kind": "cli", "consumers": ["Overrid CLI"], "owner_signoff_ref": "signoff:sds7:cli", "compatibility_report_ref": "compat:shared-schema-phase7:field-removal", "migration_notes_ref": "migration:shared-schema-phase7:cli-command", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "event", "field_path": "event.envelope.sequence", "consumer_kind": "adapter", "consumers": ["Future product adapters"], "owner_signoff_ref": "signoff:sds7:adapters", "compatibility_report_ref": "compat:shared-schema-phase7:envelope-change", "migration_notes_ref": "migration:shared-schema-phase7:adapter-event", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "audit", "field_path": "audit.privacy_class", "consumer_kind": "native_app", "consumers": ["Future native apps"], "owner_signoff_ref": "signoff:sds7:native-app", "compatibility_report_ref": "compat:shared-schema-phase7:privacy-class", "migration_notes_ref": "migration:shared-schema-phase7:native-audit", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "tenant", "field_path": "tenant.quota_scope", "consumer_kind": "test_fixture", "consumers": ["Integration Test Harness", "Local Development Stack"], "owner_signoff_ref": "signoff:sds7:fixtures", "compatibility_report_ref": "compat:shared-schema-phase7:type-narrowing", "migration_notes_ref": "migration:shared-schema-phase7:fixture-tenant", "breaking_change_requires_report": true, "identified_consumers_required": true }
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase7CompatibilityContract::canonical().validate()",
+      "non_authoritative": true
+    }
+  }
+}

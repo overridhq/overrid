@@ -1,0 +1,19 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "consumer_impact_reports": [
+      {
+        "schema_module": "command",
+        "field_path": "command.payload_hash",
+        "consumer_kind": "unknown",
+        "consumers": [],
+        "owner_signoff_ref": "",
+        "compatibility_report_ref": "compat:shared-schema-phase7:field-removal",
+        "migration_notes_ref": "",
+        "breaking_change_requires_report": true,
+        "identified_consumers_required": false
+      }
+    ]
+  }
+}

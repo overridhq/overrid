@@ -1,0 +1,21 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "schema_comparisons": [
+      {
+        "comparison_name": "field_removal_without_migration",
+        "object_family": "command",
+        "field_path": "command.payload_hash",
+        "change_classification": "breaking",
+        "breaking_change_kind": "field_removal",
+        "previous_schema_ref": "schema:shared-schema-package/command@previous",
+        "next_schema_ref": "schema:shared-schema-package/command@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": false,
+        "compatibility_report_ref": "compat:shared-schema-phase7:field-removal",
+        "blocked_without_migration": false
+      }
+    ]
+  }
+}

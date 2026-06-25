@@ -192,7 +192,7 @@ def check_required_files() -> None:
 def check_schema_surface(schema: dict[str, Any]) -> None:
     assert_true(schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema", "schema draft drifted")
     assert_true(schema.get("additionalProperties") is False, "root schema must reject unknown fields")
-    assert_true("Phase 2 Through Phase 5" in schema.get("title", ""), "schema title missing Phase 5")
+    assert_true("Phase 2 Through Phase" in schema.get("title", ""), "schema title missing shared schema phase range")
     props = schema.get("properties", {})
     defs = schema.get("$defs", {})
     assert_true("phase5_validation_contract" in props, "schema missing Phase 5 root property")

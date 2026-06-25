@@ -1,0 +1,15 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "stable_major_support": {
+      "policy_name": "current_plus_previous_stable_major",
+      "current_stable_major": 0,
+      "previous_stable_major_supported": true,
+      "external_consumer_gate": "external_native_app_adapter_mobile_or_sdk_consumer",
+      "unsupported_version_reason_code": "schema.schema_version_unsupported",
+      "silent_downgrade_allowed": true,
+      "contract_tests_required": true
+    }
+  }
+}

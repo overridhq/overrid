@@ -1,0 +1,20 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase7_compatibility_contract": {
+    "deprecation_metadata": [
+      {
+        "object_family": "api_error",
+        "deprecated_field": "api_error.free_form_message",
+        "replacement_mapping": "api_error.reason_code plus correction_fields",
+        "consumer_list": ["CLI", "SDK"],
+        "first_deprecated_version": "shared-schema-package.v0.1",
+        "last_supported_version": "shared-schema-package.v0.1",
+        "migration_reason": "preserve stable reason-code behavior",
+        "owner": "SDS #7 Shared Schema Package maintainers",
+        "support_window": "",
+        "active_consumers_require_notes": false
+      }
+    ]
+  }
+}

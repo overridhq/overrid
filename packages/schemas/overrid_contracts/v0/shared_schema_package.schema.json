@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 5 Contracts Plus Phase 6 Fixture Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, and Phase 6 deterministic fixture/golden/artifact metadata.",
+  "title": "Shared Schema Package Phase 2 Through Phase 7 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, and Phase 7 compatibility/deprecation/migration gate metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -59,6 +59,9 @@
     },
     "phase6_fixture_contract": {
       "$ref": "#/$defs/phase6_fixture_contract"
+    },
+    "phase7_compatibility_contract": {
+      "$ref": "#/$defs/phase7_compatibility_contract"
     }
   },
   "$defs": {
@@ -1688,6 +1691,370 @@
         },
         "validator_entrypoint": {
           "const": "SharedSchemaPhase6FixtureContract::canonical().validate()"
+        },
+        "non_authoritative": {
+          "const": true
+        }
+      }
+    },
+    "phase7_compatibility_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_comparisons",
+        "deprecation_metadata",
+        "stable_major_support",
+        "authority_sensitive_migration_gates",
+        "consumer_impact_reports",
+        "source_hash_inputs",
+        "rust_projection"
+      ],
+      "properties": {
+        "schema_comparisons": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/phase7_schema_comparison"
+          }
+        },
+        "deprecation_metadata": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/phase7_deprecation_metadata"
+          }
+        },
+        "stable_major_support": {
+          "$ref": "#/$defs/phase7_stable_major_support"
+        },
+        "authority_sensitive_migration_gates": {
+          "type": "array",
+          "minItems": 24,
+          "items": {
+            "$ref": "#/$defs/phase7_authority_migration_gate"
+          }
+        },
+        "consumer_impact_reports": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase7_consumer_impact_report"
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_projection": {
+          "$ref": "#/$defs/phase7_rust_projection"
+        }
+      }
+    },
+    "phase7_change_classification": {
+      "enum": [
+        "additive",
+        "deprecated",
+        "breaking",
+        "blocked",
+        "migration_required"
+      ]
+    },
+    "phase7_breaking_change_kind": {
+      "enum": [
+        "field_removal",
+        "type_narrowing",
+        "envelope_change",
+        "signing_input_change",
+        "privacy_class_change"
+      ]
+    },
+    "phase7_authority_sensitive_module": {
+      "enum": [
+        "identity",
+        "tenant",
+        "command",
+        "api_error",
+        "event",
+        "audit",
+        "queue",
+        "usage",
+        "oru",
+        "seal_ledger",
+        "policy",
+        "asset",
+        "namespace",
+        "credential",
+        "secret_ref",
+        "overvault",
+        "overbase",
+        "overstore",
+        "native_app",
+        "mobile",
+        "ai",
+        "docdex_rag",
+        "ades",
+        "cross_client_compatibility"
+      ]
+    },
+    "phase7_consumer_kind": {
+      "enum": [
+        "service",
+        "sdk",
+        "cli",
+        "adapter",
+        "native_app",
+        "test_fixture",
+        "mobile_client",
+        "web_projection"
+      ]
+    },
+    "phase7_schema_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison_name",
+        "object_family",
+        "field_path",
+        "change_classification",
+        "breaking_change_kind",
+        "previous_schema_ref",
+        "next_schema_ref",
+        "migration_metadata_required",
+        "migration_metadata_present",
+        "compatibility_report_ref",
+        "blocked_without_migration"
+      ],
+      "properties": {
+        "comparison_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "object_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "field_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "change_classification": {
+          "$ref": "#/$defs/phase7_change_classification"
+        },
+        "breaking_change_kind": {
+          "$ref": "#/$defs/phase7_breaking_change_kind"
+        },
+        "previous_schema_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "next_schema_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "migration_metadata_required": {
+          "type": "boolean"
+        },
+        "migration_metadata_present": {
+          "type": "boolean"
+        },
+        "compatibility_report_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "blocked_without_migration": {
+          "type": "boolean"
+        }
+      }
+    },
+    "phase7_deprecation_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_family",
+        "deprecated_field",
+        "replacement_mapping",
+        "consumer_list",
+        "first_deprecated_version",
+        "last_supported_version",
+        "migration_reason",
+        "owner",
+        "support_window",
+        "active_consumers_require_notes"
+      ],
+      "properties": {
+        "object_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "deprecated_field": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "replacement_mapping": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "consumer_list": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "first_deprecated_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "last_supported_version": {
+          "$ref": "#/$defs/schema_version"
+        },
+        "migration_reason": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "owner": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "support_window": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "active_consumers_require_notes": {
+          "const": true
+        }
+      }
+    },
+    "phase7_stable_major_support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_name",
+        "current_stable_major",
+        "previous_stable_major_supported",
+        "external_consumer_gate",
+        "unsupported_version_reason_code",
+        "silent_downgrade_allowed",
+        "contract_tests_required"
+      ],
+      "properties": {
+        "policy_name": {
+          "const": "current_plus_previous_stable_major"
+        },
+        "current_stable_major": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "previous_stable_major_supported": {
+          "const": true
+        },
+        "external_consumer_gate": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "unsupported_version_reason_code": {
+          "$ref": "#/$defs/reason_code"
+        },
+        "silent_downgrade_allowed": {
+          "const": false
+        },
+        "contract_tests_required": {
+          "const": true
+        }
+      }
+    },
+    "phase7_authority_migration_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "migration_plan_required",
+        "consumer_impact_required",
+        "rollback_guidance_required",
+        "stable_error_behavior_required",
+        "owner_signoff_required",
+        "release_blocked_without_gate"
+      ],
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/phase7_authority_sensitive_module"
+        },
+        "migration_plan_required": {
+          "const": true
+        },
+        "consumer_impact_required": {
+          "const": true
+        },
+        "rollback_guidance_required": {
+          "const": true
+        },
+        "stable_error_behavior_required": {
+          "const": true
+        },
+        "owner_signoff_required": {
+          "const": true
+        },
+        "release_blocked_without_gate": {
+          "const": true
+        }
+      }
+    },
+    "phase7_consumer_impact_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_module",
+        "field_path",
+        "consumer_kind",
+        "consumers",
+        "owner_signoff_ref",
+        "compatibility_report_ref",
+        "migration_notes_ref",
+        "breaking_change_requires_report",
+        "identified_consumers_required"
+      ],
+      "properties": {
+        "schema_module": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "field_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "consumer_kind": {
+          "$ref": "#/$defs/phase7_consumer_kind"
+        },
+        "consumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "owner_signoff_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "compatibility_report_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "migration_notes_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "breaking_change_requires_report": {
+          "const": true
+        },
+        "identified_consumers_required": {
+          "const": true
+        }
+      }
+    },
+    "phase7_rust_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "validator_entrypoint",
+        "non_authoritative"
+      ],
+      "properties": {
+        "path": {
+          "const": "packages/schemas/overrid_contracts/src/lib.rs"
+        },
+        "validator_entrypoint": {
+          "const": "SharedSchemaPhase7CompatibilityContract::canonical().validate()"
         },
         "non_authoritative": {
           "const": true
