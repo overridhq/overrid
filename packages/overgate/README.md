@@ -5,13 +5,14 @@ Overgate is the Rust-first API ingress and admission boundary for Overrid contro
 ## Local Entrypoint
 
 - Service id: `service:overgate`
+- Local-stack port owner: `service:api`
 - Command: `cargo run -p overrid-overgate --bin overgate`
 - Default bind: `127.0.0.1:18080`
 - Local base path: `/overgate`
 - Health: `GET /v1/healthz` and `GET /overgate/v1/healthz`
 - Readiness: `GET /v1/readyz` and `GET /overgate/v1/readyz`
 
-The existing Phase 0 local-stack `service:api` contract remains the reserved loopback API port owner. Overgate Phase 2 attaches the `/overgate` base path and fixture references to that loopback boundary without replacing earlier local-stack service ids.
+The existing Phase 0 local-stack `service:api` contract remains the reserved loopback API port owner. Overgate Phase 2 attaches the `service:overgate` route surface, `/overgate` base path, and fixture references to that loopback boundary without replacing earlier local-stack service ids.
 
 ## Public Routes
 

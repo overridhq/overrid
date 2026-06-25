@@ -387,6 +387,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn local_fixture_command_smoke_submits_through_overgate_base_path() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../fixtures/valid/phase2_local_command.valid.json"
+        ))
+        .expect("local command fixture should parse");
+        let local_stack_service = &fixture["local_stack_service"];
+        assert_eq!(local_stack_service["service_id"], "service:overgate");
+        assert_eq!(local_stack_service["port_owner_service_id"], "service:api");
+        assert_eq!(local_stack_service["base_path"], "/overgate");
+        assert_eq!(local_stack_service["local_only"], true);
+        assert_eq!(local_stack_service["test_only"], true);
+
+        let envelope = fixture["command_envelope"].clone();
+        let trace_id = envelope["trace_id"]
+            .as_str()
+            .expect("fixture command envelope should carry a trace id")
+            .to_owned();
+
+        let app = OvergateService::default().router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/overgate/v1/commands")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TRACE_HEADER, trace_id.as_str())
+                    .body(Body::from(envelope.to_string()))
+                    .expect("fixture command request should build"),
+            )
+            .await
+            .expect("local fixture command smoke should respond");
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(body["service"], "service:overgate");
+        assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
+        assert_eq!(body["reason_code"], "overgate.command_route_skeleton");
+        assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
+        assert_eq!(
+            body["data"]["forwarding_state"],
+            "not_forwarded_phase2_placeholder"
+        );
+        assert!(body["data"]["request_id"]
+            .as_str()
+            .expect("request id should be present")
+            .starts_with("request_"));
+        assert!(body["data"]["payload_hash_ref"]
+            .as_str()
+            .expect("payload hash ref should be present")
+            .starts_with("hash:placeholder:"));
+    }
+
+    #[tokio::test]
     async fn readyz_separates_liveness_from_dependency_authority() {
         let dependencies = DependencyMatrix::default()
             .with_dependency_state("overkey_lite", DependencyState::Unavailable);

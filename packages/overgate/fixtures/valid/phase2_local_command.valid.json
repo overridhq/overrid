@@ -4,6 +4,7 @@
   "harness_scenario_ref": "scenario:overgate_phase2_command_smoke",
   "local_stack_service": {
     "service_id": "service:overgate",
+    "port_owner_service_id": "service:api",
     "command": [
       "cargo",
       "run",

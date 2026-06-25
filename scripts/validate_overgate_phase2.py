@@ -13,6 +13,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 WORKSPACE = Path("Cargo.toml")
+WORKSPACE_LAYOUT = Path("overrid.workspace.toml")
 CRATE_TOML = Path("packages/overgate/Cargo.toml")
 README = Path("packages/overgate/README.md")
 LIB = Path("packages/overgate/src/lib.rs")
@@ -21,8 +22,14 @@ ROUTES = Path("packages/overgate/src/routes.rs")
 ADMIN = Path("packages/overgate/src/admin.rs")
 DEPENDENCIES = Path("packages/overgate/src/dependencies.rs")
 MAIN = Path("packages/overgate/src/main.rs")
+LOCAL_STACK = Path("packages/local_stack/src/lib.rs")
+HARNESS_LOCAL_STACK = Path("packages/integration_harness/src/local_stack.rs")
 VALID_FIXTURE = Path("packages/overgate/fixtures/valid/phase2_local_command.valid.json")
 INVALID_FIXTURE = Path("packages/overgate/fixtures/invalid/admin_unsigned.invalid.json")
+LOCAL_STACK_DEFAULT_FIXTURE = Path(
+    "packages/schemas/overrid_contracts/fixtures/valid/"
+    "local_development_stack_phase2_default_local.valid.json"
+)
 SUB_PLAN = Path("docs/build_plan/sub_build_plan_008_overgate.md")
 TECH_STACK = Path("docs/overrid_tech_stack_choice.md")
 PHASE_PLAN = Path("docs/planning/overgate_phase_02_plan.md")
@@ -92,11 +99,24 @@ def assert_contains(text: str, expected: str, source: Path) -> None:
 
 def validate_workspace_and_crate() -> None:
     workspace = read(WORKSPACE)
+    workspace_layout = read(WORKSPACE_LAYOUT)
     crate = read(CRATE_TOML)
     main = read(MAIN)
     lib = read(LIB)
 
     assert_contains(workspace, '"packages/overgate"', WORKSPACE)
+    for expected in (
+        'name = "overgate"',
+        'type = "rust_service_crate"',
+        'owner_layer = "runtime_service_contracts"',
+        'path = "packages/overgate"',
+        'cargo_member = "packages/overgate"',
+        'cargo_package = "overrid-overgate"',
+        '"cargo test -p overrid-overgate"',
+        '"python3 scripts/validate_overgate_phase2.py"',
+        'local_stack_participation = "profile_consumer"',
+    ):
+        assert_contains(workspace_layout, expected, WORKSPACE_LAYOUT)
     assert_contains(crate, 'name = "overrid-overgate"', CRATE_TOML)
     for dependency in ("axum", "tokio", "serde", "serde_json", "tracing", "tracing-subscriber"):
         assert_contains(crate, dependency, CRATE_TOML)
@@ -140,6 +160,8 @@ def validate_routes_and_admin_guards() -> None:
     assert_contains(routes, "StatusCode::ACCEPTED", ROUTES)
     assert_contains(routes, "StatusCode::SERVICE_UNAVAILABLE", ROUTES)
     assert_contains(routes, "x-overrid-trace-id", ROUTES)
+    assert_contains(routes, "../fixtures/valid/phase2_local_command.valid.json", ROUTES)
+    assert_contains(routes, 'uri("/overgate/v1/commands")', ROUTES)
 
     for guard in (
         "x-overrid-operator-signature",
@@ -165,8 +187,11 @@ def validate_fixtures_and_docs() -> None:
     phase_plan = read(PHASE_PLAN)
     phase_progress = read(PHASE_PROGRESS)
     suite = read(SUITE_VALIDATOR)
+    local_stack = read(LOCAL_STACK)
+    harness_local_stack = read(HARNESS_LOCAL_STACK)
     valid = load_json(VALID_FIXTURE)
     invalid = load_json(INVALID_FIXTURE)
+    local_stack_default = load_json(LOCAL_STACK_DEFAULT_FIXTURE)
 
     assert_contains(sub_plan, "## Phase 2: Rust Service Skeleton, Routes, And Dependency Readiness", SUB_PLAN)
     assert_contains(tech_stack, "Axum/Tower/Hyper-style Rust HTTP services", TECH_STACK)
@@ -174,6 +199,9 @@ def validate_fixtures_and_docs() -> None:
     assert_contains(phase_progress, "Overgate Phase 2 Progress", PHASE_PROGRESS)
     assert_contains(phase_progress, "Validation Evidence", PHASE_PROGRESS)
     assert_contains(suite, 'Path("scripts/validate_overgate_phase2.py")', SUITE_VALIDATOR)
+    assert_contains(local_stack, 'service_id: "service:api"', LOCAL_STACK)
+    assert_contains(local_stack, "port: 18080", LOCAL_STACK)
+    assert_contains(harness_local_stack, '("service:overgate", true)', HARNESS_LOCAL_STACK)
 
     for route in REQUIRED_PUBLIC_ROUTES + REQUIRED_ADMIN_ROUTES:
         assert_contains(readme, route, README)
@@ -184,6 +212,8 @@ def validate_fixtures_and_docs() -> None:
     local_stack_service = valid["local_stack_service"]
     if local_stack_service["service_id"] != "service:overgate":
         raise AssertionError("valid fixture must reference service:overgate")
+    if local_stack_service["port_owner_service_id"] != "service:api":
+        raise AssertionError("valid fixture must preserve service:api as the port 18080 owner")
     if local_stack_service["bind_host"] != "127.0.0.1" or local_stack_service["port"] != 18080:
         raise AssertionError("valid fixture must keep Overgate on loopback port 18080")
     if local_stack_service["base_path"] != "/overgate":
@@ -192,9 +222,18 @@ def validate_fixtures_and_docs() -> None:
         raise AssertionError("valid fixture must be local/test scoped")
     if valid["command_envelope"]["payload_ref"].startswith("fixture://") is False:
         raise AssertionError("valid fixture must use payload refs instead of private payload bodies")
+    if valid["harness_scenario_ref"] != "scenario:overgate_phase2_command_smoke":
+        raise AssertionError("valid fixture must expose the phase 2 Overgate smoke scenario ref")
     for dependency in REQUIRED_DEPENDENCIES[:7]:
         if dependency not in valid["dependency_refs"]:
             raise AssertionError(f"valid fixture missing dependency ref: {dependency}")
+
+    local_stack_services = local_stack_default["stack_profile"]["enabled_services"]
+    if "service:api" not in local_stack_services:
+        raise AssertionError("local-stack default fixture must preserve service:api as port owner")
+    port_bindings = local_stack_default["port_registry"]["bindings"]
+    if not any(binding["service_id"] == "service:api" and binding["port"] == 18080 for binding in port_bindings):
+        raise AssertionError("local-stack default fixture must preserve service:api on port 18080")
 
     denial = invalid["expected_denial"]
     if denial["status"] != 401 or denial["reason_code"] != "auth.operator_signature_required":
@@ -213,6 +252,7 @@ def validate_tests_exist() -> None:
     required_tests = {
         "public_routes_register_and_preserve_trace_json",
         "local_base_path_routes_to_same_public_surface",
+        "local_fixture_command_smoke_submits_through_overgate_base_path",
         "readyz_separates_liveness_from_dependency_authority",
         "admin_routes_deny_unsigned_non_operator_and_cross_tenant_requests",
     }
