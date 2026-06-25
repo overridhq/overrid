@@ -772,6 +772,22 @@ mod tests {
             .expect("request should build")
     }
 
+    fn admin_request(
+        method: &str,
+        uri: impl Into<String>,
+        trace: &str,
+        tenant_id: &str,
+    ) -> Request<Body> {
+        placeholder_admin_headers(trace, tenant_id)
+            .into_iter()
+            .fold(
+                Request::builder().method(method).uri(uri.into()),
+                |builder, (name, value)| builder.header(name, value),
+            )
+            .body(Body::empty())
+            .expect("request should build")
+    }
+
     #[tokio::test]
     async fn public_routes_register_and_preserve_trace_json() {
         let app = OvergateService::default().router();
@@ -2625,6 +2641,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase9_admin_idempotency_lookup_returns_conflict_visibility() {
+        let app = OvergateService::default().router();
+        let mut original = valid_command_envelope("trace_phase9_idempotency_lookup_original");
+        original["command_id"] = json!("command:overgate:phase9:idempotency_lookup");
+        original["command_type"] = json!("overgate.phase9.tenant.idempotency_lookup");
+        original["idempotency_key"] = json!("idem:overgate:phase9:idempotency_lookup");
+        original["request_hash"] = json!("hash:fixture:phase9_idempotency_lookup_request");
+        original["payload_hash"] = json!("hash:fixture:phase9_idempotency_lookup_payload");
+
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", original.clone()))
+            .await
+            .expect("idempotency lookup seed command should respond");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+
+        let mut conflicting = original;
+        conflicting["trace_id"] = json!("trace_phase9_idempotency_lookup_conflict");
+        conflicting["command_id"] = json!("command:overgate:phase9:idempotency_lookup_conflict");
+        conflicting["request_hash"] = json!("hash:fixture:phase9_idempotency_lookup_conflict");
+        conflicting["payload_hash"] =
+            json!("hash:fixture:phase9_idempotency_lookup_conflict_payload");
+        let conflict = app
+            .clone()
+            .oneshot(command_post("/v1/commands", conflicting))
+            .await
+            .expect("idempotency conflict command should respond");
+        assert_eq!(conflict.status(), StatusCode::CONFLICT);
+        let conflict_body = body_json(conflict).await;
+        assert_eq!(
+            conflict_body["data"]["client_contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+        assert_eq!(conflict_body["data"]["free_form_message_required"], false);
+
+        let lookup = app
+            .oneshot(admin_request(
+                "GET",
+                "/v1/admin/idempotency/tenant:local:test/idem:overgate:phase9:idempotency_lookup",
+                "trace_phase9_idempotency_lookup_admin",
+                "tenant:local:test",
+            ))
+            .await
+            .expect("phase 9 idempotency lookup should respond");
+        assert_eq!(lookup.status(), StatusCode::OK);
+        let body = body_json(lookup).await;
+        assert_eq!(body["schema_version"], PHASE9_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(
+            body["reason_code"],
+            "overgate.admin_idempotency_lookup_phase9"
+        );
+        assert_eq!(
+            body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+        assert_eq!(
+            body["data"]["idempotency_records"][0]["conflict_reason"],
+            "idempotency.request_hash_conflict"
+        );
+        assert_eq!(
+            body["data"]["idempotency_records"][0]["retention"]["idempotency_retention_class"],
+            "control_plane_mutation"
+        );
+        assert!(body["data"]["operator_runbook_steps"]
+            .as_array()
+            .expect("runbook steps should be present")
+            .iter()
+            .any(|step| step == "inspect_conflict_reason_and_retention_class"));
+    }
+
+    #[tokio::test]
     async fn phase9_idempotency_expiration_refuses_finality_records() {
         let app = OvergateService::default().router();
         let mut finality_command = valid_command_envelope("trace_phase9_finality_command");
@@ -2679,6 +2766,229 @@ mod tests {
             body["data"]["client_response_shape"]["free_form_message_required"],
             false
         );
+    }
+
+    #[tokio::test]
+    async fn phase9_idempotency_expiration_refuses_all_protected_records() {
+        let app = OvergateService::default().router();
+        let cases = [
+            (
+                "active",
+                "overgate.phase8.queue.workload.submit",
+                "active_record_refused_phase9",
+            ),
+            (
+                "disputed",
+                "overgate.phase9.tenant.dispute_review",
+                "disputed_record_refused_phase9",
+            ),
+            (
+                "incident",
+                "overgate.phase9.tenant.incident_review",
+                "incident_linked_record_refused_phase9",
+            ),
+            (
+                "retry",
+                "overgate.phase9.tenant.retry_review",
+                "retry_linked_record_refused_phase9",
+            ),
+            (
+                "finality",
+                "overgate.phase9.admin.accounting.finality",
+                "finality_protected_record_refused_phase9",
+            ),
+        ];
+
+        for (index, (case_id, command_type, expected_denial)) in cases.into_iter().enumerate() {
+            let mut command = valid_command_envelope(&format!("trace_phase9_protected_{case_id}"));
+            command["command_id"] = json!(format!("command:overgate:phase9:protected:{case_id}"));
+            command["command_type"] = json!(command_type);
+            command["idempotency_key"] = json!(format!("idem:overgate:phase9:protected:{case_id}"));
+            command["request_hash"] =
+                json!(format!("hash:fixture:phase9_protected_{case_id}_request"));
+            command["payload_hash"] =
+                json!(format!("hash:fixture:phase9_protected_{case_id}_payload"));
+            command["timestamp"] = json!(format!("2026-06-25T0{index}:00:00Z"));
+
+            let accepted = app
+                .clone()
+                .oneshot(command_post("/v1/commands", command))
+                .await
+                .expect("protected seed command should respond");
+            assert_eq!(accepted.status(), StatusCode::ACCEPTED, "{case_id}");
+            let accepted_body = body_json(accepted).await;
+            let record_id = accepted_body["data"]["idempotency"]["record"]["record_id"]
+                .as_str()
+                .expect("record id should be present")
+                .to_owned();
+
+            let expire = app
+                .clone()
+                .oneshot(admin_request(
+                    "POST",
+                    format!("/v1/admin/idempotency/{record_id}/expire"),
+                    &format!("trace_phase9_protected_{case_id}_expire"),
+                    "tenant:local:test",
+                ))
+                .await
+                .expect("protected expiration route should respond");
+            assert_eq!(expire.status(), StatusCode::CONFLICT, "{case_id}");
+            let body = body_json(expire).await;
+            assert_eq!(
+                body["reason_code"], "overgate.admin_idempotency_expiration_refused_phase9",
+                "{case_id}"
+            );
+            assert_eq!(body["data"]["denial"], expected_denial, "{case_id}");
+            assert_eq!(
+                body["data"]["client_response_shape"]["contract_ref"],
+                PHASE9_CLIENT_RESPONSE_SHAPE_REF,
+                "{case_id}"
+            );
+            assert_ne!(
+                body["data"]["audit_hook_ref"],
+                Value::Null,
+                "{case_id} should emit audit evidence"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn phase9_public_client_response_shapes_cover_common_client_cases() {
+        let app = OvergateService::default().router();
+        let mut command = valid_command_envelope("trace_phase9_client_shape");
+        command["command_id"] = json!("command:overgate:phase9:client_shape");
+        command["command_type"] = json!("overgate.phase9.tenant.client_shape");
+        command["idempotency_key"] = json!("idem:overgate:phase9:client_shape");
+        command["request_hash"] = json!("hash:fixture:phase9_client_shape_request");
+        command["payload_hash"] = json!("hash:fixture:phase9_client_shape_payload");
+
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", command.clone()))
+            .await
+            .expect("client-shape command should respond");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+        let accepted_body = body_json(accepted).await;
+        assert_eq!(
+            accepted_body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+        let command_id = accepted_body["data"]["command_id"]
+            .as_str()
+            .expect("command id should be present")
+            .to_owned();
+
+        let replay = app
+            .clone()
+            .oneshot(command_post("/v1/commands", command.clone()))
+            .await
+            .expect("idempotency replay should respond");
+        assert_eq!(replay.status(), StatusCode::OK);
+        let replay_body = body_json(replay).await;
+        assert_eq!(replay_body["reason_code"], "overgate.idempotency_replayed");
+        assert_eq!(
+            replay_body["data"]["client_response_shape"]["stable_reason_code"],
+            "overgate.idempotency_replayed"
+        );
+
+        let status = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/v1/commands/{command_id}"))
+                    .header(TENANT_HEADER, "tenant:local:test")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("status route should respond");
+        assert_eq!(status.status(), StatusCode::OK);
+        let status_body = body_json(status).await;
+        assert_eq!(
+            status_body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+
+        let trace = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/traces/trace_phase9_client_shape")
+                    .header(TENANT_HEADER, "tenant:local:test")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("trace route should respond");
+        assert_eq!(trace.status(), StatusCode::OK);
+        let trace_body = body_json(trace).await;
+        assert_eq!(
+            trace_body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+
+        let limits = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/limits")
+                    .header(TENANT_HEADER, "tenant:local:test")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("limits route should respond");
+        assert_eq!(limits.status(), StatusCode::OK);
+        let limits_body = body_json(limits).await;
+        assert_eq!(
+            limits_body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+
+        let policy = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/policy/dry-run")
+                    .header(TENANT_HEADER, "tenant:local:test")
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        json!({
+                            "command_type": "overgate.phase9.policy.evaluate",
+                            "simulate_decision": "deny"
+                        })
+                        .to_string(),
+                    ))
+                    .expect("policy dry-run request should build"),
+            )
+            .await
+            .expect("policy dry-run route should respond");
+        assert_eq!(policy.status(), StatusCode::ACCEPTED);
+        let policy_body = body_json(policy).await;
+        assert_eq!(
+            policy_body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+
+        let mut conflict = command;
+        conflict["trace_id"] = json!("trace_phase9_client_shape_conflict");
+        conflict["command_id"] = json!("command:overgate:phase9:client_shape_conflict");
+        conflict["request_hash"] = json!("hash:fixture:phase9_client_shape_conflict");
+        let conflict_response = app
+            .oneshot(command_post("/v1/commands", conflict))
+            .await
+            .expect("conflict command should respond");
+        assert_eq!(conflict_response.status(), StatusCode::CONFLICT);
+        let conflict_body = body_json(conflict_response).await;
+        assert_eq!(
+            conflict_body["data"]["client_contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+        assert_eq!(conflict_body["data"]["free_form_message_required"], false);
     }
 
     #[tokio::test]

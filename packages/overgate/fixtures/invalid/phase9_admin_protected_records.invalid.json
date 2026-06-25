@@ -25,6 +25,20 @@
       "expected_denial": "incident_linked_record_refused_phase9"
     },
     {
+      "case_id": "disputed_expiration",
+      "route": "POST /v1/admin/idempotency/{record_id}/expire",
+      "expected_status": 409,
+      "expected_reason_code": "overgate.admin_idempotency_expiration_refused_phase9",
+      "expected_denial": "disputed_record_refused_phase9"
+    },
+    {
+      "case_id": "retry_linked_expiration",
+      "route": "POST /v1/admin/idempotency/{record_id}/expire",
+      "expected_status": 409,
+      "expected_reason_code": "overgate.admin_idempotency_expiration_refused_phase9",
+      "expected_denial": "retry_linked_record_refused_phase9"
+    },
+    {
       "case_id": "active_record_expiration",
       "route": "POST /v1/admin/idempotency/{record_id}/expire",
       "expected_status": 409,

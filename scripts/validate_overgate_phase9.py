@@ -108,7 +108,10 @@ def validate_rust_sources() -> None:
         "ClientResponseShape",
         "free_form_message_required: false",
         "phase9_admin_ingress_lookup_is_tenant_scoped_and_redacted",
+        "phase9_admin_idempotency_lookup_returns_conflict_visibility",
         "phase9_idempotency_expiration_refuses_finality_records",
+        "phase9_idempotency_expiration_refuses_all_protected_records",
+        "phase9_public_client_response_shapes_cover_common_client_cases",
         "phase9_admin_rate_limits_include_quota_diagnostics_and_runbooks",
     ):
         assert_contains(routes, expected, ROUTES)
@@ -173,6 +176,19 @@ def validate_fixtures() -> None:
     ):
         if route not in routes:
             raise AssertionError(f"{VALID_FIXTURE} missing route {route}")
+    common_client_cases = set(valid["diagnostics"].get("common_client_cases", []))
+    for client_case in (
+        "status",
+        "trace",
+        "limit",
+        "replay",
+        "conflict",
+        "quota",
+        "policy",
+        "forwarding_failure",
+    ):
+        if client_case not in common_client_cases:
+            raise AssertionError(f"{VALID_FIXTURE} missing common client case {client_case}")
 
     if invalid["schema_version"] != "overgate.phase9.invalid_fixture.v0":
         raise AssertionError(f"{INVALID_FIXTURE} has wrong schema_version")
@@ -181,6 +197,8 @@ def validate_fixtures() -> None:
         "cross_tenant_ingress_lookup": "cross_tenant_ingress_lookup_denied",
         "finality_protected_expiration": "finality_protected_record_refused_phase9",
         "incident_linked_expiration": "incident_linked_record_refused_phase9",
+        "disputed_expiration": "disputed_record_refused_phase9",
+        "retry_linked_expiration": "retry_linked_record_refused_phase9",
         "active_record_expiration": "active_record_refused_phase9",
     }
     for case_id, denial in required_denials.items():

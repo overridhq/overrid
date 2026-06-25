@@ -26,6 +26,16 @@
     "requires_local_counter_refs": true,
     "requires_grant_placeholder_refs": true,
     "requires_denial_reason_distribution": true,
-    "forbidden_raw_private_metadata": true
+    "forbidden_raw_private_metadata": true,
+    "common_client_cases": [
+      "status",
+      "trace",
+      "limit",
+      "replay",
+      "conflict",
+      "quota",
+      "policy",
+      "forwarding_failure"
+    ]
   }
 }
