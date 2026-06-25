@@ -94,6 +94,13 @@ pub enum CommandLookup {
     Missing,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IdempotencyMutation {
+    Applied(IdempotencyRecord),
+    Forbidden,
+    Missing,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TraceSummary {
     pub trace_id: String,
@@ -257,20 +264,23 @@ impl IdempotencyStore {
             .collect()
     }
 
-    pub fn expire_record(&self, record_id: &str) -> Option<IdempotencyRecord> {
+    pub fn expire_record(&self, tenant_id: &str, record_id: &str) -> IdempotencyMutation {
         let mut state = self.lock_state();
         for record in state.records.values_mut() {
             if record.record_id == record_id {
+                if record.tenant_id != tenant_id {
+                    return IdempotencyMutation::Forbidden;
+                }
                 record.current_state = "retention_expired";
                 record.forwarding_state = "expired_after_retention_window";
                 record.audit_refs.push(format!(
                     "audit:overgate:idempotency_expired:{}",
                     stable_short_token(&[record_id])
                 ));
-                return Some(record.clone());
+                return IdempotencyMutation::Applied(record.clone());
             }
         }
-        None
+        IdempotencyMutation::Missing
     }
 
     pub fn seed_record(&self, record: IdempotencyRecord) {

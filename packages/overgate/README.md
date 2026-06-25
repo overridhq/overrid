@@ -75,7 +75,7 @@ Accepted command responses use `overgate.phase5.response.v0`, `overgate.command_
 
 `GET /v1/commands/{command_id}` returns `overgate.command_status_phase5` for tenant-visible records, `overgate.status_visibility_denied` for cross-tenant lookups, and `overgate.status_not_found` for missing records. `GET /v1/traces/{trace_id}` returns `overgate.trace_summary_phase5` with audit refs and redacted command summaries. `GET /v1/limits` returns `overgate.limits_phase5` with visible idempotency record counts and quota-precheck refs.
 
-Admin idempotency lookup and expiration routes now expose tenant-scoped Phase 5 idempotency records to signed operators without bypassing Overwatch fail-closed behavior.
+Admin idempotency lookup and expiration routes now expose tenant-scoped Phase 5 idempotency records to signed operators without bypassing Overwatch fail-closed behavior. Expiration is also constrained by the operator tenant, so a cross-tenant operator cannot mutate a record by knowing its record id.
 
 ## Fixtures
 

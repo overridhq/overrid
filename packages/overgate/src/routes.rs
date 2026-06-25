@@ -1423,6 +1423,70 @@ mod tests {
             "auth.operator_admitted_phase4"
         );
 
+        let app = OvergateService::default().router();
+        let mut tenant_alpha_command = valid_command_envelope("trace_phase5_admin_expire_alpha");
+        tenant_alpha_command["tenant_id"] = json!("tenant:alpha");
+        tenant_alpha_command["idempotency_key"] = json!("idem:overgate:phase5:admin_expire");
+        tenant_alpha_command["request_hash"] = json!("hash:fixture:phase5_admin_expire_request");
+        tenant_alpha_command["payload_hash"] = json!("hash:fixture:phase5_admin_expire_payload");
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", tenant_alpha_command))
+            .await
+            .expect("tenant alpha command should be accepted");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+        let accepted_body = body_json(accepted).await;
+        let record_id = accepted_body["data"]["idempotency"]["record"]["record_id"]
+            .as_str()
+            .expect("record id should be present")
+            .to_owned();
+
+        let cross_tenant_expire = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/admin/idempotency/{record_id}/expire"))
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
+                    .header(OPERATOR_ROLE_HEADER, "operator")
+                    .header(TENANT_HEADER, "tenant:beta")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("cross-tenant expire route should respond");
+        assert_eq!(cross_tenant_expire.status(), StatusCode::FORBIDDEN);
+        let body = body_json(cross_tenant_expire).await;
+        assert_eq!(body["reason_code"], "auth.cross_tenant_denied");
+        assert_eq!(
+            body["data"]["denial"],
+            "cross_tenant_idempotency_expire_denied"
+        );
+
+        let allowed_expire = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/admin/idempotency/{record_id}/expire"))
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
+                    .header(OPERATOR_ROLE_HEADER, "operator")
+                    .header(TENANT_HEADER, "tenant:alpha")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("tenant-scoped expire route should respond");
+        assert_eq!(allowed_expire.status(), StatusCode::OK);
+        let body = body_json(allowed_expire).await;
+        assert_eq!(
+            body["reason_code"],
+            "overgate.admin_idempotency_expire_phase5"
+        );
+        assert_eq!(
+            body["data"]["idempotency_records"][0]["current_state"],
+            "retention_expired"
+        );
+
         let dependencies = DependencyMatrix::default()
             .with_dependency_state("overwatch", DependencyState::Unavailable);
         let service = OvergateService::with_dependencies(OvergateConfig::default(), dependencies);

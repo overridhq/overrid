@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::admission::{operator_admission_record, overwatch_ready, OperatorAdmissionRecord};
 use crate::dependencies::DependencyMatrix;
-use crate::idempotency::IdempotencyRecord;
+use crate::idempotency::{IdempotencyMutation, IdempotencyRecord};
 use crate::routes::{
     header_value, stable_short_token, trace_id, ApiResponse, TENANT_HEADER, TRACE_HEADER,
 };
@@ -121,11 +121,29 @@ async fn admin_idempotency_expire(
     let trace_id = trace_id(&headers, "trace_overgate_admin_idempotency_expire");
     let operator = authorize_operator(&headers, None, &trace_id, &state.dependencies)?;
     let audit_hook_ref = admin_audit_ref(ADMIN_ROUTE_IDEMPOTENCY_EXPIRE, &trace_id);
-    let idempotency_records = state
+    let operator_tenant = operator.tenant_id.clone();
+    let idempotency_records = match state
         .idempotency
-        .expire_record(&record_id)
-        .into_iter()
-        .collect::<Vec<_>>();
+        .expire_record(&operator_tenant, &record_id)
+    {
+        IdempotencyMutation::Applied(record) => vec![record],
+        IdempotencyMutation::Forbidden => {
+            return Err(admin_denial(
+                StatusCode::FORBIDDEN,
+                &trace_id,
+                "auth.cross_tenant_denied",
+                "cross_tenant_idempotency_expire_denied",
+            ));
+        }
+        IdempotencyMutation::Missing => {
+            return Err(admin_denial(
+                StatusCode::NOT_FOUND,
+                &trace_id,
+                "overgate.admin_idempotency_record_not_found",
+                "idempotency_record_not_found",
+            ));
+        }
+    };
     Ok(Json(ApiResponse::new(
         trace_id.clone(),
         "accepted",

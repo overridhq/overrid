@@ -110,6 +110,7 @@ def validate_rust_sources() -> None:
     for expected in (
         "IdempotencyStore",
         "IdempotencyRecord",
+        "IdempotencyMutation",
         "IdempotencyOutcome",
         "IdempotencyReservationInput",
         "reserve_or_replay",
@@ -161,7 +162,9 @@ def validate_rust_sources() -> None:
     for expected in (
         "IdempotencyRecord",
         "admin_records_for_key",
-        "expire_record",
+        "expire_record(&operator_tenant",
+        "cross_tenant_idempotency_expire_denied",
+        "overgate.admin_idempotency_record_not_found",
         "overgate.admin_idempotency_lookup_phase5",
         "overgate.admin_idempotency_expire_phase5",
         "idempotency_records",
@@ -229,6 +232,7 @@ def validate_tests_and_readme() -> None:
         "phase5_status_trace_and_limits_are_tenant_filtered",
         "phase5_retention_classes_cover_control_queue_finality_and_extension_refs",
         "phase4_command_admission_denies_credential_actor_tenant_and_service_failures",
+        "admin_routes_deny_unsigned_non_operator_and_cross_tenant_requests",
     }
     missing = sorted(required_tests - tests)
     if missing:
