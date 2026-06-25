@@ -138,6 +138,7 @@ def validate_rust_sources() -> None:
         "ProductClientFlowChecklist",
         "target_registry",
         "validate_target_registry",
+        "phase1_command_supported",
         "forward_after_acceptance",
         "synchronous_phase1_forwarding_phase8",
         "overqueue_durable_dispatch_phase8",
@@ -225,6 +226,13 @@ def validate_fixtures() -> None:
         for field in REQUIRED_ENVELOPE_FIELDS:
             if field not in envelope:
                 raise AssertionError(f"{INVALID_PHASE8_FIXTURE} {key} missing {field}")
+
+    missing_target_type = invalid["missing_target_command_envelope"]["command_type"]
+    for sentinel in ("unregistered", "missing_target"):
+        if sentinel in missing_target_type:
+            raise AssertionError(
+                f"{INVALID_PHASE8_FIXTURE} missing target case must not depend on {sentinel!r} sentinel text"
+            )
 
     denials = invalid["expected_denials"]
     required_denials = {

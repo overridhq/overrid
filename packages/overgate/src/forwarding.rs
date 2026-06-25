@@ -784,13 +784,14 @@ fn target_from_parts(
                 Some("/v1/commands/status-projection"),
                 "overgate_status_projection_only",
             ),
-            "phase1_control_plane_mutation" => (
+            "phase1_control_plane_mutation" if phase1_command_supported(command_type) => (
                 phase1_owner_service(command_type),
                 "synchronous_phase1_forwarding_phase8",
                 None,
                 Some(phase1_api_route(command_type)),
                 phase1_downstream_state_owner(command_type),
             ),
+            "phase1_control_plane_mutation" => return None,
             "queue_producing_workload" => (
                 "service:overqueue",
                 "overqueue_durable_dispatch_phase8",
@@ -900,6 +901,25 @@ fn phase1_owner_service(command_type: &str) -> &'static str {
     } else {
         "service:overtenant"
     }
+}
+
+fn phase1_command_supported(command_type: &str) -> bool {
+    command_type.contains("credential")
+        || command_type.contains("key")
+        || command_type.contains("identity")
+        || command_type.contains("actor")
+        || command_type.contains("pass")
+        || command_type.contains("service_account")
+        || command_type.contains("node_agent")
+        || command_type.contains("callback")
+        || command_type.contains("tenant")
+        || command_type.contains("manifest")
+        || command_type.contains("registry")
+        || command_type.contains("trace")
+        || command_type.contains("status")
+        || command_type.contains("limit")
+        || command_type.contains("synthetic")
+        || command_type.contains("noop")
 }
 
 fn phase1_api_route(command_type: &str) -> &'static str {

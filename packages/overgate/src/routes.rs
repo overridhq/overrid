@@ -1814,12 +1814,12 @@ mod tests {
     async fn phase8_target_registry_rejects_unregistered_targets() {
         assert!(crate::forwarding::validate_target_registry());
         let app = OvergateService::default().router();
-        let mut envelope = valid_command_envelope("trace_phase8_missing_target");
-        envelope["command_id"] = json!("command:overgate:phase8:missing_target");
-        envelope["command_type"] = json!("overgate.phase8.unregistered.operation");
-        envelope["idempotency_key"] = json!("idem:overgate:phase8:missing_target");
-        envelope["request_hash"] = json!("hash:fixture:phase8_missing_target_request");
-        envelope["payload_hash"] = json!("hash:fixture:phase8_missing_target_payload");
+        let mut envelope = valid_command_envelope("trace_phase8_unknown_target");
+        envelope["command_id"] = json!("command:overgate:phase8:unknown_target");
+        envelope["command_type"] = json!("overgate.phase8.opaque.operation");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:unknown_target");
+        envelope["request_hash"] = json!("hash:fixture:phase8_unknown_target_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_unknown_target_payload");
 
         let response = app
             .oneshot(command_post("/v1/commands", envelope))
