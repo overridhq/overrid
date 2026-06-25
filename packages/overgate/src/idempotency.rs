@@ -95,8 +95,16 @@ pub enum CommandLookup {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdminRecordLookup {
+    Found(Vec<IdempotencyRecord>),
+    Forbidden,
+    Missing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdempotencyMutation {
     Applied(IdempotencyRecord),
+    Protected(&'static str),
     Forbidden,
     Missing,
 }
@@ -272,12 +280,40 @@ impl IdempotencyStore {
             .collect()
     }
 
+    pub fn admin_records_for_request(
+        &self,
+        tenant_id: &str,
+        request_id: &str,
+    ) -> AdminRecordLookup {
+        let state = self.lock_state();
+        let mut records = Vec::new();
+        let mut saw_request = false;
+        for record in state.records.values() {
+            if record.request_id == request_id {
+                saw_request = true;
+                if record.tenant_id == tenant_id {
+                    records.push(record.clone());
+                }
+            }
+        }
+        if !records.is_empty() {
+            AdminRecordLookup::Found(records)
+        } else if saw_request {
+            AdminRecordLookup::Forbidden
+        } else {
+            AdminRecordLookup::Missing
+        }
+    }
+
     pub fn expire_record(&self, tenant_id: &str, record_id: &str) -> IdempotencyMutation {
         let mut state = self.lock_state();
         for record in state.records.values_mut() {
             if record.record_id == record_id {
                 if record.tenant_id != tenant_id {
                     return IdempotencyMutation::Forbidden;
+                }
+                if let Some(reason) = expiration_protection_reason(record) {
+                    return IdempotencyMutation::Protected(reason);
                 }
                 record.current_state = "retention_expired";
                 record.forwarding_state = "expired_after_retention_window";
@@ -458,4 +494,47 @@ fn credential_context_ref(credential_id: &str, key_version: &str) -> String {
         "credential_context:overgate:{}",
         stable_short_token(&[credential_id, key_version])
     )
+}
+
+fn expiration_protection_reason(record: &IdempotencyRecord) -> Option<&'static str> {
+    if record.current_state.starts_with("pending")
+        || record.forwarding_state.contains("pending")
+        || record.forwarding_state.contains("retry_scheduled")
+    {
+        return Some("active_record_refused_phase9");
+    }
+    if record
+        .retention
+        .retention_extension_refs
+        .iter()
+        .any(|extension| *extension == "retention_extension:dispute_ref")
+    {
+        return Some("disputed_record_refused_phase9");
+    }
+    if record
+        .retention
+        .retention_extension_refs
+        .iter()
+        .any(|extension| *extension == "retention_extension:incident_ref")
+    {
+        return Some("incident_linked_record_refused_phase9");
+    }
+    if record
+        .retention
+        .retention_extension_refs
+        .iter()
+        .any(|extension| *extension == "retention_extension:retry_ref")
+    {
+        return Some("retry_linked_record_refused_phase9");
+    }
+    if record.retention.idempotency_retention_class == "finality_or_rights_command"
+        || record
+            .retention
+            .retention_extension_refs
+            .iter()
+            .any(|extension| *extension == "retention_extension:finality_ref")
+    {
+        return Some("finality_protected_record_refused_phase9");
+    }
+    None
 }

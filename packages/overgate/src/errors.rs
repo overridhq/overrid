@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 use serde::Serialize;
 
+pub const PHASE9_CLIENT_RESPONSE_SHAPE_REF: &str = "client_response_shape:overgate:phase9";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Retryability {
     NotRetryable,
@@ -394,6 +396,8 @@ impl OvergateError {
             correction_hint: self.correction_hint,
             dependency_name: self.dependency_name,
             client_denial_refs: self.client_denial_refs.clone(),
+            client_contract_ref: PHASE9_CLIENT_RESPONSE_SHAPE_REF,
+            free_form_message_required: false,
             diagnostics: RedactedDiagnostics {
                 privacy_class: "redacted_diagnostic",
                 redacted: true,
@@ -412,6 +416,8 @@ pub struct ApiErrorData {
     pub correction_hint: &'static str,
     pub dependency_name: Option<&'static str>,
     pub client_denial_refs: Vec<String>,
+    pub client_contract_ref: &'static str,
+    pub free_form_message_required: bool,
     pub diagnostics: RedactedDiagnostics,
 }
 

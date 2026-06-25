@@ -37,6 +37,8 @@ pub const PHASE6_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phas
 pub const PHASE7_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase7.response.v0";
 pub const PHASE8_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase8.response.v0";
 pub const PHASE8_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase8";
+pub const PHASE9_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase9.response.v0";
+pub const PHASE9_CLIENT_RESPONSE_SHAPE_REF: &str = "client_response_shape:overgate:phase9";
 pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
 pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
@@ -93,6 +95,33 @@ impl<T: Serialize> ApiResponse<T> {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ClientResponseShape {
+    pub contract_ref: &'static str,
+    pub route: &'static str,
+    pub stable_reason_code: &'static str,
+    pub typed_fields: Vec<&'static str>,
+    pub free_form_message_required: bool,
+    pub sdk_cli_ui_native_safe: bool,
+}
+
+impl ClientResponseShape {
+    pub fn new(
+        route: &'static str,
+        stable_reason_code: &'static str,
+        typed_fields: Vec<&'static str>,
+    ) -> Self {
+        Self {
+            contract_ref: PHASE9_CLIENT_RESPONSE_SHAPE_REF,
+            route,
+            stable_reason_code,
+            typed_fields,
+            free_form_message_required: false,
+            sdk_cli_ui_native_safe: true,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct CommandAcceptedData {
     route: &'static str,
@@ -113,6 +142,7 @@ struct CommandAcceptedData {
     phase6_precheck_digest_ref: String,
     phase7_audit: Phase7AuditEvidence,
     phase8_forwarding: ForwardingOutcome,
+    client_response_shape: ClientResponseShape,
 }
 
 #[derive(Debug, Serialize)]
@@ -127,6 +157,7 @@ struct CommandStatusData {
     audit_refs: Vec<String>,
     response_digest_ref: Option<String>,
     retention_class: Option<&'static str>,
+    client_response_shape: ClientResponseShape,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,6 +167,7 @@ struct TraceStatusData {
     audit_refs: Vec<String>,
     caller_visible: bool,
     trace_summary: TraceSummary,
+    client_response_shape: ClientResponseShape,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,6 +178,7 @@ struct LimitsData {
     quota_precheck_refs: Vec<String>,
     idempotency_summary: IdempotencyLimitSummary,
     phase6_precheck_summary: PrecheckLimitSummary,
+    client_response_shape: ClientResponseShape,
 }
 
 #[derive(Debug, Serialize)]
@@ -155,6 +188,7 @@ struct PolicyDryRunData {
     mutation_allowed: bool,
     policy_ref: String,
     policy_check: crate::prechecks::PolicyCheckRecord,
+    client_response_shape: ClientResponseShape,
 }
 
 #[derive(Debug, Serialize)]
@@ -360,6 +394,20 @@ async fn submit_command(
                 phase6_precheck_digest_ref,
                 phase7_audit,
                 phase8_forwarding,
+                client_response_shape: ClientResponseShape::new(
+                    ROUTE_SUBMIT_COMMAND,
+                    reason_code,
+                    vec![
+                        "status",
+                        "reason_code",
+                        "request_id",
+                        "command_id",
+                        "idempotency",
+                        "phase6_prechecks",
+                        "phase7_audit",
+                        "phase8_forwarding",
+                    ],
+                ),
             },
         )),
     ))
@@ -389,6 +437,18 @@ async fn command_status(
                 response_digest_ref: Some(record.response_digest_ref.clone()),
                 retention_class: Some(record.retention.idempotency_retention_class),
                 idempotency_record: Some(record),
+                client_response_shape: ClientResponseShape::new(
+                    ROUTE_COMMAND_STATUS,
+                    "overgate.command_status_phase5",
+                    vec![
+                        "admission_state",
+                        "forwarding_state",
+                        "owner",
+                        "audit_refs",
+                        "response_digest_ref",
+                        "retention_class",
+                    ],
+                ),
             },
         ))),
         CommandLookup::Forbidden => Err(api_error_response(
@@ -423,6 +483,11 @@ async fn trace_status(
             audit_refs: trace_summary.audit_refs.clone(),
             caller_visible: trace_summary.caller_visible,
             trace_summary,
+            client_response_shape: ClientResponseShape::new(
+                ROUTE_TRACE_STATUS,
+                "overgate.trace_summary_phase5",
+                vec!["trace_id", "audit_refs", "caller_visible", "trace_summary"],
+            ),
         },
     ))
 }
@@ -450,6 +515,17 @@ async fn limits(
             quota_precheck_refs: phase6_precheck_summary.quota_precheck_refs.clone(),
             idempotency_summary,
             phase6_precheck_summary,
+            client_response_shape: ClientResponseShape::new(
+                ROUTE_LIMITS,
+                "overgate.limits_phase6",
+                vec![
+                    "tenant_scope",
+                    "rate_limit_refs",
+                    "quota_precheck_refs",
+                    "idempotency_summary",
+                    "phase6_precheck_summary",
+                ],
+            ),
         },
     ))
 }
@@ -477,6 +553,16 @@ async fn policy_dry_run(
                 mutation_allowed: policy_check.allowed,
                 policy_ref: policy_check.decision_ref.clone(),
                 policy_check,
+                client_response_shape: ClientResponseShape::new(
+                    ROUTE_POLICY_DRY_RUN,
+                    "overgate.policy_dry_run_phase6",
+                    vec![
+                        "policy_state",
+                        "mutation_allowed",
+                        "policy_ref",
+                        "policy_check",
+                    ],
+                ),
             },
         )),
     )
@@ -629,7 +715,9 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::admin::{OPERATOR_ROLE_HEADER, OPERATOR_SIGNATURE_HEADER};
+    use crate::admin::{
+        placeholder_admin_headers, OPERATOR_ROLE_HEADER, OPERATOR_SIGNATURE_HEADER,
+    };
     use crate::audit::AuditStore;
     use crate::dependencies::{DependencyMatrix, DependencyState};
     use crate::envelope::{MAX_COMMAND_ENVELOPE_BYTES, SUPPORTED_COMMAND_SCHEMA_VERSION};
@@ -1282,7 +1370,7 @@ mod tests {
             .expect("admin rate-limit route should respond");
         assert_eq!(admin_view.status(), StatusCode::OK);
         let body = body_json(admin_view).await;
-        assert_eq!(body["reason_code"], "overgate.admin_rate_limits_phase6");
+        assert_eq!(body["reason_code"], "overgate.admin_rate_limits_phase9");
         assert!(
             body["data"]["rate_limit_buckets"]
                 .as_array()
@@ -2355,7 +2443,7 @@ mod tests {
         let body = body_json(allowed).await;
         assert_eq!(
             body["reason_code"],
-            "overgate.admin_idempotency_lookup_phase5"
+            "overgate.admin_idempotency_lookup_phase9"
         );
         assert_eq!(
             body["data"]["operator_admission"]["reason_code"],
@@ -2419,7 +2507,7 @@ mod tests {
         let body = body_json(allowed_expire).await;
         assert_eq!(
             body["reason_code"],
-            "overgate.admin_idempotency_expire_phase5"
+            "overgate.admin_idempotency_expire_phase9"
         );
         assert_eq!(
             body["data"]["idempotency_records"][0]["current_state"],
@@ -2445,5 +2533,205 @@ mod tests {
         assert_eq!(audit_blocked.status(), StatusCode::SERVICE_UNAVAILABLE);
         let body = body_json(audit_blocked).await;
         assert_eq!(body["reason_code"], "auth.operator_audit_unavailable");
+    }
+
+    #[tokio::test]
+    async fn phase9_admin_ingress_lookup_is_tenant_scoped_and_redacted() {
+        let app = OvergateService::default().router();
+        let mut tenant_alpha_command = valid_command_envelope("trace_phase9_admin_ingress_alpha");
+        tenant_alpha_command["command_id"] = json!("command:overgate:phase9:admin_ingress_alpha");
+        tenant_alpha_command["tenant_id"] = json!("tenant:alpha");
+        tenant_alpha_command["idempotency_key"] = json!("idem:overgate:phase9:admin_ingress");
+        tenant_alpha_command["request_hash"] = json!("hash:fixture:phase9_admin_ingress_request");
+        tenant_alpha_command["payload_hash"] = json!("hash:fixture:phase9_admin_ingress_payload");
+
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", tenant_alpha_command))
+            .await
+            .expect("phase 9 ingress seed command should respond");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+        let accepted_body = body_json(accepted).await;
+        let request_id = accepted_body["data"]["request_id"]
+            .as_str()
+            .expect("request id should be present")
+            .to_owned();
+
+        let lookup = app
+            .clone()
+            .oneshot(
+                placeholder_admin_headers("trace_phase9_admin_ingress_lookup", "tenant:alpha")
+                    .into_iter()
+                    .fold(
+                        Request::builder()
+                            .method("GET")
+                            .uri(format!("/v1/admin/ingress/{request_id}")),
+                        |builder, (name, value)| builder.header(name, value),
+                    )
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("phase 9 ingress lookup should respond");
+        assert_eq!(lookup.status(), StatusCode::OK);
+        let body = body_json(lookup).await;
+        assert_eq!(body["schema_version"], PHASE9_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.admin_ingress_lookup_phase9");
+        assert_eq!(
+            body["data"]["visibility"],
+            "signed_operator_tenant_scoped_redacted_phase9"
+        );
+        assert_eq!(
+            body["data"]["redaction_state"],
+            "private_metadata_redacted_phase9"
+        );
+        assert_eq!(
+            body["data"]["client_response_shape"]["contract_ref"],
+            PHASE9_CLIENT_RESPONSE_SHAPE_REF
+        );
+        assert_eq!(
+            body["data"]["idempotency_records"][0]["tenant_id"],
+            "tenant:alpha"
+        );
+        assert!(body["data"]["incident_hook_refs"]
+            .as_array()
+            .expect("incident hooks should be an array")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("incident_hook:")));
+
+        let cross_tenant_lookup = app
+            .oneshot(
+                placeholder_admin_headers("trace_phase9_admin_ingress_beta", "tenant:beta")
+                    .into_iter()
+                    .fold(
+                        Request::builder()
+                            .method("GET")
+                            .uri(format!("/v1/admin/ingress/{request_id}")),
+                        |builder, (name, value)| builder.header(name, value),
+                    )
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("cross-tenant phase 9 ingress lookup should respond");
+        assert_eq!(cross_tenant_lookup.status(), StatusCode::FORBIDDEN);
+        let body = body_json(cross_tenant_lookup).await;
+        assert_eq!(body["schema_version"], PHASE9_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "auth.cross_tenant_denied");
+        assert_eq!(body["data"]["denial"], "cross_tenant_ingress_lookup_denied");
+    }
+
+    #[tokio::test]
+    async fn phase9_idempotency_expiration_refuses_finality_records() {
+        let app = OvergateService::default().router();
+        let mut finality_command = valid_command_envelope("trace_phase9_finality_command");
+        finality_command["command_id"] = json!("command:overgate:phase9:finality");
+        finality_command["command_type"] = json!("overgate.phase9.admin.accounting.finality");
+        finality_command["idempotency_key"] = json!("idem:overgate:phase9:finality");
+        finality_command["request_hash"] = json!("hash:fixture:phase9_finality_request");
+        finality_command["payload_hash"] = json!("hash:fixture:phase9_finality_payload");
+
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", finality_command))
+            .await
+            .expect("finality command should be accepted");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+        let accepted_body = body_json(accepted).await;
+        let record_id = accepted_body["data"]["idempotency"]["record"]["record_id"]
+            .as_str()
+            .expect("record id should be present")
+            .to_owned();
+        assert_eq!(
+            accepted_body["data"]["retention"]["idempotency_retention_class"],
+            "finality_or_rights_command"
+        );
+
+        let expire = app
+            .oneshot(
+                placeholder_admin_headers("trace_phase9_finality_expire", "tenant:local:test")
+                    .into_iter()
+                    .fold(
+                        Request::builder()
+                            .method("POST")
+                            .uri(format!("/v1/admin/idempotency/{record_id}/expire")),
+                        |builder, (name, value)| builder.header(name, value),
+                    )
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("protected expiration route should respond");
+        assert_eq!(expire.status(), StatusCode::CONFLICT);
+        let body = body_json(expire).await;
+        assert_eq!(
+            body["reason_code"],
+            "overgate.admin_idempotency_expiration_refused_phase9"
+        );
+        assert_eq!(
+            body["data"]["denial"],
+            "finality_protected_record_refused_phase9"
+        );
+        assert_eq!(
+            body["data"]["client_response_shape"]["free_form_message_required"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn phase9_admin_rate_limits_include_quota_diagnostics_and_runbooks() {
+        let app = OvergateService::default().router();
+        let mut tenant_command = valid_command_envelope("trace_phase9_rate_limit_command");
+        tenant_command["command_id"] = json!("command:overgate:phase9:rate-limit");
+        tenant_command["idempotency_key"] = json!("idem:overgate:phase9:rate-limit");
+        tenant_command["request_hash"] = json!("hash:fixture:phase9_rate_limit_request");
+        tenant_command["payload_hash"] = json!("hash:fixture:phase9_rate_limit_payload");
+        let accepted = app
+            .clone()
+            .oneshot(command_post("/v1/commands", tenant_command))
+            .await
+            .expect("rate-limit seed command should be accepted");
+        assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+
+        let admin_view = app
+            .oneshot(
+                placeholder_admin_headers("trace_phase9_rate_limit_admin", "tenant:local:test")
+                    .into_iter()
+                    .fold(
+                        Request::builder()
+                            .method("GET")
+                            .uri("/v1/admin/rate-limits"),
+                        |builder, (name, value)| builder.header(name, value),
+                    )
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("phase 9 rate-limit admin route should respond");
+        assert_eq!(admin_view.status(), StatusCode::OK);
+        let body = body_json(admin_view).await;
+        assert_eq!(body["schema_version"], PHASE9_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.admin_rate_limits_phase9");
+        assert_eq!(
+            body["data"]["redaction_state"],
+            "budget_grant_and_tenant_private_values_redacted_phase9"
+        );
+        assert!(!body["data"]["local_counter_refs"]
+            .as_array()
+            .expect("local counter refs should be present")
+            .is_empty());
+        assert!(!body["data"]["grant_placeholder_refs"]
+            .as_array()
+            .expect("grant placeholder refs should be present")
+            .is_empty());
+        assert!(body["data"]["phase6_precheck_summary"]["denial_reason_distribution"].is_array());
+        assert!(body["data"]["operator_runbook_steps"]
+            .as_array()
+            .expect("runbook steps should be present")
+            .iter()
+            .any(|step| step == "compare_denial_reason_distribution"));
     }
 }

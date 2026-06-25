@@ -123,6 +123,14 @@ The Phase 8 response includes:
 
 The forwarding target registry rejects unregistered command types with `overgate.forwarding_target_unregistered`. Registry entries must define an owner service, command class, dispatch mode, schema version, permission requirement, policy requirement, retry behavior, failover behavior, audit mapping, tenant isolation rule, and downstream state owner while keeping `direct_downstream_state_write` false.
 
+## Phase 9 Admin Views, Tenant-Isolated Operations, And Client Ergonomics
+
+Admin routes now return `overgate.phase9.response.v0` responses with the shared `client_response_shape:overgate:phase9` contract. `GET /v1/admin/ingress/{request_id}` resolves tenant-scoped ingress/idempotency records by request id, redacts private metadata, returns Overwatch audit and incident hook refs, and denies cross-tenant lookups with `auth.cross_tenant_denied`.
+
+`GET /v1/admin/idempotency/{tenant_id}/{idempotency_key}` returns tenant-filtered idempotency records, conflict visibility, retention classes, audit refs, and runbook steps. `POST /v1/admin/idempotency/{record_id}/expire` emits audit evidence for safe expiration and refuses active, disputed, incident-linked, retry-linked, or finality-protected records with `overgate.admin_idempotency_expiration_refused_phase9`.
+
+`GET /v1/admin/rate-limits` returns role-scoped operations diagnostics for rate-limit buckets, quota-precheck refs, local counter refs, grant placeholder refs, policy decision refs, denial reason distribution, dependency refs, incident hooks, and operator runbook steps. Budget, grant, tenant-private, and raw payload values remain redacted; clients should render typed fields and must not parse free-form messages.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -146,5 +154,7 @@ The forwarding target registry rejects unregistered command types with `overgate
 - `fixtures/valid/phase7_command.valid.json` defines the Phase 7 Overwatch-compatible audit events, emergency-WAL default state, safe metric labels, and grid-operations checklist fixture.
 - `fixtures/valid/phase8_command.valid.json` defines the Phase 8 forwarding target registry, native Overqueue durable pending work, status projection, and product-client checklist fixture.
 - `fixtures/invalid/phase8_forwarding_denials.invalid.json` proves unregistered forwarding targets and product-client internal API bypass attempts deny with stable client-denial refs.
+- `fixtures/valid/phase9_admin_views.valid.json` defines Phase 9 admin ingress, idempotency, expiration, rate-limit/quota diagnostics, incident hooks, runbook steps, and typed client-response expectations.
+- `fixtures/invalid/phase9_admin_protected_records.invalid.json` proves cross-tenant ingress lookup and protected idempotency expiration cases deny with stable Phase 9 reasons.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

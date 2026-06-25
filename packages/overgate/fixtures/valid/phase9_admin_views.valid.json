@@ -1,0 +1,31 @@
+{
+  "schema_version": "overgate.phase9.local_fixture.v0",
+  "fixture_id": "fixture:overgate:phase9:admin_views",
+  "scope": "local_test_only",
+  "admin_routes": [
+    "GET /v1/admin/ingress/{request_id}",
+    "GET /v1/admin/idempotency/{tenant_id}/{idempotency_key}",
+    "POST /v1/admin/idempotency/{record_id}/expire",
+    "GET /v1/admin/rate-limits"
+  ],
+  "expected_response": {
+    "schema_version": "overgate.phase9.response.v0",
+    "client_contract_ref": "client_response_shape:overgate:phase9",
+    "ingress_reason_code": "overgate.admin_ingress_lookup_phase9",
+    "idempotency_lookup_reason_code": "overgate.admin_idempotency_lookup_phase9",
+    "idempotency_expire_reason_code": "overgate.admin_idempotency_expire_phase9",
+    "rate_limits_reason_code": "overgate.admin_rate_limits_phase9",
+    "redaction_state": "private_metadata_redacted_phase9",
+    "rate_limit_redaction_state": "budget_grant_and_tenant_private_values_redacted_phase9",
+    "free_form_message_required": false,
+    "incident_hooks_required": true,
+    "runbook_steps_required": true,
+    "tenant_scoped": true
+  },
+  "diagnostics": {
+    "requires_local_counter_refs": true,
+    "requires_grant_placeholder_refs": true,
+    "requires_denial_reason_distribution": true,
+    "forbidden_raw_private_metadata": true
+  }
+}

@@ -59,6 +59,7 @@ VALIDATORS = [
     Path("scripts/validate_overgate_phase6.py"),
     Path("scripts/validate_overgate_phase7.py"),
     Path("scripts/validate_overgate_phase8.py"),
+    Path("scripts/validate_overgate_phase9.py"),
     Path("scripts/validate_sdk_phase1.py"),
     Path("scripts/validate_sdk_phase2.py"),
     Path("scripts/validate_sdk_phase3.py"),

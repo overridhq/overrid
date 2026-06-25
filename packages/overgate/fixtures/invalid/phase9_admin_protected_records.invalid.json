@@ -1,0 +1,40 @@
+{
+  "schema_version": "overgate.phase9.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate:phase9:admin_protected_records_invalid",
+  "scope": "local_test_only",
+  "invalid_cases": [
+    {
+      "case_id": "cross_tenant_ingress_lookup",
+      "route": "GET /v1/admin/ingress/{request_id}",
+      "expected_status": 403,
+      "expected_reason_code": "auth.cross_tenant_denied",
+      "expected_denial": "cross_tenant_ingress_lookup_denied"
+    },
+    {
+      "case_id": "finality_protected_expiration",
+      "route": "POST /v1/admin/idempotency/{record_id}/expire",
+      "expected_status": 409,
+      "expected_reason_code": "overgate.admin_idempotency_expiration_refused_phase9",
+      "expected_denial": "finality_protected_record_refused_phase9"
+    },
+    {
+      "case_id": "incident_linked_expiration",
+      "route": "POST /v1/admin/idempotency/{record_id}/expire",
+      "expected_status": 409,
+      "expected_reason_code": "overgate.admin_idempotency_expiration_refused_phase9",
+      "expected_denial": "incident_linked_record_refused_phase9"
+    },
+    {
+      "case_id": "active_record_expiration",
+      "route": "POST /v1/admin/idempotency/{record_id}/expire",
+      "expected_status": 409,
+      "expected_reason_code": "overgate.admin_idempotency_expiration_refused_phase9",
+      "expected_denial": "active_record_refused_phase9"
+    }
+  ],
+  "safety_expectations": {
+    "audit_hook_ref_required": true,
+    "raw_private_payloads_forbidden": true,
+    "free_form_message_required": false
+  }
+}

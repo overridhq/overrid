@@ -163,7 +163,10 @@ pub struct PrecheckLimitSummary {
     pub buckets: Vec<RateLimitBucketView>,
     pub quota_precheck_refs: Vec<String>,
     pub budget_refs: Vec<String>,
+    pub local_counter_refs: Vec<String>,
+    pub grant_placeholder_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
+    pub denial_reason_distribution: Vec<DenialReasonBucket>,
     pub command_class_matrix_ref: &'static str,
 }
 
@@ -176,6 +179,12 @@ pub struct RateLimitBucketView {
     pub consumed: u32,
     pub remaining: u32,
     pub reset_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DenialReasonBucket {
+    pub reason_code: &'static str,
+    pub count: usize,
 }
 
 impl PrecheckInput {
@@ -346,12 +355,48 @@ impl PrecheckStore {
             .collect::<Vec<_>>();
         budget_refs.sort();
         budget_refs.dedup();
+        let mut local_counter_refs = state
+            .quota_records
+            .iter()
+            .filter(|record| record.tenant_id == tenant_id)
+            .map(|record| record.local_counter_ref.clone())
+            .collect::<Vec<_>>();
+        local_counter_refs.sort();
+        local_counter_refs.dedup();
+        let mut grant_placeholder_refs = state
+            .quota_records
+            .iter()
+            .filter(|record| record.tenant_id == tenant_id)
+            .flat_map(|record| record.grant_placeholder_refs.clone())
+            .collect::<Vec<_>>();
+        grant_placeholder_refs.sort();
+        grant_placeholder_refs.dedup();
         let policy_decision_refs = state
             .policy_records
             .iter()
             .filter(|record| record.tenant_id == tenant_id)
             .map(|record| record.decision_ref.clone())
             .collect::<Vec<_>>();
+        let mut denial_counts: HashMap<&'static str, usize> = HashMap::new();
+        for record in state
+            .quota_records
+            .iter()
+            .filter(|record| record.tenant_id == tenant_id && !record.allowed)
+        {
+            *denial_counts.entry(record.reason_code).or_insert(0) += 1;
+        }
+        for record in state
+            .policy_records
+            .iter()
+            .filter(|record| record.tenant_id == tenant_id && !record.allowed)
+        {
+            *denial_counts.entry(record.reason_code).or_insert(0) += 1;
+        }
+        let mut denial_reason_distribution = denial_counts
+            .into_iter()
+            .map(|(reason_code, count)| DenialReasonBucket { reason_code, count })
+            .collect::<Vec<_>>();
+        denial_reason_distribution.sort_by_key(|bucket| bucket.reason_code);
 
         PrecheckLimitSummary {
             tenant_id: tenant_id.to_owned(),
@@ -359,7 +404,10 @@ impl PrecheckStore {
             buckets,
             quota_precheck_refs,
             budget_refs,
+            local_counter_refs,
+            grant_placeholder_refs,
             policy_decision_refs,
+            denial_reason_distribution,
             command_class_matrix_ref: PHASE6_COMMAND_CLASS_MATRIX_REF,
         }
     }
