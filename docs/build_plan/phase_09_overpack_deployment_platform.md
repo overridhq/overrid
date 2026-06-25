@@ -6,6 +6,8 @@ Make application deployment intent-driven and repeatable.
 
 Developers should describe what the app needs; Overrid should validate, authorize, allocate, deploy, route, meter, observe, scale, update, and recover it.
 
+For monetized apps, the deployment platform must also enforce the app monetization terms policy: subscriptions, in-app purchases, one-time purchases, paid unlocks, paid listings, service-unit charges, and machine-to-machine calls must be ORU-only. A deployment manifest must not introduce app-level card, bank, crypto, stablecoin, payment-link, external subscription, QR-code, or private payment flows.
+
 ## Depends On
 
 - Phase 8 data, storage, namespace, and route primitives.
@@ -37,6 +39,7 @@ Define manifest sections:
 - Permissions.
 - Wallet budget.
 - Billing rules.
+- ORU-only monetization declaration and accepted terms-policy version.
 - Routes.
 - Geography.
 - Scaling rules.
@@ -59,6 +62,7 @@ Validate:
 - Permission declarations.
 - Policy compatibility.
 - Budget compatibility.
+- ORU-only monetization declaration, terms-policy version, and absence of external checkout/payment bypass.
 - Route ownership.
 
 Store provenance so an operator can answer what was deployed, by whom, from what artifact, under which policy version.
@@ -140,10 +144,13 @@ Prepare for AI-generated deployments:
 
 AI-generated apps must not bypass trust, policy, or billing rails.
 
+AI-generated apps must also fail closed when generated code, UI text, catalog metadata, route plans, or dependency declarations attempt to collect payment outside ORU for Overrid-delivered services.
+
 ## Validation
 
 - Developer deploys an app from one signed Overpack manifest.
 - Runtime, data, storage, routes, policy, metering, and billing bind automatically.
+- Monetized app manifests prove ORU-only payment collection and reject external checkout/payment bypass.
 - Health checks determine readiness.
 - Canary or blue-green update works.
 - Rollback works without manual infrastructure edits.

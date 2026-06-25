@@ -2,7 +2,7 @@
 
 ## Objective
 
-Manage Overrid Resource Unit credits as the internal non-speculative utility credit unit for resource usage, grants, holds, refunds, service charges, and machine-to-machine settlement.
+Manage Overrid Resource Unit credits as the internal non-speculative utility credit unit for resource usage, grants, holds, refunds, service charges, subscriptions, one-time app payments, provider earnings, and machine-to-machine settlement.
 
 ## First Build Phase
 
@@ -14,6 +14,7 @@ Manage Overrid Resource Unit credits as the internal non-speculative utility cre
 - Seal Ledger.
 - Overpass identities.
 - Overtenant scope.
+- Internal KYC Service for cash-out eligibility refs.
 
 ## Development Order
 
@@ -43,6 +44,10 @@ The detailed design contract lives in [ORU Account Service SDS](../../sds/accoun
 - Treat ORU Account Service as the account and balance projection layer, not Seal Ledger, Overbill, Overmark, Overgrant, Provider Payout Service, or a speculative token system.
 - Store ORU accounts, owner refs, resource dimensions, balance projections, transition refs, reservations, holds, grants, budget prechecks, wallet views, statements, and replay bundles.
 - Derive balances from append-only Seal Ledger refs and signed source records; direct mutable balance counters are not accounting truth.
+- Distinguish bought credits from provider-earned ORU; bought credits can be spent on real usage but cannot become direct cash-out eligibility for the buyer. Do not let users cash out bought ORU.
+- Enforce ORU-first settlement: Overrid apps and native services accept ORU inside the system, including resource usage, third-party services, subscriptions, in-app purchases, one-time charges, paid unlocks, service units, and machine-to-machine calls.
+- Reject app-fee settlement paths that depend on card, bank-transfer, crypto, stablecoin, payment-link, external subscription, QR-code, or private payment bypass.
+- Support accounts that both earn ORU from contributed resources or legitimate services and spend ORU elsewhere in the network.
 - Keep machine-to-machine settlement low-friction through budget prechecks, reservations, holds, rollup settlement, and receipts without per-operation external payment calls.
 
 ## Validation

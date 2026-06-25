@@ -6,7 +6,9 @@ Attached SDS: [SDS #74 - Wallet and Usage Center](../sds/native_apps/wallet_usag
 
 This sub-build plan turns SDS #74 into an implementation sequence for Wallet and Usage Center. It stays aligned with the master build plan, the service catalog, the SDS layer, and the accepted Rust-first tech stack.
 
-Wallet and Usage Center is the Phase 12 native account-visibility and permission-control app for ORU balances, usage dashboards, receipts, statements, grants, holds, refunds, app permissions, privacy audits, dispute handoffs, notifications, usage refs, audit refs, and replay projections. It does not own ORU balance truth, Seal Ledger entries, billing settlement, payment secrets, grant issuance, payout eligibility, resource-rate policy, final dispute outcomes, or usage measurement truth.
+Wallet and Usage Center is the Phase 12 native account-visibility and permission-control app for ORU balances, usage dashboards, receipts, statements, grants, holds, refunds, provider earnings, app permissions, privacy audits, dispute handoffs, notifications, usage refs, audit refs, and replay projections. It does not own ORU balance truth, Seal Ledger entries, billing settlement, payment secrets, grant issuance, payout eligibility, resource-rate policy, final dispute outcomes, or usage measurement truth.
+
+It must make ORU-first settlement understandable to users: bought ORU and earned ORU can be spent inside Overrid when policy allows, provider payout eligibility is a separate state, and apps/native services should not present separate in-system payment rails.
 
 ## Source Alignment
 
@@ -49,6 +51,7 @@ Wallet and Usage Center is the Phase 12 native account-visibility and permission
 - Ed25519 is used where signatures are required. BLAKE3/content hashes are used for statement/export manifests, receipt collections, source checkpoint displays, redacted audit bundles, replay bundles, fixture inputs, and deterministic comparisons.
 - Structured state, balance truth, ledger entries, receipts/statements, grants, rollups, disputes, permissions, private grants, identity, tenancy, key status, policy, audit, usage, accounting refs, diagnostics, mobile snapshots, and replay must use native Overrid service boundaries such as Overbase, Overstore, Overvault, Overpass, Overtenant, Overkey, Overgate, Overguard, Overwatch, Overmeter, ORU Account Service, Seal Ledger, Overbill, Overgrant, Overmark, Overclaim, Personal AI Assistant, AI Gateway Router, Central AI Stewardship Interface, Mobile SDK, Mobile Backend Gateway, SDK, CLI, and Admin/Developer UI.
 - Planning and implementation must not make PostgreSQL, MySQL, MongoDB, DynamoDB, Elasticsearch, OpenSearch, Solr, Redis, NATS, Kafka, RabbitMQ, S3, MinIO, Ceph, Vault, cloud KMS, Kubernetes-first orchestration, blockchain, NFTs, external payment processors, speculative token mechanics, tradable-currency framing, hardcoded charges, hardcoded pricing, revenue forecasts, customer-count assumptions, raw card/payment secrets, vault secrets, fraud internals, provider-sensitive payout details, final accounting truth, final usage truth, final dispute outcomes, or direct balance/ledger/grant/refund/hold/payout mutation the Wallet boundary.
+- Wallet may link to credit funding and provider payout flows, but it must present external rails as boundary flows and ORU as the internal payment medium for apps, native services, subscriptions, one-time charges, resource usage, and machine-to-machine calls.
 
 ## Phase 1: SDS Attachment, Phase 12 Scope, And Wallet Authority Boundary
 

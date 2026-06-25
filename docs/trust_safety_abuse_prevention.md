@@ -6,13 +6,19 @@ Overrid cannot stop all abuse with certainty, but it can make abuse hard, expens
 
 The platform should not rely on per-app moderation alone. Money laundering, illegal listings, trafficking, gambling, adult content, and underage exploitation must be handled through a shared Trust and Safety control plane used by public apps, wallet flows, directory listings, search, messaging, hosting, app deployment, and AI services.
 
-This document is an architecture note, not legal advice. Jurisdiction-specific wallet, AML, child safety, gambling, adult-content, privacy, and reporting obligations require qualified legal review before launch.
+This document is an architecture note, not legal advice. Jurisdiction-specific wallet, AML, child safety, privacy, and reporting obligations require qualified legal review before launch. Porn, casinos, betting, and gambling are excluded by Overrid policy even where they are legal in a specific jurisdiction.
+
+The wider Turkish-law checklist is tracked in [Turkish Law Compliance Matrix](turkish_law_compliance_matrix.md). Trust and Safety owns abuse prevention; the compliance matrix owns cross-law launch gates and service ownership.
+
+App-level monetization rules are tracked in [App Monetization Terms Policy](app_monetization_terms_policy.md). Trust and Safety treats third-party payment bypass as economic abuse because it can hide illegal flows, weaken AML visibility, and starve the shared maintenance budget that keeps the network operating.
 
 ## Core Rule
 
 Overrid should be open for lawful public use, but not neutral toward crime.
 
 Public apps, wallet flows, directory listings, search, messaging, hosting, and AI should all share the same abuse-control layer.
+
+Overrid is not a medium for porn, casinos, betting, gambling, or wager-like products. These categories must be blocked at the policy, app registry, search, payment, routing, and hosting layers instead of treated as future licensed business lines.
 
 ```text
 Normal use should preserve privacy.
@@ -63,14 +69,21 @@ This keeps normal usage private while preventing fully anonymous monetized abuse
 
 ORU and wallet flows must not become anonymous laundering rails.
 
+The detailed control document is [Overrid AML Rules](aml_rules.md). Turkish law and MASAK guidance are the default baseline for identity thresholds, suspicious-transaction handling, reporting boundaries, and payment/e-money style risk controls. Active legal limits must be consumed from Compliance Boundary policy bundles, not hardcoded into wallet or payout logic.
+
 Required controls:
 
 - No anonymous cash-out.
 - No anonymous high-volume transfer, resale, redemption, or payout.
 - Transaction limits for new or unverified accounts.
 - KYC/KYB before payouts, high-volume transfers, business use, or credit resale.
+- Manual review for credit purchases above the active automated policy cap.
+- Cooling periods between funding, earned ORU eligibility, and cash-out.
+- No direct cash-out of bought credits by the buyer.
+- Fake-app laundering detection before provider earnings become payout-eligible.
 - Sanctions and blocked-entity screening where legally required.
 - Payout holds for suspicious activity.
+- ORU-only monetization enforcement for app subscriptions, in-app purchases, one-time purchases, paid unlocks, listings, and service units.
 - Source-of-funds review for high-risk accounts or transactions.
 - Suspicious pattern detection across account, wallet, listing, device, app, and graph behavior.
 - Suspicious activity reporting where legally required.
@@ -87,8 +100,11 @@ Risk patterns to detect:
 - Newly created accounts receiving abnormal flows.
 - App/service accounts used only to move credits.
 - Directory listings that appear designed only to justify payments.
+- Related-party spend from recently funded accounts into newly created apps.
+- Apps that route users to card, bank-transfer, crypto/stablecoin, payment-link, QR-code, external subscription, or private payment flows for Overrid-delivered services.
+- Payout destination changes shortly before cash-out.
 
-FinCEN guidance for money services businesses includes suspicious activity reporting and record-retention expectations: <https://www.fincen.gov/money-services-business-msb-suspicious-activity-reporting>
+Turkish-law source references are tracked in [Overrid AML Rules](aml_rules.md), including MASAK obligations, identity thresholds, suspicious-transaction guidance, and remote identity verification guidance.
 
 ## Prohibited Category Registry
 
@@ -114,12 +130,14 @@ Default category examples:
 | Human trafficking or exploitation | Prohibited and escalated |
 | Sexual services exploitation | Prohibited and escalated |
 | Weapons | Blocked or jurisdiction-gated |
-| Gambling/casino | Blocked unless separately licensed and jurisdiction-approved |
-| Porn/adult content | Blocked in native public apps at launch |
+| Gambling, casino, betting, wagers, odds, or games of chance for value | Permanently prohibited; no licensed exception in Overrid-native services |
+| Pornographic/adult sexual content | Permanently prohibited in Overrid-native public services |
 | Jobs | Allowed with scam and discrimination controls |
 | Housing | Allowed with scam, privacy, and discrimination controls |
 | Local services | Allowed with fraud controls |
 | Events/community groups | Allowed with abuse and safety controls |
+
+`licensed_only` exists for categories that Overrid may legally support in the future, such as regulated professional services. It must not be used as a bypass for porn, casinos, betting, or gambling.
 
 ## Public Content Pre-Moderation
 
@@ -204,46 +222,51 @@ The U.S. Department of Justice lists reporting paths for trafficking crimes, inc
 
 ## Gambling and Casino
 
-Default launch policy:
+Permanent policy:
 
 ```text
-Do not allow gambling or casino apps on public Overrid.
+Do not allow gambling, casinos, betting, wagers, odds markets, or games of chance for value anywhere in Overrid-native services.
 ```
 
-If gambling is ever allowed, it must be isolated as a licensed module with:
+This prohibition applies even where the activity is legal, licensed, taxed, or culturally normalized in a specific country.
 
-- jurisdiction-specific license checks,
-- age verification,
-- identity verification,
-- location/geofence restrictions,
-- AML monitoring,
-- responsible-gambling controls,
-- regulator reporting,
-- blocked access from prohibited regions,
-- no listing/search exposure outside allowed jurisdictions.
+Blocked surfaces:
 
-The UK Gambling Commission describes age and identity verification expectations for online gambling businesses: <https://www.gamblingcommission.gov.uk/public-and-players/guide/age-and-id-verification>
+- Native app registry.
+- Directory Listings.
+- Search indexing.
+- Messaging promotions and public groups.
+- Wallet/ORU payments and payouts.
+- App deployment.
+- Public routing and namespace discovery.
+- Ads, sponsorships, referral links, and affiliate flows.
+- AI assistant routing that would help operate or promote those services.
+
+Overrid should not provide the medium, infrastructure, discovery, payment rails, or promotion layer for gambling businesses.
 
 ## Porn and Adult Content
 
-Default launch policy:
+Permanent policy:
 
 ```text
-Do not allow porn in native public apps at launch.
+Do not allow pornographic or adult sexual content in Overrid-native public services.
 ```
 
-If adult content is later allowed, it should be isolated from general Overrid:
+This is not a launch-only restriction and not a future adult-module placeholder. Overrid should not host, index, monetize, recommend, route, promote, or provide native app infrastructure for porn services.
 
-- separate adult-only app space,
-- age verification,
-- consent and provenance records,
-- performer identity verification,
-- no public general-search indexing,
-- no minors,
-- no non-consensual content,
-- rapid takedown and evidence path.
+Blocked surfaces:
 
-Blocking adult content at launch is the cleaner operational choice.
+- Native app registry.
+- Directory Listings.
+- Search indexing.
+- Social public feeds.
+- Messaging promotions and public groups.
+- Wallet/ORU payments and payouts.
+- App deployment.
+- Public routing and namespace discovery.
+- AI assistant routing that would help create, distribute, monetize, or promote pornographic services.
+
+Narrow exceptions may exist only for non-pornographic safety, medical, educational, legal, or evidence-handling contexts. Those exceptions must be policy-reviewed, non-promotional, and unavailable for monetized adult entertainment.
 
 ## Enforcement Flow
 
@@ -302,8 +325,8 @@ The correct balance:
 Launch public apps with conservative rules:
 
 - Directory Listings starts with low-compliance allowed categories only.
-- No gambling/casino apps.
-- No porn/adult content in native public apps.
+- No gambling, casino, betting, wager, odds, or game-of-chance-for-value services.
+- No pornographic or adult sexual content services.
 - No anonymous payout.
 - No public searchable listing without policy screening.
 - No high-risk category without manual review.
@@ -321,6 +344,7 @@ Pseudonymous for normal use.
 Verified for risk.
 Impossible to monetize crime anonymously.
 Impossible to make prohibited public content discoverable.
+Impossible to use Overrid-native services as porn, casino, betting, or gambling infrastructure.
 Fast to contain serious harm.
 Auditable and appealable where appeal is legally safe.
 ```

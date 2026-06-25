@@ -8,6 +8,8 @@ This sub-build plan turns SDS #40 into an implementation sequence for Overbill. 
 
 Overbill is a Phase 5 accounting and billing service. It owns receipts, invoices, invoice line items, payment-provider refs, signed external payment events, refund records, chargeback records, payout batch inputs, payout hold views, account statements, audit exports, and reconciliation jobs. It bridges internal ORU and Seal Ledger accounting to external payment rails only through auditable refs and adapters. It must not create usage truth, mutate ORU balances, rewrite Seal Ledger history, execute provider payouts alone, adjudicate disputes, store raw payment secrets, create per-operation external payment calls, or introduce pricing, revenue, customer-count, blockchain, NFT, or speculative-token assumptions.
 
+Overbill must preserve the product boundary that external rails are boundary rails and ORU is the only internal payment medium. Funding, refunds, chargebacks, tax documents, and eligible payouts may touch external providers; third-party app payments, subscriptions, one-time charges, paid listings, native services, resource usage, and machine-to-machine calls settle internally in ORU.
+
 ## Source Alignment
 
 | Source | Alignment rule |
@@ -53,6 +55,7 @@ Overbill is a Phase 5 accounting and billing service. It owns receipts, invoices
 - Sensitive payment, tax, identity-verification, payout-destination, and compliance payloads stay in Overvault or approved payment-provider tokenization paths. Overbill stores bounded summaries, tokenized refs, redacted event summaries, and audit refs.
 - Payment-provider support is adapter-contract support, not a core dependency on a named payment SaaS. Phase 5 must ship a deterministic `sandbox_payment_adapter` for local/private validation plus one jurisdiction-selected real external-rail adapter where deployment policy requires fiat funding, refunds, chargebacks, or payout-result events.
 - Internal ORU transitions must not call external payment providers per tiny operation. External payment intents are aggregated by account, statement period, funding threshold, payout period, or explicit operator/user action.
+- Apps, native services, and providers must not accept separate in-system payment methods that bypass ORU. Overbill handles external boundary refs; Seal Ledger and ORU Account Service handle internal spend and settlement refs.
 - Overbill may later persist billing records through Overbase, store statement/export artifacts through Overstore, and store private/token/compliance refs through Overvault. It must not make PostgreSQL, MySQL, MongoDB, DynamoDB, Redis, NATS, Kafka, RabbitMQ, S3, MinIO, Ceph, Vault, cloud KMS, Kubernetes-first orchestration, blockchain, NFTs, speculative tokens, pricing tables, revenue projections, or customer-count assumptions the platform boundary.
 - Overbill never creates usage truth, appends Seal Ledger entries directly, mutates ORU projections, owns payout execution, adjudicates disputes, or bypasses Compliance Boundary Service for jurisdiction metadata.
 

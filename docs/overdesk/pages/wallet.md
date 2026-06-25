@@ -16,6 +16,8 @@ Wallet, Credits, And Ownership
 
 Wallet is the Overdesk surface for ORU balance projections, usage, receipts, grants, holds, refunds, statements, app permissions, privacy audit, provider contribution summaries, and dispute handoffs. It is a visibility and control page, not an accounting ledger or payment authority.
 
+Wallet must present Overrid as an ORU-first economy: users can buy ORU, earn ORU by sharing approved resources or running legitimate services, and spend ORU on native services, third-party apps, subscriptions, one-time charges, resource usage, and machine-to-machine calls. Cash-out appears only as a separate provider-eligibility path.
+
 ## Primary Users
 
 - Regular users
@@ -31,6 +33,7 @@ Wallet is the Overdesk surface for ORU balance projections, usage, receipts, gra
 - See account balances and usage in understandable ORU dimensions.
 - Review receipts, holds, grants, sponsored credits, refunds, and corrections.
 - Understand which apps and services consumed credits.
+- Understand which balances are spendable ORU, earned ORU, sponsored ORU, held ORU, or provider payout candidates.
 - Inspect and clean up app permissions.
 - Export statements.
 - Open disputes or corrections.

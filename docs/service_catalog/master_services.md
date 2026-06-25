@@ -127,7 +127,7 @@ The canonical phase-to-service crosswalk lives in [Build Plan to Service Catalog
 | AI, RAG, and model routing | [Personal AI Assistant](ai_rag_model_routing/personal_ai_assistant.md), [AI Gateway Router](ai_rag_model_routing/ai_gateway_router.md), [Lightweight Classifier](ai_rag_model_routing/lightweight_classifier.md), [ADES Enrichment Adapter](ai_rag_model_routing/ades_enrichment_adapter.md), [Encrypted Docdex RAG Adapter](ai_rag_model_routing/encrypted_docdex_rag_adapter.md), [Central AI Service](ai_rag_model_routing/central_ai_service.md) |
 | Ecosystem adapters | [Docdex Adapter](adapters/docdex_adapter.md), [Mcoda Adapter](adapters/mcoda_adapter.md), [Codali Adapter](adapters/codali_adapter.md), [mSwarm Runtime Bridge](adapters/mswarm_runtime_bridge.md) |
 | Native applications | [Overdesk Desktop Client](native_apps/overdesk_desktop_client.md), [Wallet and Usage Center](native_apps/wallet_usage_center.md), [Workspace and Office Suite](native_apps/workspace_office_suite.md), [Directory Listings](native_apps/directory_listings.md), [Search Engine](native_apps/search_engine.md), [Messaging Center](native_apps/messaging_center.md), [Social Photo/Video App](native_apps/social_photo_video_app.md), [Maps and Navigation](native_apps/maps_navigation.md), [Central AI Stewardship Interface](native_apps/central_ai_stewardship_interface.md) |
-| Governance, compliance, and operations | [Protocol Improvement Proposal Registry](governance_ops/pip_registry.md), [Stewardship Reporting Service](governance_ops/stewardship_reporting_service.md), [Compliance Boundary Service](governance_ops/compliance_boundary_service.md), [Threat Modeling and Security Review Tracker](governance_ops/threat_modeling_security_review_tracker.md), [Incident Response Service](governance_ops/incident_response_service.md), [Migration Tooling](governance_ops/migration_tooling.md) |
+| Governance, compliance, and operations | [Protocol Improvement Proposal Registry](governance_ops/pip_registry.md), [Stewardship Reporting Service](governance_ops/stewardship_reporting_service.md), [Compliance Boundary Service](governance_ops/compliance_boundary_service.md), [Internal KYC Service](governance_ops/internal_kyc_service.md), [Threat Modeling and Security Review Tracker](governance_ops/threat_modeling_security_review_tracker.md), [Incident Response Service](governance_ops/incident_response_service.md), [Migration Tooling](governance_ops/migration_tooling.md) |
 | Mobile app service layer | [Mobile SDK](mobile/mobile_sdk.md), [Mobile Backend Gateway](mobile/mobile_backend_gateway.md) |
 
 ## Foundation and Developer Tooling
@@ -1649,6 +1649,26 @@ Interfaces: Overguard, Overbill, Overvault, Overtenant, Overwatch.
 
 First phase: Phase 13.
 
+### Internal KYC Service
+
+Purpose: Provide Overrid-owned KYC, KYB, beneficial-owner, source-of-funds, screening, cooling-period, and cash-out eligibility facts for wallet, ORU, Overbill, and Provider Payout flows.
+
+Build:
+
+- Person KYC profiles.
+- Business KYB profiles.
+- Beneficial-owner records.
+- Verification attempt records.
+- Payout destination ownership facts.
+- Source-of-funds and source-of-wealth evidence refs.
+- AML policy bundle refs and Turkish-law threshold versions.
+- Cash-out eligibility fact bundles.
+- KYC/KYB refresh, expiry, appeal, and export workflows.
+
+Interfaces: Overpass, Overtenant, Overkey, Overvault, Overwatch, Overguard, Compliance Boundary Service, Overbill, ORU Account Service, Provider Payout Service, Fraud Control, Reputation and Anti-Sybil Service, Wallet and Usage Center, Overdesk.
+
+First phase: Phase 13, with Phase 5 accounting hooks reserved before public cash-out is enabled.
+
 ### Threat Modeling and Security Review Tracker
 
 Purpose: Turn security review into tracked remediation rather than static notes.
@@ -1759,7 +1779,7 @@ First phase: Phase 12.
 11. Federation: federation templates, purpose tags, public-interest pools.
 12. Public pool: provider onboarding, anti-Sybil, public sandbox, fraud controls.
 13. Native apps: wallet, personal AI, workspace, directory, search, messaging, social, maps, central AI interface.
-14. Governance and hardening: PIP registry, reporting, compliance, threat modeling, incident response, migration.
+14. Governance and hardening: PIP registry, reporting, compliance, internal KYC/KYB and AML facts, threat modeling, incident response, migration.
 
 ## Completion Criteria for This Catalog
 

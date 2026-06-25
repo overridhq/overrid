@@ -14,7 +14,9 @@ Wallet, Credits, And Ownership
 
 ## Description
 
-Provider Earnings And Payouts is the Overdesk surface for contributed-resource earnings, payout eligibility, holds, payout batches, payout destination refs, failed payouts, reversals, corrections, and provider-visible reason codes. It must help providers understand what happened without making Overdesk the source of payout, usage, ledger, trust, or payment truth.
+Provider Earnings And Payouts is the Overdesk surface for contributed-resource earnings, app/service earnings, payout eligibility, holds, payout batches, payout destination refs, failed payouts, reversals, corrections, and provider-visible reason codes. It must help providers understand what happened without making Overdesk the source of payout, usage, ledger, trust, or payment truth.
+
+Providers can earn ORU from approved compute, storage, bandwidth, GPU capacity, datasets, models, native services, third-party apps, subscriptions, one-time charges, paid listings, and machine-to-machine service usage. Earned ORU can be spent inside Overrid; external payout requires the stricter provider payout eligibility path.
 
 ## Primary Users
 
@@ -29,6 +31,7 @@ Provider Earnings And Payouts is the Overdesk surface for contributed-resource e
 ## Primary User Goals
 
 - See earnings by node, time window, resource class, and account.
+- See earnings by app, service, subscription, one-time charge, paid listing, and machine-to-machine usage where applicable.
 - Understand what is payable, pending, held, failed, corrected, or paid.
 - See why a payout item is blocked without exposing fraud internals.
 - Review payout batches and external payout status.

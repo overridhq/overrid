@@ -32,7 +32,7 @@ App Detail is the focused operational page for one Overrid app. It gives an app 
 - Understand the current state of one app quickly.
 - Open the app route, namespace route, or catalog listing.
 - Inspect release, deployment, health, route, and rollback state.
-- Track credit usage, credit earnings, resource costs, grants, holds, and receipts.
+- Track credit usage, credit earnings, resource costs, grants, holds, receipts, and ORU-only monetization compliance.
 - Review privacy-safe visitor and referral analytics.
 - See permissions, data classes, storage usage, vault grants, and RAG/index grants.
 - Respond to incidents, support items, abuse reports, disputes, and policy reviews.
@@ -118,6 +118,10 @@ Content:
 - Credit earnings.
 - Credit costs.
 - Net projection.
+- Monetization mode and active ORU-only policy version.
+- Subscription, in-app purchase, one-time purchase, paid unlock, listing, and service-unit ORU receipts.
+- External checkout/payment bypass state.
+- Monetization suspension and payout-hold markers.
 - Sponsored usage/grant consumption.
 - Wallet receipt refs.
 - Seal Ledger checkpoint refs where visible.
@@ -127,6 +131,27 @@ Links and handoffs:
 
 - Wallet.
 - Grants And Public-Interest Projects.
+- Disputes And Appeals.
+
+### Monetization Compliance
+
+Content:
+
+- Accepted publisher terms version.
+- Active app monetization policy version.
+- ORU-only fee collection attestation.
+- Current monetization state: compliant, warning, suspended, payout-held, or appeal-open.
+- Declared subscription, in-app purchase, one-time purchase, paid unlock, paid listing, service-unit, and machine-to-machine billing rules.
+- Overbill and ORU Account Service refs for paid actions.
+- External checkout scan results across manifest, package metadata, catalog content, outbound links, UI declarations, support text, and routes.
+- Bypass reason codes for card, bank-transfer, crypto/stablecoin, payment-link, QR-code, external subscription, or private payment collection.
+- Required fixes and appeal refs.
+
+Links and handoffs:
+
+- Deploy New App.
+- Wallet.
+- Security And Compliance Reviews.
 - Disputes And Appeals.
 
 ### Deployment And Release
@@ -302,6 +327,7 @@ Links and handoffs:
 
 - App Detail displays app-owner projections and drafts handoffs; owner services own app records, deployment truth, metering truth, visitor identity truth, accounting truth, grants, incidents, and disputes.
 - Visitor analytics must be source-safe and aggregated. Raw visitor identity, raw private content, precise location trails, raw RAG context, vault secrets, payment secrets, and fraud internals must not appear.
+- Monetization compliance must show policy state and reason codes, but it must not expose private fraud heuristics, suspicious-transaction reporting status, raw payment-provider secrets, or hidden AML thresholds.
 - Permission, vault, and RAG/index sections must show revocation and inspection paths without revealing raw protected content.
 - Export actions must show redaction profile, scope, time range, included data classes, and owner-service refs before export.
 - Offline cached app detail must be clearly marked and must not allow release, deployment, wallet, permission, or policy changes without online revalidation.

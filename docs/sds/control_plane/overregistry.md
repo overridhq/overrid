@@ -38,6 +38,7 @@ Overrid cannot schedule or govern work from mutable claims scattered across serv
 - Provide replayable facts for Overguard policy, Oversched placement, Overpack validation, Oververify evidence, federation, and public catalogs.
 - Preserve owner identity, tenant scope, trace id, command id, and audit refs for every record.
 - Keep catalog records structural and non-speculative; public visibility is a policy and tenant decision, not a registry shortcut.
+- Store accepted ORU-only monetization terms-policy refs, publisher attestations, and payment-bypass enforcement state for monetized apps.
 
 ## Non-Goals
 
@@ -94,7 +95,7 @@ The first implementation should define these records:
 - `package_manifest_record`: package id, package version, artifact refs, provenance refs, dependency lock refs, SBOM refs, signature refs, runtime class, and validator refs.
 - `provider_record`: provider identity id, tenant or federation scope, onboarding state, verification refs, dispute refs, and eligibility refs.
 - `node_capability_record`: node id, hardware class, CPU, memory, GPU, storage, network, benchmark refs, observed capability, claimed capability, and last verified time.
-- `native_app_record`: app id, owner id, service refs, catalog visibility, data classes, required APIs, usage refs, and policy refs.
+- `native_app_record`: app id, owner id, service refs, catalog visibility, data classes, required APIs, usage refs, ORU-only monetization policy ref, accepted publisher terms version, external-checkout absence attestation, monetization suspension state, payout-hold refs, and policy refs.
 - `schema_version_ref`: schema family, schema version, validator version, compatibility class, and migration notes.
 - `catalog_entry`: record ref, catalog scope, title or handle ref, purpose tag refs, visibility state, review refs, and takedown refs.
 
@@ -165,6 +166,7 @@ Content of an accepted version cannot be edited. State transitions add metadata 
 - Accepted records are immutable by content hash and version.
 - Reads must filter by tenant, catalog visibility, role, and data class.
 - Package and workload manifests must use secret refs, not raw secrets.
+- Monetized app records must preserve ORU-only monetization attestations and must not accept app-level external checkout fields as valid payment facts.
 - Provider and node capability records must distinguish claimed facts from verified facts.
 - A suspended tenant, revoked owner, or invalid package ref must block new accepted versions.
 - Catalog-visible records require explicit visibility state and may be taken down or hidden without deleting audit history.
@@ -177,6 +179,7 @@ Overregistry is not an accounting service. It should:
 - Emit usage-relevant events for manifest creation, updates, catalog changes, package records, and capability records.
 - Preserve tenant, owner, app, provider, node, package, workload, and trace refs for Overmeter attribution.
 - Provide registry version refs to usage, ORU, Seal Ledger, dispute, and receipt records.
+- Provide monetization policy refs, accepted terms versions, and bypass enforcement state to Overbill, ORU Account Service, Overguard, Provider Payout Service, Search, Directory, and Native App Catalog.
 - Avoid direct ledger mutation or payment integration.
 - Keep native-service catalog records compatible with near-cost public utility operation without embedding charge assumptions.
 

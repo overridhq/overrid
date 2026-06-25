@@ -31,6 +31,7 @@ Overrid has four major responsibilities:
 | Master service catalog | [docs/service_catalog/master_services.md](../service_catalog/master_services.md) | The master list of tools, services, apps, adapters, and support modules to be written. |
 | Per-service implementation docs | [docs/service_catalog](../service_catalog) | One implementation-plan file per tool or service, grouped by category. |
 | Per-service SDS index | [docs/sds/service_sds_index.md](service_sds_index.md) | Detailed software design specifications for every tool, service, adapter, native app, and support module. |
+| Turkish compliance matrix | [docs/turkish_law_compliance_matrix.md](../turkish_law_compliance_matrix.md) | Cross-law Turkish compliance launch gates, service ownership, and source references for KVKK, 5651, 6493, MASAK, tax, consumer, e-commerce, cyber, and related obligations. |
 | This SDS | [docs/sds/master_sds.md](master_sds.md) | High-level orientation across all documents. |
 
 ## Service Families
@@ -50,7 +51,7 @@ The service catalog is organized by service family. Each family has its own fold
 | AI, RAG, and model routing | [docs/service_catalog/ai_rag_model_routing](../service_catalog/ai_rag_model_routing) | Personal AI, central AI, model routing, lightweight classification, ADES enrichment, and encrypted Docdex RAG. |
 | Ecosystem adapters | [docs/service_catalog/adapters](../service_catalog/adapters) | Docdex, Mcoda, Codali, and mSwarm integration bridges. |
 | Native applications | [docs/service_catalog/native_apps](../service_catalog/native_apps) | Overdesk desktop client, wallet, workspace, directory listings, search, messaging, social photo/video, maps, and central AI stewardship UI. |
-| Governance and operations | [docs/service_catalog/governance_ops](../service_catalog/governance_ops) | Protocol improvement process, stewardship reporting, compliance boundaries, threat modeling, incident response, and migration tooling. |
+| Governance and operations | [docs/service_catalog/governance_ops](../service_catalog/governance_ops) | Protocol improvement process, stewardship reporting, compliance boundaries, internal KYC/KYB and AML fact bundles, threat modeling, incident response, and migration tooling. |
 | Mobile service layer | [docs/service_catalog/mobile](../service_catalog/mobile) | Mobile SDK and mobile backend gateway. |
 
 ## Per-Service SDS Layer

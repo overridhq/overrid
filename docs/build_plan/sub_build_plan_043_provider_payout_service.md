@@ -8,6 +8,8 @@ This sub-build plan turns SDS #43 into an implementation sequence for Provider P
 
 Provider Payout Service is a Phase 5 accounting coordination service that derives provider earning views from Seal Ledger refs, evaluates payout eligibility, applies dispute, verification, fraud, challenge, compliance, anti-Sybil, chargeback, and operator holds, creates payout batches, submits idempotent payment instruction refs through Overbill, tracks payment result refs, preserves failure/retry/reversal/correction evidence, and exposes redacted provider-facing payout status. It must not create usage truth, create earning truth, adjudicate disputes, decide trust alone, mutate ORU balances, rewrite Seal Ledger history, store raw payment or tax secrets, or become the external payment processor.
 
+Provider earnings can come from approved resource contribution and legitimate service operation: compute, storage, bandwidth, GPU capacity, datasets, models, native services, third-party apps, subscriptions, one-time charges, paid listings, and machine-to-machine service usage. Spending ORU inside Overrid is normal; cash-out is a stricter provider-earned path.
+
 ## Source Alignment
 
 | Source | Alignment rule |
@@ -54,6 +56,7 @@ Provider Payout Service is a Phase 5 accounting coordination service that derive
 - Provider Payout Service may later persist payout records through Overbase, replay/export artifacts through Overstore, and private payout/compliance refs through Overvault. It must not make PostgreSQL, MySQL, MongoDB, DynamoDB, Redis, NATS, Kafka, RabbitMQ, S3, MinIO, Ceph, Vault, cloud KMS, Kubernetes-first orchestration, blockchain, NFTs, speculative markets, direct payment processors, or external payment providers the platform boundary.
 - Phase 5 allows private-provider payout periods, earning views, eligibility snapshots, holds, batches, Overbill instruction/result refs, failures, reversals, corrections, and provider-visible status. Phase 11 owns public-provider extra holds, throttles, challenge/anti-Sybil/fraud finality, and public-safe explanations.
 - Provider Payout Service coordinates payout state. It never creates usage truth, creates provider earning truth, adjudicates disputes, scores trust alone, mutates ORU balances, appends Seal Ledger entries, creates invoices or receipts, stores raw payment secrets, or directly executes external payments.
+- It must keep spend and payout separate. ORU service spend can happen inside Overrid, but external payout requires provider-earned ORU, service-delivery evidence, current eligibility facts, and Overbill/payment-provider boundary refs.
 - Planning and implementation must avoid per-operation external payment calls, speculative token pricing, NFT mechanics, revenue projections, customer-count assumptions, direct ledger mutation, irreversible silent corrections, broad heuristic-only public-provider blocking, and public exposure of fraud heuristics, raw graph signals, operator notes, account hashes, or private tenant evidence.
 
 ## Phase 1: SDS Attachment, Provider Payout Authority, And Phase Gates

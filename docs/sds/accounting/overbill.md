@@ -4,9 +4,13 @@ SDS #40
 
 ## Purpose
 
-Handle billing records, invoices, receipts, payment-provider refs, taxes/compliance metadata, refunds, chargebacks, provider payout batches, payout holds, account statements, and audit exports around Overrid's internal ORU and Seal Ledger accounting layer.
+Handle billing records, invoices, receipts, payment-provider refs, taxes/compliance metadata, refunds, chargebacks, provider payout batches, payout holds, account statements, and audit exports around Overrid's ORU-first internal economy and Seal Ledger accounting layer.
 
 Overbill is the bridge between internal resource accounting and external payment rails. It must keep external payment state linked and auditable without rewriting Seal Ledger history or introducing per-operation external payment friction.
+
+Overbill must preserve the product rule that ORU is the only internal payment medium. External payment rails can fund ORU, refund funding, handle chargebacks, support tax documents, and settle eligible provider payouts. They must not be used by each app or native service as a separate in-system payment path.
+
+Publisher terms and user-facing Terms of Service must make the payment boundary enforceable. App subscriptions, in-app purchases, one-time purchases, paid feature unlocks, paid listings, service-unit charges, and app-specific support payments must be represented as ORU-backed records. App-level credit card checkout, bank-transfer instructions, crypto or stablecoin wallet payments, payment links, external subscriptions, QR-code payments, and private payment arrangements are prohibited.
 
 ## Source Documents
 
@@ -30,6 +34,8 @@ Overbill is the bridge between internal resource accounting and external payment
 
 Overrid needs billing records that make internal ORU usage understandable and externally payable where required. Users need receipts and statements. Providers need payout visibility. Disputes need holds and corrections. External payment providers may be needed for funding accounts or settling fiat obligations, but internal usage should not trigger a payment-provider call for every small operation.
 
+The billing model is not "every app brings its own checkout." The model is "users fund or earn ORU, then spend ORU inside Overrid." Native services, third-party apps, subscriptions, one-time payments, paid listings, AI calls, resource usage, and machine-to-machine calls must be represented as ORU-backed records.
+
 Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger records internal accounting entries, ORU Account Service projects balances, and Overbill produces billing documents and external payment refs from those records. Refunds and chargebacks must create auditable corrections, not edits to old ledger history.
 
 ## Goals
@@ -40,6 +46,10 @@ Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger recor
 - Batch or aggregate external payment interactions where possible.
 - Record refunds, chargebacks, failed payments, and correction refs append-only.
 - Coordinate provider payout batches and payout holds through Provider Payout Service.
+- Enforce funding-policy refs, manual high-credit request refs, and AML/KYC hold refs before bought credits become spendable.
+- Enforce the hard rule: do not let users cash out bought ORU.
+- Enforce ORU-only internal payment for native services, third-party apps, subscriptions, one-time service charges, paid listings, and machine-to-machine usage.
+- Enforce the app monetization terms policy for subscriptions, in-app purchases, one-time purchases, paid unlocks, paid listings, service units, and app-specific support payments.
 - Link every billing document to source ledger, ORU, Overmeter, Overclaim, and payment-provider refs.
 - Support audit and compliance exports without leaking private workload or provider data.
 - Keep billing structural and avoid pricing/customer-count/revenue projection assumptions.
@@ -49,7 +59,10 @@ Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger recor
 - Do not create usage truth. Overmeter and Seal Ledger own usage and internal accounting truth.
 - Do not mutate ORU balances directly. ORU Account Service projects balances from ledger entries.
 - Do not execute provider payouts alone. Provider Payout Service owns payout workflow.
+- Do not convert bought ORU into cash-out eligibility for the buyer; only provider-earned ORU can enter payout eligibility after service delivery, dispute, tax, KYC/KYB, and AML checks.
 - Do not adjudicate disputes. Overclaim owns dispute state and correction/refund proposals.
+- Do not let apps, native services, or providers accept separate in-system payment methods that bypass ORU; external rails are boundary rails for funding, refund, chargeback, tax, and eligible payout.
+- Do not produce payout-eligible billing records for app fees collected through third-party payment bypass.
 - Do not call external payment providers for every small internal ORU transition.
 - Do not store raw payment credentials or secrets outside the approved vault/payment-provider tokenization path.
 - Do not implement speculative token economics, blockchain settlement, NFTs, or per-transaction tolls.
@@ -62,6 +75,7 @@ Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger recor
 - Overmeter, supplying usage rollups and dispute windows.
 - Overclaim, supplying holds, refund proposals, correction proposals, release refs, and dispute finality.
 - Provider Payout Service, receiving payout batch inputs and returning payout status refs.
+- Internal KYC Service, supplying KYC/KYB, source-of-funds, manual high-credit, and cash-out eligibility refs.
 - Payment provider adapters, handling external payment intents, confirmations, failures, refunds, and chargebacks.
 - Admin UI, CLI, SDK, native apps, central AI stewardship, and compliance export consumers, reading authorized billing state and audit exports.
 
@@ -72,6 +86,7 @@ Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger recor
 - [Overmeter](../execution_scheduling/overmeter.md) for signed usage rollups and dispute windows.
 - [Overclaim](../trust_policy_verification/overclaim.md) for dispute holds, refund proposals, correction proposals, appeal state, and finality refs.
 - [Provider Payout Service](provider_payout_service.md) for payout batch lifecycle, provider earning refs, hold refs, and payout status.
+- [Internal KYC Service](../governance_ops/internal_kyc_service.md) for KYC/KYB, source-of-funds, manual high-credit review, and cash-out eligibility refs.
 - [Overpass](../control_plane/overpass.md), [Overtenant](../control_plane/overtenant.md), and [Overkey](../control_plane/overkey.md) for billable identity, tenant scope, service accounts, and authorized access.
 - [Overvault](../data_storage_namespace/overvault.md) for payment token refs, tax/compliance secret refs, and sensitive billing metadata where needed.
 - [Overwatch](../control_plane/overwatch.md) for billing events, audit evidence, reconciliation alerts, and export refs.
@@ -80,7 +95,7 @@ Overbill must preserve the hierarchy: Overmeter records usage, Seal Ledger recor
 
 Overbill owns:
 
-- Invoice, receipt, payment-provider ref, refund, chargeback, statement, payout batch input, payout hold view, and audit export schemas.
+- Invoice, receipt, payment-provider ref, manual high-credit request, funding AML hold, refund, chargeback, statement, payout batch input, payout hold view, and audit export schemas.
 - Billing document lifecycle and idempotent document generation.
 - External payment-provider adapter contract and event ingestion.
 - Refund and chargeback records linked to correction/refund ledger refs.
@@ -99,6 +114,9 @@ The first implementation should define:
 - `invoice_line_item`: source ledger refs, ORU dimensions, service/native app/workload refs, grant refs, discount/credit refs where applicable, and redacted description.
 - `payment_provider_ref`: provider name, external payment id, tokenized customer/payment refs, state, amount summary, idempotency key, created-at, updated-at, and vault refs.
 - `external_payment_event`: provider ref, event type, external event id, signature validation state, raw payload ref or redacted summary, mapped state, and reconciliation refs.
+- `manual_high_credit_request`: account id, subject refs, requested amount, purpose, payment rail, active policy version, source-of-funds refs, review state, approval scope, expiry, and audit refs.
+- `funding_aml_hold`: funding/payment refs, account refs, trigger refs, active policy version, hold reason codes, release requirements, expiry, and Internal KYC/Compliance Boundary refs.
+- `app_monetization_terms_ref`: app id, accepted publisher terms version, active app monetization policy version, ORU-only attestation, external-checkout absence evidence, bypass reason codes, and enforcement state.
 - `refund_record`: refund id, invoice/receipt/payment refs, Overclaim refs, Seal Ledger correction/refund refs, provider refs, state, reason codes, and finality refs.
 - `chargeback_record`: chargeback id, payment refs, external provider refs, disputed amount, evidence refs, Overclaim refs, state, deadline, and outcome refs.
 - `payout_batch_input`: provider ids, earning ledger refs, hold refs, dispute refs, payout eligibility refs, batch window, and Provider Payout Service response refs.
@@ -123,6 +141,8 @@ Overbill APIs are account-facing, provider-facing, operator-facing, and service-
 - `POST /billing/payments/events`: ingest signed external payment-provider events.
 - `POST /billing/refunds`: request or record refund from Overclaim/ledger refs.
 - `POST /billing/chargebacks`: ingest or update chargeback state.
+- `POST /billing/manual-high-credit-requests`: create a manual review request for credit purchases above the active automated policy cap.
+- `POST /billing/funding-holds`: attach AML/KYC funding holds, release refs, or denial refs.
 - `POST /billing/payout-batches`: prepare payout batch input for Provider Payout Service.
 - `GET /billing/providers/{provider_id}/holds`: read provider payout hold view.
 - `GET /billing/accounts/{account_id}/statements`: read or generate statement.
@@ -134,6 +154,7 @@ API requirements:
 - Mutating endpoints require actor/service identity, tenant context, trace id, and idempotency key.
 - Payment event ingestion must verify provider signatures and idempotency.
 - Billing documents must cite source ledger/ORU refs.
+- Automated credit funding must deny or hold purchases above the active policy cap and route them to manual high-credit review.
 - Refund and chargeback flows must create new records and downstream correction refs, never edit historical receipts.
 - Reads must enforce account, tenant, provider, role, and data-class access.
 
@@ -145,6 +166,9 @@ API requirements:
 - `overbill.payment_event_received`: external payment event accepted.
 - `overbill.payment_failed`: payment failure recorded.
 - `overbill.payment_confirmed`: payment confirmation recorded.
+- `overbill.manual_high_credit_requested`: manual high-credit request created.
+- `overbill.funding_aml_hold_created`: funding hold attached.
+- `overbill.funding_aml_hold_released`: funding hold released with source refs.
 - `overbill.refund_requested`: refund requested with source refs.
 - `overbill.refund_recorded`: refund record created.
 - `overbill.chargeback_opened`: chargeback received or opened.
@@ -170,6 +194,7 @@ Events must include billing document refs, source ledger refs, account/provider 
 8. Provider payout batch inputs are prepared after hold/dispute/reputation checks and handed to Provider Payout Service.
 9. Refunds, chargebacks, and corrections create new records and downstream ledger/accounting refs.
 10. Audit exports join billing docs, ledger refs, payment refs, and redaction profiles.
+11. App monetization terms refs are attached to monetized app receipts, subscription records, paid unlocks, listing charges, service-unit charges, and payout batch inputs.
 
 ## State Machine
 
@@ -259,6 +284,8 @@ Additional SDS-level validation:
 - Refund/chargeback tests proving corrections are append-only and cite Overclaim/ledger refs.
 - Redaction tests for user, provider, operator, native app, and audit-export views.
 - Reconciliation tests across Seal Ledger, ORU projections, invoices, receipts, and payment provider events.
+- AML funding tests proving automated credit purchases above active policy caps are denied or held, manual high-credit requests require Internal KYC/source-of-funds refs, and bought credits stay non-cash-out-eligible.
+- App monetization bypass tests proving external checkout links, bank-transfer instructions, crypto/stablecoin payment paths, QR-code payment flows, and external subscriptions cannot create payout-eligible app earnings.
 
 ## Build Breakdown
 

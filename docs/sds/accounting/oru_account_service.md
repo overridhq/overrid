@@ -4,9 +4,13 @@ SDS #38
 
 ## Purpose
 
-Manage Overrid Resource Unit accounts as the internal non-speculative utility credit layer for resource usage, reservations, holds, refunds, corrections, grants, native service charges, provider earnings, and machine-to-machine settlement.
+Manage Overrid Resource Unit accounts as the internal non-speculative utility credit layer for resource usage, reservations, holds, refunds, corrections, grants, native service charges, third-party app charges, subscriptions, one-time service payments, provider earnings, and machine-to-machine settlement.
 
 ORU Account Service is the account and balance projection service for ORU. It must derive balances and state from append-only Seal Ledger entries and signed usage/accounting refs rather than acting like a mutable token ledger, blockchain wallet, or speculative currency system.
+
+ORU Account Service enforces the ORU-first economy rule: inside Overrid, the accepted payment and settlement medium is ORU. External fiat/card/bank rails may fund ORU, refund purchases, or settle eligible provider payouts through Overbill, but native services and third-party apps must consume ORU rather than integrating separate payment methods.
+
+The app monetization rule is stricter than a preference. Subscriptions, in-app purchases, one-time purchases, paid unlocks, paid listings, service-unit charges, app access fees, and machine-to-machine calls inside Overrid must be paid in ORU. The account service must not support app-level card, bank, crypto, stablecoin, payment-link, external subscription, QR-code, or private payment bypass paths.
 
 ## Source Documents
 
@@ -28,7 +32,9 @@ ORU Account Service is the account and balance projection service for ORU. It mu
 
 ## Problem Statement
 
-Overrid needs a usable resource-accounting unit without blockchain overhead, NFT speculation, or per-operation external payment calls. Users, apps, providers, grants, native services, and system services need resource balances that are understandable, auditable, and tied to real CPU, GPU, storage, network, memory, data, and service usage.
+Overrid needs a usable resource-accounting unit without blockchain overhead, NFT speculation, or per-operation external payment calls. Users, apps, providers, grants, native services, third-party services, and system services need resource balances that are understandable, auditable, and tied to real CPU, GPU, storage, network, memory, data, and service usage.
+
+The growth loop depends on this service: a person can contribute approved computer resources and earn ORU, then spend ORU on other services inside the network. The same account can use bought ORU or earned ORU for legitimate Overrid services, while cash-out eligibility remains stricter and evidence-backed.
 
 The account service must expose wallet and admin views while preserving the accounting truth: transitions are backed by Seal Ledger entries, Overmeter rollups, Overclaim dispute refs, grant refs, or operator/system refs. Direct mutable balance counters would create drift, double-spend risk, and dispute problems.
 
@@ -38,6 +44,10 @@ The account service must expose wallet and admin views while preserving the acco
 - Track explicit ORU dimensions: CPU-ORU, GPU-ORU, STOR-ORU, NET-ORU, MEM-ORU, DATA-ORU, and Service-ORU.
 - Model account state, owner refs, tenant scope, compliance flags, suspension, delegation, and visibility rules.
 - Derive available, reserved, held, spent, earned, sponsored, refunded, corrected, expired, and revoked balances from append-only refs.
+- Distinguish bought credits from provider-earned ORU so bought credits cannot become directly cash-out eligible for the buyer. Do not let users cash out bought ORU.
+- Allow policy-valid ORU spending on resource usage, native services, third-party apps, subscriptions, in-app purchases, one-time charges, paid unlocks, service units, and machine-to-machine calls.
+- Enforce ORU-only app monetization by refusing balance or settlement APIs that represent app fees paid through third-party payment collection.
+- Support users who both earn ORU from contributed resources or legitimate services and spend ORU elsewhere inside the network.
 - Prevent double spending between available, reserved, and held states.
 - Expose wallet/admin balance views, statement views, and account history without exposing private ledger internals unnecessarily.
 - Provide low-friction budget/preauthorization refs for HTTP 402-style machine-to-machine payments without per-call external payment friction.
@@ -51,6 +61,8 @@ The account service must expose wallet and admin views while preserving the acco
 - Do not issue provider payout batches. Provider Payout Service owns payout workflow.
 - Do not grant sponsored allocation rules. Overgrant owns grant eligibility and purpose scope.
 - Do not mutate balances without ledger-backed transition refs.
+- Do not let individual apps or native services bypass ORU with their own in-system fiat, card, bank-transfer, crypto, stablecoin, or private payment method.
+- Do not treat off-platform payments as valid app-fee settlement, subscription entitlement, feature unlock, service-unit purchase, listing payment, or payout-eligible earnings.
 - Do not expose ORU as a speculative token, blockchain asset, or externally tradable currency.
 
 ## Primary Actors And Clients
@@ -61,6 +73,7 @@ The account service must expose wallet and admin views while preserving the acco
 - Overmeter, supplying signed usage rollups.
 - Overgrant, allocating sponsored and purpose-scoped ORU.
 - Provider Payout Service, reading provider earning, hold, and payout eligibility balances.
+- Internal KYC Service, supplying KYC/KYB, AML hold, cooling-period, and cash-out eligibility refs for provider-earned balances.
 - Native services, apps, AI Gateway Router, and system services, reserving or checking budget refs before usage.
 - Overclaim, creating dispute hold, correction, refund, and release refs.
 - Overpass, Overtenant, Overkey, admin UI, CLI, SDK, and central AI stewardship, reading account scope and authorized views.

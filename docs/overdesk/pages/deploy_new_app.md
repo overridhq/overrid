@@ -31,7 +31,7 @@ Deploy New App is the Overdesk deployment wizard for publishing or updating Over
 - Start from a package, repo/import, template, existing app version, or local build output.
 - Validate the app manifest before any deployment planning.
 - See required permissions, data classes, resource needs, storage refs, namespace needs, workload class, and policy refs.
-- Estimate compute, GPU, RAM, storage, bandwidth, wallet budget, and grant availability.
+- Estimate compute, GPU, RAM, storage, bandwidth, wallet budget, ORU-only monetization state, and grant availability.
 - Run policy dry-runs before signing deployment.
 - Choose namespace routes, app routes, subroutes, visibility, and dispute/contact info.
 - Review deployment graph, release strategy, health checks, backup/restore refs, and rollback plan.
@@ -68,6 +68,7 @@ Content:
 
 - Select Source.
 - Validate Manifest.
+- Monetization Terms.
 - Estimate Resources.
 - Policy Dry Run.
 - Namespace And Routes.
@@ -109,6 +110,9 @@ Content:
 - Workload class.
 - Policy refs.
 - Package Validator results.
+- ORU-only monetization declaration.
+- Accepted app monetization terms-policy version.
+- External checkout/payment bypass scan result.
 - Stable reason codes.
 - Blocking and warning results.
 
@@ -117,6 +121,26 @@ Links and handoffs:
 - Developer Console.
 - Privacy And Permissions Center.
 - Security And Compliance Reviews.
+
+### Monetization Terms
+
+Content:
+
+- Monetization mode: free, ORU subscription, ORU in-app purchase, ORU one-time purchase, ORU paid unlock, ORU paid listing, ORU service-unit billing, or ORU machine-to-machine billing.
+- ORU-only fee collection attestation.
+- Accepted publisher terms version.
+- Active app monetization policy version.
+- Subscription, purchase, paid unlock, listing, and service-unit billing refs where applicable.
+- External checkout absence evidence.
+- Payment-link, card, bank-transfer, crypto/stablecoin, QR-code, external subscription, and private payment bypass warnings.
+- Payout-hold warning if bypass is detected.
+- Blocking reason codes and required fixes.
+
+Links and handoffs:
+
+- Wallet.
+- Security And Compliance Reviews.
+- Activity And Receipts Timeline.
 
 ### Resource Estimate
 
@@ -213,6 +237,7 @@ Content:
 - Permissions and data classes.
 - Resource estimate.
 - Policy dry-run result.
+- ORU-only monetization attestation and accepted terms-policy version.
 - Release strategy.
 - Rollback path.
 - Audit refs.
@@ -244,6 +269,7 @@ Links and handoffs:
 
 - Select source.
 - Validate manifest.
+- Accept monetization terms and ORU-only attestation.
 - Estimate resources.
 - Run policy dry-run.
 - Choose namespace route.
@@ -270,6 +296,9 @@ Links and handoffs:
 - Import running.
 - Manifest invalid.
 - Manifest valid.
+- Monetization terms missing.
+- Monetization bypass detected.
+- Monetization accepted.
 - Estimate running.
 - Underfunded.
 - Grant eligible.
@@ -294,7 +323,7 @@ Links and handoffs:
 - Deploy New App owns wizard state and desktop display only. Deployment Planner, Overpack, Package Validator, Release Strategy Service, Overguard, Overregistry, Overgate, Overbase, Overstore, Overvault, Overmeter, Wallet/ORU, and owner services own deployment authority.
 - Secrets must stay in approved credential providers or Overvault refs and must never appear in local drafts, logs, exports, or support bundles.
 - Invalid manifests, unsafe policy results, unauthorized actors, underfunded wallets, unsupported data classes, and blocked compliance boundaries must not advance to signed deployment.
-- Final confirmation must show affected account, app, namespace, permissions, cost estimate, policy result, rollback path, and audit refs.
+- Final confirmation must show affected account, app, namespace, permissions, cost estimate, ORU-only monetization attestation, policy result, rollback path, and audit refs.
 - Offline mode can save safe drafts but cannot validate, sign, launch, or mutate deployment state.
 
 ## Design Notes

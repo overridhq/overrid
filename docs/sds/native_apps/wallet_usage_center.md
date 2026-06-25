@@ -4,9 +4,11 @@ SDS #74
 
 ## Purpose
 
-Build the user-facing control panel for ORU balances, usage, grants, holds, refunds, receipts, app permissions, and service costs.
+Build the user-facing control panel for ORU balances, usage, grants, holds, refunds, receipts, app permissions, provider earnings, and service costs.
 
 Wallet and Usage Center is the native account-visibility and permission-control app for Overrid. It owns wallet views, usage dashboards, statement/export requests, receipt collections, permission control records, notification prefs, dispute handoff refs, and privacy audit views. It does not own ORU balance truth, Seal Ledger entries, payment settlement, grants, billing, payouts, or resource-rate policy. Its job is to make resource usage and app permissions understandable and controllable without becoming a mutable accounting ledger.
+
+The wallet must make the ORU-first economy visible: users can buy ORU, earn ORU from approved resource contribution or legitimate services, spend ORU on native services and third-party apps, and view provider earnings. Cash-out is shown as a separate provider-eligibility flow, not as a direct withdrawal of bought ORU.
 
 ## Source Documents
 
@@ -36,6 +38,7 @@ The design risk is turning the wallet UI into an accounting authority. Wallet an
 
 - Define wallet view, account selector, usage dashboard, receipt collection, statement/export, permission control, revocation, privacy audit, notification, dispute handoff, and usage records.
 - Display ORU balances, reservations, holds, grants, sponsored credits, refunds, corrections, receipts, statements, and account history through authoritative refs.
+- Show bought, earned, sponsored, held, spendable, and payout-eligible states clearly so users understand what can be spent inside Overrid and what can enter provider payout review.
 - Show resource usage by actor, organization, app, service, native app, model route, storage, compute, network, data, and time window.
 - Let users review, narrow, revoke, and audit app permissions for native services, AI tools, search, messaging, storage, location, and workspace access.
 - Provide export and statement jobs without leaking sensitive ledger, fraud, provider, or private-app details.

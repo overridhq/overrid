@@ -41,6 +41,7 @@ Overpack provides that contract. It is the canonical manifest language for work 
 - Register accepted manifest versions through Overregistry.
 - Provide validation outputs that Package Validator, Deployment Planner, SDK, CLI, and admin UI can use.
 - Expand to application-intent manifests in Phase 9 without breaking Phase 3 workload manifests.
+- Require monetized application-intent manifests to declare ORU-only fee collection, accepted app monetization terms-policy version, and absence of app-level third-party checkout.
 
 ## Non-Goals
 
@@ -50,6 +51,7 @@ Overpack provides that contract. It is the canonical manifest language for work 
 - Do not replace Package Validator; Overpack defines schemas and compatibility rules while validators perform deeper checks.
 - Do not bypass Overguard policy by embedding privileged declarations.
 - Do not encode pricing or revenue forecasts.
+- Do not permit app manifests to bypass ORU with card, bank-transfer, crypto, stablecoin, payment-link, QR-code, external subscription, or private payment flows for subscriptions, in-app purchases, one-time purchases, paid unlocks, listings, or service units.
 - Do not accept AI-generated deployment proposals unless they pass the same schema, provenance, policy, and budget checks.
 
 ## Primary Actors And Clients
@@ -86,6 +88,7 @@ Overpack owns:
 - Runtime contract declarations for command, container, WASI, model, service, and future runtime types.
 - Permission declarations for egress, secrets, storage, data class, model access, namespace routes, and service calls.
 - Resource card declarations consumed by scheduling and leasing.
+- Monetization declarations for ORU-only billing, accepted terms-policy version, and external-checkout absence.
 - Manifest lifecycle and validation reports.
 
 Overpack must not store raw secrets or decide policy. It declares intent; other services validate and enforce it.
@@ -96,7 +99,7 @@ The first implementation should define:
 
 - `manifest_envelope`: manifest id, schema version, manifest kind, tenant/app scope, author, signature refs, created_at, compatibility version, and deprecation refs.
 - `workload_manifest`: job kind, command/container/WASI/model spec, input refs, output refs, runtime contract, resource card, workload class, data sensitivity, egress policy, secrets policy, timeout, retry policy, and observability refs.
-- `application_intent_manifest`: app identity, services, runtime cards, data needs, storage needs, model needs, permissions, wallet budget, billing rules, routes, geography, scaling, security, health checks, and observability.
+- `application_intent_manifest`: app identity, services, runtime cards, data needs, storage needs, model needs, permissions, wallet budget, billing rules, ORU-only monetization declaration, accepted app monetization terms-policy version, external-checkout absence declaration, routes, geography, scaling, security, health checks, and observability.
 - `artifact_ref`: artifact type, object ref, content hash, signature ref, size, media/runtime type, storage class, and retention hint.
 - `package_provenance`: source repo/build ref, builder identity, dependency locks, SBOM refs, base image/module refs, generated-by refs, and policy compatibility refs.
 - `runtime_contract`: runtime type, entrypoint, args, environment refs, mount rules, allowed syscalls/capabilities where relevant, timeout, resource limits, and cleanup expectation.
@@ -126,6 +129,7 @@ API requirements:
 - Validation reports must be stable enough for SDK/CLI/admin UI automation.
 - Policy dry-run results are advisory until the workload or deployment is actually submitted.
 - Reads must redact secret refs and private artifact details when caller lacks access.
+- Monetized application manifests must fail validation if manifest metadata, package metadata, declared routes, catalog text, dependency declarations, or UI/payment declarations expose third-party checkout for Overrid-delivered subscriptions, in-app purchases, one-time purchases, paid unlocks, listings, or service units.
 
 ## Event Surface
 
@@ -174,6 +178,7 @@ Application-intent lifecycle in Phase 9 may add `planned`, `provisioning`, `depl
 - Egress, data class, storage, model, RAG, route, and service permissions must be explicit and least-privilege.
 - Unknown or unsupported manifest fields should fail closed unless compatibility rules permit warnings for non-execution metadata.
 - AI-generated manifests must pass the same validation, policy dry-run, and provenance requirements as human-authored manifests.
+- AI-generated or imported manifests must fail closed when they attempt to route app monetization outside ORU.
 - Revocation must be possible when a package, dependency, or provenance source is found unsafe.
 - Registered manifest history is append-only; corrections create new versions or revocation records.
 
@@ -184,6 +189,7 @@ Overpack does not meter runtime usage directly, but it defines accounting-releva
 - Resource cards inform Overlease reservations and Overmeter attribution.
 - Workload/app ids, package refs, model refs, service ids, and billing rules become dimensions in usage events.
 - Budget declarations in application-intent manifests are policy/accounting inputs, not direct payment actions.
+- ORU-only monetization declarations become billing, policy, registry, and payout-eligibility inputs.
 - Manifest validation and package validation may emit small system-service usage events.
 - Do not encode price or business-volume projections inside manifests.
 
@@ -222,6 +228,7 @@ Additional SDS-level validation:
 - Resource-card tests proving scheduler and lease inputs are complete.
 - Overrun integrity tests proving execution can verify manifest artifacts.
 - Phase 9 application-intent fixture tests for runtime, data, storage, routes, billing, scaling, and health declarations.
+- Monetization fixture tests proving external checkout declarations, payment links, crypto/stablecoin payment paths, bank-transfer instructions, QR-code payment flows, and external subscriptions are rejected for app fees.
 - Compatibility tests for schema migration and deprecation.
 
 ## Build Breakdown

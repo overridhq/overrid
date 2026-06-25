@@ -20,12 +20,13 @@ This phase formalizes governance, legal stewardship, compliance boundaries, secu
 2. Define stewardship legal and reporting structure.
 3. Formalize central AI decision boundaries.
 4. Add jurisdiction-specific payment and custody controls.
-5. Run formal threat modeling.
-6. Run security reviews.
-7. Run performance, cost, and reliability drills.
-8. Harden incident response.
-9. Build migration tooling for deployments and backbone services.
-10. Publish governance and operations reports.
+5. Add internal KYC, KYB, AML, manual high-credit, cooling-period, and cash-out eligibility controls.
+6. Run formal threat modeling.
+7. Run security reviews.
+8. Run performance, cost, and reliability drills.
+9. Harden incident response.
+10. Build migration tooling for deployments and backbone services.
+11. Publish governance and operations reports.
 
 ## Workstream 1: Protocol Improvement Process
 
@@ -98,6 +99,7 @@ Build the Phase 13 Compliance Boundary Service slice from [SUB BUILD PLAN #76 - 
 
 Map boundaries for:
 
+- Turkish-law launch gates and service ownership from [Turkish Law Compliance Matrix](../turkish_law_compliance_matrix.md).
 - Payment processing.
 - Custody-like behavior.
 - Refunds and disputes.
@@ -109,6 +111,16 @@ Map boundaries for:
 - Provider payouts.
 
 The system should be designed so high-compliance workloads can be isolated rather than contaminating every low-risk flow.
+
+## Workstream 4B: Internal KYC And AML Controls
+
+Build the Phase 13 Internal KYC Service slice from [SUB BUILD PLAN #85 - Internal KYC Service](sub_build_plan_085_internal_kyc_service.md):
+
+- KYC subject records, person KYC profiles, business KYB profiles, beneficial-owner records, verification attempts, payout destination ownership facts, source-of-funds/source-of-wealth refs, screening refs, cash-out eligibility facts, manual review cases, refresh/expiry records, exports, and replay bundles.
+- Explicit handoffs to Overpass, Overtenant, Overkey, Overvault, Overwatch, Overguard, Compliance Boundary Service, Overbill, ORU Account Service, Seal Ledger, Provider Payout Service, Fraud Control, Reputation and Anti-Sybil Service, Wallet and Usage Center, Overdesk, and Central AI without mutating ledger, wallet, billing, payout, or fraud-authority truth.
+- Turkish-law policy bundle consumption, manual high-credit review, connected-transaction aggregation, no anonymous cash-out, no direct cash-out of bought credits, first-payout and post-funding cooling periods, fake-app laundering detection, payout destination ownership, source-of-funds review, no-tipping-off redaction, and suspicious-activity evidence preservation.
+
+KYC completion is necessary for cash-out, but it is not enough by itself. Payout eligibility must also require app legitimacy, related-party checks, dispute and chargeback finality, cooling-period expiry, reconciliation, and active AML allow facts.
 
 ## Workstream 4A: Incident Response
 
@@ -148,6 +160,7 @@ Run threat models for:
 - Ledger manipulation.
 - Native app abuse.
 - Wallet and Usage Center account visibility confusion, stale balance misuse, redaction bypass, statement/export leakage, high-risk permission revocation delay, queued revocation abuse, privacy-audit overexposure, Personal AI Assistant wallet-tool misuse, dispute overlay confusion, custody-boundary drift, speculative token framing, usage reconciliation gaps, audit gaps, and replay gaps.
+- Internal KYC Service fake-app laundering, cash-out after recent funding, connected-transaction structuring, mule accounts with real KYC, beneficial-owner hiding, payout destination switching, source-of-funds forgery, stale policy threshold use, KYC fact replay, operator evidence overexposure, and suspicious-activity tipping-off.
 - Workspace and Office Suite workspace membership confusion, object permission bypass, share revocation delay, stale vault grants, public-link leakage, editor conflict data loss, unauthorized import/export, private search handoff overexposure, AI context leakage, hidden model-training drift, rejected proposal retention bypass, offline sync replay abuse, proprietary-format lock-in, usage gaps, audit gaps, and replay gaps.
 - Directory Listings scams, prohibited/regulated category bypass, exact-location leakage, private-contact harvesting, search ranking manipulation, map handoff privacy bypass, contact spam, disputed organization page takeover, moderation abuse, report/dispute suppression, retention/tombstone gaps, and replay/audit gaps.
 - Search Engine private-result leakage, permission-filter bypass, private embedding exposure, source poisoning, cloaking, spam/source farms, paid-ranking drift, ranking-explanation gaming, public-interest dataset ownership disputes, removal/tombstone failures, assistant citation overreach, retention bypass, usage gaps, and replay/audit gaps.
@@ -181,6 +194,7 @@ Review:
 - Central AI Stewardship Interface audience resolution, redaction profiles, dashboard and recommendation views, signed review action envelopes, owner-service routing, report publication/correction/withdrawal timelines, fraud and appeal summaries, usage refs, audit refs, and replay bundles.
 - Mobile SDK generated models, Kotlin/Android binding, later Swift/iOS parity gate, credential provider interfaces, secure ref stores, offline queue store, diagnostic redactor, signed request builder, sync/offline/push/media/wallet helpers, AI/RAG helpers, permission prompts, local retention, compatibility profiles, support bundle redaction, usage refs, and replay fixtures.
 - Wallet and Usage Center account selectors, balance views, Overmeter usage dashboards, Overbill receipts/statements, Overgrant grant refs, Overclaim dispute handoffs, app permission controls, high-risk revocation paths, queued low-risk revocation paths, privacy audit views, mobile/offline read-only snapshots, statement/export redaction profiles, Personal AI Assistant wallet tools, usage refs, audit refs, retention, compliance holds, and replay bundles.
+- Internal KYC Service KYC/KYB profiles, beneficial-owner records, verification attempt refs, payout destination ownership facts, source-of-funds/source-of-wealth refs, screening refs, cash-out eligibility facts, manual review queues, cooling-period state, policy version refs, no-tipping-off redaction, Overvault evidence refs, operator access audit, and replay bundles.
 - Workspace and Office Suite workspace records, folder/object records, canonical authoring formats, editor sessions, versioned edit records, share permission refs, public-link refs, revocation invalidation, comments, approvals, Search Engine handoff refs, Personal AI Assistant proposal/apply/reject refs, Encrypted Docdex RAG context refs, import/export manifests, mobile draft/offline sync envelopes, usage refs, audit refs, retention, compliance holds, and replay bundles.
 - Directory Listings category policies, locality privacy classes, organization page claims, contact handoff records, search update refs, anti-ad-trap ranking constraints, map/place handoff refs, abuse reports, moderation actions, Fraud Control/Reputation/Overclaim handoffs, usage refs, audit refs, retention/tombstones, and replay bundles.
 - Search Engine source registrations, source policies, crawl/index jobs, Search-owned Overbase lexical/document/secondary/vector indexes, Overstore chunk/artifact refs, Overvault grant refs, permission filter snapshots, query sessions, private-source previews, result sets, ranking explanations, paid-placement absence attestations, handoff refs, public-interest dataset manifests, removal/tombstone records, abuse reports, usage refs, retention classes, audit refs, and replay bundles.
@@ -211,6 +225,7 @@ Run drills for:
 - Native app traffic surge.
 - Compliance Boundary ruleset activation rollback, jurisdiction update fanout, stale fact surge, exception expiry miss, export redaction failure, owner-service outage, Overguard outage, Overwatch evidence outage, replay mismatch, and accidental sensitive-data capture.
 - Wallet and Usage Center source-projection outage, Seal Ledger checkpoint mismatch, Overmeter rollup lag, receipt lookup failure spike, statement/export backlog, permission revocation owner-service outage, privacy audit denial spike, dispute handoff backlog, mobile offline revalidation storm, usage reconciliation lag, retention cleanup lag, and replay backlog.
+- Internal KYC Service verification-provider outage, manual review backlog, stale policy bundle, payout destination refresh failure, source-of-funds review backlog, KYC fact signing failure, Overvault evidence access outage, false-positive payout hold surge, false-negative fake-app laundering fixture, and compliance export backlog.
 - Workspace and Office Suite edit conflict spike, coedit lock contention, version snapshot lag, share revocation invalidation outage, public-link abuse burst, search handoff backlog, AI assist route outage, rejected proposal cleanup lag, import/export conversion backlog, mobile draft revalidation storm, vault grant failure spike, usage reconciliation lag, retention cleanup lag, and replay backlog.
 - Directory Listings listing-publish spam, regulated-category attempt spikes, search update lag, map handoff lag, exact-location privacy denial spikes, contact handoff abuse, moderation backlog age, dispute backlog age, usage reconciliation lag, retention cleanup lag, and replay backlog.
 - Search Engine source import backlog, index job failure spike, permission snapshot failure spike, private-source denial spike, source poisoning burst, ranking-abuse report spike, tombstone/removal lag, private-query retention cleanup lag, assistant handoff backlog, usage reconciliation lag, and replay backlog.
@@ -248,6 +263,7 @@ Publish structured reports for:
 - Protocol changes.
 - Compliance boundaries, active ruleset/version summaries, marker-family changes, jurisdiction/domain support, exception volumes, jurisdiction updates, export/redaction health, public native-app boundary behavior, provider payout boundary behavior, usage reconciliation, incident hooks, and replay health.
 - Wallet and Usage Center balance/usage visibility behavior, stale projection rates, permission revocation outcomes, privacy-audit access summaries, statement/export health, dispute handoff outcomes, custody-boundary attestations, usage reconciliation, retention cleanup, and replay health.
+- Internal KYC Service aggregate verification completion, refresh, expiry, payout-readiness, high-credit manual review, source-of-funds review, payout hold, no-anonymous-cash-out, fake-app laundering prevention, and compliance export health without exposing private identities, raw evidence, or suspicious-transaction status.
 - Workspace and Office Suite workspace usage, share/revocation behavior, public-link outcomes, export/import health, AI assist permission behavior, private search handoff denials, mobile draft/offline sync revalidation, retention cleanup, privacy/audit access summaries, incident trends, usage reconciliation, and replay health.
 - Directory Listings category enablement, scam/report trends, moderation outcomes, dispute/correction summaries, locality privacy protections, contact-abuse controls, search fairness constraints, and retention/tombstone behavior.
 - Search Engine source coverage, permission-filter denials, private-search privacy behavior, ranking explanation coverage, paid-placement absence attestation, public-interest dataset governance, source poisoning/ranking-abuse trends, removal/tombstone behavior, assistant handoff boundaries, usage reconciliation, retention cleanup, and replay health.
@@ -263,6 +279,7 @@ Reports should be specific enough to build trust without exposing private user d
 
 - PIP process is documented and used for at least one non-trivial protocol change.
 - Central AI intervention rules are testable from evidence.
+- KYC/KYB and AML cash-out controls prevent anonymous payout, direct cash-out of bought credits, fake-app laundering, and high-credit automated funding beyond active policy caps.
 - Threat models produce tracked mitigations.
 - Security review findings have owners and status.
 - Reliability drills prove recovery from partial failure.

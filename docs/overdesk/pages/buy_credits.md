@@ -16,6 +16,8 @@ Wallet, Credits, And Ownership
 
 Buy Credits is the Overdesk surface for creating credit-purchase intents into an authorized ORU account. It should make funding an account easy while preserving the ORU, Seal Ledger, Overbill, and payment-provider boundaries that prevent per-operation payment friction.
 
+Credit buying is an external boundary flow. Once funded, the user spends ORU inside Overrid; apps and native services must not ask for separate in-system card, bank, crypto, stablecoin, payment-link, QR-code, external subscription, or private payment methods for subscriptions, in-app purchases, one-time purchases, paid unlocks, listings, service units, or app access. Bought ORU can be spent on valid services but cannot be cashed out directly by the buyer.
+
 ## Primary Users
 
 - Regular users
@@ -30,6 +32,7 @@ Buy Credits is the Overdesk surface for creating credit-purchase intents into an
 - Choose the correct account to fund.
 - Select ORU dimension or approved bundle.
 - Understand the target account, payment handoff, expected crediting path, and receipt state.
+- Understand that purchased ORU is spendable inside Overrid but not directly cash-out eligible.
 - Complete payment without exposing payment secrets to Overdesk.
 - See failed, pending, credited, cancelled, refunded, or disputed states.
 - Return to Wallet with updated projections and receipts.
@@ -210,6 +213,7 @@ Content:
 - Creating a purchase intent requires signed actor identity, account authorization, idempotency key, policy refs, and payment-provider handoff refs.
 - Spendable credit must not appear until payment-provider event state, Overbill record, Seal Ledger entry, and ORU projection reconcile.
 - Overdesk owns the purchase-intent form and status display; Overbill, ORU Account Service, Seal Ledger, and external payment integrations own settlement, crediting, receipts, refunds, and reconciliation.
+- Buy Credits is the only user-facing path for adding purchased ORU. It must never imply that individual apps may collect their own card, bank, crypto, stablecoin, payment-link, or external subscription payments.
 
 ## Design Notes
 

@@ -152,6 +152,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 | SDS #82: [Mobile Backend Gateway](../sds/mobile/mobile_backend_gateway.md) | [SUB BUILD PLAN #82 - Mobile Backend Gateway](sub_build_plan_082_mobile_backend_gateway.md) | First build point remains Phase 12 for device registration, mobile sessions, capability profiles, sync cursors, offline command replay, push refs, media upload sessions, wallet/usage reads, AI/RAG handoffs, native app handoffs, Mobile SDK contracts, usage refs, audit refs, and replay evidence, with prerequisites from Phases 0, 1, 4, 5, 6, 8, and 11 plus Phase 13 privacy, threat-review, compliance, incident, reporting, reliability, and scale hardening. |
 | SDS #83: [Mobile SDK](../sds/mobile/mobile_sdk.md) | [SUB BUILD PLAN #83 - Mobile SDK](sub_build_plan_083_mobile_sdk.md) | First build point remains Phase 12 for generated mobile client bindings, configuration, secure storage provider interfaces, signed requests, device/session helpers, bounded offline queueing, sync cursors, push registration, media upload helpers, wallet/usage readers, native-app helpers, AI/RAG handoffs, permissions, diagnostics, compatibility, and fixtures, with prerequisites from Phases 0, 1, 4, 5, 6, 8, and 11 plus Phase 13 mobile privacy, secure-storage, compatibility, threat-review, compliance, incident, reporting, reliability, and scale hardening. |
 | SDS #84: [Overdesk Desktop Client](../sds/native_apps/overdesk_desktop_client.md) | [SUB BUILD PLAN #84 - Overdesk Desktop Client](sub_build_plan_084_overdesk_desktop_client.md) | First build point remains Phase 12 for the desktop app shell, Add This Computer onboarding, resource sharing rules, access rules, Overrid Browser address bar, embedded native-app sessions, wallet/credits, owned app analytics, deployment wizard, Overasset inventory, workspace, directory, app catalog, identity/profile, namespace, privacy, vault, Docdex/RAG, disputes, payouts, grants, activity receipts, node fleet, developer console, release/rollback, governance views, usage refs, audit refs, and replay bundles, with prerequisites from Phases 0, 1, 2, 3, 4, 5, 6, 8, 9, 11, and 13 hardening for desktop privacy, local cache, installer, updates, support bundles, security, incidents, reporting, compliance, releases, and governance. |
+| SDS #85: [Internal KYC Service](../sds/governance_ops/internal_kyc_service.md) | [SUB BUILD PLAN #85 - Internal KYC Service](sub_build_plan_085_internal_kyc_service.md) | First build point remains Phase 13 for KYC/KYB profiles, beneficial-owner records, verification attempts, payout destination ownership, source-of-funds/source-of-wealth refs, screening refs, cooling-period state, AML policy versions, cash-out eligibility facts, manual high-credit review, refresh/expiry, exports, and replay evidence, with Phase 5 accounting hooks reserved before public cash-out is enabled. |
 
 ## Phase 0: Foundation
 
@@ -428,6 +429,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 - Stewardship legal entity and public reporting.
 - Central AI evidence thresholds, appeal/dispute flow, privacy boundaries, and proportional intervention rules.
 - Jurisdiction-specific payment/custody boundaries.
+- Internal KYC, KYB, beneficial-owner, AML, manual high-credit, cooling-period, and cash-out eligibility facts.
 - Formal security reviews and threat models.
 - Performance, cost, reliability, and incident drills.
 - Migration tooling from seed/private deployments to grid-resident deployments.
@@ -436,6 +438,7 @@ Per-SDS sub-build plans provide the service-level implementation sequence for nu
 
 - Core governance is documented and testable.
 - Operators can explain why policy, fraud, payout, suspension, or grant decisions happened.
+- No payout can bypass KYC/KYB, AML policy, cooling-period, app-legitimacy, related-party, dispute, chargeback, and reconciliation checks.
 - The system can survive node failures, provider abuse, workload abuse, payment disputes, and partial control-plane outages.
 
 ## Build Order Summary

@@ -4,13 +4,18 @@
 
 Make resource usage accountable without blockchain, NFT speculation, or per-transaction fee friction.
 
-ORU credits and Seal Ledger are internal utility infrastructure for resource accounting, settlement, grants, holds, corrections, and machine-to-machine payments. They are not speculative tokens.
+ORU credits and Seal Ledger are internal utility infrastructure for resource accounting, settlement, grants, holds, corrections, service charges, subscriptions, one-time app payments, provider earnings, and machine-to-machine payments. They are not speculative tokens.
+
+The product invariant is ORU-first settlement: inside Overrid, users and services pay with ORU. External payment rails may fund ORU, refund purchases, or settle eligible provider payouts, but Overrid apps and native services must not accept their own fiat, card, bank-transfer, crypto, stablecoin, or private payment flow.
+
+Publisher terms and user-facing Terms of Service must make this explicit. Subscriptions, in-app purchases, one-time purchases, paid feature unlocks, paid listings, service-unit charges, and machine-to-machine calls must be collected through ORU only. External card, bank, crypto, stablecoin, payment-link, QR-code, external subscription, or private "contact me to pay" flows are prohibited for app monetization.
 
 ## Depends On
 
 - Phase 3 raw usage events.
 - Phase 4 policy decisions, disputes, and verification evidence.
 - Identity, tenant, provider, app, and native service records.
+- AML/KYC placeholder refs for funding limits, payout holds, manual high-credit review, and later Internal KYC Service integration.
 
 ## Build Order
 
@@ -23,7 +28,11 @@ ORU credits and Seal Ledger are internal utility infrastructure for resource acc
 7. Add Overgrant primitives for sponsored, grant-funded, and purpose-scoped allocation.
 8. Add Overasset utility records for non-speculative resource rights and operational ownership references.
 9. Add Overbill receipts, invoices, payouts, and audit export.
-10. Prove internal accounting without per-operation external payment calls.
+10. Add AML/KYC hold refs, manual high-credit request refs, and cash-out eligibility hooks.
+11. Enforce the hard payout boundary: do not let users cash out bought ORU.
+12. Enforce ORU-only internal payment for native services, third-party apps, subscriptions, in-app purchases, one-time charges, paid unlocks, resource usage, and machine-to-machine calls.
+13. Add app monetization terms-policy refs, ORU-only attestation refs, and third-party payment bypass reason codes to billing and payout records.
+14. Prove internal accounting without per-operation external payment calls.
 
 ## Workstream 1: ORU Account Model
 
@@ -71,6 +80,10 @@ Implement states:
 - Revoked.
 
 Every transition must reference a command, usage rollup, policy decision, dispute, or operator action.
+
+Bought ORU must be distinguishable from provider-earned ORU at the state-machine level. Bought ORU can be spent on valid Overrid usage, refunded/corrected where policy allows, or held for AML/chargeback reasons, but it must not become direct cash-out eligibility for the buyer.
+
+Earned ORU and bought ORU are both spendable inside Overrid when policy allows. The boundary is cash-out, not spending. A user who earns ORU by sharing compute, storage, bandwidth, GPU capacity, datasets, models, or legitimate app/service work can spend that ORU on other Overrid services. A user who buys ORU can also spend it on third-party apps and native services. Neither case permits anonymous cash-out, and bought ORU cannot become payout-eligible merely because it moved through a service-shaped path.
 
 ## Workstream 4: Overmeter Rollups
 
@@ -161,10 +174,19 @@ Build billing records:
 - Refund record.
 - Provider payout batch.
 - Payout hold.
+- AML/KYC hold ref.
+- Manual high-credit request ref.
+- Cash-out eligibility ref.
 - Audit export.
 - Account statement.
 
 External payments should be batched where possible. Internal ORU transitions should not require external fees per small operation.
+
+Overbill must route external fiat/card/bank/payment-provider flows into boundary events: ORU funding, refund, chargeback, tax document, and eligible provider payout. Once value is inside Overrid, service payment uses ORU. Third-party apps, native services, subscriptions, in-app purchases, one-time purchases, paid unlocks, paid listings, AI calls, storage, hosting, and machine-to-machine calls must all consume ORU through Seal Ledger-backed records.
+
+Overbill must also preserve app monetization terms evidence: accepted publisher terms version, ORU-only monetization attestation, app billing rule refs, and external-payment-bypass flags. Any app-level card, bank, crypto, stablecoin, payment-link, QR-code, external subscription, or private payment collection path should block billing approval for that app and hold affected provider payout items.
+
+Overbill and Provider Payout Service must reserve integration points for Internal KYC Service and Compliance Boundary Service. Automated credit purchases must be policy-capped, high-credit requests must route to manual review, and provider cash-out must support deny-by-default eligibility facts before public payouts are enabled.
 
 ## Workstream 10: Machine-To-Machine Payments
 
@@ -186,6 +208,13 @@ This is the path toward HTTP 402-style machine-to-machine payments without block
 - Disputed workloads move settlement into hold state.
 - Refund or correction produces a new ledger entry instead of editing history.
 - Provider earnings are batchable and can be held.
+- Bought credits cannot be directly cashed out by the buyer.
+- Provider payout records can carry KYC/KYB, AML, cool-off, app-legitimacy, dispute, chargeback, and reconciliation hold refs.
+- ORU is the only accepted internal payment medium for resource usage, native services, third-party apps, subscriptions, in-app purchases, one-time charges, paid unlocks, and machine-to-machine calls.
+- Users can earn ORU by contributing approved resources or legitimate services and can spend earned ORU inside the Overrid network.
+- External fiat/card/bank/payment-provider flows appear only as funding, refund, chargeback, tax, or eligible payout boundary events.
+- App-level external checkout, payment links, bank-transfer instructions, crypto/stablecoin payment paths, QR-code payments, and private "contact me to pay" flows are rejected or suspended for monetized apps.
+- Credit purchases above active policy caps route to manual review instead of automatic funding.
 - User can inspect usage, holds, refunds, and receipts.
 
 ## Exit Gate

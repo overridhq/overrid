@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build the user-facing control panel for ORU balances, usage, grants, holds, refunds, receipts, app permissions, and service costs.
+Build the user-facing control panel for ORU balances, usage, grants, holds, refunds, receipts, app permissions, provider earnings, and service costs.
 
 ## First Build Phase
 
@@ -54,4 +54,5 @@ The detailed design contract is [Wallet and Usage Center SDS](../../sds/native_a
 - Treat Wallet and Usage Center as a user-facing projection and control app, not as ORU Account Service, Seal Ledger, Overbill, Overgrant, Overmeter, Overclaim, or an external payment processor.
 - Require wallet profiles, account selectors, balance views, usage dashboards, receipt collections, statement/export jobs, app permission controls, revocation requests, privacy audit views, dispute handoffs, notification prefs, and usage refs.
 - Read authoritative accounting and usage data from ORU Account Service, Seal Ledger, Overbill, Overgrant, Overmeter, and Overclaim instead of mutating balances or ledger truth directly.
+- Show ORU-first settlement clearly: users can buy ORU, earn ORU from approved resources or legitimate services, spend ORU on native services and third-party apps, and view payout-eligible provider earnings as a separate state.
 - Make app permissions, privacy access, receipts, holds, grants, refunds, and usage visible and revocable without blockchain/NFT framing, hardcoded prices, or revenue projections.

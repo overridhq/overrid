@@ -30,6 +30,7 @@ Store versioned resource, workload, package, provider, node capability, purpose 
 - Capability records.
 - Schema version refs.
 - Catalog query API.
+- App monetization policy refs, accepted publisher terms versions, ORU-only attestations, and bypass enforcement state.
 
 ## Detailed SDS
 
@@ -46,12 +47,14 @@ Store versioned resource, workload, package, provider, node capability, purpose 
 - Make accepted manifest content immutable; corrections and updates create new versions with predecessor links.
 - Distinguish claimed provider/node facts from verified facts so Oververify and challenge services can attach evidence later.
 - Require downstream services to cite registry ids, versions, content hashes, and schema versions for replay.
+- Preserve ORU-only monetization attestations and payment-bypass enforcement state for app, native service, and catalog records.
 
 ## Validation
 
 - Manifest updates create new versions.
 - Scheduler and policy can replay decisions from registry facts.
 - Invalid or unsigned manifest changes are rejected.
+- Monetized app records retain accepted terms-policy refs and are suspended or hidden when external payment bypass is detected.
 
 ## Handoff
 

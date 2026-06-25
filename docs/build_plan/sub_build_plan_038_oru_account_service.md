@@ -8,6 +8,8 @@ This sub-build plan turns SDS #38 into an implementation sequence for ORU Accoun
 
 ORU Account Service is a Phase 5 accounting projection service. It owns ORU account metadata, explicit resource dimensions, ledger-derived balance projections, short-lived budget prechecks, wallet/admin read models, statement views, and replay bundles. It derives balances from Seal Ledger entries and signed source refs; it must not become a mutable token ledger, blockchain wallet, speculative currency, pricing engine, Seal Ledger, Overbill, Overgrant, Provider Payout Service, or external payment rail.
 
+It must enforce ORU-first settlement. Participants can earn ORU from approved resource contribution or legitimate service operation and spend ORU inside Overrid. Bought ORU and earned ORU can both be spent on valid Overrid services, third-party apps, subscriptions, one-time charges, and machine-to-machine calls, while cash-out remains a separate eligibility path.
+
 ## Source Alignment
 
 | Source | Alignment rule |
@@ -52,6 +54,7 @@ ORU Account Service is a Phase 5 accounting projection service. It owns ORU acco
 - Ed25519 is used where signatures are required. BLAKE3/content hashes are used for ledger checkpoints, projection replay bundles, statement exports, schema fixtures, and deterministic comparison tests.
 - The service may later persist account records through Overbase, statement/replay artifacts through Overstore, and private/compliance refs through Overvault. It must not make PostgreSQL, MySQL, MongoDB, DynamoDB, Redis, NATS, Kafka, RabbitMQ, S3, MinIO, Ceph, Vault, cloud KMS, Kubernetes-first orchestration, external accounting SaaS, or external workflow products the platform boundary.
 - Balance-changing truth comes from Seal Ledger entries and signed source refs. ORU Account Service projections must not become mutable counters, direct ledger mutation, provider payout mutation, invoice mutation, card charging, external payment handling, or speculative token behavior.
+- Internal payment inside Overrid is ORU-only. Apps and native services must not bypass ORU with separate in-system fiat, card, bank-transfer, crypto, stablecoin, or private payment methods.
 - ORU dimensions remain explicit in admission, reservation, settlement, grant, hold, and dispute logic. Aggregated wallet labels are presentation-only unless Seal Ledger records an explicit transition.
 - Budget prechecks are short-lived, non-reserving facts. A later ledger reservation, hold, settlement, refund, correction, grant, account state change, projection checkpoint, or policy/delegation change supersedes the precheck rather than mutating it.
 - Planning and implementation must avoid blockchain, NFTs, externally tradable credits, broad fungible dimension conversion, hidden pricing tables, revenue projections, customer-count assumptions, per-operation external payment calls, and conventional SaaS-admin framing.

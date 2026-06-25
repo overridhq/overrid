@@ -4,7 +4,7 @@ SDS #43
 
 ## Purpose
 
-Batch provider earnings, apply dispute/fraud/verification holds, determine payout eligibility, create payout batch refs, track external payout status, and preserve correction evidence.
+Batch provider earnings from contributed resources and legitimate services, apply dispute/fraud/verification holds, determine payout eligibility, create payout batch refs, track external payout status, and preserve correction evidence.
 
 Provider Payout Service is a payout-coordination layer. It does not create usage truth, decide trust alone, rewrite Seal Ledger entries, or directly become a payment processor. It consumes provider earning refs and hold signals, then coordinates batched payout attempts through Overbill/payment-provider refs so Overrid can pay contributors safely without per-operation payment friction.
 
@@ -28,18 +28,20 @@ Provider Payout Service is a payout-coordination layer. It does not create usage
 
 ## Problem Statement
 
-Overrid needs to compensate providers without letting fraud, disputes, challenge failures, chargebacks, public-provider Sybil behavior, or external payment failure corrupt internal accounting. Provider earnings originate from usage and ledger evidence, but payout eligibility depends on dispute windows, verification status, fraud signals, public-pool risk, and compliance constraints.
+Overrid needs to compensate providers without letting fraud, disputes, challenge failures, chargebacks, public-provider Sybil behavior, or external payment failure corrupt internal accounting. Provider earnings originate from usage, resource contribution, app/service charges, subscription charges, one-time service charges, and ledger evidence, but payout eligibility depends on dispute windows, verification status, fraud signals, public-pool risk, and compliance constraints.
 
 The ill-design to avoid is a direct "ledger earning equals pay now" rule. Earnings must pass through hold and eligibility checks, then move into bounded payout batches with idempotent payment refs and correction paths.
 
 ## Goals
 
 - Aggregate provider earning refs from Seal Ledger into payout-period views.
+- Support legitimate ORU earnings from approved resource contribution, native services, third-party apps, subscriptions, one-time charges, and machine-to-machine service usage.
 - Apply dispute-window, Overclaim, Oververify, anti-Sybil, fraud-control, compliance, and policy holds.
 - Produce payout eligibility snapshots with stable reason codes.
 - Build payout batches that can be submitted through Overbill/payment-provider rails.
 - Track submitted, paid, failed, reversed, chargeback-affected, and corrected payout states.
 - Preserve evidence for every hold, release, failure, reversal, and correction.
+- Enforce the hard rule: do not let users cash out bought ORU.
 - Support stricter Phase 11 public-provider holds and throttles without weakening Phase 5 private-provider payouts.
 
 ## Non-Goals
@@ -49,6 +51,8 @@ The ill-design to avoid is a direct "ledger earning equals pay now" rule. Earnin
 - Do not mutate balances directly. ORU Account Service projects balances from ledger entries.
 - Do not adjudicate disputes. Overclaim owns dispute state and finality.
 - Do not produce invoices or receipts. Overbill owns billing documents and external payment-provider refs.
+- Do not cash out bought ORU for the buyer. Payout candidates must be provider-earned ORU backed by delivered service evidence, dispute finality, tax/compliance refs, and KYC/KYB/AML eligibility.
+- Do not treat every ORU spend as payout-eligible. Spending is allowed inside the ORU economy; cash-out requires provider-earned ORU and the full eligibility path.
 - Do not decide provider trust alone. Oververify, Reputation/Anti-Sybil Service, Fraud Control Service, and Overguard provide trust/risk facts.
 - Do not pay every workload operation individually through an external provider.
 
@@ -60,6 +64,7 @@ The ill-design to avoid is a direct "ledger earning equals pay now" rule. Earnin
 - Seal Ledger, supplying provider earning, hold, release, correction, and reversal refs.
 - Overclaim, supplying dispute windows, hold requests, settlement finality, and correction/refund proposals.
 - Oververify, Reputation/Anti-Sybil Service, Fraud Control Service, and Challenge Task Service, supplying trust/fraud/challenge facts.
+- Internal KYC Service, supplying KYC/KYB, beneficial-owner, payout destination ownership, source-of-funds, cooling-period, and cash-out eligibility facts.
 - Wallet and Usage Center, showing provider payout status and held earnings where authorized.
 - Admin UI, CLI, SDK, Overwatch, and central AI stewardship, inspecting payout evidence and reporting.
 
@@ -74,6 +79,7 @@ The ill-design to avoid is a direct "ledger earning equals pay now" rule. Earnin
 - [ORU Account Service](oru_account_service.md) for provider account projections and available/held views.
 - [Overwatch](../control_plane/overwatch.md) for audit evidence.
 - [Overvault](../data_storage_namespace/overvault.md) for sensitive payout compliance refs and payment-token refs where needed.
+- [Internal KYC Service](../governance_ops/internal_kyc_service.md) for KYC/KYB, payout destination ownership, source-of-funds, cooling-period, and cash-out eligibility facts.
 
 ## Owned Responsibilities
 
@@ -81,7 +87,7 @@ Provider Payout Service owns:
 
 - Provider earning period views derived from Seal Ledger refs.
 - Payout eligibility snapshots and reason codes.
-- Hold records for dispute, fraud, challenge, anti-Sybil, compliance, verification, chargeback, and operator/stewardship reasons.
+- Hold records for dispute, fraud, challenge, anti-Sybil, compliance, KYC/KYB, AML, cooling-period, verification, chargeback, and operator/stewardship reasons.
 - Hold release records linked to finality/evidence refs.
 - Payout batch records, payout item records, and batch submission attempts.
 - Idempotent payment instruction refs passed to Overbill/payment-provider adapters.
@@ -143,6 +149,7 @@ API rules:
 
 - Payout batch creation must be deterministic for a provider/period/idempotency key.
 - A payout item cannot be submitted while any blocking hold is active.
+- A payout item cannot be submitted without a current Internal KYC Service cash-out eligibility allow fact.
 - Payment instructions must reference tokenized/approved payout destination refs only.
 - Public-provider reads must reveal reason-code summaries and appeal refs without exposing fraud heuristics or other providers.
 - Batch submission failures must be recorded before retry.
@@ -209,7 +216,7 @@ No state transition may remove the old payout item, batch, or result. Correction
 ## Policy And Security
 
 - Public-provider payouts are denied or held by default until Phase 11 eligibility, anti-Sybil, and sandbox facts are present.
-- Private-provider payouts still require dispute-window, verification, and policy checks.
+- Private-provider payouts still require dispute-window, verification, KYC/KYB, AML, cooling-period, payout destination ownership, and policy checks.
 - Hold triggers from Overclaim, Reputation/Anti-Sybil Service, Fraud Control Service, Challenge Task Service, Oververify, chargeback events, or operator action must be explainable.
 - Payment destination refs must be tokenized or stored through approved vault/payment-provider paths.
 - Raw bank, card, tax, or identity secrets must not be stored in payout records.
@@ -266,6 +273,7 @@ Required tests:
 - Reversal or chargeback creates correction refs without editing historical paid state.
 - Provider-facing status redacts sensitive fraud and payment details.
 - Seal Ledger, Overbill, and Provider Payout views reconcile for a test payout period.
+- Internal KYC cash-out eligibility facts block payout for missing KYC/KYB, active cool-off, source-of-funds review, related-party app spend, payout destination mismatch, and recent funding risk.
 
 ## Build Breakdown
 
@@ -295,7 +303,7 @@ Downstream services must treat payout state as evidence-backed coordination, not
 
 Resolved decisions:
 
-- Mandatory payout destination checks are ref-based and deny-by-default. A provider cannot become payout-eligible until Provider Payout Service has a current provider account ref, Oververify/provider eligibility ref, Overtenant/Overpass ownership scope, tokenized payout destination ref, destination ownership/consent ref, supported currency/rail/region ref, signed Overbill adapter capability ref, Compliance Boundary payout fact bundle, active Overguard allow decision, and a clean reconciliation checkpoint. Raw bank, card, tax, identity, or credential material stays in Overvault or the approved payment-provider/tokenization path; this service only validates freshness, ownership, allowed use, and reason-coded blockers.
+- Mandatory payout destination and KYC/KYB checks are ref-based and deny-by-default. A provider cannot become payout-eligible until Provider Payout Service has a current provider account ref, Oververify/provider eligibility ref, Overtenant/Overpass ownership scope, Internal KYC Service cash-out eligibility allow fact, tokenized payout destination ref, destination ownership/consent ref, supported currency/rail/region ref, signed Overbill adapter capability ref, Compliance Boundary payout fact bundle, active Overguard allow decision, and a clean reconciliation checkpoint. Raw bank, card, tax, identity, or credential material stays in Overvault, Internal KYC Service evidence refs, or the approved payment-provider/tokenization path; this service only validates freshness, ownership, allowed use, and reason-coded blockers.
 - Phase 5 private payouts should evaluate eligibility daily but submit external payouts by closed payout period, not by workload operation. The default payout period is seven days after Seal Ledger settlement and the applicable dispute window close, with Overbill rail minimums configured per adapter/policy rather than hardcoded in this SDS. Eligible items below the rail minimum roll into the next period unless an operator-approved correction, provider exit, or compliance-driven exception requires earlier settlement. Phase 11 public-provider payouts use the same batching contract but may extend the waiting period, reduce earning velocity, or require extra challenge/anti-Sybil finality before submission.
 - Public-provider hold explanations expose only stable, remediable, coarse reason codes: `public_provider_verification_incomplete`, `challenge_review_pending`, `dispute_window_active`, `payout_destination_review_required`, `compliance_review_required`, `public_pool_throttle_active`, `payout_safety_review`, `appeal_or_correction_pending`, and `external_rail_unavailable`. Provider-facing views may include affected period, current state, safe remediation steps, policy/evaluator versions, redacted evidence refs, and Overclaim appeal refs. They must not expose exact thresholds, fraud heuristics, model weights, cluster membership, other-provider identities, exact payout/account hashes, raw graph edges, private tenant evidence, operator notes, or incident-response details.
 - Cross-border tax and compliance state is represented as owner-service refs, not jurisdiction logic inside Provider Payout Service. The payout record stores jurisdiction profile refs, Compliance Boundary fact-bundle refs, tax profile or exemption refs, withholding/reporting marker refs, currency/rail refs, retention/redaction class, effective window, expiry, and audit/export refs. Raw tax forms, identity documents, payout credentials, bank/card data, and private compliance payloads remain in Overvault, Overtenant/Overpass, Compliance Boundary, or the approved payment-provider path. Jurisdiction changes create new fact-bundle and policy refs; existing payout records remain append-only and replayable.

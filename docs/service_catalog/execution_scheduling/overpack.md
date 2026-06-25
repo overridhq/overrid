@@ -28,6 +28,7 @@ Workload manifest in [Phase 3: Private Execution Loop](../../build_plan/phase_03
 
 - Workload manifest schema.
 - Application-intent manifest schema.
+- ORU-only monetization declaration and accepted terms-policy version for monetized apps.
 - Package provenance record.
 - Runtime contract and permission declarations.
 
@@ -43,12 +44,14 @@ The detailed design contract lives in [Overpack SDS](../../sds/execution_schedul
 - Start with a strict Phase 3 workload manifest that declares runtime, inputs, outputs, resource card, data class, egress, secrets, timeout, retry, artifacts, hashes, signatures, and provenance.
 - Register accepted immutable manifest versions through Overregistry and require new versions for changes.
 - Expand to Phase 9 application-intent manifests without weakening the execution-time package integrity and policy contracts.
+- Reject monetized app manifests that attempt to collect subscriptions, in-app purchases, one-time payments, paid unlocks, listings, or service units outside ORU.
 
 ## Validation
 
 - Invalid packages are rejected before execution.
 - Overrun can verify package integrity from the manifest.
 - Deployment planner can provision resources from one signed application manifest.
+- Monetized application manifests declare ORU-only billing and fail validation when external checkout/payment bypass is present.
 
 ## Handoff
 
