@@ -1,0 +1,9 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "product_hardening_checks": [
+      { "product_surface": "docdex", "generated_contract_consumption_required": false, "overgate_envelope_required": false, "stable_errors_required": false, "privacy_classification_required": false, "redaction_required": false, "bypass_allowed": true }
+    ]
+  }
+}

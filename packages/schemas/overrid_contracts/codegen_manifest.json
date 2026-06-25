@@ -1698,6 +1698,120 @@
       "AI, Docdex RAG, mobile, native-app, and ADES-facing schemas must use refs and privacy classes instead of raw private payloads or unredacted user-content defaults."
     ]
   },
+  "shared_schema_package_phase9": {
+    "schema_family": "shared-schema-package",
+    "schema_version": "shared-schema-package.v0.1",
+    "schema_ownership": {
+      "owning_service_family": "SDS #7 Shared Schema Package",
+      "downstream_consumers": [
+        "Shared Schema Package",
+        "CI validation",
+        "Service contract reviewers",
+        "SDK",
+        "CLI",
+        "Adapters",
+        "Admin/developer UI",
+        "Product integration surfaces",
+        "Rust contract tests",
+        "Schema validators"
+      ],
+      "release_status": "validated",
+      "privacy_class": "mixed_boundary_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Shared Schema Package maintainers using SDS #7 Phase 9 release/CI gate review",
+      "consumer_notes": "Phase 9 package release, CI enforcement, consumer registry, coverage, docs publishing, and product hardening metadata. JSON Schema remains the authority, Rust projection stays non-authoritative, and runtime authority remains with owning services."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "non_authoritative": true,
+      "validator_entrypoint": "SharedSchemaPhase9ReleaseCiContract::canonical().validate()"
+    },
+    "release_workflow_gates": [
+      { "gate_name": "schema_lint", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:schema-lint", "blocked_reason_code": "schema.release_schema_lint_failed" },
+      { "gate_name": "rust_generation_projection", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:rust-generation-projection", "blocked_reason_code": "schema.release_generation_stale" },
+      { "gate_name": "fixture_validation", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:fixture-validation", "blocked_reason_code": "schema.release_fixture_validation_failed" },
+      { "gate_name": "compatibility_report", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:compatibility-report", "blocked_reason_code": "schema.release_compatibility_unresolved" },
+      { "gate_name": "redaction_check", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:redaction-check", "blocked_reason_code": "schema.release_redaction_failed" },
+      { "gate_name": "generated_docs", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:generated-docs", "blocked_reason_code": "schema.release_docs_missing" },
+      { "gate_name": "consumer_impact_report", "required_before_release": true, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:consumer-impact-report", "blocked_reason_code": "schema.release_consumer_impact_missing" }
+    ],
+    "contract_consumption_lints": [
+      { "consumer_surface": "service", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:service-generated-contracts" },
+      { "consumer_surface": "sdk", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:sdk-generated-contracts" },
+      { "consumer_surface": "cli", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:cli-generated-contracts" },
+      { "consumer_surface": "worker", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:worker-generated-contracts" },
+      { "consumer_surface": "node_agent", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:node-agent-generated-contracts" },
+      { "consumer_surface": "ui", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:ui-generated-contracts" },
+      { "consumer_surface": "adapter", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:adapter-generated-contracts" },
+      { "consumer_surface": "test", "generated_contract_required": true, "untyped_payload_allowed": false, "private_schema_fork_allowed": false, "ad_hoc_string_parsing_allowed": false, "review_checklist_ref": "checklist:phase9:test-generated-contracts" }
+    ],
+    "schema_coverage_reports": [
+      { "service_family": "Overgate", "object_family": "command_envelope", "build_phase": "master_phase:1", "privacy_class": "tenant_private", "validation_status": "fixtures_validated", "fixture_coverage": { "valid_fixture_count": 1, "invalid_fixture_count": 1 }, "generated_targets": ["rust", "generated_docs"], "release_status": "validated", "draft_contract_consumption_allowed": false },
+      { "service_family": "Overwatch", "object_family": "audit_event", "build_phase": "master_phase:1", "privacy_class": "redacted_diagnostic", "validation_status": "fixtures_validated", "fixture_coverage": { "valid_fixture_count": 1, "invalid_fixture_count": 1 }, "generated_targets": ["rust", "generated_docs"], "release_status": "validated", "draft_contract_consumption_allowed": false },
+      { "service_family": "Overpack", "object_family": "package_manifest", "build_phase": "master_phase:3", "privacy_class": "tenant_private", "validation_status": "compatibility_checked", "fixture_coverage": { "valid_fixture_count": 1, "invalid_fixture_count": 1 }, "generated_targets": ["rust", "generated_docs"], "release_status": "validated", "draft_contract_consumption_allowed": false },
+      { "service_family": "Seal Ledger", "object_family": "ledger_ref", "build_phase": "master_phase:5", "privacy_class": "regulated", "validation_status": "compatibility_checked", "fixture_coverage": { "valid_fixture_count": 1, "invalid_fixture_count": 1 }, "generated_targets": ["rust", "generated_docs"], "release_status": "validated", "draft_contract_consumption_allowed": false },
+      { "service_family": "Admin/developer UI", "object_family": "view_model", "build_phase": "master_phase:6", "privacy_class": "redacted_diagnostic", "validation_status": "schema_linted", "fixture_coverage": { "valid_fixture_count": 1, "invalid_fixture_count": 1 }, "generated_targets": ["rust", "typescript_web", "generated_docs"], "release_status": "validated", "draft_contract_consumption_allowed": false }
+    ],
+    "documentation_publishing_items": [
+      { "artifact_kind": "schema_reference", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_schema_reference.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true },
+      { "artifact_kind": "reason_code_reference", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_reason_codes.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true },
+      { "artifact_kind": "migration_notes", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_migration_notes.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true },
+      { "artifact_kind": "compatibility_report", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_compatibility_report.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true },
+      { "artifact_kind": "fixture_examples", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_fixture_examples.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true },
+      { "artifact_kind": "consumer_registry_view", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_consumer_registry.md", "source_schema": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": true, "non_authoritative": true }
+    ],
+    "product_hardening_checks": [
+      { "product_surface": "docdex", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "mcoda", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "codali", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "admin_developer_ui", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "cli", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "sdk", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "adapters", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "ai_gateway", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false },
+      { "product_surface": "encrypted_docdex_rag", "generated_contract_consumption_required": true, "overgate_envelope_required": true, "stable_errors_required": true, "privacy_classification_required": true, "redaction_required": true, "bypass_allowed": false }
+    ],
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "contracts": [
+      "phase9_release_ci_contract",
+      "phase9_release_workflow_gate",
+      "phase9_contract_consumption_lint",
+      "phase9_schema_coverage_report",
+      "phase9_documentation_publishing_item",
+      "phase9_product_hardening_check",
+      "phase9_rust_projection"
+    ],
+    "fixtures": {
+      "valid": [
+        "packages/schemas/overrid_contracts/fixtures/valid/shared_schema_package_phase9.valid.json"
+      ],
+      "invalid": [
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_release_gate_missing.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_untyped_payload.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_coverage_missing.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_docs_backlink_missing.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_product_bypass.invalid.json",
+        "packages/schemas/overrid_contracts/fixtures/invalid/shared_schema_package_phase9_projection_authority.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Package releases require schema lint, Rust projection, fixture, compatibility, redaction, generated docs, and consumer-impact gates before release.",
+      "Service, SDK, CLI, worker, node-agent, UI, adapter, and test surfaces must consume generated contracts instead of untyped payloads, private schema forks, or ad hoc string parsing.",
+      "Schema coverage reports must identify service family, object family, build phase, privacy class, validation status, fixture coverage, generated targets, and release status.",
+      "Generated docs are non-authoritative artifacts and must link back to source schemas, owning SDS docs, and SUB BUILD PLAN #7 Phase 9.",
+      "Phase 6 product integration surfaces must not bypass generated contracts, Overgate command envelopes, stable errors, privacy classifications, or redaction rules."
+    ]
+  },
   "local_development_stack_phase2": {
     "schema_family": "local-development-stack",
     "schema_version": "local-development-stack.v0.1",

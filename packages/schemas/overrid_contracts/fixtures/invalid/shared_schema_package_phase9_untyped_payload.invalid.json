@@ -1,0 +1,9 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "contract_consumption_lints": [
+      { "consumer_surface": "service", "generated_contract_required": false, "untyped_payload_allowed": true, "private_schema_fork_allowed": true, "ad_hoc_string_parsing_allowed": true, "review_checklist_ref": "checklist:phase9:service-generated-contracts" }
+    ]
+  }
+}

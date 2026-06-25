@@ -1,0 +1,14 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase9ReleaseCiContract::unsafe_validate()",
+      "non_authoritative": false
+    },
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+    ]
+  }
+}

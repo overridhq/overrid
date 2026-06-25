@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.overrid.local/overrid_contracts/v0/shared_schema_package.schema.json",
-  "title": "Shared Schema Package Phase 2 Through Phase 7 And Phase 8 Contracts",
-  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, Phase 7 compatibility/deprecation/migration gate metadata, and Phase 8 downstream domain schema expansion metadata.",
+  "title": "Shared Schema Package Phase 2 Through Phase 7, Phase 8, And Phase 9 Contracts",
+  "description": "Canonical JSON Schema source for SUB BUILD PLAN #7 Phase 2 package layout/common primitives, Phase 3 Phase 0/1 contract modules, Phase 4 generation toolchain/projection metadata, Phase 5 strict validation metadata, Phase 6 deterministic fixture/golden/artifact metadata, Phase 7 compatibility/deprecation/migration gate metadata, Phase 8 downstream domain schema expansion metadata, and Phase 9 package release/CI/consumer registry metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -65,6 +65,9 @@
     },
     "phase8_domain_expansion_contract": {
       "$ref": "#/$defs/phase8_domain_expansion_contract"
+    },
+    "phase9_release_ci_contract": {
+      "$ref": "#/$defs/phase9_release_ci_contract"
     }
   },
   "$defs": {
@@ -2276,6 +2279,350 @@
         },
         "validator_entrypoint": {
           "const": "SharedSchemaPhase8DomainExpansionContract::canonical().validate()"
+        },
+        "non_authoritative": {
+          "const": true
+        }
+      }
+    },
+    "phase9_release_ci_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_workflow_gates",
+        "contract_consumption_lints",
+        "schema_coverage_reports",
+        "documentation_publishing_items",
+        "product_hardening_checks",
+        "source_hash_inputs",
+        "rust_projection"
+      ],
+      "properties": {
+        "release_workflow_gates": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "$ref": "#/$defs/phase9_release_workflow_gate"
+          }
+        },
+        "contract_consumption_lints": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "$ref": "#/$defs/phase9_contract_consumption_lint"
+          }
+        },
+        "schema_coverage_reports": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/phase9_schema_coverage_report"
+          }
+        },
+        "documentation_publishing_items": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "$ref": "#/$defs/phase9_documentation_publishing_item"
+          }
+        },
+        "product_hardening_checks": {
+          "type": "array",
+          "minItems": 9,
+          "items": {
+            "$ref": "#/$defs/phase9_product_hardening_check"
+          }
+        },
+        "source_hash_inputs": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "enum": [
+              "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+              "packages/schemas/overrid_contracts/codegen_manifest.json",
+              "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+              "docs/overrid_tech_stack_choice.md"
+            ]
+          }
+        },
+        "rust_projection": {
+          "$ref": "#/$defs/phase9_rust_projection"
+        }
+      }
+    },
+    "phase9_release_gate": {
+      "enum": [
+        "schema_lint",
+        "rust_generation_projection",
+        "fixture_validation",
+        "compatibility_report",
+        "redaction_check",
+        "generated_docs",
+        "consumer_impact_report"
+      ]
+    },
+    "phase9_consumer_surface": {
+      "enum": [
+        "service",
+        "sdk",
+        "cli",
+        "worker",
+        "node_agent",
+        "ui",
+        "adapter",
+        "test"
+      ]
+    },
+    "phase9_generated_target": {
+      "enum": [
+        "rust",
+        "typescript_web",
+        "generated_docs",
+        "protobuf_internal"
+      ]
+    },
+    "phase9_documentation_artifact": {
+      "enum": [
+        "schema_reference",
+        "reason_code_reference",
+        "migration_notes",
+        "compatibility_report",
+        "fixture_examples",
+        "consumer_registry_view"
+      ]
+    },
+    "phase9_product_surface": {
+      "enum": [
+        "docdex",
+        "mcoda",
+        "codali",
+        "admin_developer_ui",
+        "cli",
+        "sdk",
+        "adapters",
+        "ai_gateway",
+        "encrypted_docdex_rag"
+      ]
+    },
+    "phase9_release_workflow_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_name",
+        "required_before_release",
+        "ci_blocks_release",
+        "artifact_ref",
+        "blocked_reason_code"
+      ],
+      "properties": {
+        "gate_name": {
+          "$ref": "#/$defs/phase9_release_gate"
+        },
+        "required_before_release": {
+          "const": true
+        },
+        "ci_blocks_release": {
+          "const": true
+        },
+        "artifact_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "blocked_reason_code": {
+          "$ref": "#/$defs/reason_code"
+        }
+      }
+    },
+    "phase9_contract_consumption_lint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_surface",
+        "generated_contract_required",
+        "untyped_payload_allowed",
+        "private_schema_fork_allowed",
+        "ad_hoc_string_parsing_allowed",
+        "review_checklist_ref"
+      ],
+      "properties": {
+        "consumer_surface": {
+          "$ref": "#/$defs/phase9_consumer_surface"
+        },
+        "generated_contract_required": {
+          "const": true
+        },
+        "untyped_payload_allowed": {
+          "const": false
+        },
+        "private_schema_fork_allowed": {
+          "const": false
+        },
+        "ad_hoc_string_parsing_allowed": {
+          "const": false
+        },
+        "review_checklist_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "phase9_schema_coverage_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_family",
+        "object_family",
+        "build_phase",
+        "privacy_class",
+        "validation_status",
+        "fixture_coverage",
+        "generated_targets",
+        "release_status",
+        "draft_contract_consumption_allowed"
+      ],
+      "properties": {
+        "service_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "object_family": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "build_phase": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "validation_status": {
+          "enum": [
+            "schema_linted",
+            "fixtures_validated",
+            "compatibility_checked",
+            "release_blocked"
+          ]
+        },
+        "fixture_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valid_fixture_count",
+            "invalid_fixture_count"
+          ],
+          "properties": {
+            "valid_fixture_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "invalid_fixture_count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "generated_targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/phase9_generated_target"
+          }
+        },
+        "release_status": {
+          "enum": [
+            "draft",
+            "validated",
+            "released",
+            "blocked"
+          ]
+        },
+        "draft_contract_consumption_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase9_documentation_publishing_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_kind",
+        "output_path",
+        "source_schema",
+        "owning_sds",
+        "build_plan_phase_gate",
+        "backlinks_required",
+        "non_authoritative"
+      ],
+      "properties": {
+        "artifact_kind": {
+          "$ref": "#/$defs/phase9_documentation_artifact"
+        },
+        "output_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_schema": {
+          "const": "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json"
+        },
+        "owning_sds": {
+          "const": "docs/sds/foundation/shared_schema_package.md"
+        },
+        "build_plan_phase_gate": {
+          "const": "SUB BUILD PLAN #7 Phase 9"
+        },
+        "backlinks_required": {
+          "const": true
+        },
+        "non_authoritative": {
+          "const": true
+        }
+      }
+    },
+    "phase9_product_hardening_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_surface",
+        "generated_contract_consumption_required",
+        "overgate_envelope_required",
+        "stable_errors_required",
+        "privacy_classification_required",
+        "redaction_required",
+        "bypass_allowed"
+      ],
+      "properties": {
+        "product_surface": {
+          "$ref": "#/$defs/phase9_product_surface"
+        },
+        "generated_contract_consumption_required": {
+          "const": true
+        },
+        "overgate_envelope_required": {
+          "const": true
+        },
+        "stable_errors_required": {
+          "const": true
+        },
+        "privacy_classification_required": {
+          "const": true
+        },
+        "redaction_required": {
+          "const": true
+        },
+        "bypass_allowed": {
+          "const": false
+        }
+      }
+    },
+    "phase9_rust_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "validator_entrypoint",
+        "non_authoritative"
+      ],
+      "properties": {
+        "path": {
+          "const": "packages/schemas/overrid_contracts/src/lib.rs"
+        },
+        "validator_entrypoint": {
+          "const": "SharedSchemaPhase9ReleaseCiContract::canonical().validate()"
         },
         "non_authoritative": {
           "const": true

@@ -4973,6 +4973,592 @@ impl fmt::Display for SharedSchemaPhase8ContractError {
 
 impl std::error::Error for SharedSchemaPhase8ContractError {}
 
+pub const PHASE9_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE9_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE9_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE9_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE9_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE9_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase9.py";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE9_RELEASE_GATES: &[&str] = &[
+    "schema_lint",
+    "rust_generation_projection",
+    "fixture_validation",
+    "compatibility_report",
+    "redaction_check",
+    "generated_docs",
+    "consumer_impact_report",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE9_CONSUMER_SURFACES: &[&str] = &[
+    "service",
+    "sdk",
+    "cli",
+    "worker",
+    "node_agent",
+    "ui",
+    "adapter",
+    "test",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE9_DOCUMENTATION_ARTIFACTS: &[&str] = &[
+    "schema_reference",
+    "reason_code_reference",
+    "migration_notes",
+    "compatibility_report",
+    "fixture_examples",
+    "consumer_registry_view",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE9_PRODUCT_SURFACES: &[&str] = &[
+    "docdex",
+    "mcoda",
+    "codali",
+    "admin_developer_ui",
+    "cli",
+    "sdk",
+    "adapters",
+    "ai_gateway",
+    "encrypted_docdex_rag",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9ReleaseWorkflowGate {
+    pub gate_name: String,
+    pub required_before_release: bool,
+    pub ci_blocks_release: bool,
+    pub artifact_ref: String,
+    pub blocked_reason_code: String,
+}
+
+impl SharedSchemaPhase9ReleaseWorkflowGate {
+    pub fn new(gate_name: impl Into<String>, reason_suffix: impl Into<String>) -> Self {
+        let gate_name = gate_name.into();
+        Self {
+            artifact_ref: format!("artifact:shared-schema-phase9:{gate_name}"),
+            blocked_reason_code: format!("schema.{suffix}", suffix = reason_suffix.into()),
+            gate_name,
+            required_before_release: true,
+            ci_blocks_release: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE9_RELEASE_GATES
+            .iter()
+            .any(|gate| self.gate_name == *gate)
+            || !self.required_before_release
+            || !self.ci_blocks_release
+            || !self.artifact_ref.starts_with("artifact:")
+            || !self.blocked_reason_code.starts_with("schema.")
+        {
+            return Err(SharedSchemaPhase9ContractError::ReleaseGateMissing(
+                self.gate_name.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9ContractConsumptionLint {
+    pub consumer_surface: String,
+    pub generated_contract_required: bool,
+    pub untyped_payload_allowed: bool,
+    pub private_schema_fork_allowed: bool,
+    pub ad_hoc_string_parsing_allowed: bool,
+    pub review_checklist_ref: String,
+}
+
+impl SharedSchemaPhase9ContractConsumptionLint {
+    pub fn new(consumer_surface: impl Into<String>) -> Self {
+        let consumer_surface = consumer_surface.into();
+        Self {
+            review_checklist_ref: format!(
+                "checklist:phase9:{consumer_surface}-generated-contracts"
+            ),
+            consumer_surface,
+            generated_contract_required: true,
+            untyped_payload_allowed: false,
+            private_schema_fork_allowed: false,
+            ad_hoc_string_parsing_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE9_CONSUMER_SURFACES
+            .iter()
+            .any(|surface| self.consumer_surface == *surface)
+            || !self.generated_contract_required
+            || self.untyped_payload_allowed
+            || self.private_schema_fork_allowed
+            || self.ad_hoc_string_parsing_allowed
+            || !self.review_checklist_ref.starts_with("checklist:")
+        {
+            return Err(SharedSchemaPhase9ContractError::GeneratedConsumptionBypass(
+                self.consumer_surface.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9SchemaCoverageReport {
+    pub service_family: String,
+    pub object_family: String,
+    pub build_phase: String,
+    pub privacy_class: String,
+    pub validation_status: String,
+    pub valid_fixture_count: u16,
+    pub invalid_fixture_count: u16,
+    pub generated_targets: Vec<String>,
+    pub release_status: String,
+    pub draft_contract_consumption_allowed: bool,
+}
+
+impl SharedSchemaPhase9SchemaCoverageReport {
+    pub fn new(
+        service_family: impl Into<String>,
+        object_family: impl Into<String>,
+        build_phase: impl Into<String>,
+        privacy_class: SharedSchemaPrivacyClass,
+        validation_status: impl Into<String>,
+        generated_targets: Vec<String>,
+    ) -> Self {
+        Self {
+            service_family: service_family.into(),
+            object_family: object_family.into(),
+            build_phase: build_phase.into(),
+            privacy_class: privacy_class.as_str().to_owned(),
+            validation_status: validation_status.into(),
+            valid_fixture_count: 1,
+            invalid_fixture_count: 1,
+            generated_targets,
+            release_status: "validated".to_owned(),
+            draft_contract_consumption_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if self.service_family.trim().is_empty()
+            || self.object_family.trim().is_empty()
+            || !self.build_phase.starts_with("master_phase:")
+            || self.privacy_class.trim().is_empty()
+            || self.validation_status.trim().is_empty()
+            || self.valid_fixture_count == 0
+            || self.invalid_fixture_count == 0
+            || self.generated_targets.is_empty()
+            || self.release_status != "validated"
+            || self.draft_contract_consumption_allowed
+        {
+            return Err(SharedSchemaPhase9ContractError::CoverageReportIncomplete(
+                self.object_family.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9DocumentationPublishingItem {
+    pub artifact_kind: String,
+    pub output_path: String,
+    pub source_schema: String,
+    pub owning_sds: String,
+    pub build_plan_phase_gate: String,
+    pub backlinks_required: bool,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase9DocumentationPublishingItem {
+    pub fn new(artifact_kind: impl Into<String>, output_suffix: impl Into<String>) -> Self {
+        Self {
+            artifact_kind: artifact_kind.into(),
+            output_path: format!(
+                "packages/schemas/overrid_contracts/generated/docs/{}",
+                output_suffix.into()
+            ),
+            source_schema: PHASE9_CANONICAL_SCHEMA_SOURCE.to_owned(),
+            owning_sds: "docs/sds/foundation/shared_schema_package.md".to_owned(),
+            build_plan_phase_gate: "SUB BUILD PLAN #7 Phase 9".to_owned(),
+            backlinks_required: true,
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE9_DOCUMENTATION_ARTIFACTS
+            .iter()
+            .any(|artifact| self.artifact_kind == *artifact)
+            || !self
+                .output_path
+                .starts_with("packages/schemas/overrid_contracts/generated/docs/")
+            || self.source_schema != PHASE9_CANONICAL_SCHEMA_SOURCE
+            || self.owning_sds != "docs/sds/foundation/shared_schema_package.md"
+            || self.build_plan_phase_gate != "SUB BUILD PLAN #7 Phase 9"
+            || !self.backlinks_required
+            || !self.non_authoritative
+        {
+            return Err(
+                SharedSchemaPhase9ContractError::DocsPublishingBacklinkMissing(
+                    self.artifact_kind.clone(),
+                ),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9ProductHardeningCheck {
+    pub product_surface: String,
+    pub generated_contract_consumption_required: bool,
+    pub overgate_envelope_required: bool,
+    pub stable_errors_required: bool,
+    pub privacy_classification_required: bool,
+    pub redaction_required: bool,
+    pub bypass_allowed: bool,
+}
+
+impl SharedSchemaPhase9ProductHardeningCheck {
+    pub fn new(product_surface: impl Into<String>) -> Self {
+        Self {
+            product_surface: product_surface.into(),
+            generated_contract_consumption_required: true,
+            overgate_envelope_required: true,
+            stable_errors_required: true,
+            privacy_classification_required: true,
+            redaction_required: true,
+            bypass_allowed: false,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE9_PRODUCT_SURFACES
+            .iter()
+            .any(|surface| self.product_surface == *surface)
+            || !self.generated_contract_consumption_required
+            || !self.overgate_envelope_required
+            || !self.stable_errors_required
+            || !self.privacy_classification_required
+            || !self.redaction_required
+            || self.bypass_allowed
+        {
+            return Err(SharedSchemaPhase9ContractError::ProductHardeningBypass(
+                self.product_surface.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase9RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE9_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint: "SharedSchemaPhase9ReleaseCiContract::canonical().validate()"
+                .to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        if self.path != PHASE9_RUST_OUTPUT_PATH
+            || self.validator_entrypoint
+                != "SharedSchemaPhase9ReleaseCiContract::canonical().validate()"
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase9ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase9ReleaseCiContract {
+    pub schema_version: SchemaVersion,
+    pub release_workflow_gates: Vec<SharedSchemaPhase9ReleaseWorkflowGate>,
+    pub contract_consumption_lints: Vec<SharedSchemaPhase9ContractConsumptionLint>,
+    pub schema_coverage_reports: Vec<SharedSchemaPhase9SchemaCoverageReport>,
+    pub documentation_publishing_items: Vec<SharedSchemaPhase9DocumentationPublishingItem>,
+    pub product_hardening_checks: Vec<SharedSchemaPhase9ProductHardeningCheck>,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase9RustProjection,
+}
+
+impl SharedSchemaPhase9ReleaseCiContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            release_workflow_gates: vec![
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "schema_lint",
+                    "release_schema_lint_failed",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "rust_generation_projection",
+                    "release_generation_stale",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "fixture_validation",
+                    "release_fixture_validation_failed",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "compatibility_report",
+                    "release_compatibility_unresolved",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "redaction_check",
+                    "release_redaction_failed",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "generated_docs",
+                    "release_docs_missing",
+                ),
+                SharedSchemaPhase9ReleaseWorkflowGate::new(
+                    "consumer_impact_report",
+                    "release_consumer_impact_missing",
+                ),
+            ],
+            contract_consumption_lints: REQUIRED_SHARED_SCHEMA_PHASE9_CONSUMER_SURFACES
+                .iter()
+                .map(|surface| SharedSchemaPhase9ContractConsumptionLint::new(*surface))
+                .collect(),
+            schema_coverage_reports: vec![
+                SharedSchemaPhase9SchemaCoverageReport::new(
+                    "Overgate",
+                    "command_envelope",
+                    "master_phase:1",
+                    SharedSchemaPrivacyClass::TenantPrivate,
+                    "fixtures_validated",
+                    owned_values(&["rust", "generated_docs"]),
+                ),
+                SharedSchemaPhase9SchemaCoverageReport::new(
+                    "Overwatch",
+                    "audit_event",
+                    "master_phase:1",
+                    SharedSchemaPrivacyClass::RedactedDiagnostic,
+                    "fixtures_validated",
+                    owned_values(&["rust", "generated_docs"]),
+                ),
+                SharedSchemaPhase9SchemaCoverageReport::new(
+                    "Overpack",
+                    "package_manifest",
+                    "master_phase:3",
+                    SharedSchemaPrivacyClass::TenantPrivate,
+                    "compatibility_checked",
+                    owned_values(&["rust", "generated_docs"]),
+                ),
+                SharedSchemaPhase9SchemaCoverageReport::new(
+                    "Seal Ledger",
+                    "ledger_ref",
+                    "master_phase:5",
+                    SharedSchemaPrivacyClass::Regulated,
+                    "compatibility_checked",
+                    owned_values(&["rust", "generated_docs"]),
+                ),
+                SharedSchemaPhase9SchemaCoverageReport::new(
+                    "Admin/developer UI",
+                    "view_model",
+                    "master_phase:6",
+                    SharedSchemaPrivacyClass::RedactedDiagnostic,
+                    "schema_linted",
+                    owned_values(&["rust", "typescript_web", "generated_docs"]),
+                ),
+            ],
+            documentation_publishing_items: vec![
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "schema_reference",
+                    "shared_schema_package_phase9_schema_reference.md",
+                ),
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "reason_code_reference",
+                    "shared_schema_package_phase9_reason_codes.md",
+                ),
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "migration_notes",
+                    "shared_schema_package_phase9_migration_notes.md",
+                ),
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "compatibility_report",
+                    "shared_schema_package_phase9_compatibility_report.md",
+                ),
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "fixture_examples",
+                    "shared_schema_package_phase9_fixture_examples.md",
+                ),
+                SharedSchemaPhase9DocumentationPublishingItem::new(
+                    "consumer_registry_view",
+                    "shared_schema_package_phase9_consumer_registry.md",
+                ),
+            ],
+            product_hardening_checks: REQUIRED_SHARED_SCHEMA_PHASE9_PRODUCT_SURFACES
+                .iter()
+                .map(|surface| SharedSchemaPhase9ProductHardeningCheck::new(*surface))
+                .collect(),
+            source_hash_inputs: owned_values(&[
+                PHASE9_CANONICAL_SCHEMA_SOURCE,
+                PHASE9_MANIFEST_SOURCE,
+                PHASE9_BUILD_PLAN_SOURCE,
+                PHASE9_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase9RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase9ContractError> {
+        let release_gates: BTreeSet<&str> = self
+            .release_workflow_gates
+            .iter()
+            .map(|gate| gate.gate_name.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE9_RELEASE_GATES {
+            if !release_gates.contains(required) {
+                return Err(SharedSchemaPhase9ContractError::ReleaseGateMissing(
+                    required.to_string(),
+                ));
+            }
+        }
+        for gate in &self.release_workflow_gates {
+            gate.validate()?;
+        }
+
+        let consumer_surfaces: BTreeSet<&str> = self
+            .contract_consumption_lints
+            .iter()
+            .map(|lint| lint.consumer_surface.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE9_CONSUMER_SURFACES {
+            if !consumer_surfaces.contains(required) {
+                return Err(SharedSchemaPhase9ContractError::GeneratedConsumptionBypass(
+                    required.to_string(),
+                ));
+            }
+        }
+        for lint in &self.contract_consumption_lints {
+            lint.validate()?;
+        }
+
+        if self.schema_coverage_reports.len() < 5 {
+            return Err(SharedSchemaPhase9ContractError::CoverageReportIncomplete(
+                "phase9".to_owned(),
+            ));
+        }
+        for report in &self.schema_coverage_reports {
+            report.validate()?;
+        }
+
+        let docs: BTreeSet<&str> = self
+            .documentation_publishing_items
+            .iter()
+            .map(|item| item.artifact_kind.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE9_DOCUMENTATION_ARTIFACTS {
+            if !docs.contains(required) {
+                return Err(
+                    SharedSchemaPhase9ContractError::DocsPublishingBacklinkMissing(
+                        required.to_string(),
+                    ),
+                );
+            }
+        }
+        for item in &self.documentation_publishing_items {
+            item.validate()?;
+        }
+
+        let product_surfaces: BTreeSet<&str> = self
+            .product_hardening_checks
+            .iter()
+            .map(|check| check.product_surface.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE9_PRODUCT_SURFACES {
+            if !product_surfaces.contains(required) {
+                return Err(SharedSchemaPhase9ContractError::ProductHardeningBypass(
+                    required.to_string(),
+                ));
+            }
+        }
+        for check in &self.product_hardening_checks {
+            check.validate()?;
+        }
+
+        for required in [
+            PHASE9_CANONICAL_SCHEMA_SOURCE,
+            PHASE9_MANIFEST_SOURCE,
+            PHASE9_BUILD_PLAN_SOURCE,
+            PHASE9_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase9ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase9ContractError {
+    ReleaseGateMissing(String),
+    GeneratedConsumptionBypass(String),
+    CoverageReportIncomplete(String),
+    DocsPublishingBacklinkMissing(String),
+    ProductHardeningBypass(String),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase9ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReleaseGateMissing(gate) => {
+                write!(
+                    formatter,
+                    "missing or disabled Phase 9 release gate: {gate}"
+                )
+            }
+            Self::GeneratedConsumptionBypass(surface) => write!(
+                formatter,
+                "Phase 9 generated-contract consumption bypass: {surface}"
+            ),
+            Self::CoverageReportIncomplete(report) => {
+                write!(formatter, "Phase 9 coverage report incomplete: {report}")
+            }
+            Self::DocsPublishingBacklinkMissing(artifact) => write!(
+                formatter,
+                "Phase 9 generated docs backlink missing: {artifact}"
+            ),
+            Self::ProductHardeningBypass(surface) => {
+                write!(formatter, "Phase 9 product hardening bypass: {surface}")
+            }
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 9 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase9ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -9996,6 +10582,117 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase8ContractError::RustProjectionAuthorityDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase9_contract_covers_release_ci_and_registry_gates() {
+        let contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for gate in REQUIRED_SHARED_SCHEMA_PHASE9_RELEASE_GATES {
+            assert!(contract
+                .release_workflow_gates
+                .iter()
+                .any(|candidate| candidate.gate_name == *gate));
+        }
+        for surface in REQUIRED_SHARED_SCHEMA_PHASE9_CONSUMER_SURFACES {
+            assert!(contract
+                .contract_consumption_lints
+                .iter()
+                .any(|lint| lint.consumer_surface == *surface));
+        }
+        for artifact in REQUIRED_SHARED_SCHEMA_PHASE9_DOCUMENTATION_ARTIFACTS {
+            assert!(contract
+                .documentation_publishing_items
+                .iter()
+                .any(|item| item.artifact_kind == *artifact));
+        }
+        for product in REQUIRED_SHARED_SCHEMA_PHASE9_PRODUCT_SURFACES {
+            assert!(contract
+                .product_hardening_checks
+                .iter()
+                .any(|check| check.product_surface == *product));
+        }
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase9ReleaseCiContract::canonical().validate()"
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase9_rejects_release_and_consumption_drift() {
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        let schema_lint = contract
+            .release_workflow_gates
+            .iter_mut()
+            .find(|gate| gate.gate_name == "schema_lint")
+            .unwrap();
+        schema_lint.ci_blocks_release = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::ReleaseGateMissing(gate))
+                if gate == "schema_lint"
+        ));
+
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        let service = contract
+            .contract_consumption_lints
+            .iter_mut()
+            .find(|lint| lint.consumer_surface == "service")
+            .unwrap();
+        service.generated_contract_required = false;
+        service.untyped_payload_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::GeneratedConsumptionBypass(surface))
+                if surface == "service"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase9_rejects_coverage_docs_product_and_projection_drift() {
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        let coverage = contract.schema_coverage_reports.first_mut().unwrap();
+        coverage.valid_fixture_count = 0;
+        coverage.draft_contract_consumption_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::CoverageReportIncomplete(object))
+                if object == "command_envelope"
+        ));
+
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        let docs = contract
+            .documentation_publishing_items
+            .iter_mut()
+            .find(|item| item.artifact_kind == "schema_reference")
+            .unwrap();
+        docs.backlinks_required = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::DocsPublishingBacklinkMissing(artifact))
+                if artifact == "schema_reference"
+        ));
+
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        let docdex = contract
+            .product_hardening_checks
+            .iter_mut()
+            .find(|check| check.product_surface == "docdex")
+            .unwrap();
+        docdex.bypass_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::ProductHardeningBypass(surface))
+                if surface == "docdex"
+        ));
+
+        let mut contract = SharedSchemaPhase9ReleaseCiContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase9ContractError::RustProjectionAuthorityDrift)
         ));
     }
 

@@ -1,0 +1,9 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "release_workflow_gates": [
+      { "gate_name": "schema_lint", "required_before_release": false, "ci_blocks_release": true, "artifact_ref": "artifact:shared-schema-phase9:schema-lint", "blocked_reason_code": "schema.release_schema_lint_failed" }
+    ]
+  }
+}

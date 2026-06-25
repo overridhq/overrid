@@ -91,6 +91,20 @@ conventional object-store and pricing/revenue/blockchain/NFT assumptions, and
 keep TypeScript/web projections generated second from canonical schemas with
 browser-safe redaction.
 
+Shared Schema Package Phase 9 contracts define package release workflow, CI
+enforcement, consumer registry, schema coverage report, generated documentation
+publishing, and Phase 6 product-hardening metadata. Rust projection checks run
+through `SharedSchemaPhase9ReleaseCiContract::canonical().validate()`. Package
+release gates require schema lint, Rust projection, fixture validation,
+compatibility reports, redaction checks, generated docs, and consumer-impact
+reports before release. Service, SDK, CLI, worker, node-agent, UI, adapter, and
+test surfaces must consume generated contracts instead of untyped payloads,
+private schema forks, or ad hoc string parsing. Generated docs remain
+non-authoritative artifacts linked back to canonical schemas, SDS docs, and
+build-plan phase gates, and Phase 6 product integrations must not bypass
+generated contracts, Overgate envelopes, stable errors, privacy classes, or
+redaction rules.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

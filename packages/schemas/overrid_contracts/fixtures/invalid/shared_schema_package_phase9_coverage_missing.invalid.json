@@ -1,0 +1,9 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "schema_coverage_reports": [
+      { "service_family": "Overgate", "object_family": "command_envelope", "build_phase": "master_phase:1", "privacy_class": "tenant_private", "validation_status": "release_blocked", "fixture_coverage": { "valid_fixture_count": 0, "invalid_fixture_count": 0 }, "generated_targets": [], "release_status": "released", "draft_contract_consumption_allowed": true }
+    ]
+  }
+}

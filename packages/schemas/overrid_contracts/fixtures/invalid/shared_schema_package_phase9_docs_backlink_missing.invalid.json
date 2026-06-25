@@ -1,0 +1,9 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase9_release_ci_contract": {
+    "documentation_publishing_items": [
+      { "artifact_kind": "schema_reference", "output_path": "packages/schemas/overrid_contracts/generated/docs/shared_schema_package_phase9_schema_reference.md", "source_schema": "packages/schemas/overrid_contracts/v0/private_fork.schema.json", "owning_sds": "docs/sds/foundation/shared_schema_package.md", "build_plan_phase_gate": "SUB BUILD PLAN #7 Phase 9", "backlinks_required": false, "non_authoritative": false }
+    ]
+  }
+}
