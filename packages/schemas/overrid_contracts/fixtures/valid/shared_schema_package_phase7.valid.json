@@ -67,6 +67,42 @@
         "migration_metadata_present": true,
         "compatibility_report_ref": "compat:shared-schema-phase7:privacy-class",
         "blocked_without_migration": true
+      },
+      {
+        "comparison_name": "additive_consumer_notes_are_compatible",
+        "object_family": "registry_metadata",
+        "field_path": "registry_metadata.consumer_notes",
+        "change_classification": "additive",
+        "previous_schema_ref": "schema:shared-schema-package/registry_metadata@previous",
+        "next_schema_ref": "schema:shared-schema-package/registry_metadata@next",
+        "migration_metadata_required": false,
+        "migration_metadata_present": false,
+        "compatibility_report_ref": "compat:shared-schema-phase7:additive-consumer-notes",
+        "blocked_without_migration": false
+      },
+      {
+        "comparison_name": "deprecated_free_form_error_requires_metadata",
+        "object_family": "api_error",
+        "field_path": "api_error.free_form_message",
+        "change_classification": "deprecated",
+        "previous_schema_ref": "schema:shared-schema-package/api_error@previous",
+        "next_schema_ref": "schema:shared-schema-package/api_error@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:deprecated-api-error-message",
+        "blocked_without_migration": false
+      },
+      {
+        "comparison_name": "authority_schema_change_is_blocked_without_gate",
+        "object_family": "namespace",
+        "field_path": "namespace.ownership.evidence_ref",
+        "change_classification": "blocked",
+        "previous_schema_ref": "schema:shared-schema-package/namespace@previous",
+        "next_schema_ref": "schema:shared-schema-package/namespace@next",
+        "migration_metadata_required": true,
+        "migration_metadata_present": true,
+        "compatibility_report_ref": "compat:shared-schema-phase7:blocked-authority-field",
+        "blocked_without_migration": true
       }
     ],
     "deprecation_metadata": [
@@ -136,6 +172,7 @@
       { "schema_module": "command", "field_path": "command.payload_hash", "consumer_kind": "cli", "consumers": ["Overrid CLI"], "owner_signoff_ref": "signoff:sds7:cli", "compatibility_report_ref": "compat:shared-schema-phase7:field-removal", "migration_notes_ref": "migration:shared-schema-phase7:cli-command", "breaking_change_requires_report": true, "identified_consumers_required": true },
       { "schema_module": "event", "field_path": "event.envelope.sequence", "consumer_kind": "adapter", "consumers": ["Future product adapters"], "owner_signoff_ref": "signoff:sds7:adapters", "compatibility_report_ref": "compat:shared-schema-phase7:envelope-change", "migration_notes_ref": "migration:shared-schema-phase7:adapter-event", "breaking_change_requires_report": true, "identified_consumers_required": true },
       { "schema_module": "audit", "field_path": "audit.privacy_class", "consumer_kind": "native_app", "consumers": ["Future native apps"], "owner_signoff_ref": "signoff:sds7:native-app", "compatibility_report_ref": "compat:shared-schema-phase7:privacy-class", "migration_notes_ref": "migration:shared-schema-phase7:native-audit", "breaking_change_requires_report": true, "identified_consumers_required": true },
+      { "schema_module": "command", "field_path": "command.schema_version", "consumer_kind": "mobile_client", "consumers": ["Future mobile SDKs"], "owner_signoff_ref": "signoff:sds7:mobile-client", "compatibility_report_ref": "compat:shared-schema-phase7:stable-major-mobile", "migration_notes_ref": "migration:shared-schema-phase7:mobile-schema-version", "breaking_change_requires_report": true, "identified_consumers_required": true },
       { "schema_module": "tenant", "field_path": "tenant.quota_scope", "consumer_kind": "test_fixture", "consumers": ["Integration Test Harness", "Local Development Stack"], "owner_signoff_ref": "signoff:sds7:fixtures", "compatibility_report_ref": "compat:shared-schema-phase7:type-narrowing", "migration_notes_ref": "migration:shared-schema-phase7:fixture-tenant", "breaking_change_requires_report": true, "identified_consumers_required": true }
     ],
     "source_hash_inputs": [

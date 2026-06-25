@@ -1712,7 +1712,7 @@
       "properties": {
         "schema_comparisons": {
           "type": "array",
-          "minItems": 5,
+          "minItems": 8,
           "items": {
             "$ref": "#/$defs/phase7_schema_comparison"
           }
@@ -1736,7 +1736,7 @@
         },
         "consumer_impact_reports": {
           "type": "array",
-          "minItems": 6,
+          "minItems": 7,
           "items": {
             "$ref": "#/$defs/phase7_consumer_impact_report"
           }
@@ -1824,7 +1824,6 @@
         "object_family",
         "field_path",
         "change_classification",
-        "breaking_change_kind",
         "previous_schema_ref",
         "next_schema_ref",
         "migration_metadata_required",

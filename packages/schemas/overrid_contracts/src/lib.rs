@@ -3690,6 +3690,7 @@ pub const REQUIRED_SHARED_SCHEMA_PHASE7_CONSUMER_KINDS: &[&str] = &[
     "cli",
     "adapter",
     "native_app",
+    "mobile_client",
     "test_fixture",
 ];
 
@@ -3699,7 +3700,7 @@ pub struct SharedSchemaPhase7SchemaComparison {
     pub object_family: String,
     pub field_path: String,
     pub change_classification: String,
-    pub breaking_change_kind: String,
+    pub breaking_change_kind: Option<String>,
     pub previous_schema_ref: String,
     pub next_schema_ref: String,
     pub migration_metadata_required: bool,
@@ -3717,20 +3718,44 @@ impl SharedSchemaPhase7SchemaComparison {
         breaking_change_kind: impl Into<String>,
         report_suffix: impl Into<String>,
     ) -> Self {
+        Self::classified(
+            comparison_name,
+            object_family,
+            field_path,
+            change_classification,
+            Some(breaking_change_kind.into()),
+            report_suffix,
+            true,
+            true,
+            true,
+        )
+    }
+
+    pub fn classified(
+        comparison_name: impl Into<String>,
+        object_family: impl Into<String>,
+        field_path: impl Into<String>,
+        change_classification: impl Into<String>,
+        breaking_change_kind: Option<String>,
+        report_suffix: impl Into<String>,
+        migration_metadata_required: bool,
+        migration_metadata_present: bool,
+        blocked_without_migration: bool,
+    ) -> Self {
         let object_family = object_family.into();
         let report_suffix = report_suffix.into();
         Self {
             comparison_name: comparison_name.into(),
             field_path: field_path.into(),
             change_classification: change_classification.into(),
-            breaking_change_kind: breaking_change_kind.into(),
+            breaking_change_kind,
             previous_schema_ref: format!("schema:shared-schema-package/{object_family}@previous"),
             next_schema_ref: format!("schema:shared-schema-package/{object_family}@next"),
             object_family,
-            migration_metadata_required: true,
-            migration_metadata_present: true,
+            migration_metadata_required,
+            migration_metadata_present,
             compatibility_report_ref: format!("compat:shared-schema-phase7:{report_suffix}"),
-            blocked_without_migration: true,
+            blocked_without_migration,
         }
     }
 
@@ -3754,19 +3779,54 @@ impl SharedSchemaPhase7SchemaComparison {
             self.change_classification.as_str(),
             "breaking" | "migration_required"
         ) {
-            if !REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS
-                .iter()
-                .any(|kind| self.breaking_change_kind == *kind)
-            {
+            if !self.breaking_change_kind.as_deref().is_some_and(|actual| {
+                REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS
+                    .iter()
+                    .any(|kind| actual == *kind)
+            }) {
                 return Err(SharedSchemaPhase7ContractError::InvalidComparison(
                     self.comparison_name.clone(),
                 ));
             }
-            if !self.migration_metadata_required
-                || !self.migration_metadata_present
-                || !self.blocked_without_migration
+        }
+
+        if matches!(
+            self.change_classification.as_str(),
+            "breaking" | "migration_required" | "deprecated" | "blocked"
+        ) && (!self.migration_metadata_required || !self.migration_metadata_present)
+        {
+            return Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(
+                self.comparison_name.clone(),
+            ));
+        }
+
+        if matches!(
+            self.change_classification.as_str(),
+            "breaking" | "migration_required" | "blocked"
+        ) && !self.blocked_without_migration
+        {
+            return Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(
+                self.comparison_name.clone(),
+            ));
+        }
+
+        if matches!(self.change_classification.as_str(), "additive")
+            && (self.migration_metadata_required
+                || self.migration_metadata_present
+                || self.blocked_without_migration)
+        {
+            return Err(SharedSchemaPhase7ContractError::InvalidComparison(
+                self.comparison_name.clone(),
+            ));
+        }
+
+        if let Some(kind) = &self.breaking_change_kind {
+            if kind.trim().is_empty()
+                || !REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS
+                    .iter()
+                    .any(|required| kind == required)
             {
-                return Err(SharedSchemaPhase7ContractError::MissingMigrationMetadata(
+                return Err(SharedSchemaPhase7ContractError::InvalidComparison(
                     self.comparison_name.clone(),
                 ));
             }
@@ -3907,9 +3967,7 @@ impl SharedSchemaPhase7AuthorityMigrationGate {
             || !self.release_blocked_without_gate
         {
             return Err(
-                SharedSchemaPhase7ContractError::InvalidAuthorityMigrationGate(
-                    self.module.clone(),
-                ),
+                SharedSchemaPhase7ContractError::InvalidAuthorityMigrationGate(self.module.clone()),
             );
         }
         Ok(())
@@ -3943,7 +4001,10 @@ impl SharedSchemaPhase7ConsumerImpactReport {
             schema_module: schema_module.into(),
             field_path: field_path.into(),
             owner_signoff_ref: format!("signoff:sds7:{consumer_kind}"),
-            compatibility_report_ref: format!("compat:shared-schema-phase7:{}", report_suffix.into()),
+            compatibility_report_ref: format!(
+                "compat:shared-schema-phase7:{}",
+                report_suffix.into()
+            ),
             migration_notes_ref: format!(
                 "migration:shared-schema-phase7:{}",
                 migration_suffix.into()
@@ -3987,17 +4048,16 @@ impl SharedSchemaPhase7RustProjection {
     pub fn canonical() -> Self {
         Self {
             path: PHASE7_RUST_OUTPUT_PATH.to_owned(),
-            validator_entrypoint:
-                "SharedSchemaPhase7CompatibilityContract::canonical().validate()".to_owned(),
+            validator_entrypoint: "SharedSchemaPhase7CompatibilityContract::canonical().validate()"
+                .to_owned(),
             non_authoritative: true,
         }
     }
 
     pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
         if self.path != PHASE7_RUST_OUTPUT_PATH
-            || !self
-                .validator_entrypoint
-                .contains("SharedSchemaPhase7CompatibilityContract")
+            || self.validator_entrypoint
+                != "SharedSchemaPhase7CompatibilityContract::canonical().validate()"
             || !self.non_authoritative
         {
             return Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift);
@@ -4065,6 +4125,39 @@ impl SharedSchemaPhase7CompatibilityContract {
                     "privacy_class_change",
                     "privacy-class",
                 ),
+                SharedSchemaPhase7SchemaComparison::classified(
+                    "additive_consumer_notes_are_compatible",
+                    "registry_metadata",
+                    "registry_metadata.consumer_notes",
+                    "additive",
+                    None,
+                    "additive-consumer-notes",
+                    false,
+                    false,
+                    false,
+                ),
+                SharedSchemaPhase7SchemaComparison::classified(
+                    "deprecated_free_form_error_requires_metadata",
+                    "api_error",
+                    "api_error.free_form_message",
+                    "deprecated",
+                    None,
+                    "deprecated-api-error-message",
+                    true,
+                    true,
+                    false,
+                ),
+                SharedSchemaPhase7SchemaComparison::classified(
+                    "authority_schema_change_is_blocked_without_gate",
+                    "namespace",
+                    "namespace.ownership.evidence_ref",
+                    "blocked",
+                    None,
+                    "blocked-authority-field",
+                    true,
+                    true,
+                    true,
+                ),
             ],
             deprecation_metadata: vec![
                 SharedSchemaPhase7DeprecationMetadata::new(
@@ -4129,6 +4222,14 @@ impl SharedSchemaPhase7CompatibilityContract {
                     "native-audit",
                 ),
                 SharedSchemaPhase7ConsumerImpactReport::new(
+                    "command",
+                    "command.schema_version",
+                    "mobile_client",
+                    owned_values(&["Future mobile SDKs"]),
+                    "stable-major-mobile",
+                    "mobile-schema-version",
+                ),
+                SharedSchemaPhase7ConsumerImpactReport::new(
                     "tenant",
                     "tenant.quota_scope",
                     "test_fixture",
@@ -4148,11 +4249,22 @@ impl SharedSchemaPhase7CompatibilityContract {
     }
 
     pub fn validate(&self) -> Result<(), SharedSchemaPhase7ContractError> {
+        for required in REQUIRED_SHARED_SCHEMA_PHASE7_CHANGE_CLASSIFICATIONS {
+            if !self
+                .schema_comparisons
+                .iter()
+                .any(|comparison| comparison.change_classification == *required)
+            {
+                return Err(
+                    SharedSchemaPhase7ContractError::MissingComparisonClassification(required),
+                );
+            }
+        }
         for required in REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS {
             if !self
                 .schema_comparisons
                 .iter()
-                .any(|comparison| comparison.breaking_change_kind == *required)
+                .any(|comparison| comparison.breaking_change_kind.as_deref() == Some(*required))
             {
                 return Err(SharedSchemaPhase7ContractError::MissingComparisonKind(
                     required,
@@ -4173,9 +4285,7 @@ impl SharedSchemaPhase7CompatibilityContract {
                 .any(|gate| gate.module == *required)
             {
                 return Err(
-                    SharedSchemaPhase7ContractError::MissingAuthorityMigrationGate(
-                        required,
-                    ),
+                    SharedSchemaPhase7ContractError::MissingAuthorityMigrationGate(required),
                 );
             }
         }
@@ -4219,6 +4329,7 @@ impl SharedSchemaPhase7CompatibilityContract {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPhase7ContractError {
+    MissingComparisonClassification(&'static str),
     MissingComparisonKind(&'static str),
     InvalidComparison(String),
     MissingMigrationMetadata(String),
@@ -4235,6 +4346,12 @@ pub enum SharedSchemaPhase7ContractError {
 impl fmt::Display for SharedSchemaPhase7ContractError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::MissingComparisonClassification(classification) => {
+                write!(
+                    formatter,
+                    "missing Phase 7 schema comparison classification: {classification}"
+                )
+            }
             Self::MissingComparisonKind(kind) => {
                 write!(formatter, "missing Phase 7 schema comparison kind: {kind}")
             }
@@ -4252,17 +4369,26 @@ impl fmt::Display for SharedSchemaPhase7ContractError {
                 formatter.write_str("Phase 7 stable-major support policy drift")
             }
             Self::MissingAuthorityMigrationGate(module) => {
-                write!(formatter, "missing Phase 7 authority migration gate: {module}")
+                write!(
+                    formatter,
+                    "missing Phase 7 authority migration gate: {module}"
+                )
             }
             Self::InvalidAuthorityMigrationGate(module) => {
-                write!(formatter, "invalid Phase 7 authority migration gate: {module}")
+                write!(
+                    formatter,
+                    "invalid Phase 7 authority migration gate: {module}"
+                )
             }
             Self::MissingConsumerImpact(consumer_kind) => write!(
                 formatter,
                 "missing Phase 7 consumer impact report: {consumer_kind}"
             ),
             Self::InvalidConsumerImpact(consumer_kind) => {
-                write!(formatter, "invalid Phase 7 consumer impact report: {consumer_kind}")
+                write!(
+                    formatter,
+                    "invalid Phase 7 consumer impact report: {consumer_kind}"
+                )
             }
             Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
             Self::RustProjectionAuthorityDrift => {
@@ -9029,17 +9155,35 @@ mod tests {
         let contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
         contract.validate().unwrap();
 
+        for classification in REQUIRED_SHARED_SCHEMA_PHASE7_CHANGE_CLASSIFICATIONS {
+            assert!(contract
+                .schema_comparisons
+                .iter()
+                .any(|comparison| comparison.change_classification == *classification));
+        }
         for kind in REQUIRED_SHARED_SCHEMA_PHASE7_BREAKING_KINDS {
             assert!(contract
                 .schema_comparisons
                 .iter()
-                .any(|comparison| comparison.breaking_change_kind == *kind));
+                .any(|comparison| comparison.breaking_change_kind.as_deref() == Some(*kind)));
         }
-        assert!(contract.schema_comparisons.iter().all(|comparison| {
-            comparison.migration_metadata_required
+        assert!(contract
+            .schema_comparisons
+            .iter()
+            .filter(|comparison| matches!(
+                comparison.change_classification.as_str(),
+                "breaking" | "migration_required" | "blocked"
+            ))
+            .all(|comparison| comparison.migration_metadata_required
                 && comparison.migration_metadata_present
-                && comparison.blocked_without_migration
-        }));
+                && comparison.blocked_without_migration));
+        assert!(contract
+            .schema_comparisons
+            .iter()
+            .filter(|comparison| comparison.change_classification == "additive")
+            .all(|comparison| !comparison.migration_metadata_required
+                && !comparison.migration_metadata_present
+                && !comparison.blocked_without_migration));
         for module in REQUIRED_SHARED_SCHEMA_PHASE7_AUTHORITY_MODULES {
             assert!(contract
                 .authority_sensitive_migration_gates
@@ -9067,10 +9211,19 @@ mod tests {
     #[test]
     fn shared_schema_phase7_rejects_breaking_change_without_migration_metadata() {
         let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract
+            .schema_comparisons
+            .retain(|comparison| comparison.change_classification != "additive");
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::MissingComparisonClassification("additive"))
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
         let comparison = contract
             .schema_comparisons
             .iter_mut()
-            .find(|comparison| comparison.breaking_change_kind == "field_removal")
+            .find(|comparison| comparison.breaking_change_kind.as_deref() == Some("field_removal"))
             .unwrap();
         comparison.migration_metadata_present = false;
         assert!(matches!(
@@ -9083,7 +9236,7 @@ mod tests {
         let comparison = contract
             .schema_comparisons
             .iter_mut()
-            .find(|comparison| comparison.breaking_change_kind == "type_narrowing")
+            .find(|comparison| comparison.breaking_change_kind.as_deref() == Some("type_narrowing"))
             .unwrap();
         comparison.blocked_without_migration = false;
         assert!(matches!(
@@ -9138,6 +9291,14 @@ mod tests {
 
         let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
         contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift)
+        ));
+
+        let mut contract = SharedSchemaPhase7CompatibilityContract::canonical().unwrap();
+        contract.rust_projection.validator_entrypoint =
+            "SharedSchemaPhase7CompatibilityContract::unsafe_validate()".to_owned();
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift)

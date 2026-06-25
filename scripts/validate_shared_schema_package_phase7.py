@@ -104,6 +104,7 @@ REQUIRED_CONSUMER_KINDS = {
     "cli",
     "adapter",
     "native_app",
+    "mobile_client",
     "test_fixture",
 }
 REQUIRED_CONTRACTS = {
@@ -208,11 +209,18 @@ def validate_phase7_record(record: dict[str, Any]) -> list[str]:
     payload = phase7_payload(record)
 
     comparisons = payload.get("schema_comparisons", [])
+    comparison_classifications = {
+        comparison.get("change_classification")
+        for comparison in comparisons
+        if isinstance(comparison, dict)
+    }
     comparison_kinds = {
         comparison.get("breaking_change_kind")
         for comparison in comparisons
         if isinstance(comparison, dict)
     }
+    if comparisons and not REQUIRED_CHANGE_CLASSIFICATIONS <= comparison_classifications:
+        errors.append("schema.comparison_classification_missing")
     if comparisons and not REQUIRED_BREAKING_KINDS <= comparison_kinds:
         errors.append("schema.comparison_kind_missing")
     for comparison in comparisons:
@@ -225,12 +233,21 @@ def validate_phase7_record(record: dict[str, Any]) -> list[str]:
         if classification in {"breaking", "migration_required"}:
             if comparison.get("breaking_change_kind") not in REQUIRED_BREAKING_KINDS:
                 errors.append("schema.comparison_invalid")
-            if (
-                comparison.get("migration_metadata_required") is not True
-                or comparison.get("migration_metadata_present") is not True
-                or comparison.get("blocked_without_migration") is not True
-            ):
-                errors.append("schema.migration_metadata_required")
+        if classification in {"breaking", "migration_required", "deprecated", "blocked"} and (
+            comparison.get("migration_metadata_required") is not True
+            or comparison.get("migration_metadata_present") is not True
+        ):
+            errors.append("schema.migration_metadata_required")
+        if classification in {"breaking", "migration_required", "blocked"} and (
+            comparison.get("blocked_without_migration") is not True
+        ):
+            errors.append("schema.migration_metadata_required")
+        if classification == "additive" and (
+            comparison.get("migration_metadata_required") is not False
+            or comparison.get("migration_metadata_present") is not False
+            or comparison.get("blocked_without_migration") is not False
+        ):
+            errors.append("schema.comparison_invalid")
         if (
             not str(comparison.get("previous_schema_ref", "")).startswith("schema:")
             or not str(comparison.get("next_schema_ref", "")).startswith("schema:")
