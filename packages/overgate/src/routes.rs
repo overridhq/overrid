@@ -11,9 +11,10 @@ use crate::audit::{AuditGuardInput, Phase7AuditEvidence, Phase7AuditInput, Phase
 use crate::canonical::CanonicalRequestInput;
 use crate::envelope::{trace_id_hint, CommandEnvelope};
 use crate::errors::{ApiErrorData, OvergateError};
+use crate::forwarding::{ForwardingInput, ForwardingOutcome};
 use crate::idempotency::{
-    CommandLookup, IdempotencyLimitSummary, IdempotencyOutcome, IdempotencyRecord,
-    IdempotencyReservationInput, TraceSummary,
+    CommandLookup, IdempotencyForwardingProjection, IdempotencyLimitSummary, IdempotencyOutcome,
+    IdempotencyRecord, IdempotencyReservationInput, TraceSummary,
 };
 use crate::prechecks::{
     accepted_quota_refs, precheck_digest_ref, PrecheckInput, PrecheckLimitSummary, PrecheckOutcome,
@@ -32,7 +33,10 @@ pub const PHASE5_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase5.response.v0";
 pub const PHASE5_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase5";
 pub const PHASE5_LIMITS_REASON: &str = "overgate.limits_phase5";
 pub const PHASE6_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase6.response.v0";
+pub const PHASE6_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase6";
 pub const PHASE7_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase7.response.v0";
+pub const PHASE8_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase8.response.v0";
+pub const PHASE8_COMMAND_ACCEPTED_REASON: &str = "overgate.command_accepted_phase8";
 pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
 pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
@@ -108,6 +112,7 @@ struct CommandAcceptedData {
     accepted_command_quota_refs: Vec<String>,
     phase6_precheck_digest_ref: String,
     phase7_audit: Phase7AuditEvidence,
+    phase8_forwarding: ForwardingOutcome,
 }
 
 #[derive(Debug, Serialize)]
@@ -212,7 +217,7 @@ async fn submit_command(
     })?;
     let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
     let audit_ref = format!("audit:overgate:request_received:{request_id}");
-    let idempotency = state
+    let mut idempotency = state
         .idempotency
         .reserve_or_replay(IdempotencyReservationInput::from_envelope(
             &parsed.envelope,
@@ -266,15 +271,6 @@ async fn submit_command(
                 error,
             )
         })?;
-    let (http_status, response_status, reason_code) = if idempotency.replayed {
-        (StatusCode::OK, "ok", "overgate.idempotency_replayed")
-    } else {
-        (
-            StatusCode::ACCEPTED,
-            "accepted",
-            "overgate.command_accepted_phase6",
-        )
-    };
     let accepted_command_quota_refs = accepted_quota_refs(&phase6_prechecks);
     let phase6_precheck_digest_ref = precheck_digest_ref(&phase6_prechecks);
     let phase7_audit = state.audit.record_acceptance(Phase7AuditInput::from_parts(
@@ -287,11 +283,61 @@ async fn submit_command(
         audit_decision,
         phase6_prechecks.clone(),
     ));
+    let phase7_audit_refs = phase7_audit
+        .ordered_events
+        .iter()
+        .map(|event| event.event_ref.clone())
+        .collect::<Vec<_>>();
+    let phase8_forwarding = state
+        .forwarding
+        .forward_after_acceptance(ForwardingInput::from_parts(
+            &parsed.envelope,
+            request_id.clone(),
+            &idempotency,
+            &phase6_prechecks,
+            phase7_audit_refs,
+        ))
+        .map_err(|error| {
+            command_error_response(
+                &state,
+                &parsed.envelope,
+                request_id.clone(),
+                Some(admission.audit_context_ref.clone()),
+                error,
+            )
+        })?;
+    if let Some(projected_record) =
+        state
+            .idempotency
+            .apply_forwarding_projection(IdempotencyForwardingProjection {
+                record_id: idempotency.record.record_id.clone(),
+                current_state: phase8_forwarding.status_projection.current_state,
+                forwarding_state: phase8_forwarding.status_projection.forwarding_state,
+                audit_refs: phase8_forwarding.record.audit_refs.clone(),
+            })
+    {
+        idempotency.record = projected_record;
+    }
+    let (http_status, response_status, reason_code) = if idempotency.replayed {
+        (StatusCode::OK, "ok", "overgate.idempotency_replayed")
+    } else if phase8_forwarding.outcome_state == "failed_after_acceptance_phase8" {
+        (
+            StatusCode::ACCEPTED,
+            "accepted",
+            "overgate.forwarding_failed_after_acceptance",
+        )
+    } else {
+        (
+            StatusCode::ACCEPTED,
+            "accepted",
+            PHASE8_COMMAND_ACCEPTED_REASON,
+        )
+    };
 
     Ok((
         http_status,
         Json(ApiResponse::new_with_schema_version(
-            PHASE7_RESPONSE_SCHEMA_VERSION,
+            PHASE8_RESPONSE_SCHEMA_VERSION,
             parsed.envelope.trace_id.clone(),
             response_status,
             reason_code,
@@ -300,7 +346,7 @@ async fn submit_command(
                 request_id: request_id.clone(),
                 command_id: parsed.envelope.command_id.clone(),
                 audit_ref,
-                forwarding_state: idempotency.record.forwarding_state,
+                forwarding_state: phase8_forwarding.status_projection.forwarding_state,
                 payload_hash_ref: parsed.envelope.payload_hash.clone(),
                 request_hash_ref: parsed.envelope.request_hash.clone(),
                 body_hash_ref: parsed.body_hash.clone(),
@@ -313,6 +359,7 @@ async fn submit_command(
                 accepted_command_quota_refs,
                 phase6_precheck_digest_ref,
                 phase7_audit,
+                phase8_forwarding,
             },
         )),
     ))
@@ -527,7 +574,7 @@ fn command_error_response(
         .map(|event| event.event_ref.clone())
         .collect::<Vec<_>>();
     api_error_response_with_schema(
-        PHASE7_RESPONSE_SCHEMA_VERSION,
+        PHASE8_RESPONSE_SCHEMA_VERSION,
         envelope.trace_id.clone(),
         Some(request_id),
         error.with_additional_client_denial_refs(audit_refs),
@@ -667,8 +714,8 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
         assert_eq!(
@@ -734,6 +781,10 @@ mod tests {
         assert_eq!(body["reason_code"], "overgate.command_status_phase5");
         assert_eq!(body["data"]["owner"], "overgate_until_downstream_handoff");
         assert_eq!(
+            body["data"]["forwarding_state"],
+            "synchronous_completed_phase8"
+        );
+        assert_eq!(
             body["data"]["response_digest_ref"]
                 .as_str()
                 .expect("response digest should be present")
@@ -793,11 +844,11 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(
             body["data"]["forwarding_state"],
-            "pending_forwarding_phase5"
+            "synchronous_completed_phase8"
         );
         assert!(body["data"]["request_id"]
             .as_str()
@@ -1016,10 +1067,7 @@ mod tests {
             .expect("first reservation should respond");
         assert_eq!(first.status(), StatusCode::ACCEPTED);
         let first_body = body_json(first).await;
-        assert_eq!(
-            first_body["reason_code"],
-            "overgate.command_accepted_phase6"
-        );
+        assert_eq!(first_body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
         assert_eq!(
             first_body["data"]["idempotency"]["outcome_state"],
             "reserved"
@@ -1068,7 +1116,7 @@ mod tests {
         );
         assert_eq!(
             conflict_body["schema_version"],
-            PHASE7_RESPONSE_SCHEMA_VERSION
+            PHASE8_RESPONSE_SCHEMA_VERSION
         );
         assert!(conflict_body["data"]["client_denial_refs"]
             .as_array()
@@ -1101,7 +1149,7 @@ mod tests {
         assert_eq!(status.status(), StatusCode::OK);
         let body = body_json(status).await;
         assert_eq!(body["reason_code"], "overgate.command_status_phase5");
-        assert_eq!(body["data"]["admission_state"], "pending_forwarding");
+        assert_eq!(body["data"]["admission_state"], "completed_synchronously");
         assert_eq!(body["data"]["retention_class"], "low_risk_metadata_write");
 
         let trace = app
@@ -1172,7 +1220,7 @@ mod tests {
                 .expect("rate command should respond");
             assert_eq!(response.status(), StatusCode::ACCEPTED);
             let body = body_json(response).await;
-            assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+            assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
             assert_eq!(
                 body["data"]["phase6_prechecks"]["rate_limit"]["reason_code"],
                 "overgate.rate_limit_allowed_phase6"
@@ -1473,8 +1521,8 @@ mod tests {
             .expect("phase7 audit response should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         let body = body_json(response).await;
-        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
         assert_eq!(
             body["data"]["phase7_audit"]["evidence_state"],
             "phase7_audit_evidence_recorded"
@@ -1540,7 +1588,7 @@ mod tests {
             .expect("phase7 fail-closed route should respond");
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         let body = body_json(response).await;
-        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
         assert_eq!(body["reason_code"], "overgate.audit_fail_closed");
         assert_eq!(body["data"]["dependency_name"], "overwatch");
         assert_eq!(body["data"]["retryability"], "retry_after");
@@ -1583,7 +1631,7 @@ mod tests {
             .expect("phase7 denial audit request should respond");
         assert_eq!(conflict.status(), StatusCode::CONFLICT);
         let body = body_json(conflict).await;
-        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
         assert_eq!(body["reason_code"], "overgate.idempotency_conflict");
         let refs = body["data"]["client_denial_refs"]
             .as_array()
@@ -1637,6 +1685,250 @@ mod tests {
             "degraded_until_replayed_to_overwatch"
         );
         assert_eq!(wal["external_log_dependency"], "none_rust_owned_local_wal");
+    }
+
+    #[tokio::test]
+    async fn phase8_synchronous_forwarding_completes_narrow_phase1_commands() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase8_sync_forwarding");
+        envelope["command_id"] = json!("command:overgate:phase8:sync");
+        envelope["command_type"] = json!("overgate.phase8.tenant.profile_update");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:sync");
+        envelope["request_hash"] = json!("hash:fixture:phase8_sync_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_sync_payload");
+
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase8 sync command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
+        assert_eq!(
+            body["data"]["forwarding_state"],
+            "synchronous_completed_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["outcome_state"],
+            "synchronous_forwarding_completed_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["target"]["owner_service"],
+            "service:overtenant"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["synchronous_completion"]
+                ["completed_before_response"],
+            true
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["synchronous_completion"]["execution_side_effect"],
+            false
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["direct_downstream_state_write"],
+            false
+        );
+
+        let status = app
+            .oneshot(empty_get("/v1/commands/command:overgate:phase8:sync"))
+            .await
+            .expect("phase8 sync status should respond");
+        assert_eq!(status.status(), StatusCode::OK);
+        let status_body = body_json(status).await;
+        assert_eq!(
+            status_body["data"]["admission_state"],
+            "completed_synchronously"
+        );
+        assert_eq!(
+            status_body["data"]["forwarding_state"],
+            "synchronous_completed_phase8"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase8_overqueue_dispatch_records_durable_pending_work() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase8_overqueue_dispatch");
+        envelope["command_id"] = json!("command:overgate:phase8:queue");
+        envelope["command_type"] = json!("overgate.phase8.queue.workload.submit");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:queue");
+        envelope["request_hash"] = json!("hash:fixture:phase8_queue_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_queue_payload");
+
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase8 queue command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["outcome_state"],
+            "overqueue_dispatch_recorded_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["target"]["dispatch_mode"],
+            "overqueue_durable_dispatch_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["overqueue_item"]["durable_state"],
+            "durable_pending_work_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["overqueue_item"]["native_overqueue_boundary"],
+            true
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["status_projection"]["current_state"],
+            "pending_overqueue_dispatch"
+        );
+        assert!(body["data"]["phase8_forwarding"]["record"]["audit_refs"]
+            .as_array()
+            .expect("audit refs")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .contains("overgate_command_forwarded")));
+
+        let status = app
+            .oneshot(empty_get("/v1/commands/command:overgate:phase8:queue"))
+            .await
+            .expect("phase8 queue status should respond");
+        let status_body = body_json(status).await;
+        assert_eq!(
+            status_body["data"]["admission_state"],
+            "pending_overqueue_dispatch"
+        );
+        assert_eq!(
+            status_body["data"]["forwarding_state"],
+            "overqueue_pending_phase8"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase8_target_registry_rejects_unregistered_targets() {
+        assert!(crate::forwarding::validate_target_registry());
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase8_missing_target");
+        envelope["command_id"] = json!("command:overgate:phase8:missing_target");
+        envelope["command_type"] = json!("overgate.phase8.unregistered.operation");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:missing_target");
+        envelope["request_hash"] = json!("hash:fixture:phase8_missing_target_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_missing_target_payload");
+
+        let response = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase8 missing target should respond");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(response).await;
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(
+            body["reason_code"],
+            "overgate.forwarding_target_unregistered"
+        );
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("client refs")
+            .iter()
+            .any(|value| value == "forwarding_target_registry:overgate:phase8"));
+    }
+
+    #[tokio::test]
+    async fn phase8_failed_after_acceptance_status_preserves_retry_projection() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase8_downstream_unavailable");
+        envelope["command_id"] = json!("command:overgate:phase8:downstream_unavailable");
+        envelope["command_type"] = json!("overgate.phase8.queue.workload.downstream.unavailable");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:downstream_unavailable");
+        envelope["request_hash"] = json!("hash:fixture:phase8_downstream_unavailable_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_downstream_unavailable_payload");
+
+        let response = app
+            .clone()
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase8 failed-after-acceptance command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(
+            body["reason_code"],
+            "overgate.forwarding_failed_after_acceptance"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["outcome_state"],
+            "failed_after_acceptance_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["status_projection"]["current_state"],
+            "failed_after_acceptance"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["status_projection"]["forwarding_state"],
+            "retry_scheduled_phase8"
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["retry"]["retryable"],
+            true
+        );
+        assert_eq!(
+            body["data"]["phase8_forwarding"]["retry"]["safe_overqueue_retry"],
+            true
+        );
+        assert!(body["data"]["phase8_forwarding"]["record"]["audit_refs"]
+            .as_array()
+            .expect("audit refs")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .contains("overgate_forwarding_failed")));
+
+        let status = app
+            .oneshot(empty_get(
+                "/v1/commands/command:overgate:phase8:downstream_unavailable",
+            ))
+            .await
+            .expect("phase8 failure status should respond");
+        let status_body = body_json(status).await;
+        assert_eq!(
+            status_body["data"]["admission_state"],
+            "failed_after_acceptance"
+        );
+        assert_eq!(
+            status_body["data"]["forwarding_state"],
+            "retry_scheduled_phase8"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase8_product_clients_cannot_bypass_overgate_forwarding_contracts() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase8_product_bypass");
+        envelope["command_id"] = json!("command:overgate:phase8:product_bypass");
+        envelope["command_type"] = json!("overgate.phase8.product.bypass_internal_api");
+        envelope["idempotency_key"] = json!("idem:overgate:phase8:product_bypass");
+        envelope["request_hash"] = json!("hash:fixture:phase8_product_bypass_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase8_product_bypass_payload");
+
+        let response = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase8 product bypass denial should respond");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body = body_json(response).await;
+        assert_eq!(body["schema_version"], PHASE8_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.product_client_bypass_denied");
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("client refs")
+            .iter()
+            .any(|value| value == "product_client_flows:overgate:phase8"));
     }
 
     #[tokio::test]
@@ -1709,7 +2001,7 @@ mod tests {
             .expect("service account admission should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         let body = body_json(response).await;
-        assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
+        assert_eq!(body["reason_code"], PHASE8_COMMAND_ACCEPTED_REASON);
         assert_eq!(
             body["data"]["admission"]["service_account_admission"]["reason_code"],
             "auth.service_account_admitted_phase4"

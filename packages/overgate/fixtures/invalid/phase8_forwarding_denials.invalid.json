@@ -1,0 +1,67 @@
+{
+  "schema_version": "overgate.phase8.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate_phase8_forwarding_denials",
+  "missing_target_command_envelope": {
+    "command_id": "command:overgate:phase8:missing_target",
+    "command_type": "overgate.phase8.unregistered.operation",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase8_missing_target",
+    "idempotency_key": "idem:overgate:phase8:missing_target",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.unregistered+json",
+    "request_hash": "hash:fixture:phase8_missing_target_request",
+    "payload_hash": "hash:fixture:phase8_missing_target_payload",
+    "timestamp": "2026-06-25T04:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase8_missing_target",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase8/missing_target_payload"
+  },
+  "product_bypass_command_envelope": {
+    "command_id": "command:overgate:phase8:product_bypass",
+    "command_type": "overgate.phase8.product.bypass_internal_api",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase8_product_bypass",
+    "idempotency_key": "idem:overgate:phase8:product_bypass",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.product-client+json",
+    "request_hash": "hash:fixture:phase8_product_bypass_request",
+    "payload_hash": "hash:fixture:phase8_product_bypass_payload",
+    "timestamp": "2026-06-25T04:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase8_product_bypass",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase8/product_bypass_payload"
+  },
+  "expected_denials": {
+    "missing_target": {
+      "status": 400,
+      "reason_code": "overgate.forwarding_target_unregistered",
+      "client_denial_refs": [
+        "forwarding_target_registry:overgate:phase8"
+      ]
+    },
+    "product_bypass": {
+      "status": 403,
+      "reason_code": "overgate.product_client_bypass_denied",
+      "client_denial_refs": [
+        "product_client_flows:overgate:phase8",
+        "internal_api_bypass:false"
+      ]
+    }
+  },
+  "local_only": true,
+  "test_only": true
+}

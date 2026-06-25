@@ -1,0 +1,47 @@
+{
+  "schema_version": "overgate.phase8.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase8_forwarding_allowed",
+  "command_envelope": {
+    "command_id": "command:overgate:phase8:0001",
+    "command_type": "overgate.phase8.queue.workload.submit",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "actor:local:test",
+    "trace_id": "trace_overgate_phase8_forwarding",
+    "idempotency_key": "idem:overgate:phase8:0001",
+    "credential_id": "credential:local:test",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.workload-submit+json",
+    "request_hash": "hash:fixture:phase8_request",
+    "payload_hash": "hash:fixture:phase8_payload",
+    "timestamp": "2026-06-25T04:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:phase8",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase8/workload_submit_payload"
+  },
+  "expected_response": {
+    "status": 202,
+    "schema_version": "overgate.phase8.response.v0",
+    "reason_code": "overgate.command_accepted_phase8",
+    "forwarding_outcome_state": "overqueue_dispatch_recorded_phase8",
+    "forwarding_state": "overqueue_pending_phase8",
+    "current_state": "pending_overqueue_dispatch",
+    "target_registry_ref": "forwarding_target_registry:overgate:phase8",
+    "overqueue_contract_ref": "overqueue.dispatch.v0",
+    "durable_state": "durable_pending_work_phase8",
+    "owner_service": "service:overqueue",
+    "dispatch_mode": "overqueue_durable_dispatch_phase8",
+    "native_overqueue_boundary": true,
+    "external_queue_dependency": "none_native_overqueue_contract_only",
+    "direct_downstream_state_write": false,
+    "raw_private_payload_written": false,
+    "product_client_checklist_ref": "product_client_flows:overgate:phase8",
+    "internal_api_bypass_allowed": false
+  },
+  "local_only": true,
+  "test_only": true
+}

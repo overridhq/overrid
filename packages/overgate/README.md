@@ -109,6 +109,20 @@ Parsed denials append safe Overwatch-compatible audit event refs to `client_deni
 
 The emergency WAL is disabled by default; tests enable it explicitly to prove degraded-mode behavior without adding PostgreSQL, Redis, Kafka, NATS, or another external core boundary.
 
+## Phase 8 Forwarding, Overqueue Dispatch, And Downstream Contract Boundaries
+
+`POST /v1/commands` now records Phase 8 forwarding evidence after Phase 7 audit evidence has been recorded. Accepted command responses use `overgate.phase8.response.v0` and include `phase8_forwarding` with the local Rust forwarding adapter, downstream target registry refs, status projection, retry metadata, and product-client flow rules. The adapter is local-stack/test scoped and writes only Overgate-owned forwarding projections; it does not write downstream private state.
+
+The Phase 8 response includes:
+
+- Target registry evidence through `forwarding_target_registry:overgate:phase8`, covering low-risk reads, Phase 1 control-plane mutations, queue-producing workloads, policy-heavy commands, accounting-affecting commands, storage/namespace commands, native-app side effects, admin commands, and break-glass commands.
+- Narrow synchronous Phase 1 forwarding for identity, tenant, credential, manifest, trace/status, limit, and synthetic command flows. These complete before response only for allowed control-plane mutations and do not wait on execution, storage, accounting, native-app side effects, or another runtime service.
+- Native Overqueue dispatch through `overqueue.dispatch.v0` for workload, policy-heavy, accounting, storage/namespace, native-app, retry, and wait-on-service commands. Accepted asynchronous commands become durable pending work with complete audit refs and idempotency state.
+- Failed-after-acceptance projection with caller-visible status, retry metadata, safe Overqueue retry refs, dead-letter refs where applicable, and `overgate.forwarding_failed_after_acceptance`.
+- Product-client command flows for SDK, CLI, admin UI, Docdex, Mcoda, Codali, adapters, native apps, mobile clients, node agents, and service accounts. Each flow must enter through `POST /v1/commands` with signing, idempotency, trace ids, stable errors, audit refs, and forwarding; internal API bypass is denied with `overgate.product_client_bypass_denied`.
+
+The forwarding target registry rejects unregistered command types with `overgate.forwarding_target_unregistered`. Registry entries must define an owner service, command class, dispatch mode, schema version, permission requirement, policy requirement, retry behavior, failover behavior, audit mapping, tenant isolation rule, and downstream state owner while keeping `direct_downstream_state_write` false.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -130,5 +144,7 @@ The emergency WAL is disabled by default; tests enable it explicitly to prove de
 - `fixtures/valid/phase6_command.valid.json` defines the Phase 6 rate-limit, quota-precheck, policy-handoff, and command-class matrix accepted response fixture.
 - `fixtures/invalid/phase6_precheck_denials.invalid.json` proves rate-limit, quota-precheck, and policy denials surface stable client-denial refs before forwarding.
 - `fixtures/valid/phase7_command.valid.json` defines the Phase 7 Overwatch-compatible audit events, emergency-WAL default state, safe metric labels, and grid-operations checklist fixture.
+- `fixtures/valid/phase8_command.valid.json` defines the Phase 8 forwarding target registry, native Overqueue durable pending work, status projection, and product-client checklist fixture.
+- `fixtures/invalid/phase8_forwarding_denials.invalid.json` proves unregistered forwarding targets and product-client internal API bypass attempts deny with stable client-denial refs.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

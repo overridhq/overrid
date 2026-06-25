@@ -127,6 +127,14 @@ pub struct IdempotencyLimitSummary {
     pub quota_precheck_refs: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdempotencyForwardingProjection {
+    pub record_id: String,
+    pub current_state: &'static str,
+    pub forwarding_state: &'static str,
+    pub audit_refs: Vec<String>,
+}
+
 impl IdempotencyReservationInput {
     pub fn from_envelope(
         envelope: &CommandEnvelope,
@@ -286,6 +294,26 @@ impl IdempotencyStore {
     pub fn seed_record(&self, record: IdempotencyRecord) {
         let mut state = self.lock_state();
         state.records.insert(record.scope(), record);
+    }
+
+    pub fn apply_forwarding_projection(
+        &self,
+        projection: IdempotencyForwardingProjection,
+    ) -> Option<IdempotencyRecord> {
+        let mut state = self.lock_state();
+        for record in state.records.values_mut() {
+            if record.record_id == projection.record_id {
+                record.current_state = projection.current_state;
+                record.forwarding_state = projection.forwarding_state;
+                for audit_ref in projection.audit_refs {
+                    if !record.audit_refs.contains(&audit_ref) {
+                        record.audit_refs.push(audit_ref);
+                    }
+                }
+                return Some(record.clone());
+            }
+        }
+        None
     }
 
     fn lock_state(&self) -> MutexGuard<'_, IdempotencyState> {

@@ -325,6 +325,31 @@ impl OvergateError {
         .with_client_denial_refs(client_denial_refs)
     }
 
+    pub fn forwarding_target_unregistered(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "overgate.forwarding_target_unregistered",
+            Retryability::NotRetryable,
+            vec!["command_type", "forwarding_target_registry"],
+            "Register an owner service, schema version, retry behavior, audit mapping, and tenant isolation rule before forwarding.",
+            "forwarding_target_registry_missing_phase8",
+        )
+        .with_dependency("overqueue_or_downstream_target_registry")
+        .with_client_denial_refs(client_denial_refs)
+    }
+
+    pub fn product_client_bypass_denied(client_denial_refs: Vec<String>) -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            "overgate.product_client_bypass_denied",
+            Retryability::NotRetryable,
+            vec!["client_entry_route", "command_envelope"],
+            "Submit product-client commands through Overgate with signing, idempotency, trace ids, stable errors, audit refs, and forwarding.",
+            "product_client_internal_api_bypass_phase8",
+        )
+        .with_client_denial_refs(client_denial_refs)
+    }
+
     fn new(
         status: StatusCode,
         reason_code: &'static str,

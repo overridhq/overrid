@@ -7,6 +7,7 @@ pub mod canonical;
 pub mod dependencies;
 pub mod envelope;
 pub mod errors;
+pub mod forwarding;
 pub mod idempotency;
 pub mod prechecks;
 pub mod retention;
