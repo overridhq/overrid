@@ -1,0 +1,113 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase8_domain_expansion_contract": {
+    "domain_modules": [
+      {
+        "domain_family": "execution_scheduling",
+        "module_name": "execution_scheduling_runtime_refs",
+        "owning_master_phase": "master_phase:3",
+        "owning_service_families": ["Overpack", "Oversched", "Overlease", "Overrun", "Overmeter", "Overcell", "Overcache"],
+        "downstream_consumers": ["Rust services", "CLI", "SDK", "Integration Test Harness"],
+        "fixture_ref": "fixture:shared-schema-phase8:execution-scheduling",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": false,
+        "runtime_authority_stays_with_owner": true
+      },
+      {
+        "domain_family": "trust_policy_verification",
+        "module_name": "trust_policy_verification_decision_refs",
+        "owning_master_phase": "master_phase:4",
+        "owning_service_families": ["Overguard", "Oververify", "Challenge Task Service", "Workload Classifier", "Reputation and Anti-Sybil Service"],
+        "downstream_consumers": ["Rust services", "CLI", "SDK", "Integration Test Harness"],
+        "fixture_ref": "fixture:shared-schema-phase8:trust-policy-verification",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": false,
+        "runtime_authority_stays_with_owner": true
+      },
+      {
+        "domain_family": "accounting_rights_settlement",
+        "module_name": "accounting_rights_settlement_refs",
+        "owning_master_phase": "master_phase:5",
+        "owning_service_families": ["Overmeter", "ORU Account Service", "Seal Ledger", "Overasset", "Overgrant", "Overbill", "Provider Payout Service"],
+        "downstream_consumers": ["Rust services", "CLI", "SDK", "Integration Test Harness"],
+        "fixture_ref": "fixture:shared-schema-phase8:accounting-rights-settlement",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": false,
+        "runtime_authority_stays_with_owner": true
+      },
+      {
+        "domain_family": "data_storage_namespace_secret_refs",
+        "module_name": "data_storage_namespace_secret_ref_contracts",
+        "owning_master_phase": "master_phase:8",
+        "owning_service_families": ["Overbase", "Overstore", "Overvault", "Universal Namespace Service", "Overmesh", "Overasset"],
+        "downstream_consumers": ["Rust services", "CLI", "SDK", "Integration Test Harness"],
+        "fixture_ref": "fixture:shared-schema-phase8:data-storage-namespace",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": false,
+        "runtime_authority_stays_with_owner": true
+      },
+      {
+        "domain_family": "ai_docdex_mobile_native_ades",
+        "module_name": "ai_docdex_mobile_native_ades_refs",
+        "owning_master_phase": "master_phase:12",
+        "owning_service_families": ["AI Gateway Router", "Personal AI Assistant", "Encrypted Docdex RAG Adapter", "ADES Enrichment Adapter", "Mobile SDK", "Native Apps", "Central AI Stewardship Interface"],
+        "downstream_consumers": ["Rust services", "TypeScript/web projections", "Mobile bindings", "CLI", "SDK"],
+        "fixture_ref": "fixture:shared-schema-phase8:ai-docdex-mobile-native-ades",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": false,
+        "runtime_authority_stays_with_owner": true
+      }
+    ],
+    "guardrail_checks": [
+      { "guardrail_name": "generated_contract_consumption", "domain_family": "execution_scheduling", "reason_code": "schema.generated_contract_consumption_missing", "forbidden_terms": ["private duplicate types", "ad hoc payload parsing"], "enforced": true },
+      { "guardrail_name": "owner_phase_gate", "domain_family": "trust_policy_verification", "reason_code": "schema.domain_owner_gate_missing", "forbidden_terms": ["unowned downstream schema", "ungated phase expansion"], "enforced": true },
+      { "guardrail_name": "strict_unknown_field_rejection", "domain_family": "accounting_rights_settlement", "reason_code": "schema.strict_unknown_field_required", "forbidden_terms": ["unknown accounting field", "permissive ledger payload"], "enforced": true },
+      { "guardrail_name": "ref_only_secret_storage", "domain_family": "data_storage_namespace_secret_refs", "reason_code": "schema.storage_secret_ref_invalid", "forbidden_terms": ["raw_secret", "private_key", "token_value"], "enforced": true },
+      { "guardrail_name": "evidence_backed_namespace_ownership", "domain_family": "data_storage_namespace_secret_refs", "reason_code": "schema.namespace_evidence_ref_missing", "forbidden_terms": ["namespace ownership without evidence ref"], "enforced": true },
+      { "guardrail_name": "no_conventional_cloud_storage", "domain_family": "data_storage_namespace_secret_refs", "reason_code": "schema.conventional_storage_assumption_forbidden", "forbidden_terms": ["S3", "MinIO", "Vault product boundary"], "enforced": true },
+      { "guardrail_name": "no_pricing_revenue_blockchain", "domain_family": "accounting_rights_settlement", "reason_code": "schema.accounting_assumption_forbidden", "forbidden_terms": ["price schedule", "revenue projection", "customer count", "blockchain", "NFT"], "enforced": true },
+      { "guardrail_name": "privacy_classified_ai_user_content", "domain_family": "ai_docdex_mobile_native_ades", "reason_code": "schema.private_payload_leakage", "forbidden_terms": ["raw private payload", "unencrypted user content", "raw AI context"], "enforced": true },
+      { "guardrail_name": "typescript_second_projection", "domain_family": "ai_docdex_mobile_native_ades", "reason_code": "schema.typescript_authority_drift", "forbidden_terms": ["TypeScript source authority", "Protobuf-only public object"], "enforced": true }
+    ],
+    "typescript_projection_requirement": {
+      "generated_from_canonical_schema": true,
+      "rust_fixture_gate_required": true,
+      "browser_safe_redaction_required": true,
+      "source_authority_allowed": false,
+      "protobuf_public_authority_allowed": false,
+      "blocked_until_rust_and_fixtures_stable": true
+    },
+    "source_hash_inputs": [
+      "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json",
+      "packages/schemas/overrid_contracts/codegen_manifest.json",
+      "docs/build_plan/sub_build_plan_007_shared_schema_package.md",
+      "docs/overrid_tech_stack_choice.md"
+    ],
+    "rust_projection": {
+      "path": "packages/schemas/overrid_contracts/src/lib.rs",
+      "validator_entrypoint": "SharedSchemaPhase8DomainExpansionContract::canonical().validate()",
+      "non_authoritative": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase8_domain_expansion_contract": {
+    "guardrail_checks": [
+      {
+        "guardrail_name": "no_pricing_revenue_blockchain",
+        "domain_family": "accounting_rights_settlement",
+        "reason_code": "schema.accounting_assumption_forbidden",
+        "forbidden_terms": [],
+        "enforced": false
+      }
+    ]
+  }
+}

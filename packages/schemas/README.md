@@ -28,6 +28,7 @@ Rules:
 - Shared Schema Package Phase 5 defines strict validation defaults, parse helpers, envelope assertions, reason-code registries, and redaction diagnostics for sensitive schema families.
 - Shared Schema Package Phase 6 defines fixture builders, golden envelope fixtures, SDS #3 integration-harness reuse, SDS #4 local-stack reset bundles, and non-authoritative validation artifact metadata.
 - Shared Schema Package Phase 7 defines schema comparison, deprecation metadata, current-plus-previous stable major compatibility, authority-sensitive migration gates, and consumer impact report metadata.
+- Shared Schema Package Phase 8 defines owner-gated downstream domain schema expansion metadata for execution/scheduling, trust/policy/verification, accounting/rights/settlement, data/storage/namespace/secret refs, and AI/Docdex/mobile/native-app/ADES-facing contracts.
 
 ## Schema Ownership Metadata
 

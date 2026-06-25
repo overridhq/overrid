@@ -79,6 +79,18 @@ silent downgrade behavior, and authority-sensitive modules must block release
 without migration plans, owner signoff, rollback guidance, and consumer impact
 reports.
 
+Shared Schema Package Phase 8 contracts define downstream domain expansion
+metadata for execution/scheduling, trust/policy/verification,
+accounting/rights/settlement, data/storage/namespace/secret refs, and
+AI/Docdex/mobile/native-app/ADES-facing schemas. Rust projection checks run
+through `SharedSchemaPhase8DomainExpansionContract::canonical().validate()`.
+Domain modules must name owning master phases and service families, consume
+generated contracts instead of private duplicate public types, keep runtime
+authority with owning services, reject raw secrets and untyped refs, forbid
+conventional object-store and pricing/revenue/blockchain/NFT assumptions, and
+keep TypeScript/web projections generated second from canonical schemas with
+browser-safe redaction.
+
 Generated or projected code must not become the contract authority. Changes to
 CLI output envelopes, trace context, idempotency records, API errors,
 diagnostic bundles, profile records, credential references, confirmation

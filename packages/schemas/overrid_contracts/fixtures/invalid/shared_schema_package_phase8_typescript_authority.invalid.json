@@ -1,0 +1,14 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase8_domain_expansion_contract": {
+    "typescript_projection_requirement": {
+      "generated_from_canonical_schema": false,
+      "rust_fixture_gate_required": true,
+      "browser_safe_redaction_required": false,
+      "source_authority_allowed": true,
+      "protobuf_public_authority_allowed": true,
+      "blocked_until_rust_and_fixtures_stable": false
+    }
+  }
+}

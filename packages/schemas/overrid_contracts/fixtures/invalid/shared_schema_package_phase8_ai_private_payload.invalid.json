@@ -1,0 +1,23 @@
+{
+  "schema_family": "shared-schema-package",
+  "schema_version": "shared-schema-package.v0.1",
+  "phase8_domain_expansion_contract": {
+    "domain_modules": [
+      {
+        "domain_family": "ai_docdex_mobile_native_ades",
+        "module_name": "ai_docdex_mobile_native_ades_refs",
+        "owning_master_phase": "master_phase:12",
+        "owning_service_families": ["Personal AI Assistant"],
+        "downstream_consumers": ["TypeScript/web projections"],
+        "fixture_ref": "fixture:shared-schema-phase8:ai-docdex-mobile-native-ades",
+        "generated_contract_consumption_required": true,
+        "private_duplicate_types_allowed": false,
+        "strict_unknown_fields_required": true,
+        "raw_secret_values_allowed": false,
+        "untyped_refs_allowed": false,
+        "raw_private_payload_allowed": true,
+        "runtime_authority_stays_with_owner": true
+      }
+    ]
+  }
+}

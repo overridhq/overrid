@@ -4400,6 +4400,582 @@ impl fmt::Display for SharedSchemaPhase7ContractError {
 
 impl std::error::Error for SharedSchemaPhase7ContractError {}
 
+pub const PHASE8_CANONICAL_SCHEMA_SOURCE: &str =
+    "packages/schemas/overrid_contracts/v0/shared_schema_package.schema.json";
+pub const PHASE8_MANIFEST_SOURCE: &str = "packages/schemas/overrid_contracts/codegen_manifest.json";
+pub const PHASE8_BUILD_PLAN_SOURCE: &str =
+    "docs/build_plan/sub_build_plan_007_shared_schema_package.md";
+pub const PHASE8_TECH_STACK_SOURCE: &str = "docs/overrid_tech_stack_choice.md";
+pub const PHASE8_RUST_OUTPUT_PATH: &str = "packages/schemas/overrid_contracts/src/lib.rs";
+pub const PHASE8_VALIDATOR_SCRIPT: &str = "scripts/validate_shared_schema_package_phase8.py";
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE8_DOMAIN_FAMILIES: &[&str] = &[
+    "execution_scheduling",
+    "trust_policy_verification",
+    "accounting_rights_settlement",
+    "data_storage_namespace_secret_refs",
+    "ai_docdex_mobile_native_ades",
+];
+
+pub const REQUIRED_SHARED_SCHEMA_PHASE8_GUARDRAILS: &[&str] = &[
+    "generated_contract_consumption",
+    "owner_phase_gate",
+    "strict_unknown_field_rejection",
+    "ref_only_secret_storage",
+    "evidence_backed_namespace_ownership",
+    "no_conventional_cloud_storage",
+    "no_pricing_revenue_tokenized_assets",
+    "privacy_classified_ai_user_content",
+    "typescript_second_projection",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase8DomainModule {
+    pub domain_family: String,
+    pub module_name: String,
+    pub owning_master_phase: String,
+    pub owning_service_families: Vec<String>,
+    pub downstream_consumers: Vec<String>,
+    pub fixture_ref: String,
+    pub generated_contract_consumption_required: bool,
+    pub private_duplicate_types_allowed: bool,
+    pub strict_unknown_fields_required: bool,
+    pub raw_secret_values_allowed: bool,
+    pub untyped_refs_allowed: bool,
+    pub raw_private_payload_allowed: bool,
+    pub runtime_authority_stays_with_owner: bool,
+}
+
+impl SharedSchemaPhase8DomainModule {
+    pub fn new(
+        domain_family: impl Into<String>,
+        module_name: impl Into<String>,
+        owning_master_phase: impl Into<String>,
+        owning_service_families: Vec<String>,
+        downstream_consumers: Vec<String>,
+        fixture_suffix: impl Into<String>,
+    ) -> Self {
+        Self {
+            domain_family: domain_family.into(),
+            module_name: module_name.into(),
+            owning_master_phase: owning_master_phase.into(),
+            owning_service_families,
+            downstream_consumers,
+            fixture_ref: format!("fixture:shared-schema-phase8:{}", fixture_suffix.into()),
+            generated_contract_consumption_required: true,
+            private_duplicate_types_allowed: false,
+            strict_unknown_fields_required: true,
+            raw_secret_values_allowed: false,
+            untyped_refs_allowed: false,
+            raw_private_payload_allowed: false,
+            runtime_authority_stays_with_owner: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase8ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE8_DOMAIN_FAMILIES
+            .iter()
+            .any(|domain| self.domain_family == *domain)
+            || self.module_name.trim().is_empty()
+            || !self.fixture_ref.starts_with("fixture:")
+            || self.downstream_consumers.is_empty()
+        {
+            return Err(SharedSchemaPhase8ContractError::InvalidDomainModule(
+                self.domain_family.clone(),
+            ));
+        }
+        if !self.owning_master_phase.starts_with("master_phase:")
+            || self.owning_service_families.is_empty()
+        {
+            return Err(SharedSchemaPhase8ContractError::DomainOwnerGateMissing(
+                self.domain_family.clone(),
+            ));
+        }
+        if !self.generated_contract_consumption_required || self.private_duplicate_types_allowed {
+            return Err(
+                SharedSchemaPhase8ContractError::GeneratedContractConsumptionMissing(
+                    self.domain_family.clone(),
+                ),
+            );
+        }
+        if !self.strict_unknown_fields_required || self.untyped_refs_allowed {
+            return Err(SharedSchemaPhase8ContractError::StrictGuardrailMissing(
+                self.domain_family.clone(),
+            ));
+        }
+        if self.raw_secret_values_allowed
+            || (self.domain_family == "data_storage_namespace_secret_refs" && self.untyped_refs_allowed)
+        {
+            return Err(SharedSchemaPhase8ContractError::StorageSecretRefInvalid);
+        }
+        if self.raw_private_payload_allowed {
+            return Err(SharedSchemaPhase8ContractError::PrivatePayloadLeakage);
+        }
+        if !self.runtime_authority_stays_with_owner {
+            return Err(SharedSchemaPhase8ContractError::RuntimeAuthorityDrift(
+                self.domain_family.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase8GuardrailCheck {
+    pub guardrail_name: String,
+    pub domain_family: String,
+    pub reason_code: String,
+    pub forbidden_terms: Vec<String>,
+    pub enforced: bool,
+}
+
+impl SharedSchemaPhase8GuardrailCheck {
+    pub fn new(
+        guardrail_name: impl Into<String>,
+        domain_family: impl Into<String>,
+        reason_code: impl Into<String>,
+        forbidden_terms: Vec<String>,
+    ) -> Self {
+        Self {
+            guardrail_name: guardrail_name.into(),
+            domain_family: domain_family.into(),
+            reason_code: reason_code.into(),
+            forbidden_terms,
+            enforced: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase8ContractError> {
+        if !REQUIRED_SHARED_SCHEMA_PHASE8_GUARDRAILS
+            .iter()
+            .any(|guardrail| self.guardrail_name == *guardrail)
+            || !REQUIRED_SHARED_SCHEMA_PHASE8_DOMAIN_FAMILIES
+                .iter()
+                .any(|domain| self.domain_family == *domain)
+            || !self.reason_code.starts_with("schema.")
+            || self.forbidden_terms.is_empty()
+            || !self.enforced
+        {
+            return match self.guardrail_name.as_str() {
+                "no_pricing_revenue_tokenized_assets" => {
+                    Err(SharedSchemaPhase8ContractError::AccountingAssumptionForbidden)
+                }
+                "ref_only_secret_storage" | "no_conventional_cloud_storage" => {
+                    Err(SharedSchemaPhase8ContractError::StorageSecretRefInvalid)
+                }
+                "privacy_classified_ai_user_content" => {
+                    Err(SharedSchemaPhase8ContractError::PrivatePayloadLeakage)
+                }
+                "typescript_second_projection" => {
+                    Err(SharedSchemaPhase8ContractError::TypeScriptAuthorityDrift)
+                }
+                "generated_contract_consumption" => Err(
+                    SharedSchemaPhase8ContractError::GeneratedContractConsumptionMissing(
+                        self.domain_family.clone(),
+                    ),
+                ),
+                "owner_phase_gate" => Err(
+                    SharedSchemaPhase8ContractError::DomainOwnerGateMissing(
+                        self.domain_family.clone(),
+                    ),
+                ),
+                _ => Err(SharedSchemaPhase8ContractError::StrictGuardrailMissing(
+                    self.guardrail_name.clone(),
+                )),
+            };
+        }
+        if self.guardrail_name == "no_pricing_revenue_tokenized_assets"
+            && ![
+                "price schedule",
+                "revenue projection",
+                "customer count",
+                "distributed ledger ownership mechanics",
+                "tokenized collectible rights",
+            ]
+            .iter()
+            .all(|term| self.forbidden_terms.iter().any(|actual| actual == term))
+        {
+            return Err(SharedSchemaPhase8ContractError::AccountingAssumptionForbidden);
+        }
+        if self.guardrail_name == "privacy_classified_ai_user_content"
+            && !self
+                .forbidden_terms
+                .iter()
+                .any(|term| term == "raw private payload")
+        {
+            return Err(SharedSchemaPhase8ContractError::PrivatePayloadLeakage);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase8TypeScriptProjectionRequirement {
+    pub generated_from_canonical_schema: bool,
+    pub rust_fixture_gate_required: bool,
+    pub browser_safe_redaction_required: bool,
+    pub source_authority_allowed: bool,
+    pub protobuf_public_authority_allowed: bool,
+    pub blocked_until_rust_and_fixtures_stable: bool,
+}
+
+impl SharedSchemaPhase8TypeScriptProjectionRequirement {
+    pub fn canonical() -> Self {
+        Self {
+            generated_from_canonical_schema: true,
+            rust_fixture_gate_required: true,
+            browser_safe_redaction_required: true,
+            source_authority_allowed: false,
+            protobuf_public_authority_allowed: false,
+            blocked_until_rust_and_fixtures_stable: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase8ContractError> {
+        if !self.generated_from_canonical_schema
+            || !self.rust_fixture_gate_required
+            || !self.browser_safe_redaction_required
+            || self.source_authority_allowed
+            || self.protobuf_public_authority_allowed
+            || !self.blocked_until_rust_and_fixtures_stable
+        {
+            return Err(SharedSchemaPhase8ContractError::TypeScriptAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase8RustProjection {
+    pub path: String,
+    pub validator_entrypoint: String,
+    pub non_authoritative: bool,
+}
+
+impl SharedSchemaPhase8RustProjection {
+    pub fn canonical() -> Self {
+        Self {
+            path: PHASE8_RUST_OUTPUT_PATH.to_owned(),
+            validator_entrypoint:
+                "SharedSchemaPhase8DomainExpansionContract::canonical().validate()".to_owned(),
+            non_authoritative: true,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase8ContractError> {
+        if self.path != PHASE8_RUST_OUTPUT_PATH
+            || self.validator_entrypoint
+                != "SharedSchemaPhase8DomainExpansionContract::canonical().validate()"
+            || !self.non_authoritative
+        {
+            return Err(SharedSchemaPhase8ContractError::RustProjectionAuthorityDrift);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedSchemaPhase8DomainExpansionContract {
+    pub schema_version: SchemaVersion,
+    pub domain_modules: Vec<SharedSchemaPhase8DomainModule>,
+    pub guardrail_checks: Vec<SharedSchemaPhase8GuardrailCheck>,
+    pub typescript_projection_requirement: SharedSchemaPhase8TypeScriptProjectionRequirement,
+    pub source_hash_inputs: Vec<String>,
+    pub rust_projection: SharedSchemaPhase8RustProjection,
+}
+
+impl SharedSchemaPhase8DomainExpansionContract {
+    pub fn canonical() -> Result<Self, ContractError> {
+        Ok(Self {
+            schema_version: ensure_supported_shared_schema_package_schema_version(
+                SUPPORTED_SHARED_SCHEMA_PACKAGE_SCHEMA_VERSION,
+            )?,
+            domain_modules: vec![
+                SharedSchemaPhase8DomainModule::new(
+                    "execution_scheduling",
+                    "execution_scheduling_runtime_refs",
+                    "master_phase:3",
+                    owned_values(&[
+                        "Overpack",
+                        "Oversched",
+                        "Overlease",
+                        "Overrun",
+                        "Overmeter",
+                        "Overcell",
+                        "Overcache",
+                    ]),
+                    owned_values(&["Rust services", "CLI", "SDK", "Integration Test Harness"]),
+                    "execution-scheduling",
+                ),
+                SharedSchemaPhase8DomainModule::new(
+                    "trust_policy_verification",
+                    "trust_policy_verification_decision_refs",
+                    "master_phase:4",
+                    owned_values(&[
+                        "Overguard",
+                        "Oververify",
+                        "Challenge Task Service",
+                        "Workload Classifier",
+                        "Reputation and Anti-Sybil Service",
+                    ]),
+                    owned_values(&["Rust services", "CLI", "SDK", "Integration Test Harness"]),
+                    "trust-policy-verification",
+                ),
+                SharedSchemaPhase8DomainModule::new(
+                    "accounting_rights_settlement",
+                    "accounting_rights_settlement_refs",
+                    "master_phase:5",
+                    owned_values(&[
+                        "Overmeter",
+                        "ORU Account Service",
+                        "Seal Ledger",
+                        "Overasset",
+                        "Overgrant",
+                        "Overbill",
+                        "Provider Payout Service",
+                    ]),
+                    owned_values(&["Rust services", "CLI", "SDK", "Integration Test Harness"]),
+                    "accounting-rights-settlement",
+                ),
+                SharedSchemaPhase8DomainModule::new(
+                    "data_storage_namespace_secret_refs",
+                    "data_storage_namespace_secret_ref_contracts",
+                    "master_phase:8",
+                    owned_values(&[
+                        "Overbase",
+                        "Overstore",
+                        "Overvault",
+                        "Universal Namespace Service",
+                        "Overmesh",
+                        "Overasset",
+                    ]),
+                    owned_values(&["Rust services", "CLI", "SDK", "Integration Test Harness"]),
+                    "data-storage-namespace",
+                ),
+                SharedSchemaPhase8DomainModule::new(
+                    "ai_docdex_mobile_native_ades",
+                    "ai_docdex_mobile_native_ades_refs",
+                    "master_phase:12",
+                    owned_values(&[
+                        "AI Gateway Router",
+                        "Personal AI Assistant",
+                        "Encrypted Docdex RAG Adapter",
+                        "ADES Enrichment Adapter",
+                        "Mobile SDK",
+                        "Native Apps",
+                        "Central AI Stewardship Interface",
+                    ]),
+                    owned_values(&[
+                        "Rust services",
+                        "TypeScript/web projections",
+                        "Mobile bindings",
+                        "CLI",
+                        "SDK",
+                    ]),
+                    "ai-docdex-mobile-native-ades",
+                ),
+            ],
+            guardrail_checks: vec![
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "generated_contract_consumption",
+                    "execution_scheduling",
+                    "schema.generated_contract_consumption_missing",
+                    owned_values(&["private duplicate types", "ad hoc payload parsing"]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "owner_phase_gate",
+                    "trust_policy_verification",
+                    "schema.domain_owner_gate_missing",
+                    owned_values(&["unowned downstream schema", "ungated phase expansion"]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "strict_unknown_field_rejection",
+                    "accounting_rights_settlement",
+                    "schema.strict_unknown_field_required",
+                    owned_values(&["unknown accounting field", "permissive ledger payload"]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "ref_only_secret_storage",
+                    "data_storage_namespace_secret_refs",
+                    "schema.storage_secret_ref_invalid",
+                    owned_values(&["raw_secret", "private_key", "token_value"]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "evidence_backed_namespace_ownership",
+                    "data_storage_namespace_secret_refs",
+                    "schema.namespace_evidence_ref_missing",
+                    owned_values(&["namespace ownership without evidence ref"]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "no_conventional_cloud_storage",
+                    "data_storage_namespace_secret_refs",
+                    "schema.conventional_storage_assumption_forbidden",
+                    owned_values(&[
+                        "S3",
+                        "external cloud object storage product boundary",
+                        "Vault product boundary",
+                    ]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "no_pricing_revenue_tokenized_assets",
+                    "accounting_rights_settlement",
+                    "schema.accounting_assumption_forbidden",
+                    owned_values(&[
+                        "price schedule",
+                        "revenue projection",
+                        "customer count",
+                        "distributed ledger ownership mechanics",
+                        "tokenized collectible rights",
+                    ]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "privacy_classified_ai_user_content",
+                    "ai_docdex_mobile_native_ades",
+                    "schema.private_payload_leakage",
+                    owned_values(&[
+                        "raw private payload",
+                        "unencrypted user content",
+                        "raw AI context",
+                    ]),
+                ),
+                SharedSchemaPhase8GuardrailCheck::new(
+                    "typescript_second_projection",
+                    "ai_docdex_mobile_native_ades",
+                    "schema.typescript_authority_drift",
+                    owned_values(&["TypeScript source authority", "Protobuf-only public object"]),
+                ),
+            ],
+            typescript_projection_requirement:
+                SharedSchemaPhase8TypeScriptProjectionRequirement::canonical(),
+            source_hash_inputs: owned_values(&[
+                PHASE8_CANONICAL_SCHEMA_SOURCE,
+                PHASE8_MANIFEST_SOURCE,
+                PHASE8_BUILD_PLAN_SOURCE,
+                PHASE8_TECH_STACK_SOURCE,
+            ]),
+            rust_projection: SharedSchemaPhase8RustProjection::canonical(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), SharedSchemaPhase8ContractError> {
+        let domain_families: BTreeSet<&str> = self
+            .domain_modules
+            .iter()
+            .map(|module| module.domain_family.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE8_DOMAIN_FAMILIES {
+            if !domain_families.contains(required) {
+                return Err(SharedSchemaPhase8ContractError::MissingDomainFamily(
+                    required,
+                ));
+            }
+        }
+        for module in &self.domain_modules {
+            module.validate()?;
+        }
+
+        let guardrails: BTreeSet<&str> = self
+            .guardrail_checks
+            .iter()
+            .map(|guardrail| guardrail.guardrail_name.as_str())
+            .collect();
+        for required in REQUIRED_SHARED_SCHEMA_PHASE8_GUARDRAILS {
+            if !guardrails.contains(required) {
+                return Err(SharedSchemaPhase8ContractError::MissingGuardrail(
+                    required,
+                ));
+            }
+        }
+        for guardrail in &self.guardrail_checks {
+            guardrail.validate()?;
+        }
+        self.typescript_projection_requirement.validate()?;
+        for required in [
+            PHASE8_CANONICAL_SCHEMA_SOURCE,
+            PHASE8_MANIFEST_SOURCE,
+            PHASE8_BUILD_PLAN_SOURCE,
+            PHASE8_TECH_STACK_SOURCE,
+        ] {
+            if !self
+                .source_hash_inputs
+                .iter()
+                .any(|input| input == required)
+            {
+                return Err(SharedSchemaPhase8ContractError::MissingSourceInput(
+                    required,
+                ));
+            }
+        }
+        self.rust_projection.validate()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSchemaPhase8ContractError {
+    MissingDomainFamily(&'static str),
+    MissingGuardrail(&'static str),
+    InvalidDomainModule(String),
+    GeneratedContractConsumptionMissing(String),
+    DomainOwnerGateMissing(String),
+    StrictGuardrailMissing(String),
+    StorageSecretRefInvalid,
+    AccountingAssumptionForbidden,
+    PrivatePayloadLeakage,
+    TypeScriptAuthorityDrift,
+    RuntimeAuthorityDrift(String),
+    MissingSourceInput(&'static str),
+    RustProjectionAuthorityDrift,
+}
+
+impl fmt::Display for SharedSchemaPhase8ContractError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingDomainFamily(domain) => {
+                write!(formatter, "missing Phase 8 domain family: {domain}")
+            }
+            Self::MissingGuardrail(guardrail) => {
+                write!(formatter, "missing Phase 8 guardrail: {guardrail}")
+            }
+            Self::InvalidDomainModule(module) => {
+                write!(formatter, "invalid Phase 8 domain module: {module}")
+            }
+            Self::GeneratedContractConsumptionMissing(domain) => write!(
+                formatter,
+                "Phase 8 domain lacks generated contract consumption: {domain}"
+            ),
+            Self::DomainOwnerGateMissing(domain) => {
+                write!(formatter, "Phase 8 domain owner gate missing: {domain}")
+            }
+            Self::StrictGuardrailMissing(guardrail) => {
+                write!(formatter, "Phase 8 strict guardrail missing: {guardrail}")
+            }
+            Self::StorageSecretRefInvalid => {
+                formatter.write_str("Phase 8 storage or secret-ref guardrail drift")
+            }
+            Self::AccountingAssumptionForbidden => formatter.write_str(
+                "Phase 8 accounting schema contains forbidden pricing, revenue, customer-count, distributed-ledger ownership, or tokenized-asset assumptions",
+            ),
+            Self::PrivatePayloadLeakage => {
+                formatter.write_str("Phase 8 private payload leakage guardrail drift")
+            }
+            Self::TypeScriptAuthorityDrift => {
+                formatter.write_str("Phase 8 TypeScript/web projection authority drift")
+            }
+            Self::RuntimeAuthorityDrift(domain) => write!(
+                formatter,
+                "Phase 8 runtime authority moved out of owning service: {domain}"
+            ),
+            Self::MissingSourceInput(path) => write!(formatter, "missing source input: {path}"),
+            Self::RustProjectionAuthorityDrift => {
+                formatter.write_str("Phase 8 Rust projection authority drift")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SharedSchemaPhase8ContractError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedSchemaPackageContractError {
     MissingSourceRoot(&'static str),
@@ -9302,6 +9878,127 @@ mod tests {
         assert!(matches!(
             contract.validate(),
             Err(SharedSchemaPhase7ContractError::RustProjectionAuthorityDrift)
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase8_contract_covers_downstream_domain_expansion() {
+        let contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        contract.validate().unwrap();
+
+        for domain in REQUIRED_SHARED_SCHEMA_PHASE8_DOMAIN_FAMILIES {
+            assert!(contract
+                .domain_modules
+                .iter()
+                .any(|module| module.domain_family == *domain));
+        }
+        for guardrail in REQUIRED_SHARED_SCHEMA_PHASE8_GUARDRAILS {
+            assert!(contract
+                .guardrail_checks
+                .iter()
+                .any(|check| check.guardrail_name == *guardrail));
+        }
+        assert!(contract
+            .domain_modules
+            .iter()
+            .all(|module| module.generated_contract_consumption_required
+                && !module.private_duplicate_types_allowed
+                && module.strict_unknown_fields_required
+                && !module.raw_secret_values_allowed
+                && !module.untyped_refs_allowed
+                && !module.raw_private_payload_allowed
+                && module.runtime_authority_stays_with_owner));
+        assert!(!contract
+            .typescript_projection_requirement
+            .source_authority_allowed);
+        assert_eq!(
+            contract.rust_projection.validator_entrypoint,
+            "SharedSchemaPhase8DomainExpansionContract::canonical().validate()"
+        );
+    }
+
+    #[test]
+    fn shared_schema_phase8_rejects_private_duplicate_and_owner_gate_drift() {
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        let execution = contract
+            .domain_modules
+            .iter_mut()
+            .find(|module| module.domain_family == "execution_scheduling")
+            .unwrap();
+        execution.generated_contract_consumption_required = false;
+        execution.private_duplicate_types_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::GeneratedContractConsumptionMissing(domain))
+                if domain == "execution_scheduling"
+        ));
+
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        let trust = contract
+            .domain_modules
+            .iter_mut()
+            .find(|module| module.domain_family == "trust_policy_verification")
+            .unwrap();
+        trust.owning_master_phase.clear();
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::DomainOwnerGateMissing(domain))
+                if domain == "trust_policy_verification"
+        ));
+    }
+
+    #[test]
+    fn shared_schema_phase8_rejects_storage_accounting_ai_and_projection_drift() {
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        let storage = contract
+            .domain_modules
+            .iter_mut()
+            .find(|module| module.domain_family == "data_storage_namespace_secret_refs")
+            .unwrap();
+        storage.raw_secret_values_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::StorageSecretRefInvalid)
+        ));
+
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        let accounting_guardrail = contract
+            .guardrail_checks
+            .iter_mut()
+            .find(|guardrail| guardrail.guardrail_name == "no_pricing_revenue_tokenized_assets")
+            .unwrap();
+        accounting_guardrail.enforced = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::AccountingAssumptionForbidden)
+        ));
+
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        let ai = contract
+            .domain_modules
+            .iter_mut()
+            .find(|module| module.domain_family == "ai_docdex_mobile_native_ades")
+            .unwrap();
+        ai.raw_private_payload_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::PrivatePayloadLeakage)
+        ));
+
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        contract
+            .typescript_projection_requirement
+            .source_authority_allowed = true;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::TypeScriptAuthorityDrift)
+        ));
+
+        let mut contract = SharedSchemaPhase8DomainExpansionContract::canonical().unwrap();
+        contract.rust_projection.non_authoritative = false;
+        assert!(matches!(
+            contract.validate(),
+            Err(SharedSchemaPhase8ContractError::RustProjectionAuthorityDrift)
         ));
     }
 
