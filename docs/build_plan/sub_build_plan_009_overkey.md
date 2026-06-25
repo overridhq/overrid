@@ -80,6 +80,75 @@ Overkey is the credential and public verification metadata authority for Overrid
   - Output: Boundary matrix for external lifecycle commands, internal verification helpers, Overvault secret refs, Overpass identity refs, Overtenant scope refs, Overguard policy refs, and Overwatch audit refs.
   - Validation: Design review rejects direct credential mutation by downstream services and rejects credential use paths that bypass Overgate admission or approved internal service-account authentication.
 
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Artifact | Required link target | Phase 1 state |
+| --- | --- | --- |
+| `docs/sds/control_plane/overkey.md` | `docs/build_plan/sub_build_plan_009_overkey.md` | `attached` |
+| `docs/service_catalog/control_plane/overkey.md` | `docs/build_plan/sub_build_plan_009_overkey.md` | `attached` |
+| `docs/build_plan/master_plan.md` | SDS #9 per-SDS sub-build plan row | `attached` |
+| `docs/build_plan/service_catalog_alignment.md` | SDS #9 crosswalk row | `attached` |
+| `docs/overrid_tech_stack_choice.md` | Rust-first Overkey control-plane guardrails | `attached` |
+| `docs/planning/overkey_phase_01_plan.md` | Phase 1 execution plan | `attached` |
+| `docs/planning/overkey_phase_01_progress.md` | Phase 1 progress and evidence trail | `attached` |
+
+#### Frozen Credential Metadata Authority
+
+Overkey is frozen as the credential and public verification metadata authority for Overrid. It owns records and verification facts that allow Overgate and approved internal services to verify credentials, but it never becomes the raw secret vault, tenant authorization engine, policy engine, request-admission boundary, or accounting settlement service.
+
+| Boundary rule | Phase 1 state |
+| --- | --- |
+| Credential records, API key hashes, public signing key metadata, service-account key records, delegated access metadata, rotation links, revocation records, last-used metadata, verification results, and secret-ref contracts are Overkey-owned metadata. | `credential_metadata_authority_frozen` |
+| Raw private keys, seed phrases, passwords, bearer tokens, raw API keys, and unencrypted secret values are forbidden in Overkey records. | `forbidden_in_overkey` |
+| User/operator-facing lifecycle mutations enter through Overgate before Overkey records change. | `overgate_admitted` |
+| Internal verification helpers are restricted to signed service accounts with explicit allowed services and command classes. | `internal_service_account_restricted` |
+| Raw secret custody, business authorization, tenant membership, policy finality, request admission, and accounting settlement remain downstream or adjacent service responsibilities. | `downstream_owned` |
+
+#### Master Phase Gate Matrix
+
+| Master phase | Overkey authority rule |
+| --- | --- |
+| Phase 0 | Supplies shared schemas, local stack, deterministic fixtures, API/event conventions, and integration harness prerequisites only. |
+| Phase 1 | First build point: Overkey-lite credential metadata, key records, verification metadata, and signed control-plane credential checks. State: `master_phase_1_owned`. |
+| Phase 4 | Adds Overguard policy handoff for credential class, delegation, protection-class, command-class, and high-risk operation checks without moving policy finality into Overkey. |
+| Phase 5 | Adds Overmeter usage-relevant event refs without ORU, Seal Ledger, Overbill, Overgrant, or Overasset mutation. |
+| Phase 6 | Hardens SDK, CLI, admin UI, Docdex, Mcoda, Codali, adapter, and product-client credential flows through Overgate and Overkey contracts. |
+| Phase 7 | Prepares grid-resident system-service credentials, backup/restore refs, failover, rolling updates, break-glass operations, and propagation evidence. |
+| Phase 8 | Expands to Overvault secret refs, protection classes, namespace-aware credential bindings, and broader key services without replacing Overvault. |
+
+#### Resolved SDS Decision Checklist
+
+These rows are `resolved_decision_carried` from SDS #9 and must not be weakened by generic key-management behavior.
+
+| Resolved SDS decision | Phase 1 carry-forward rule |
+| --- | --- |
+| Ed25519 command signatures | Use Ed25519 as the initial command-signature algorithm for signed command envelopes, service-account signatures, node enrollment signatures, and operator/admin commands. |
+| BLAKE3 canonical hashes and fingerprints | Use BLAKE3 for canonical body hashes, key fingerprints, evidence refs, and hash-linked audit evidence. |
+| Explicit non-secret credential and key ids | Use stable credential ids, key ids, public fingerprints, and non-secret prefixes instead of raw keys or reusable secret values in records, logs, errors, or fixtures. |
+| Production protection classes | Require explicit protection-class metadata for production operator/admin credentials, emergency revocation credentials, node enrollment keys, and high-risk service-account keys. |
+| Short verification caches | Keep positive verification cache guidance short, with ordinary Phase 1 credentials capped at 30 seconds and high-risk credentials capped at 5 seconds or bypassed. |
+| Revocation epoch invalidation | Include revocation epochs in cache keys and invalidate immediately on rotation, suspension, revocation, expiry, tenant suspension, and algorithm deprecation. |
+| Signed break-glass revocation through Overgate | Emergency revocation enters through a signed, idempotent Overgate command using an operator/admin credential with required role, evidence, and protection class. |
+
+#### Runtime Authority Boundary Matrix
+
+| Record or decision type | Owner | Phase 1 state |
+| --- | --- | --- |
+| Credential records, credential status, allowed use, expiry, audit refs, and public verification metadata | Overkey | `overkey_owned` |
+| API key hashes, non-secret prefixes, public signing key metadata, key fingerprints, and service-account key records | Overkey | `overkey_owned` |
+| Delegated access metadata, rotation links, revocation records, revocation epochs, last-used metadata, and verification results | Overkey | `overkey_owned` |
+| Secret-ref contracts, protection-class metadata, resolver refs, and blocked/pending dependency states | Overkey metadata; Overvault owns protected secret material | `downstream_owned` |
+| Lifecycle command admission, signed operator/admin command verification before mutation, idempotency, and ingress audit emission | Overgate | `downstream_owned` |
+| Identity lifecycle, subject state, tenant membership, tenant suspension, and role scope | Overpass and Overtenant | `downstream_owned` |
+| Credential-class policy, delegation policy, high-risk operation policy, and deny-by-default policy finality | Overguard | `downstream_owned` |
+| Raw secret custody, raw private keys, bearer tokens, raw API keys, business authorization, request admission, ORU mutation, Seal Ledger entries, and accounting settlement | Not Overkey | `forbidden_in_overkey` |
+
+#### Documentation Update Rule
+
+Any new Overkey credential class, lifecycle state, allowed use, verification helper, service-account scope, delegation field, rotation or revocation rule, secret-ref contract, protection class, cache rule, break-glass path, event payload, or authority exception must update the shared schema package, the Overkey SDS, this sub-build plan, the owning downstream service SDS/service plan, and the build-plan crosswalk before implementation code treats it as available.
+
 ## Phase 2: Rust Service Skeleton, Schemas, And Record Model
 
 ### Work Items
