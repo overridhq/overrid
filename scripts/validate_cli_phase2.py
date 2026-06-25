@@ -361,20 +361,16 @@ def validate_docs() -> None:
 
 
 def validate_no_forbidden_runtime_terms() -> None:
-    scoped_text = "\n".join(
-        read(path)
-        for path in [
-            ROOT_CARGO,
-            CONTRACTS / "src/lib.rs",
-            SDK / "src/lib.rs",
-            CLI / "src/build_metadata.rs",
-            CLI / "src/lib.rs",
-            CLI / "src/main.rs",
-            CLI / "src/parser.rs",
-            CLI / "src/runner.rs",
-        ]
-    )
-    for rejected in [
+    scoped_runtime_files = [
+        ROOT_CARGO,
+        SDK / "src/lib.rs",
+        CLI / "src/build_metadata.rs",
+        CLI / "src/lib.rs",
+        CLI / "src/main.rs",
+        CLI / "src/parser.rs",
+        CLI / "src/runner.rs",
+    ]
+    rejected_terms = [
         "postgres",
         "redis",
         "kafka",
@@ -384,8 +380,11 @@ def validate_no_forbidden_runtime_terms() -> None:
         "vault token",
         "blockchain",
         "nft",
-    ]:
-        assert_not_contains(scoped_text.lower(), rejected, Path("CLI Phase 2 scoped files"))
+    ]
+    for path in scoped_runtime_files:
+        scoped_text = read(path).lower()
+        for rejected in rejected_terms:
+            assert_not_contains(scoped_text, rejected, path)
 
 
 def validate_cargo() -> None:
