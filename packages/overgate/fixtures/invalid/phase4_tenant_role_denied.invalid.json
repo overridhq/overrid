@@ -1,0 +1,35 @@
+{
+  "schema_version": "overgate.phase4.invalid_fixture.v0",
+  "fixture_id": "fixture:overgate_phase4_tenant_role_denied",
+  "command_envelope": {
+    "command_id": "command:overgate:phase4:tenant_role_denied",
+    "command_type": "overgate.phase4.service_account.role_denied",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "service_account:local:ingress",
+    "trace_id": "trace_overgate_phase4_tenant_role_denied",
+    "idempotency_key": "idem:overgate:phase4:tenant_role_denied",
+    "credential_id": "credential:service_account:local:ingress",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase4_tenant_role_denied_request",
+    "payload_hash": "hash:fixture:overgate_phase4_tenant_role_denied_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase4_tenant_role_denied",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase4/tenant_role_denied_payload"
+  },
+  "expected_denial": {
+    "status": 403,
+    "reason_code": "auth.tenant_role_denied",
+    "dependency_name": "overtenant",
+    "retryability": "operator_review",
+    "correction_fields": [
+      "command_type"
+    ]
+  }
+}

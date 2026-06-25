@@ -123,6 +123,14 @@ impl DependencyMatrix {
             .collect()
     }
 
+    pub fn dependency_ready(&self, dependency_id: &str) -> bool {
+        self.checks
+            .iter()
+            .find(|check| check.dependency_id == dependency_id)
+            .map(|check| check.state == DependencyState::Ready)
+            .unwrap_or(false)
+    }
+
     pub fn readiness_reason_code(&self) -> &'static str {
         if self.required_ready() {
             "overgate.ready"

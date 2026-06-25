@@ -6,6 +6,7 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::admission::{admit_command, AdmissionContext};
 use crate::canonical::CanonicalRequestInput;
 use crate::envelope::{trace_id_hint, CommandEnvelope};
 use crate::errors::{ApiErrorData, OvergateError};
@@ -16,6 +17,9 @@ use crate::service::OvergateState;
 pub const TRACE_HEADER: &str = "x-overrid-trace-id";
 pub const TENANT_HEADER: &str = "x-overrid-tenant-id";
 pub const PHASE3_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase3.response.v0";
+pub const PHASE4_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase4.response.v0";
+pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
+pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
 
 pub const ROUTE_SUBMIT_COMMAND: &str = "POST /v1/commands";
@@ -44,7 +48,7 @@ impl<T: Serialize> ApiResponse<T> {
         data: T,
     ) -> Self {
         Self {
-            schema_version: PHASE3_RESPONSE_SCHEMA_VERSION,
+            schema_version: PHASE4_RESPONSE_SCHEMA_VERSION,
             service: "service:overgate",
             trace_id: trace_id.into(),
             status,
@@ -66,6 +70,7 @@ struct CommandAcceptedData {
     body_hash_ref: String,
     schema_validation: SchemaValidationReport,
     canonical_request: CanonicalRequestInput,
+    admission: AdmissionContext,
     retention: RetentionDecision,
 }
 
@@ -148,6 +153,13 @@ async fn submit_command(
         &parsed.body_hash,
     );
     let request_id = command_request_id(&canonical_request, &parsed.envelope.trace_id);
+    let admission = admit_command(&parsed.envelope, &canonical_request).map_err(|error| {
+        api_error_response(
+            parsed.envelope.trace_id.clone(),
+            Some(request_id.clone()),
+            error,
+        )
+    })?;
     let schema_validation = validate_command_envelope(&parsed.envelope).map_err(|error| {
         api_error_response(
             parsed.envelope.trace_id.clone(),
@@ -162,18 +174,19 @@ async fn submit_command(
         Json(ApiResponse::new(
             parsed.envelope.trace_id.clone(),
             "accepted",
-            "overgate.command_validated_phase3",
+            "overgate.command_admitted_phase4",
             CommandAcceptedData {
                 route: ROUTE_SUBMIT_COMMAND,
                 request_id: request_id.clone(),
                 command_id: parsed.envelope.command_id.clone(),
                 audit_ref: format!("audit:overgate:request_received:{request_id}"),
-                forwarding_state: "not_forwarded_phase3_validation_only",
+                forwarding_state: "not_forwarded_phase4_admission_only",
                 payload_hash_ref: parsed.envelope.payload_hash.clone(),
                 request_hash_ref: parsed.envelope.request_hash.clone(),
                 body_hash_ref: parsed.body_hash,
                 schema_validation,
                 canonical_request,
+                admission,
                 retention,
             },
         )),
@@ -443,10 +456,26 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["schema_version"], PHASE3_RESPONSE_SCHEMA_VERSION);
-        assert_eq!(body["reason_code"], "overgate.command_validated_phase3");
+        assert_eq!(body["schema_version"], PHASE4_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
+        assert_eq!(
+            body["data"]["admission"]["adapter_id"],
+            "overgate.phase4.local_admission_adapter"
+        );
+        assert_eq!(
+            body["data"]["admission"]["signature_check"]["reason_code"],
+            "auth.signature_verified_phase4"
+        );
+        assert_eq!(
+            body["data"]["admission"]["actor_resolution"]["reason_code"],
+            "auth.actor_resolved_phase4"
+        );
+        assert_eq!(
+            body["data"]["admission"]["tenant_authorization"]["reason_code"],
+            "auth.tenant_authorized_phase4"
+        );
         assert_eq!(
             body["data"]["schema_validation"]["adapter_id"],
             "overgate.phase3.shared_schema_adapter"
@@ -526,11 +555,11 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
-        assert_eq!(body["reason_code"], "overgate.command_validated_phase3");
+        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(
             body["data"]["forwarding_state"],
-            "not_forwarded_phase3_validation_only"
+            "not_forwarded_phase4_admission_only"
         );
         assert!(body["data"]["request_id"]
             .as_str()
@@ -737,6 +766,256 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase4_command_admission_records_signature_actor_tenant_and_service_accounts() {
+        let app = OvergateService::default().router();
+        let mut service_account = valid_command_envelope("trace_phase4_service_account");
+        service_account["command_id"] = json!("command:overgate:phase4:service_account");
+        service_account["command_type"] = json!("overgate.phase4.service_account.noop");
+        service_account["actor_id"] = json!("service_account:local:ingress");
+        service_account["credential_id"] = json!("credential:service_account:local:ingress");
+        service_account["signature_metadata"]["signature_ref"] =
+            json!("signature:fixture:phase4_service_account");
+        service_account["request_hash"] = json!("hash:fixture:phase4_service_account_request");
+        service_account["payload_hash"] = json!("hash:fixture:phase4_service_account_payload");
+
+        let response = app
+            .oneshot(command_post("/v1/commands", service_account))
+            .await
+            .expect("service account admission should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
+        assert_eq!(
+            body["data"]["admission"]["service_account_admission"]["reason_code"],
+            "auth.service_account_admitted_phase4"
+        );
+        assert_eq!(
+            body["data"]["admission"]["service_account_admission"]["narrow_permission_state"],
+            "narrow_command_class_allowed"
+        );
+        assert_eq!(
+            body["data"]["admission"]["signature_check"]["public_key_ref"]
+                .as_str()
+                .expect("public key ref should be present")
+                .starts_with("public_key:overkey:"),
+            true
+        );
+
+        let app = OvergateService::default().router();
+        let mut node_agent = valid_command_envelope("trace_phase4_node_agent");
+        node_agent["command_id"] = json!("command:overgate:phase4:node_agent");
+        node_agent["command_type"] = json!("overgate.phase4.node_agent.callback");
+        node_agent["actor_id"] = json!("node_agent:local:worker-1");
+        node_agent["credential_id"] = json!("credential:node_agent:local:worker-1");
+        node_agent["signature_metadata"]["signature_ref"] =
+            json!("signature:fixture:phase4_node_agent");
+        node_agent["request_hash"] = json!("hash:fixture:phase4_node_agent_request");
+        node_agent["payload_hash"] = json!("hash:fixture:phase4_node_agent_payload");
+        let response = app
+            .oneshot(command_post("/v1/commands", node_agent))
+            .await
+            .expect("node-agent admission should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = body_json(response).await;
+        assert_eq!(
+            body["data"]["admission"]["service_account_admission"]["reason_code"],
+            "auth.node_agent_admitted_phase4"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase4_command_admission_denies_credential_actor_tenant_and_service_failures() {
+        let cases = [
+            (
+                "credential_id",
+                json!("credential:unknown:local"),
+                StatusCode::UNAUTHORIZED,
+                "auth.credential_unknown",
+            ),
+            (
+                "credential_id",
+                json!("credential:wrong_tenant:local"),
+                StatusCode::UNAUTHORIZED,
+                "auth.credential_wrong_tenant",
+            ),
+            (
+                "timestamp",
+                json!("2020-01-01T00:00:00Z"),
+                StatusCode::UNAUTHORIZED,
+                "auth.signature_expired",
+            ),
+            (
+                "signature_ref",
+                json!("signature:fixture:replayed"),
+                StatusCode::UNAUTHORIZED,
+                "auth.signature_replay_window_failed",
+            ),
+            (
+                "signature_ref",
+                json!("signature:fixture:malformed"),
+                StatusCode::UNAUTHORIZED,
+                "auth.signature_invalid",
+            ),
+            (
+                "credential_id",
+                json!("credential:revoked:local"),
+                StatusCode::UNAUTHORIZED,
+                "auth.credential_revoked",
+            ),
+            (
+                "key_version",
+                json!("key_version:rotated:local"),
+                StatusCode::UNAUTHORIZED,
+                "auth.credential_rotation_denied",
+            ),
+            (
+                "key_version",
+                json!("key_version:wrong:local"),
+                StatusCode::UNAUTHORIZED,
+                "auth.key_version_denied",
+            ),
+            (
+                "actor_id",
+                json!("actor:disabled:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_disabled",
+            ),
+            (
+                "actor_id",
+                json!("actor:suspended:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_suspended",
+            ),
+            (
+                "actor_id",
+                json!("actor:deleted:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_deleted",
+            ),
+            (
+                "actor_id",
+                json!("actor:wrong_type:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_wrong_type",
+            ),
+            (
+                "actor_id",
+                json!("actor:env_mismatch:local"),
+                StatusCode::FORBIDDEN,
+                "auth.actor_environment_mismatch",
+            ),
+            (
+                "tenant_id",
+                json!("tenant:suspended:local"),
+                StatusCode::FORBIDDEN,
+                "auth.tenant_suspended",
+            ),
+            (
+                "actor_id",
+                json!("actor:no_membership:local"),
+                StatusCode::FORBIDDEN,
+                "auth.tenant_membership_denied",
+            ),
+            (
+                "actor_id",
+                json!("actor:role_denied:local"),
+                StatusCode::FORBIDDEN,
+                "auth.tenant_role_denied",
+            ),
+            (
+                "service_account_broad",
+                json!("overgate.phase4.service_account.broad"),
+                StatusCode::FORBIDDEN,
+                "auth.service_account_scope_denied",
+            ),
+            (
+                "service_account_dev_secret",
+                json!("credential:service_account:dev_secret"),
+                StatusCode::FORBIDDEN,
+                "auth.hardcoded_development_secret_denied",
+            ),
+            (
+                "service_account_command_class",
+                json!("overgate.phase4.tenant.write"),
+                StatusCode::FORBIDDEN,
+                "auth.service_account_command_class_denied",
+            ),
+            (
+                "node_agent_command_class",
+                json!("overgate.phase4.service_account.noop"),
+                StatusCode::FORBIDDEN,
+                "auth.node_agent_command_class_denied",
+            ),
+            (
+                "service_account_missing_audit",
+                json!("trace_phase4_missing_audit"),
+                StatusCode::FORBIDDEN,
+                "auth.service_account_audit_context_required",
+            ),
+            (
+                "node_agent_missing_audit",
+                json!("trace_phase4_missing_audit"),
+                StatusCode::FORBIDDEN,
+                "auth.node_agent_audit_context_required",
+            ),
+        ];
+
+        for (field, value, status, reason_code) in cases {
+            let app = OvergateService::default().router();
+            let mut envelope = valid_command_envelope(&format!("trace_phase4_{reason_code}"));
+            match field {
+                "credential_id" => envelope["credential_id"] = value,
+                "timestamp" => envelope["timestamp"] = value,
+                "signature_ref" => envelope["signature_metadata"]["signature_ref"] = value,
+                "key_version" => envelope["signature_metadata"]["key_version"] = value,
+                "actor_id" => envelope["actor_id"] = value,
+                "tenant_id" => envelope["tenant_id"] = value,
+                "service_account_broad" => {
+                    envelope["actor_id"] = json!("service_account:local:ingress");
+                    envelope["credential_id"] = json!("credential:service_account:broad");
+                    envelope["command_type"] = value;
+                }
+                "service_account_dev_secret" => {
+                    envelope["actor_id"] = json!("service_account:local:ingress");
+                    envelope["credential_id"] = value;
+                    envelope["command_type"] = json!("overgate.phase4.service_account.noop");
+                }
+                "service_account_command_class" => {
+                    envelope["actor_id"] = json!("service_account:local:ingress");
+                    envelope["credential_id"] = json!("credential:service_account:local:ingress");
+                    envelope["command_type"] = value;
+                }
+                "node_agent_command_class" => {
+                    envelope["actor_id"] = json!("node_agent:local:worker-1");
+                    envelope["credential_id"] = json!("credential:node_agent:local:worker-1");
+                    envelope["command_type"] = value;
+                }
+                "service_account_missing_audit" => {
+                    envelope["actor_id"] = json!("service_account:local:ingress");
+                    envelope["credential_id"] = json!("credential:service_account:local:ingress");
+                    envelope["command_type"] = json!("overgate.phase4.service_account.noop");
+                    envelope["trace_id"] = value;
+                }
+                "node_agent_missing_audit" => {
+                    envelope["actor_id"] = json!("node_agent:local:worker-1");
+                    envelope["credential_id"] = json!("credential:node_agent:local:worker-1");
+                    envelope["command_type"] = json!("overgate.phase4.node_agent.callback");
+                    envelope["trace_id"] = value;
+                }
+                _ => unreachable!("unknown denial case"),
+            }
+            let response = app
+                .oneshot(command_post("/v1/commands", envelope))
+                .await
+                .expect("phase4 denial request should respond");
+            assert_eq!(response.status(), status, "case {reason_code}");
+            let body = body_json(response).await;
+            assert_eq!(body["reason_code"], reason_code, "case {reason_code}");
+            assert_eq!(body["data"]["diagnostics"]["redacted"], true);
+        }
+    }
+
+    #[tokio::test]
     async fn readyz_separates_liveness_from_dependency_authority() {
         let dependencies = DependencyMatrix::default()
             .with_dependency_state("overkey_lite", DependencyState::Unavailable);
@@ -777,12 +1056,29 @@ mod tests {
         assert_eq!(body["reason_code"], "auth.operator_signature_required");
 
         let app = OvergateService::default().router();
-        let non_operator = app
+        let malformed_signature = app
             .oneshot(
                 Request::builder()
                     .method("GET")
                     .uri("/v1/admin/rate-limits")
                     .header(OPERATOR_SIGNATURE_HEADER, "sig:test:operator")
+                    .header(OPERATOR_ROLE_HEADER, "operator")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("admin route should deny malformed operator signature");
+        assert_eq!(malformed_signature.status(), StatusCode::UNAUTHORIZED);
+        let body = body_json(malformed_signature).await;
+        assert_eq!(body["reason_code"], "auth.operator_signature_malformed");
+
+        let app = OvergateService::default().router();
+        let non_operator = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/admin/rate-limits")
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
                     .header(OPERATOR_ROLE_HEADER, "viewer")
                     .body(Body::empty())
                     .expect("request should build"),
@@ -799,7 +1095,7 @@ mod tests {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/admin/idempotency/tenant:alpha/idem_1")
-                    .header(OPERATOR_SIGNATURE_HEADER, "sig:test:operator")
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
                     .header(OPERATOR_ROLE_HEADER, "operator")
                     .header(TENANT_HEADER, "tenant:beta")
                     .body(Body::empty())
@@ -817,7 +1113,7 @@ mod tests {
                 Request::builder()
                     .method("GET")
                     .uri("/v1/admin/idempotency/tenant:alpha/idem_1")
-                    .header(OPERATOR_SIGNATURE_HEADER, "sig:test:operator")
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
                     .header(OPERATOR_ROLE_HEADER, "operator")
                     .header(TENANT_HEADER, "tenant:alpha")
                     .body(Body::empty())
@@ -829,7 +1125,31 @@ mod tests {
         let body = body_json(allowed).await;
         assert_eq!(
             body["reason_code"],
-            "overgate.admin_idempotency_route_skeleton"
+            "overgate.admin_idempotency_admitted_phase4"
         );
+        assert_eq!(
+            body["data"]["operator_admission"]["reason_code"],
+            "auth.operator_admitted_phase4"
+        );
+
+        let dependencies = DependencyMatrix::default()
+            .with_dependency_state("overwatch", DependencyState::Unavailable);
+        let service = OvergateService::with_dependencies(OvergateConfig::default(), dependencies);
+        let audit_blocked = service
+            .router()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/admin/rate-limits")
+                    .header(OPERATOR_SIGNATURE_HEADER, "signature:fixture:operator")
+                    .header(OPERATOR_ROLE_HEADER, "operator")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("admin route should fail closed without Overwatch");
+        assert_eq!(audit_blocked.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let body = body_json(audit_blocked).await;
+        assert_eq!(body["reason_code"], "auth.operator_audit_unavailable");
     }
 }

@@ -1,6 +1,6 @@
 # Overrid Overgate
 
-Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard placeholders, and Phase 3 command-envelope validation needed before credential/signature admission.
+Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, and Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters.
 
 ## Local Entrypoint
 
@@ -47,6 +47,19 @@ Accepted command responses include:
 
 Denied command responses use stable API error fields: `reason_code`, `trace_id`, `request_id` when the envelope parsed far enough to derive one, `retryability`, `correction_fields`, `correction_hint`, dependency name when relevant, and redacted diagnostics. Private payloads, raw secrets, and credential material must not appear in error bodies.
 
+## Phase 4 Admission
+
+`POST /v1/commands` now admits commands through an explicit local-stack adapter before idempotency reservation or downstream forwarding. The adapter is not a replacement for Overkey, Overpass, or Overtenant; it records the request Overgate would make to those services and preserves downstream ownership.
+
+Accepted command responses use `overgate.phase4.response.v0`, `overgate.command_admitted_phase4`, and `not_forwarded_phase4_admission_only`. The response includes:
+
+- Overkey-lite signature evidence with `credential_id`, public-key ref, key version, algorithm, canonicalization version, replay-window state, revocation state, rotation state, and `auth.signature_verified_phase4`.
+- Overpass actor-resolution evidence with actor type, active state, identity ref, local environment ref, and `auth.actor_resolved_phase4`.
+- Overtenant authorization evidence with tenant state, membership, app ownership, delegated access, role binding, service-account permission, quota scope ref, and `auth.tenant_authorized_phase4`.
+- Service-account and node-agent admission evidence with narrow command-class state, scoped credential state, callback signature state, trace/audit context state, and signed command requirements.
+
+The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-tenant, wrong-key-version, disabled, suspended, deleted-marker, wrong-type, environment-mismatched, cross-tenant, role-denied, broad service-account, wrong callback-class, and missing audit-context cases using stable `auth.*` reason codes. Operator/admin routes require typed signed operator or system-service credentials, remain tenant-scoped, emit audit-hook refs, and fail closed with `auth.operator_audit_unavailable` when Overwatch readiness is unavailable.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -56,5 +69,10 @@ Denied command responses use stable API error fields: `reason_code`, `trace_id`,
 - `fixtures/invalid/phase3_unknown_private_payload.invalid.json` proves sensitive unknown fields are rejected.
 - `fixtures/invalid/phase3_raw_secret.invalid.json` proves raw secret markers are rejected before storage or diagnostics.
 - `fixtures/invalid/phase3_wrong_canonicalization_version.invalid.json` proves signed command envelopes must use the current Overgate canonicalization version.
+- `fixtures/valid/phase4_command.valid.json` defines a Phase 4 service-account admission fixture with signature, actor, tenant, and audit evidence expectations.
+- `fixtures/invalid/phase4_revoked_credential.invalid.json` proves revoked credentials deny through Overkey-lite admission before side effects.
+- `fixtures/invalid/phase4_actor_disabled.invalid.json` proves disabled actors deny through Overpass admission before idempotency or forwarding.
+- `fixtures/invalid/phase4_tenant_role_denied.invalid.json` proves role-denied tenant authorization fails through Overtenant admission.
+- `fixtures/invalid/phase4_service_account_broad.invalid.json` proves broad service-account command classes are rejected.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

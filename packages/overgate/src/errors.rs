@@ -165,6 +165,70 @@ impl OvergateError {
         .with_dependency(dependency_name)
     }
 
+    pub fn credential_denied(
+        reason_code: &'static str,
+        field: &'static str,
+        diagnostic: &'static str,
+    ) -> Self {
+        Self::new(
+            StatusCode::UNAUTHORIZED,
+            reason_code,
+            Retryability::NotRetryable,
+            vec![field],
+            "Use an active Overkey-lite credential and current signature metadata.",
+            diagnostic,
+        )
+        .with_dependency("overkey_lite")
+    }
+
+    pub fn actor_denied(
+        reason_code: &'static str,
+        field: &'static str,
+        diagnostic: &'static str,
+    ) -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            reason_code,
+            Retryability::OperatorReview,
+            vec![field],
+            "Resolve the actor through Overpass before retrying the protected command.",
+            diagnostic,
+        )
+        .with_dependency("overpass")
+    }
+
+    pub fn tenant_denied(
+        reason_code: &'static str,
+        field: &'static str,
+        diagnostic: &'static str,
+    ) -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            reason_code,
+            Retryability::OperatorReview,
+            vec![field],
+            "Use a tenant, role, membership, or delegated-access binding that authorizes this command.",
+            diagnostic,
+        )
+        .with_dependency("overtenant")
+    }
+
+    pub fn service_account_denied(
+        reason_code: &'static str,
+        field: &'static str,
+        diagnostic: &'static str,
+    ) -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            reason_code,
+            Retryability::OperatorReview,
+            vec![field],
+            "Use a signed service-account or node-agent command with narrow scoped permission and audit context.",
+            diagnostic,
+        )
+        .with_dependency("overtenant")
+    }
+
     fn new(
         status: StatusCode,
         reason_code: &'static str,

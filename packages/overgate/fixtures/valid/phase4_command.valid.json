@@ -1,0 +1,46 @@
+{
+  "schema_version": "overgate.phase4.local_fixture.v0",
+  "fixture_id": "fixture:overgate_phase4_service_account_admission",
+  "harness_scenario_ref": "scenario:overgate_phase4_service_account_admission",
+  "command_envelope": {
+    "command_id": "command:overgate:phase4:service_account:0001",
+    "command_type": "overgate.phase4.service_account.noop",
+    "tenant_id": "tenant:local:test",
+    "actor_id": "service_account:local:ingress",
+    "trace_id": "trace_overgate_phase4_service_account",
+    "idempotency_key": "idem:overgate:phase4:service_account:0001",
+    "credential_id": "credential:service_account:local:ingress",
+    "schema_version": "shared-schema-package.v0.1",
+    "payload_type": "application/vnd.overrid.command.noop+json",
+    "request_hash": "hash:fixture:overgate_phase4_service_account_request",
+    "payload_hash": "hash:fixture:overgate_phase4_service_account_payload",
+    "timestamp": "2026-06-25T00:00:00Z",
+    "signature_metadata": {
+      "signature_ref": "signature:fixture:overgate_phase4_service_account",
+      "algorithm": "ed25519",
+      "key_version": "key_version:local:test",
+      "canonicalization_version": "overgate.canonical.v0.1"
+    },
+    "privacy_class": "tenant_private",
+    "payload_ref": "fixture://overgate/phase4/service_account_noop_payload"
+  },
+  "expected_response": {
+    "status": 202,
+    "schema_version": "overgate.phase4.response.v0",
+    "reason_code": "overgate.command_admitted_phase4",
+    "forwarding_state": "not_forwarded_phase4_admission_only",
+    "signature_reason_code": "auth.signature_verified_phase4",
+    "actor_reason_code": "auth.actor_resolved_phase4",
+    "tenant_reason_code": "auth.tenant_authorized_phase4",
+    "service_account_reason_code": "auth.service_account_admitted_phase4"
+  },
+  "assertions": [
+    "overkey_lite:signature_verified",
+    "overpass:actor_resolved",
+    "overtenant:tenant_authorized",
+    "service_account:narrow_command_class",
+    "audit:trace_context_present",
+    "redaction:no_private_payload_or_key_material"
+  ],
+  "raw_secret_present": false
+}
