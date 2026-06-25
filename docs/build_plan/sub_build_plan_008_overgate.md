@@ -40,7 +40,7 @@ Overgate is the required API ingress and admission boundary for external callers
 
 ## Tech Stack Guardrails
 
-- Overgate core is a Rust service using Axum/Tower/Hyper-style HTTP and Tokio, with rustls/mTLS where transport bootstrap requires it.
+- Overgate remains one of the Rust-first control-plane services. Overgate core is a Rust service using Axum/Tower/Hyper-style HTTP and Tokio, with rustls/mTLS where transport bootstrap requires it.
 - Command envelopes, API errors, audit records, idempotency records, reason codes, and fixtures use canonical JSON plus JSON Schema from the shared schema package.
 - Rust validation and service code are authoritative for the core ingress path; TypeScript/web code may consume generated bindings for SDK, UI, and browser-facing clients only after the Rust contract is stable.
 - Overgate persists ingress, idempotency, forwarding, and admission records through Overrid-owned abstractions or Overrid-shaped local stubs during early phases. It must not make PostgreSQL, Redis, Kafka, NATS, S3, MinIO, Vault, or similar products the platform boundary.
@@ -76,6 +76,70 @@ Overgate is the required API ingress and admission boundary for external callers
   - Design: Require Overgate to own admission records, idempotency records, forwarding records, rate-limit buckets, quota-precheck refs, and ingress audit events while leaving domain state with downstream services.
   - Output: Ownership matrix for Overgate-owned records versus downstream service-owned records.
   - Validation: Design review rejects direct downstream storage writes and rejects Overgate-owned settlement, policy finality, identity lifecycle, key lifecycle, or native-service business state.
+
+### Phase 1 Gate Outputs
+
+#### Link Attachment Matrix
+
+| Artifact | Required link target | Phase 1 state |
+| --- | --- | --- |
+| `docs/sds/control_plane/overgate.md` | `docs/build_plan/sub_build_plan_008_overgate.md` | `attached` |
+| `docs/service_catalog/control_plane/overgate.md` | `docs/build_plan/sub_build_plan_008_overgate.md` | `attached` |
+| `docs/build_plan/master_plan.md` | SDS #8 per-SDS sub-build plan row | `attached` |
+| `docs/build_plan/service_catalog_alignment.md` | SDS #8 crosswalk row | `attached` |
+| `docs/overrid_tech_stack_choice.md` | Rust-first Overgate control-plane guardrails | `attached` |
+| `docs/planning/overgate_phase_01_plan.md` | Phase 1 execution plan | `attached` |
+| `docs/planning/overgate_phase_01_progress.md` | Phase 1 progress and evidence trail | `attached` |
+
+#### Frozen Ingress Boundary
+
+Overgate is frozen as the required API ingress and admission boundary for every mutating SDK, CLI, admin UI, native app, mobile client, adapter, node agent, service-account, and operator-tool path. The only exception is an explicitly isolated local test shortcut owned by the integration harness, with deterministic fixtures and no production credentials.
+
+| Boundary rule | Phase 1 state |
+| --- | --- |
+| Mutating external and service-to-service commands enter through Overgate before downstream side effects. | `ingress_boundary_frozen` |
+| Direct external writes to Overpass, Overtenant, Overkey, Overregistry, Overwatch, Overqueue, accounting, storage, or native-app state are forbidden. | `forbidden_in_overgate` |
+| Local test shortcuts must remain isolated fixtures, not runtime service bypasses. | `queue_backed_later` |
+| Overgate forwards accepted commands through explicit service contracts or native Overqueue handoff instead of owning downstream domain state. | `downstream_owned` |
+
+#### Master Phase Gate Matrix
+
+| Master phase | Overgate authority rule |
+| --- | --- |
+| Phase 0 | Supplies shared schemas, local stack, deterministic fixtures, API/event conventions, and integration harness prerequisites only. |
+| Phase 1 | First build point: signed, tenant-aware, auditable command ingress and admission records. State: `master_phase_1_owned`. |
+| Phase 4 | Adds Overguard policy dry-run and admission handoff without moving policy finality into Overgate. |
+| Phase 5 | Adds Overmeter/ORU/Seal Ledger quota and accounting refs without moving settlement into Overgate. |
+| Phase 6 | Hardens SDK, CLI, admin UI, native-app, mobile, and adapter client flows through Overgate. |
+| Phase 7 | Prepares grid-resident operation, degraded audit buffering, failover, backup, and restore evidence. |
+
+#### Resolved SDS Decision Checklist
+
+These rows are `resolved_decision_carried` from SDS #8 and must not be weakened by generic gateway behavior.
+
+| Resolved SDS decision | Phase 1 carry-forward rule |
+| --- | --- |
+| Synchronous Phase 1 command scope | Keep synchronous work limited to ingress admission and small control-plane mutations; queue runtime-service waits and workload-producing commands. |
+| Classed idempotency retention | Preserve bodyless-read, low-risk metadata, tenant/identity/credential/manifest/admin, queue-producing, and later accounting/rights retention classes. |
+| Unsigned low-risk bodyless reads | Permit only public health/readiness/schema/version/capability discovery and tenant-authenticated bodyless GETs that expose no private tenant data. |
+| Rust-owned emergency audit WAL | Use only a bounded, local, append-only, hash-chained, Overwatch-compatible WAL in explicit degraded mode; do not substitute Redis, Kafka, NATS, or external log products. |
+| Conservative pre-ORU quota precheck refs | Attach quota-precheck refs and stable reason codes without mutating balances, finalizing charges, or creating ledger entries. |
+
+#### Runtime Authority Ownership Matrix
+
+| Record or decision type | Owner | Phase 1 state |
+| --- | --- | --- |
+| Admission records, request hashes, dependency checks, and denial reason codes | Overgate | `overgate_owned` |
+| Idempotency records, replay metadata, conflict reasons, and retention class refs | Overgate | `overgate_owned` |
+| Forwarding records, downstream target refs, retry refs, and status refs | Overgate until handoff, then target service or Overqueue | `overgate_owned` |
+| Rate-limit buckets, quota-precheck refs, and local allowance snapshots | Overgate precheck; accounting services own final settlement | `overgate_owned` |
+| Ingress audit events | Overgate emits; Overwatch stores append-only evidence | `downstream_owned` |
+| Tenant, identity, key, manifest, queue, policy, accounting, storage, native-app domain state, and other downstream domain state | Owning downstream services | `downstream_owned` |
+| Settlement, policy finality, identity lifecycle, key lifecycle, private storage mutation, and native-service business state | Not Overgate | `forbidden_in_overgate` |
+
+#### Documentation Update Rule
+
+Any new Overgate command type, authority exception, idempotency class, quota-precheck input, forwarding target, admin route, degraded audit mode, or unsigned-read rule must update the shared schema package, the Overgate SDS, this sub-build plan, the owning downstream service SDS/service plan, and the build-plan crosswalk before implementation code treats it as available.
 
 ## Phase 2: Rust Service Skeleton, Routes, And Dependency Readiness
 
