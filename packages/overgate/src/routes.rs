@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::admission::{admit_command, AdmissionContext};
-use crate::audit::{AuditGuardInput, Phase7AuditEvidence, Phase7AuditInput};
+use crate::audit::{AuditGuardInput, Phase7AuditEvidence, Phase7AuditInput, Phase7DenialInput};
 use crate::canonical::CanonicalRequestInput;
 use crate::envelope::{trace_id_hint, CommandEnvelope};
 use crate::errors::{ApiErrorData, OvergateError};
@@ -62,8 +62,24 @@ impl<T: Serialize> ApiResponse<T> {
         reason_code: &'static str,
         data: T,
     ) -> Self {
+        Self::new_with_schema_version(
+            PHASE6_RESPONSE_SCHEMA_VERSION,
+            trace_id,
+            status,
+            reason_code,
+            data,
+        )
+    }
+
+    pub fn new_with_schema_version(
+        schema_version: &'static str,
+        trace_id: impl Into<String>,
+        status: &'static str,
+        reason_code: &'static str,
+        data: T,
+    ) -> Self {
         Self {
-            schema_version: PHASE6_RESPONSE_SCHEMA_VERSION,
+            schema_version,
             service: "service:overgate",
             trace_id: trace_id.into(),
             status,
@@ -183,33 +199,18 @@ async fn submit_command(
     );
     let request_id = command_request_id(&canonical_request, &parsed.envelope.trace_id);
     let admission = admit_command(&parsed.envelope, &canonical_request).map_err(|error| {
-        api_error_response(
-            parsed.envelope.trace_id.clone(),
-            Some(request_id.clone()),
-            error,
-        )
+        command_error_response(&state, &parsed.envelope, request_id.clone(), None, error)
     })?;
     let schema_validation = validate_command_envelope(&parsed.envelope).map_err(|error| {
-        api_error_response(
-            parsed.envelope.trace_id.clone(),
-            Some(request_id.clone()),
+        command_error_response(
+            &state,
+            &parsed.envelope,
+            request_id.clone(),
+            Some(admission.audit_context_ref.clone()),
             error,
         )
     })?;
     let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
-    let audit_decision = state
-        .audit
-        .guard_before_acceptance(AuditGuardInput::from_envelope(
-            &parsed.envelope,
-            state.dependencies.dependency_ready("overwatch"),
-        ))
-        .map_err(|error| {
-            api_error_response(
-                parsed.envelope.trace_id.clone(),
-                Some(request_id.clone()),
-                error,
-            )
-        })?;
     let audit_ref = format!("audit:overgate:request_received:{request_id}");
     let idempotency = state
         .idempotency
@@ -221,9 +222,11 @@ async fn submit_command(
             audit_ref.clone(),
         ))
         .map_err(|error| {
-            api_error_response(
-                parsed.envelope.trace_id.clone(),
-                Some(request_id.clone()),
+            command_error_response(
+                &state,
+                &parsed.envelope,
+                request_id.clone(),
+                Some(admission.audit_context_ref.clone()),
                 error,
             )
         })?;
@@ -236,9 +239,30 @@ async fn submit_command(
             body.len(),
         ))
         .map_err(|error| {
-            api_error_response(
-                parsed.envelope.trace_id.clone(),
-                Some(request_id.clone()),
+            command_error_response(
+                &state,
+                &parsed.envelope,
+                request_id.clone(),
+                Some(admission.audit_context_ref.clone()),
+                error,
+            )
+        })?;
+    let audit_decision = state
+        .audit
+        .guard_before_acceptance(AuditGuardInput {
+            command_type: parsed.envelope.command_type.clone(),
+            command_class: phase6_prechecks.command_class.clone(),
+            request_hash_ref: parsed.envelope.request_hash.clone(),
+            payload_hash_ref: parsed.envelope.payload_hash.clone(),
+            trace_id: parsed.envelope.trace_id.clone(),
+            overwatch_ready: state.dependencies.dependency_ready("overwatch"),
+        })
+        .map_err(|error| {
+            command_error_response(
+                &state,
+                &parsed.envelope,
+                request_id.clone(),
+                Some(admission.audit_context_ref.clone()),
                 error,
             )
         })?;
@@ -266,7 +290,8 @@ async fn submit_command(
 
     Ok((
         http_status,
-        Json(ApiResponse::new(
+        Json(ApiResponse::new_with_schema_version(
+            PHASE7_RESPONSE_SCHEMA_VERSION,
             parsed.envelope.trace_id.clone(),
             response_status,
             reason_code,
@@ -477,7 +502,48 @@ fn command_request_id(canonical_request: &CanonicalRequestInput, trace_id: &str)
     )
 }
 
+fn command_error_response(
+    state: &OvergateState,
+    envelope: &CommandEnvelope,
+    request_id: String,
+    audit_context_ref: Option<String>,
+    error: OvergateError,
+) -> (StatusCode, Json<ApiResponse<ApiErrorData>>) {
+    let audit_context_ref = audit_context_ref.unwrap_or_else(|| {
+        format!(
+            "audit_context:overgate:phase7:denied:{}",
+            stable_short_token(&[envelope.command_type.as_str(), error.reason_code])
+        )
+    });
+    let denial_evidence = state.audit.record_denial(Phase7DenialInput::from_error(
+        envelope,
+        request_id.clone(),
+        audit_context_ref,
+        &error,
+    ));
+    let audit_refs = denial_evidence
+        .ordered_events
+        .iter()
+        .map(|event| event.event_ref.clone())
+        .collect::<Vec<_>>();
+    api_error_response_with_schema(
+        PHASE7_RESPONSE_SCHEMA_VERSION,
+        envelope.trace_id.clone(),
+        Some(request_id),
+        error.with_additional_client_denial_refs(audit_refs),
+    )
+}
+
 fn api_error_response(
+    trace_id: String,
+    request_id: Option<String>,
+    error: OvergateError,
+) -> (StatusCode, Json<ApiResponse<ApiErrorData>>) {
+    api_error_response_with_schema(PHASE6_RESPONSE_SCHEMA_VERSION, trace_id, request_id, error)
+}
+
+fn api_error_response_with_schema(
+    schema_version: &'static str,
     trace_id: String,
     request_id: Option<String>,
     error: OvergateError,
@@ -485,7 +551,8 @@ fn api_error_response(
     let status = error.status;
     (
         status,
-        Json(ApiResponse::new(
+        Json(ApiResponse::new_with_schema_version(
+            schema_version,
             trace_id,
             "denied",
             error.reason_code,
@@ -600,7 +667,7 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["schema_version"], PHASE6_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
         assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
@@ -999,6 +1066,18 @@ mod tests {
             conflict_body["reason_code"],
             "overgate.idempotency_conflict"
         );
+        assert_eq!(
+            conflict_body["schema_version"],
+            PHASE7_RESPONSE_SCHEMA_VERSION
+        );
+        assert!(conflict_body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("conflict denial refs should be present")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .contains("overgate_idempotency_conflict")));
     }
 
     #[tokio::test]
@@ -1394,6 +1473,7 @@ mod tests {
             .expect("phase7 audit response should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         let body = body_json(response).await;
+        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
         assert_eq!(body["reason_code"], "overgate.command_accepted_phase6");
         assert_eq!(
             body["data"]["phase7_audit"]["evidence_state"],
@@ -1460,6 +1540,7 @@ mod tests {
             .expect("phase7 fail-closed route should respond");
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         let body = body_json(response).await;
+        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
         assert_eq!(body["reason_code"], "overgate.audit_fail_closed");
         assert_eq!(body["data"]["dependency_name"], "overwatch");
         assert_eq!(body["data"]["retryability"], "retry_after");
@@ -1468,6 +1549,57 @@ mod tests {
             .expect("client denial refs should be present")
             .iter()
             .any(|value| value == "dependency:overwatch"));
+        assert!(body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("client denial refs should be present")
+            .iter()
+            .any(|value| value
+                .as_str()
+                .unwrap_or_default()
+                .contains("overgate_audit_fail_closed")));
+    }
+
+    #[tokio::test]
+    async fn phase7_denied_commands_return_overwatch_compatible_audit_refs() {
+        let app = OvergateService::default().router();
+        let mut envelope = valid_command_envelope("trace_phase7_denial_audit");
+        envelope["command_id"] = json!("command:overgate:phase7:denial_audit");
+        envelope["command_type"] = json!("overgate.phase7.tenant.profile_update");
+        envelope["idempotency_key"] = json!("idem:overgate:phase7:denial_audit");
+        envelope["request_hash"] = json!("hash:fixture:phase7_denial_request");
+        envelope["payload_hash"] = json!("hash:fixture:phase7_denial_payload");
+
+        let first = app
+            .clone()
+            .oneshot(command_post("/v1/commands", envelope.clone()))
+            .await
+            .expect("first phase7 denial setup request should respond");
+        assert_eq!(first.status(), StatusCode::ACCEPTED);
+
+        envelope["request_hash"] = json!("hash:fixture:phase7_denial_conflict");
+        let conflict = app
+            .oneshot(command_post("/v1/commands", envelope))
+            .await
+            .expect("phase7 denial audit request should respond");
+        assert_eq!(conflict.status(), StatusCode::CONFLICT);
+        let body = body_json(conflict).await;
+        assert_eq!(body["schema_version"], PHASE7_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.idempotency_conflict");
+        let refs = body["data"]["client_denial_refs"]
+            .as_array()
+            .expect("denial audit refs should be present");
+        assert!(refs.iter().any(|value| value
+            .as_str()
+            .unwrap_or_default()
+            .contains("overgate_request_received")));
+        assert!(refs.iter().any(|value| value
+            .as_str()
+            .unwrap_or_default()
+            .contains("overgate_signature_verified")));
+        assert!(refs.iter().any(|value| value
+            .as_str()
+            .unwrap_or_default()
+            .contains("overgate_idempotency_conflict")));
     }
 
     #[tokio::test]

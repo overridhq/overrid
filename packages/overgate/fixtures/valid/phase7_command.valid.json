@@ -25,7 +25,7 @@
   },
   "expected_response": {
     "status": 202,
-    "schema_version": "overgate.phase6.response.v0",
+    "schema_version": "overgate.phase7.response.v0",
     "reason_code": "overgate.command_accepted_phase6",
     "phase7_evidence_state": "phase7_audit_evidence_recorded",
     "ordered_event_types": [

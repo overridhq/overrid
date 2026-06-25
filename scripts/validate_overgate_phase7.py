@@ -131,7 +131,9 @@ def validate_rust_sources() -> None:
         "AuditGuardInput",
         "AuditDecision",
         "Phase7AuditInput",
+        "Phase7DenialInput",
         "Phase7AuditEvidence",
+        "Phase7DenialEvidence",
         "AuditEventRecord",
         "EventTransition",
         "EmergencyWalConfig",
@@ -142,6 +144,7 @@ def validate_rust_sources() -> None:
         "GridOperationsChecklist",
         "guard_before_acceptance",
         "record_acceptance",
+        "record_denial",
         "event_transition_map",
         "overgate.request_received",
         "overgate.signature_verified",
@@ -151,6 +154,9 @@ def validate_rust_sources() -> None:
         "overgate.idempotency_replayed",
         "overgate.idempotency_conflict",
         "overgate.rate_limited",
+        "overgate.quota_denied",
+        "overgate.policy_denied",
+        "overgate.audit_fail_closed",
         "overgate.command_accepted",
         "overgate.command_forwarded",
         "overgate.forwarding_failed",
@@ -169,16 +175,24 @@ def validate_rust_sources() -> None:
         assert_contains(audit, expected, AUDIT)
 
     for expected in (
-        "AuditGuardInput::from_envelope",
+        "Phase7DenialInput",
         "Phase7AuditInput::from_parts",
         "record_acceptance",
+        "record_denial",
         "phase7_audit",
         "PHASE7_RESPONSE_SCHEMA_VERSION",
+        "new_with_schema_version",
+        "command_error_response",
         "phase7_accepted_command_returns_overwatch_compatible_audit_evidence",
+        "phase7_denied_commands_return_overwatch_compatible_audit_refs",
         "phase7_overwatch_unavailable_fails_closed_for_high_risk_commands",
         "phase7_emergency_wal_allows_low_risk_phase1_mutation_only",
     ):
         assert_contains(routes, expected, ROUTES)
+    if routes.find("precheck_command") > routes.find("guard_before_acceptance"):
+        raise AssertionError(
+            f"{ROUTES} must run Phase 6 prechecks before Phase 7 audit guard"
+        )
 
     for expected in (
         "pub audit: AuditStore",
@@ -215,7 +229,7 @@ def validate_fixture() -> None:
 
     expected = fixture["expected_response"]
     expected_pairs = {
-        "schema_version": "overgate.phase6.response.v0",
+        "schema_version": "overgate.phase7.response.v0",
         "reason_code": "overgate.command_accepted_phase6",
         "phase7_evidence_state": "phase7_audit_evidence_recorded",
         "emergency_wal_enabled": False,
@@ -239,6 +253,7 @@ def validate_tests_and_readme() -> None:
     tests = set(re.findall(r"#\[tokio::test\]\s+async fn ([a-z0-9_]+)", routes))
     required_tests = {
         "phase7_accepted_command_returns_overwatch_compatible_audit_evidence",
+        "phase7_denied_commands_return_overwatch_compatible_audit_refs",
         "phase7_overwatch_unavailable_fails_closed_for_high_risk_commands",
         "phase7_emergency_wal_allows_low_risk_phase1_mutation_only",
     }

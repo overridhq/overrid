@@ -64,6 +64,20 @@ pub struct Phase7AuditInput {
     pub precheck: PrecheckOutcome,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Phase7DenialInput {
+    pub trace_id: String,
+    pub command_id: String,
+    pub request_id: String,
+    pub tenant_id: String,
+    pub actor_id: String,
+    pub request_hash_ref: String,
+    pub payload_hash_ref: String,
+    pub audit_context_ref: String,
+    pub denial_event_type: &'static str,
+    pub denial_reason_code: &'static str,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Phase7AuditEvidence {
     pub evidence_state: &'static str,
@@ -74,6 +88,18 @@ pub struct Phase7AuditEvidence {
     pub emergency_wal: EmergencyWalStatus,
     pub metrics: MetricsTraceSummary,
     pub grid_operations: GridOperationsChecklist,
+    pub raw_private_payload_stored: bool,
+    pub raw_secret_stored: bool,
+    pub external_log_dependency: &'static str,
+    pub reason_code: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Phase7DenialEvidence {
+    pub evidence_state: &'static str,
+    pub overwatch_client_ref: &'static str,
+    pub event_transition_map_ref: &'static str,
+    pub ordered_events: Vec<AuditEventRecord>,
     pub raw_private_payload_stored: bool,
     pub raw_secret_stored: bool,
     pub external_log_dependency: &'static str,
@@ -305,10 +331,14 @@ impl AuditStore {
                     .map(|entry| entry.entry_hash.clone())
                     .unwrap_or_else(|| "hash:overgate:phase7:wal:genesis".to_owned());
                 let sequence = state.wal_entries.len().saturating_add(1) as u32;
+                let trace_ref = format!(
+                    "trace_ref:overgate:phase7:{}",
+                    stable_short_token(&[event.trace_id.as_str()])
+                );
                 let entry_hash = stable_hash_ref(&[
                     previous_hash.as_str(),
                     event.event_ref.as_str(),
-                    event.trace_id.as_str(),
+                    trace_ref.as_str(),
                     event.request_hash_ref.as_str(),
                     event.payload_hash_ref.as_str(),
                 ]);
@@ -318,10 +348,7 @@ impl AuditStore {
                     event_ref: event.event_ref.clone(),
                     previous_entry_hash: previous_hash,
                     entry_hash,
-                    trace_ref: format!(
-                        "trace_ref:overgate:phase7:{}",
-                        stable_short_token(&[event.trace_id.as_str()])
-                    ),
+                    trace_ref,
                     command_ref: event.command_ref.clone(),
                     request_hash_ref: event.request_hash_ref.clone(),
                     payload_hash_ref: event.payload_hash_ref.clone(),
@@ -332,9 +359,11 @@ impl AuditStore {
                     redacted_fields_only: true,
                     external_log_dependency: "none_rust_owned_local_wal",
                 });
-                if state.wal_entries.len() > self.emergency_wal.max_entries {
-                    state.wal_entries.remove(0);
-                }
+            }
+            if state.wal_entries.len() > self.emergency_wal.max_entries {
+                let excess = state.wal_entries.len() - self.emergency_wal.max_entries;
+                state.wal_entries.drain(0..excess);
+                rebase_hash_chain(&mut state.wal_entries);
             }
         }
         state.events.extend(ordered_events.clone());
@@ -357,6 +386,22 @@ impl AuditStore {
             raw_secret_stored: false,
             external_log_dependency: "none_overwatch_contract_only",
             reason_code: "overgate.phase7_audit_recorded",
+        }
+    }
+
+    pub fn record_denial(&self, input: Phase7DenialInput) -> Phase7DenialEvidence {
+        let ordered_events = denied_event_sequence(&input);
+        let mut state = self.lock_state();
+        state.events.extend(ordered_events.clone());
+        Phase7DenialEvidence {
+            evidence_state: "phase7_denial_audit_evidence_recorded",
+            overwatch_client_ref: PHASE7_AUDIT_CLIENT_REF,
+            event_transition_map_ref: PHASE7_EVENT_TRANSITION_MAP_REF,
+            ordered_events,
+            raw_private_payload_stored: false,
+            raw_secret_stored: false,
+            external_log_dependency: "none_overwatch_contract_only",
+            reason_code: "overgate.phase7_denial_audit_recorded",
         }
     }
 
@@ -406,6 +451,28 @@ impl Phase7AuditInput {
             forwarding_state,
             audit_decision,
             precheck,
+        }
+    }
+}
+
+impl Phase7DenialInput {
+    pub fn from_error(
+        envelope: &CommandEnvelope,
+        request_id: String,
+        audit_context_ref: String,
+        error: &OvergateError,
+    ) -> Self {
+        Self {
+            trace_id: envelope.trace_id.clone(),
+            command_id: envelope.command_id.clone(),
+            request_id,
+            tenant_id: envelope.tenant_id.clone(),
+            actor_id: envelope.actor_id.clone(),
+            request_hash_ref: envelope.request_hash.clone(),
+            payload_hash_ref: envelope.payload_hash.clone(),
+            audit_context_ref,
+            denial_event_type: denial_event_type_for(error.reason_code),
+            denial_reason_code: error.reason_code,
         }
     }
 }
@@ -478,6 +545,24 @@ pub fn event_transition_map() -> Vec<EventTransition> {
             "denied",
         ),
         transition(
+            "overgate.quota_denied",
+            "idempotency_reserved",
+            "denied",
+            "denied",
+        ),
+        transition(
+            "overgate.policy_denied",
+            "idempotency_reserved",
+            "denied",
+            "denied",
+        ),
+        transition(
+            "overgate.audit_fail_closed",
+            "prechecked",
+            "denied",
+            "denied",
+        ),
+        transition(
             "overgate.command_accepted",
             "prechecked",
             "accepted",
@@ -530,6 +615,37 @@ fn accepted_event_sequence(input: &Phase7AuditInput) -> Vec<AuditEventRecord> {
     .collect()
 }
 
+fn denied_event_sequence(input: &Phase7DenialInput) -> Vec<AuditEventRecord> {
+    let mut events = vec![AuditEventRecord::new_denial(
+        1,
+        "overgate.request_received",
+        "received",
+        "parsed",
+        input,
+    )];
+    if input.denial_event_type != "overgate.schema_denied"
+        && input.denial_event_type != "overgate.signature_denied"
+    {
+        events.push(AuditEventRecord::new_denial(
+            2,
+            "overgate.signature_verified",
+            "parsed",
+            "signature_verified",
+            input,
+        ));
+    }
+    let sequence = events.len().saturating_add(1) as u32;
+    let (from, to) = denial_transition(input.denial_event_type);
+    events.push(AuditEventRecord::new_denial(
+        sequence,
+        input.denial_event_type,
+        from,
+        to,
+        input,
+    ));
+    events
+}
+
 fn transition(
     event_type: &'static str,
     transition_from: &'static str,
@@ -553,15 +669,70 @@ impl AuditEventRecord {
         transition_to: &'static str,
         input: &Phase7AuditInput,
     ) -> Self {
+        Self::from_parts(
+            sequence,
+            event_type,
+            transition_from,
+            transition_to,
+            &input.trace_id,
+            &input.command_id,
+            &input.request_id,
+            &input.tenant_id,
+            &input.actor_id,
+            &input.request_hash_ref,
+            &input.payload_hash_ref,
+            &input.idempotency_record_ref,
+            &input.audit_context_ref,
+            event_type,
+        )
+    }
+
+    fn new_denial(
+        sequence: u32,
+        event_type: &'static str,
+        transition_from: &'static str,
+        transition_to: &'static str,
+        input: &Phase7DenialInput,
+    ) -> Self {
+        Self::from_parts(
+            sequence,
+            event_type,
+            transition_from,
+            transition_to,
+            &input.trace_id,
+            &input.command_id,
+            &input.request_id,
+            &input.tenant_id,
+            &input.actor_id,
+            &input.request_hash_ref,
+            &input.payload_hash_ref,
+            "idempotency:overgate:phase7:not_reserved_or_denied",
+            &input.audit_context_ref,
+            input.denial_reason_code,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn from_parts(
+        sequence: u32,
+        event_type: &'static str,
+        transition_from: &'static str,
+        transition_to: &'static str,
+        trace_id: &str,
+        command_id: &str,
+        request_id: &str,
+        tenant_id: &str,
+        actor_id: &str,
+        request_hash_ref: &str,
+        payload_hash_ref: &str,
+        idempotency_record_ref: &str,
+        audit_context_ref: &str,
+        reason_code: &'static str,
+    ) -> Self {
         let event_ref = format!(
             "audit:overwatch:overgate:phase7:{}:{}",
             event_type.replace('.', "_"),
-            stable_short_token(&[
-                event_type,
-                input.trace_id.as_str(),
-                input.command_id.as_str(),
-                input.request_id.as_str(),
-            ])
+            stable_short_token(&[event_type, trace_id, command_id, request_id,])
         );
         Self {
             sequence,
@@ -569,20 +740,20 @@ impl AuditEventRecord {
             transition_from,
             transition_to,
             event_ref,
-            trace_id: input.trace_id.clone(),
-            command_ref: input.command_id.clone(),
-            request_ref: input.request_id.clone(),
-            tenant_ref: hashed_ref("tenant_ref:overgate:phase7", &input.tenant_id),
-            actor_ref: hashed_ref("actor_ref:overgate:phase7", &input.actor_id),
-            request_hash_ref: input.request_hash_ref.clone(),
-            payload_hash_ref: input.payload_hash_ref.clone(),
-            idempotency_record_ref: input.idempotency_record_ref.clone(),
+            trace_id: trace_id.to_owned(),
+            command_ref: command_id.to_owned(),
+            request_ref: request_id.to_owned(),
+            tenant_ref: hashed_ref("tenant_ref:overgate:phase7", tenant_id),
+            actor_ref: hashed_ref("actor_ref:overgate:phase7", actor_id),
+            request_hash_ref: request_hash_ref.to_owned(),
+            payload_hash_ref: payload_hash_ref.to_owned(),
+            idempotency_record_ref: idempotency_record_ref.to_owned(),
             overwatch_client_ref: PHASE7_AUDIT_CLIENT_REF,
-            audit_context_ref: input.audit_context_ref.clone(),
+            audit_context_ref: audit_context_ref.to_owned(),
             privacy_class: "refs_hashes_redacted_only",
             raw_payload_stored: false,
             raw_secret_stored: false,
-            reason_code: event_type,
+            reason_code,
         }
     }
 }
@@ -676,6 +847,61 @@ fn verify_hash_chain(entries: &[EmergencyWalEntry]) -> bool {
         expected_previous = entry.entry_hash.clone();
     }
     true
+}
+
+fn rebase_hash_chain(entries: &mut [EmergencyWalEntry]) {
+    let mut previous_hash = "hash:overgate:phase7:wal:genesis".to_owned();
+    for (index, entry) in entries.iter_mut().enumerate() {
+        entry.sequence = (index + 1) as u32;
+        entry.previous_entry_hash = previous_hash;
+        entry.entry_hash = stable_hash_ref(&[
+            entry.previous_entry_hash.as_str(),
+            entry.event_ref.as_str(),
+            entry.trace_ref.as_str(),
+            entry.request_hash_ref.as_str(),
+            entry.payload_hash_ref.as_str(),
+        ]);
+        previous_hash = entry.entry_hash.clone();
+    }
+}
+
+fn denial_transition(event_type: &'static str) -> (&'static str, &'static str) {
+    match event_type {
+        "overgate.signature_denied" | "overgate.schema_denied" => ("parsed", "denied"),
+        "overgate.tenant_denied" => ("identity_resolved", "denied"),
+        "overgate.idempotency_conflict"
+        | "overgate.rate_limited"
+        | "overgate.quota_denied"
+        | "overgate.policy_denied" => ("idempotency_reserved", "denied"),
+        "overgate.audit_fail_closed" => ("prechecked", "denied"),
+        _ => ("parsed", "denied"),
+    }
+}
+
+fn denial_event_type_for(reason_code: &str) -> &'static str {
+    if reason_code.contains("credential")
+        || reason_code.contains("signature")
+        || reason_code.contains("algorithm")
+        || reason_code.contains("canonicalization")
+    {
+        "overgate.signature_denied"
+    } else if reason_code.contains("tenant") || reason_code.contains("actor") {
+        "overgate.tenant_denied"
+    } else if reason_code == "overgate.idempotency_conflict" {
+        "overgate.idempotency_conflict"
+    } else if reason_code == "overgate.rate_limited" {
+        "overgate.rate_limited"
+    } else if reason_code == "overgate.quota_precheck_denied" {
+        "overgate.quota_denied"
+    } else if reason_code == "overgate.policy_denied"
+        || reason_code == "overgate.policy_prerequisite_missing"
+    {
+        "overgate.policy_denied"
+    } else if reason_code == "overgate.audit_fail_closed" {
+        "overgate.audit_fail_closed"
+    } else {
+        "overgate.schema_denied"
+    }
 }
 
 fn hashed_ref(prefix: &str, value: &str) -> String {
@@ -889,6 +1115,69 @@ mod tests {
             .entries
             .iter()
             .all(|entry| entry.redacted_fields_only && entry.fsync_before_side_effect));
+    }
+
+    #[test]
+    fn phase7_emergency_wal_retained_window_rebases_hash_chain() {
+        let store = AuditStore::with_emergency_wal_enabled(3);
+        let command_class =
+            CommandClassAdmission::from_command_type("overgate.phase7.tenant.profile_update");
+        let decision = store
+            .guard_before_acceptance(AuditGuardInput {
+                command_type: "overgate.phase7.tenant.profile_update".to_owned(),
+                command_class,
+                request_hash_ref: "hash:fixture:phase7_request".to_owned(),
+                payload_hash_ref: "hash:fixture:phase7_payload".to_owned(),
+                trace_id: "trace_phase7_emergency_rebase".to_owned(),
+                overwatch_ready: false,
+            })
+            .expect("low-risk phase1 mutation can use explicit emergency WAL");
+        let evidence = store.record_acceptance(accepted_input(
+            "overgate.phase7.tenant.profile_update",
+            decision,
+        ));
+        assert_eq!(evidence.emergency_wal.entries.len(), 3);
+        assert!(evidence.emergency_wal.hash_chain_verified);
+        assert_eq!(
+            evidence.emergency_wal.entries[0].previous_entry_hash,
+            "hash:overgate:phase7:wal:genesis"
+        );
+    }
+
+    #[test]
+    fn phase7_denial_audit_records_ordered_redacted_events() {
+        let store = AuditStore::default();
+        let evidence = store.record_denial(Phase7DenialInput {
+            trace_id: "trace_phase7_denied".to_owned(),
+            command_id: "command:overgate:phase7:denied".to_owned(),
+            request_id: "request_phase7_denied".to_owned(),
+            tenant_id: "tenant:local:test".to_owned(),
+            actor_id: "actor:local:test".to_owned(),
+            request_hash_ref: "hash:fixture:phase7_denied_request".to_owned(),
+            payload_hash_ref: "hash:fixture:phase7_denied_payload".to_owned(),
+            audit_context_ref: "audit_context:overgate:phase7:denied".to_owned(),
+            denial_event_type: "overgate.idempotency_conflict",
+            denial_reason_code: "overgate.idempotency_conflict",
+        });
+        let event_types = evidence
+            .ordered_events
+            .iter()
+            .map(|event| event.event_type)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            event_types,
+            vec![
+                "overgate.request_received",
+                "overgate.signature_verified",
+                "overgate.idempotency_conflict",
+            ]
+        );
+        assert!(!evidence.raw_private_payload_stored);
+        assert!(!evidence.raw_secret_stored);
+        assert!(evidence
+            .ordered_events
+            .iter()
+            .all(|event| !event.raw_payload_stored && !event.raw_secret_stored));
     }
 
     #[test]

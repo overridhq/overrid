@@ -355,6 +355,11 @@ impl OvergateError {
         self
     }
 
+    pub fn with_additional_client_denial_refs(mut self, client_denial_refs: Vec<String>) -> Self {
+        self.client_denial_refs.extend(client_denial_refs);
+        self
+    }
+
     pub fn to_data(&self, request_id: Option<String>) -> ApiErrorData {
         ApiErrorData {
             request_id,

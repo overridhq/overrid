@@ -95,7 +95,7 @@ The Phase 6 response includes:
 
 ## Phase 7 Audit, Observability, Degraded Mode, And Grid-Ready Operations
 
-`POST /v1/commands` now records Phase 7 audit evidence after Phase 6 prechecks and before any future forwarding side effect. The evidence is Overwatch-compatible and still Rust-owned in local-stack mode: it emits ordered ingress events for request receipt, signature verification, idempotency reservation or replay, and command acceptance, with transition metadata for accepted and denied paths.
+`POST /v1/commands` now records Phase 7 audit evidence after Phase 6 prechecks and before any future forwarding side effect. Accepted and parsed denied command responses use `overgate.phase7.response.v0`. The evidence is Overwatch-compatible and still Rust-owned in local-stack mode: it emits ordered ingress events for request receipt, signature verification, idempotency reservation or replay, command acceptance, and parsed denial paths such as schema denial, tenant denial, idempotency conflict, rate limit, quota denial, policy denial, and audit fail-closed.
 
 The Phase 7 response includes:
 
@@ -104,6 +104,8 @@ The Phase 7 response includes:
 - An explicit emergency audit WAL path for low-risk Phase 1 control-plane mutations only. The WAL is bounded, append-only, hash chained, redacted to refs and hashes, fsync-marked before side effects, and reports `degraded_until_replayed_to_overwatch` until replay is required.
 - Operational metrics and trace summaries with safe low-cardinality labels only. Tenant, actor, command, request, trace, payload, credential, and secret values are excluded from labels.
 - A grid-resident operations checklist covering readiness, maintenance mode, rolling updates, rollback, break-glass controls, backup/restore, failover drills, and founder-hardware removal from the normal path.
+
+Parsed denials append safe Overwatch-compatible audit event refs to `client_denial_refs`; they do not store raw private payloads, secrets, credential material, tenant ids, or actor ids in audit events.
 
 The emergency WAL is disabled by default; tests enable it explicitly to prove degraded-mode behavior without adding PostgreSQL, Redis, Kafka, NATS, or another external core boundary.
 
