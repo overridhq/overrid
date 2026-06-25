@@ -1069,37 +1069,77 @@ Deployment wizard lifecycle:
 
 ## Build Breakdown
 
-### Phase 1: Product Shell And Contracts
+The detailed implementation sequence is [SUB BUILD PLAN #84 - Overdesk Desktop Client](../../build_plan/sub_build_plan_084_overdesk_desktop_client.md). The SDS-level breakdown below mirrors that 10-phase plan so the SDS, service catalog, master build plan, and sub-build plan stay aligned.
 
-- Create Overdesk product package, route model, account selector, session model, shell navigation, notification model, local cache interfaces, and generated API bindings.
-- Define page route contracts for all native app surfaces.
-- Add stable errors, fixtures, and redacted diagnostics baseline.
+### Phase 1: SDS Attachment, Product Charter, And Boundary Map
 
-### Phase 2: Device Onboarding And Resource Provider UX
+- Attach SDS #84 to the service catalog, master build plan, Phase 12 native application plan, Phase 13 hardening plan, build-plan crosswalk, Overdesk page map, and tech-stack decision.
+- Preserve Phase 12 as the first full Overdesk build point and Phase 13 as formal desktop privacy, support-bundle, signed-update, incident, compliance, security, reporting, release, governance, reliability, and scale hardening.
+- Freeze Overdesk as a client shell that owns local desktop state, drafts, cache, diagnostics, and embedded session refs, while owner services retain final authority.
+- Map every Overdesk page to route id, navigation group, owner service, permission class, cache class, live/stale/offline states, high-risk actions, and denial view.
 
-- Implement Add This Computer flow, installer handoff, hardware discovery display, benchmark display, first sharing preset, node health summary, and pause/drain controls.
-- Implement Resource Sharing Rules with schedules, resource caps, workload classes, and policy previews.
-- Implement Access Rules with institutions, organizations, tags, purpose tags, users, private UUIDs, deny rules, and expiry.
+### Phase 2: Desktop Shell, Session, Local State, And Diagnostics
 
-### Phase 3: Browser And Native App Host
+- Build the Tauri-style desktop package boundary with Rust-side privileged logic, generated Overrid SDK clients, and TypeScript/web UI surfaces.
+- Implement shell navigation, top address bar, command palette, account/scope switcher, notification center, route denied/not-found surfaces, and status indicators.
+- Implement desktop session, account scope, delegated scope, session refresh, logout, revoke-device, restricted states, and scope-change invalidation through normal identity/tenant/key/gateway/audit rails.
+- Implement encrypted local cache, retention policy, clear-cache flow, corruption recovery, redacted diagnostics, support-bundle preview, and export flow.
 
-- Implement top address bar, namespace resolution, route resolution, tabs, bookmarks, history, trust markers, route-denied views, and search/directory fallback.
-- Embed initial Wallet, Messaging, Search, AI Assistant, Social, Maps, Workspace, Directory, App Catalog, Identity/Profile, Namespace, Central AI, and Overasset app sessions through owner-service contracts.
+### Phase 3: Device Onboarding And Local Node Service Handoff
 
-### Phase 4: Wallet, Credits, Owned Apps, Assets, Privacy, And RAG
+- Implement Add This Computer system checks for OS, hardware, network, sandbox readiness, battery/thermal profile, disk-encryption visibility, local permissions, installer status, and tenant scope.
+- Integrate Node Installer, Hardware Discovery, Benchmark Runner, Overcell, Oververify, Overguard, Overregistry, Overwatch, and Overmeter through owner-service/local-agent projections.
+- Submit signed onboarding commands only after capability, installer, first-sharing, access-rule, policy-preview, and user-confirmation refs are present.
+- Build Local Device Settings, Updates and Release Notes, node-service status, pause/drain requests, signed update handoff, uninstall handoff, and support-bundle links.
 
-- Implement Wallet page embedding, credit purchase intent flow, owned app dashboard, app detail analytics, app-owner exports, asset inventory, Privacy and Permissions Center, Overvault Secure Storage Center, Docdex/RAG Index Manager, Disputes and Appeals Center, Provider Earnings and Payout Center, Grants and Public-Interest Projects, and Audit/Receipts Timeline.
-- Ensure all accounting, privacy, RAG, dispute, payout, grant, and rights actions route to ORU, Seal Ledger, Overbill, Wallet, Provider Payout Service, Overmeter, Overclaim, Overgrant, Overvault, AI Gateway/Docdex adapter, and Overasset owner APIs.
+### Phase 4: Resource Sharing, Access Rules, And Provider Safety
 
-### Phase 5: Developer, Fleet, Deployment, Release, And Governance
+- Implement Resource Sharing Rules with day/night schedules, exact hour windows, date ranges, CPU/GPU/RAM/storage/network caps, concurrent lease caps, thermal/battery safety, idle-only rules, workload class allow/deny, and pause windows.
+- Implement Access Rules for institutions, organizations, users, tags, purpose tags, private UUID allowlists, deny rules, expiry, review, temporary blocks, and emergency stop behavior.
+- Implement Overguard, Purpose Tag Registry, Workload Classifier, Oververify, Fraud Control, Oversched, Overlease, Overmeter, and public-provider dry-run previews before signed rule changes.
+- Implement provider dashboard views for joined state, leases, usage, projected earnings, holds, denials, incidents, suspicious workload reports, disputes, payout refs, update refs, pause/drain, and emergency stop.
 
-- Implement source selection, manifest validation, resource estimation, policy dry-run, namespace selection, wallet precheck, deployment graph preview, signed submission, monitor, rollback request, and support bundle.
-- Implement Node Fleet Manager, Developer Console, Release and Rollback Manager, and Governance Center projections and action drafts.
-- Keep developer, release, fleet, and governance actions behind owner-service checks, release gates, policy dry-runs, security/compliance refs, and replayable audit refs.
+### Phase 5: Overrid Browser And Native-App Session Host
 
-### Phase 6: Security, Offline, Packaging, And Release
+- Implement address-bar parsing for `/hugo`, `overrid:/hugo`, namespace routes, app routes, document routes, message refs, search queries, and commands.
+- Resolve namespace and route refs through Universal Namespace Service, Overmesh, Overgate, and Overguard, with not-found, denied, and Search/Directory fallback states.
+- Implement tabs, history, bookmarks, trust markers, namespace info drawers, privacy drawers, external-link previews, and clear-browsing-data behavior.
+- Host embedded native-app sessions for Messaging, Search, Personal AI Assistant, Social, Maps, Wallet, Workspace, Directory, Native App Catalog, Identity/Profile, Namespace Manager, Central AI Stewardship, and Overasset through owner-service route contracts.
 
-- Harden local encryption, retention, clear-cache, support-bundle review, crash recovery, signed update, rollback, platform packaging, accessibility, localization hooks, and Phase 13 threat/security review inputs.
+### Phase 6: Wallet, Credits, Owned Apps, And Overasset
+
+- Integrate Wallet and Usage Center for account selection, balance projections, usage dashboards, receipts, holds, grants, refunds, corrections, statements, permissions, privacy audit, and disputes.
+- Build Buy Credits with wallet prechecks, Overbill-managed credit-purchase intents, external payment handoff state, ORU projection refs, Seal Ledger checkpoint refs, receipts, refunds, and failure/retry states.
+- Build Owned Apps and App Detail views for namespace routes, deployment state, credit usage, earnings, costs, visitors/source-safe analytics, incidents, disputes, support inbox refs, release timeline, package refs, and app assets.
+- Build Overasset inventory, asset detail, delegation/revocation/transfer/bind/export/dispute action drafts, warning states, and app/resource binding handoffs.
+
+### Phase 7: Workspace, Directory, Catalog, Identity, And Namespace
+
+- Host Workspace and Office Suite surfaces for documents, tables, pages, folders, objects, comments, approvals, versions, imports, exports, sharing, revocation, search handoffs, and AI assist prompts.
+- Host Directory Listings and Native App Catalog surfaces for listing drafts, categories, locality scope, moderation/report states, app details, install/open/pin/update/remove/review actions, safety labels, and handoffs.
+- Build Identity/Profile and Namespace Manager surfaces for profiles, handles, verified markers, sessions, devices, credential-provider status, delegated scopes, route bindings, disputes, and tombstones.
+- Apply Overdesk UI/UX rules to keep every page dense, accessible, account-scoped, deep-linkable where allowed, state-aware, permission-safe, and free of hidden authority.
+
+### Phase 8: Privacy, Vault, RAG, Disputes, Payouts, Grants, And Activity
+
+- Build Privacy and Permissions Center for permission inventories, revoke/expire/narrow/review/renew/explain flows, denied-attempt refs, data-use explanations, and retention controls.
+- Build Overvault Secure Storage and Docdex/RAG Index Manager for vault refs, grants, sealed refs, rotation, recovery, encrypted index refs, model eligibility, RAG grants, retrieval receipts, and redaction decisions.
+- Build Disputes and Appeals, Provider Earnings and Payouts, and Grants/Public-Interest Projects surfaces with case refs, evidence refs, receipts, remedies, holds, payout refs, compliance refs, applications, sponsored credits, stewardship refs, and correction paths.
+- Build Activity and Receipts Timeline, replay views, exports, service-ref drawers, dispute/report handoffs, local retention controls, and support-bundle links.
+
+### Phase 9: Deployment, Fleet, Developer, Release, And Governance
+
+- Build Deploy New App wizard for source selection, manifest validation, resource estimation, policy dry-run, namespace selection, wallet/grant precheck, deployment graph preview, release strategy, signed submission, monitor, and rollback request.
+- Build Node Fleet Manager and Developer Console for node projections, bulk rule/access drafts, staged updates, private UUID pools, projects, manifests, validation refs, policy previews, local dev environments, logs, SDK/CLI links, and support bundles.
+- Build Release and Rollback Manager for release state, rollout state, health gates, backup/restore readiness, failover refs, rollback points, route state, namespace bindings, incidents, migration links, and blocked-release explanations.
+- Build Governance Center for PIPs, stewardship reports, central-AI recommendations, public-interest funding reports, compliance summaries, security review status, incident summaries, migration evidence, correction notices, comments, follows, appeals, and steward review queues.
+
+### Phase 10: Offline, Security, Packaging, Validation, And Handoff
+
+- Implement offline and reconnect behavior for safe drafts, read-only cached projections, local browsing state, support-bundle drafts, queued low-risk requests, expiry, conflict handling, stale markers, invalidation, and revalidation.
+- Harden desktop security across local storage, installer handoffs, embedded app sessions, web content, external links, payment handoffs, exact location, AI/RAG grants, support bundles, app updates, deeplinks, and local service controls.
+- Package and release Overdesk with signed installers, update channels, rollback, uninstall, cache clear, session revoke, node pause/drain safety, accessibility, localization hooks, help surfaces, operator runbooks, and release notes.
+- Validate end-to-end readiness across Add This Computer, Resource Sharing, Access Rules, `/hugo` browsing, native app sessions, Wallet/Credits, Owned Apps, Deploy, Assets, Workspace, Directory, Catalog, Identity, Namespace, Privacy, Vault, RAG, Disputes, Payouts, Grants, Activity, Fleet, Developer, Releases, Governance, Offline, Updates, and Support Bundles.
 
 ## Validation
 
