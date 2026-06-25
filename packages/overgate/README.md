@@ -1,6 +1,6 @@
 # Overrid Overgate
 
-Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, and Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters.
+Overgate is the Rust-first API ingress and admission boundary for Overrid control-plane commands. This crate provides the Axum route surface, dependency-readiness model, admin authorization guard, Phase 3 command-envelope validation, Phase 4 local-stack credential, actor, tenant, service-account, node-agent, and operator admission adapters, and Phase 5 idempotency/status records.
 
 ## Local Entrypoint
 
@@ -60,6 +60,23 @@ Accepted command responses use `overgate.phase4.response.v0`, `overgate.command_
 
 The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-tenant, wrong-key-version, unsupported-algorithm, disabled, suspended, deleted-marker, wrong-type, environment-mismatched, cross-tenant, role-denied, broad service-account, wrong callback-class, and missing audit-context cases using stable `auth.*` reason codes. Operator/admin routes require typed signed operator or system-service credentials, remain tenant-scoped, emit audit-hook refs, and fail closed with `auth.operator_audit_unavailable` when Overwatch readiness is unavailable.
 
+## Phase 5 Idempotency And Status
+
+`POST /v1/commands` now reserves idempotency after Phase 4 admission and schema validation, before any rate-limit, policy, forwarding, or downstream side effect. The local Phase 5 store is Overgate-owned Rust state for deterministic local-stack behavior; it is not Redis, Kafka, PostgreSQL, or a downstream service boundary.
+
+Accepted command responses use `overgate.phase5.response.v0`, `overgate.command_accepted_phase5`, and `pending_forwarding_phase5`. The response includes:
+
+- Idempotency reservation records scoped by tenant, actor or service account, command type, idempotency key, request hash, and credential context.
+- Stable response digest refs that start with `hash:overgate:` and disclose no private payload or credential material.
+- Safe replay metadata with `overgate.idempotency_replayed` for duplicate compatible requests.
+- Conflict denial with `overgate.idempotency_conflict` when the same scoped idempotency key is reused with a different request hash.
+- Classed retention metadata for bodyless reads, low-risk metadata writes, control-plane mutations, queue-producing workload commands, and finality/rights commands.
+- Retention extension refs for dispute, retry, incident, and finality holds.
+
+`GET /v1/commands/{command_id}` returns `overgate.command_status_phase5` for tenant-visible records, `overgate.status_visibility_denied` for cross-tenant lookups, and `overgate.status_not_found` for missing records. `GET /v1/traces/{trace_id}` returns `overgate.trace_summary_phase5` with audit refs and redacted command summaries. `GET /v1/limits` returns `overgate.limits_phase5` with visible idempotency record counts and quota-precheck refs.
+
+Admin idempotency lookup and expiration routes now expose tenant-scoped Phase 5 idempotency records to signed operators without bypassing Overwatch fail-closed behavior.
+
 ## Fixtures
 
 - `fixtures/valid/phase2_local_command.valid.json` defines the deterministic local smoke command, service entrypoint, dependency refs, and harness scenario id.
@@ -76,5 +93,7 @@ The local adapter denies unknown, expired, replayed, revoked, rotated, wrong-ten
 - `fixtures/invalid/phase4_actor_disabled.invalid.json` proves disabled actors deny through Overpass admission before idempotency or forwarding.
 - `fixtures/invalid/phase4_tenant_role_denied.invalid.json` proves role-denied tenant authorization fails through Overtenant admission.
 - `fixtures/invalid/phase4_service_account_broad.invalid.json` proves broad service-account command classes are rejected.
+- `fixtures/valid/phase5_command.valid.json` defines the Phase 5 idempotency reservation, response digest, retention class, and pending-forwarding fixture.
+- `fixtures/invalid/phase5_idempotency_conflict.invalid.json` proves duplicate scoped idempotency keys with different request hashes deny before downstream side effects.
 
 Fixtures are local/test scoped and contain no raw secrets or private payloads.

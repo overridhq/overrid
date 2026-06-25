@@ -6,6 +6,7 @@ pub mod canonical;
 pub mod dependencies;
 pub mod envelope;
 pub mod errors;
+pub mod idempotency;
 pub mod retention;
 pub mod routes;
 pub mod schema;

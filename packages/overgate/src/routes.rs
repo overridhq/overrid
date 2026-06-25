@@ -10,6 +10,10 @@ use crate::admission::{admit_command, AdmissionContext};
 use crate::canonical::CanonicalRequestInput;
 use crate::envelope::{trace_id_hint, CommandEnvelope};
 use crate::errors::{ApiErrorData, OvergateError};
+use crate::idempotency::{
+    CommandLookup, IdempotencyLimitSummary, IdempotencyOutcome, IdempotencyRecord,
+    IdempotencyReservationInput, TraceSummary,
+};
 use crate::retention::RetentionDecision;
 use crate::schema::{validate_command_envelope, SchemaValidationReport};
 use crate::service::OvergateState;
@@ -18,6 +22,9 @@ pub const TRACE_HEADER: &str = "x-overrid-trace-id";
 pub const TENANT_HEADER: &str = "x-overrid-tenant-id";
 pub const PHASE3_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase3.response.v0";
 pub const PHASE4_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase4.response.v0";
+pub const PHASE4_COMMAND_ADMITTED_REASON: &str = "overgate.command_admitted_phase4";
+pub const PHASE4_ADMISSION_FORWARDING_STATE: &str = "not_forwarded_phase4_admission_only";
+pub const PHASE5_RESPONSE_SCHEMA_VERSION: &str = "overgate.phase5.response.v0";
 pub const PHASE3_VALIDATED_REASON: &str = "overgate.command_validated_phase3";
 pub const PHASE3_FORWARDING_STATE: &str = "not_forwarded_phase3_validation_only";
 // Phase 2 validator compatibility: schema_version: "overgate.phase2.response.v0"
@@ -48,7 +55,7 @@ impl<T: Serialize> ApiResponse<T> {
         data: T,
     ) -> Self {
         Self {
-            schema_version: PHASE4_RESPONSE_SCHEMA_VERSION,
+            schema_version: PHASE5_RESPONSE_SCHEMA_VERSION,
             service: "service:overgate",
             trace_id: trace_id.into(),
             status,
@@ -72,6 +79,7 @@ struct CommandAcceptedData {
     canonical_request: CanonicalRequestInput,
     admission: AdmissionContext,
     retention: RetentionDecision,
+    idempotency: IdempotencyOutcome,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,6 +89,11 @@ struct CommandStatusData {
     admission_state: &'static str,
     forwarding_state: &'static str,
     owner: &'static str,
+    status_visibility: &'static str,
+    idempotency_record: Option<IdempotencyRecord>,
+    audit_refs: Vec<String>,
+    response_digest_ref: Option<String>,
+    retention_class: Option<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -89,14 +102,16 @@ struct TraceStatusData {
     trace_id: String,
     audit_refs: Vec<String>,
     caller_visible: bool,
+    trace_summary: TraceSummary,
 }
 
 #[derive(Debug, Serialize)]
 struct LimitsData {
     route: &'static str,
     tenant_scope: String,
-    rate_limit_refs: Vec<&'static str>,
-    quota_precheck_refs: Vec<&'static str>,
+    rate_limit_refs: Vec<String>,
+    quota_precheck_refs: Vec<String>,
+    idempotency_summary: IdempotencyLimitSummary,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,7 +151,7 @@ pub fn public_routes() -> Router<OvergateState> {
 }
 
 async fn submit_command(
-    State(_state): State<OvergateState>,
+    State(state): State<OvergateState>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<
@@ -168,63 +183,116 @@ async fn submit_command(
         )
     })?;
     let retention = RetentionDecision::from_envelope(&parsed.envelope, &parsed.body_hash);
+    let audit_ref = format!("audit:overgate:request_received:{request_id}");
+    let idempotency = state
+        .idempotency
+        .reserve_or_replay(IdempotencyReservationInput::from_envelope(
+            &parsed.envelope,
+            &canonical_request,
+            request_id.clone(),
+            retention.clone(),
+            audit_ref.clone(),
+        ))
+        .map_err(|error| {
+            api_error_response(
+                parsed.envelope.trace_id.clone(),
+                Some(request_id.clone()),
+                error,
+            )
+        })?;
+    let (http_status, response_status, reason_code) = if idempotency.replayed {
+        (StatusCode::OK, "ok", "overgate.idempotency_replayed")
+    } else {
+        (
+            StatusCode::ACCEPTED,
+            "accepted",
+            "overgate.command_accepted_phase5",
+        )
+    };
 
     Ok((
-        StatusCode::ACCEPTED,
+        http_status,
         Json(ApiResponse::new(
             parsed.envelope.trace_id.clone(),
-            "accepted",
-            "overgate.command_admitted_phase4",
+            response_status,
+            reason_code,
             CommandAcceptedData {
                 route: ROUTE_SUBMIT_COMMAND,
                 request_id: request_id.clone(),
                 command_id: parsed.envelope.command_id.clone(),
-                audit_ref: format!("audit:overgate:request_received:{request_id}"),
-                forwarding_state: "not_forwarded_phase4_admission_only",
+                audit_ref,
+                forwarding_state: idempotency.record.forwarding_state,
                 payload_hash_ref: parsed.envelope.payload_hash.clone(),
                 request_hash_ref: parsed.envelope.request_hash.clone(),
-                body_hash_ref: parsed.body_hash,
+                body_hash_ref: parsed.body_hash.clone(),
                 schema_validation,
                 canonical_request,
                 admission,
                 retention,
+                idempotency,
             },
         )),
     ))
 }
 
 async fn command_status(
+    State(state): State<OvergateState>,
     headers: HeaderMap,
     Path(command_id): Path<String>,
-) -> Json<ApiResponse<CommandStatusData>> {
-    Json(ApiResponse::new(
-        trace_id(&headers, "trace_overgate_phase2_status"),
-        "ok",
-        "overgate.command_status_route_skeleton",
-        CommandStatusData {
-            route: ROUTE_COMMAND_STATUS,
-            command_id,
-            admission_state: "route_skeleton_only",
-            forwarding_state: "not_forwarded_phase2_placeholder",
-            owner: "overgate_until_downstream_handoff",
-        },
-    ))
+) -> Result<Json<ApiResponse<CommandStatusData>>, (StatusCode, Json<ApiResponse<ApiErrorData>>)> {
+    let trace_id = trace_id(&headers, "trace_overgate_phase5_status");
+    let tenant_scope =
+        header_value(&headers, TENANT_HEADER).unwrap_or_else(|| "tenant:local:test".to_owned());
+    match state.idempotency.lookup_command(&tenant_scope, &command_id) {
+        CommandLookup::Found(record) => Ok(Json(ApiResponse::new(
+            trace_id,
+            "ok",
+            "overgate.command_status_phase5",
+            CommandStatusData {
+                route: ROUTE_COMMAND_STATUS,
+                command_id,
+                admission_state: record.current_state,
+                forwarding_state: record.forwarding_state,
+                owner: record.owner,
+                status_visibility: record.status_visibility,
+                audit_refs: record.audit_refs.clone(),
+                response_digest_ref: Some(record.response_digest_ref.clone()),
+                retention_class: Some(record.retention.idempotency_retention_class),
+                idempotency_record: Some(record),
+            },
+        ))),
+        CommandLookup::Forbidden => Err(api_error_response(
+            trace_id,
+            None,
+            OvergateError::status_visibility_denied(),
+        )),
+        CommandLookup::Missing => Err(api_error_response(
+            trace_id,
+            None,
+            OvergateError::status_not_found(),
+        )),
+    }
 }
 
 async fn trace_status(
+    State(state): State<OvergateState>,
     headers: HeaderMap,
     Path(trace_id_from_path): Path<String>,
 ) -> Json<ApiResponse<TraceStatusData>> {
     let trace_id = trace_id(&headers, &trace_id_from_path);
+    let tenant_scope =
+        header_value(&headers, TENANT_HEADER).unwrap_or_else(|| "tenant:local:test".to_owned());
+    let trace_summary = state.idempotency.trace_summary(&tenant_scope, &trace_id);
     Json(ApiResponse::new(
         trace_id.clone(),
         "ok",
-        "overgate.trace_route_skeleton",
+        "overgate.trace_summary_phase5",
         TraceStatusData {
             route: ROUTE_TRACE_STATUS,
             trace_id,
-            audit_refs: vec!["audit:overgate:placeholder".to_owned()],
-            caller_visible: true,
+            audit_refs: trace_summary.audit_refs.clone(),
+            caller_visible: trace_summary.caller_visible,
+            trace_summary,
         },
     ))
 }
@@ -235,15 +303,20 @@ async fn limits(
 ) -> Json<ApiResponse<LimitsData>> {
     let tenant_scope =
         header_value(&headers, TENANT_HEADER).unwrap_or_else(|| "tenant:local:test".to_owned());
+    let idempotency_summary = _state.idempotency.limit_summary(&tenant_scope);
     Json(ApiResponse::new(
-        trace_id(&headers, "trace_overgate_phase2_limits"),
+        trace_id(&headers, "trace_overgate_phase5_limits"),
         "ok",
-        "overgate.limits_route_skeleton",
+        "overgate.limits_phase5",
         LimitsData {
             route: ROUTE_LIMITS,
-            tenant_scope,
-            rate_limit_refs: vec!["rate_limit:phase2:placeholder"],
-            quota_precheck_refs: vec!["quota_precheck:phase2:placeholder"],
+            tenant_scope: tenant_scope.clone(),
+            rate_limit_refs: vec![format!(
+                "rate_limit:overgate:phase5:{}",
+                stable_short_token(&[tenant_scope.as_str()])
+            )],
+            quota_precheck_refs: idempotency_summary.quota_precheck_refs.clone(),
+            idempotency_summary,
         },
     ))
 }
@@ -431,6 +504,7 @@ mod tests {
     async fn public_routes_register_and_preserve_trace_json() {
         let app = OvergateService::default().router();
         let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("POST")
@@ -456,10 +530,14 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"], "trace_test_command");
-        assert_eq!(body["schema_version"], PHASE4_RESPONSE_SCHEMA_VERSION);
-        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
+        assert_eq!(body["schema_version"], PHASE5_RESPONSE_SCHEMA_VERSION);
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(body["data"]["command_id"], "command:overgate:phase3:0001");
+        assert_eq!(
+            body["data"]["idempotency"]["reason_code"],
+            "overgate.idempotency_reserved"
+        );
         assert_eq!(
             body["data"]["admission"]["adapter_id"],
             "overgate.phase4.local_admission_adapter"
@@ -492,16 +570,27 @@ mod tests {
             body["data"]["retention"]["body_retention"],
             "raw_body_not_retained"
         );
+        assert_eq!(
+            body["data"]["retention"]["idempotency_retention_class"],
+            "low_risk_metadata_write"
+        );
 
-        let app = OvergateService::default().router();
         let response = app
-            .oneshot(empty_get("/v1/commands/command_local_1"))
+            .oneshot(empty_get("/v1/commands/command:overgate:phase3:0001"))
             .await
             .expect("status route should respond");
         assert_eq!(response.status(), StatusCode::OK);
         let body = body_json(response).await;
         assert_eq!(body["data"]["route"], ROUTE_COMMAND_STATUS);
+        assert_eq!(body["reason_code"], "overgate.command_status_phase5");
         assert_eq!(body["data"]["owner"], "overgate_until_downstream_handoff");
+        assert_eq!(
+            body["data"]["response_digest_ref"]
+                .as_str()
+                .expect("response digest should be present")
+                .starts_with("hash:overgate:"),
+            true
+        );
     }
 
     #[tokio::test]
@@ -555,11 +644,11 @@ mod tests {
         let body = body_json(response).await;
         assert_eq!(body["service"], "service:overgate");
         assert_eq!(body["trace_id"].as_str(), Some(trace_id.as_str()));
-        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
         assert_eq!(body["data"]["route"], ROUTE_SUBMIT_COMMAND);
         assert_eq!(
             body["data"]["forwarding_state"],
-            "not_forwarded_phase4_admission_only"
+            "pending_forwarding_phase5"
         );
         assert!(body["data"]["request_id"]
             .as_str()
@@ -766,6 +855,195 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase5_idempotency_reserves_replays_and_conflicts_by_request_hash() {
+        let app = OvergateService::default().router();
+        let first = app
+            .clone()
+            .oneshot(command_post(
+                "/v1/commands",
+                valid_command_envelope("trace_phase5_replay_first"),
+            ))
+            .await
+            .expect("first reservation should respond");
+        assert_eq!(first.status(), StatusCode::ACCEPTED);
+        let first_body = body_json(first).await;
+        assert_eq!(
+            first_body["reason_code"],
+            "overgate.command_accepted_phase5"
+        );
+        assert_eq!(
+            first_body["data"]["idempotency"]["outcome_state"],
+            "reserved"
+        );
+        let first_digest = first_body["data"]["idempotency"]["record"]["response_digest_ref"]
+            .as_str()
+            .expect("first digest should be present")
+            .to_owned();
+
+        let replay = app
+            .clone()
+            .oneshot(command_post(
+                "/v1/commands",
+                valid_command_envelope("trace_phase5_replay_second"),
+            ))
+            .await
+            .expect("replay request should respond");
+        assert_eq!(replay.status(), StatusCode::OK);
+        let replay_body = body_json(replay).await;
+        assert_eq!(replay_body["reason_code"], "overgate.idempotency_replayed");
+        assert_eq!(replay_body["data"]["idempotency"]["replayed"], true);
+        assert_eq!(
+            replay_body["data"]["idempotency"]["replay_metadata"]["first_trace_id"],
+            "trace_phase5_replay_first"
+        );
+        assert_eq!(
+            replay_body["data"]["idempotency"]["record"]["response_digest_ref"],
+            first_digest
+        );
+        assert_eq!(
+            replay_body["data"]["idempotency"]["replay_metadata"]["private_payload_disclosed"],
+            false
+        );
+
+        let mut conflict = valid_command_envelope("trace_phase5_conflict");
+        conflict["request_hash"] = json!("hash:fixture:phase5_conflict_request");
+        let conflict_response = app
+            .oneshot(command_post("/v1/commands", conflict))
+            .await
+            .expect("conflict request should respond");
+        assert_eq!(conflict_response.status(), StatusCode::CONFLICT);
+        let conflict_body = body_json(conflict_response).await;
+        assert_eq!(
+            conflict_body["reason_code"],
+            "overgate.idempotency_conflict"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase5_status_trace_and_limits_are_tenant_filtered() {
+        let app = OvergateService::default().router();
+        let response = app
+            .clone()
+            .oneshot(command_post(
+                "/v1/commands",
+                valid_command_envelope("trace_phase5_status"),
+            ))
+            .await
+            .expect("status seed command should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+        let status = app
+            .clone()
+            .oneshot(empty_get("/v1/commands/command:overgate:phase3:0001"))
+            .await
+            .expect("status route should respond");
+        assert_eq!(status.status(), StatusCode::OK);
+        let body = body_json(status).await;
+        assert_eq!(body["reason_code"], "overgate.command_status_phase5");
+        assert_eq!(body["data"]["admission_state"], "pending_forwarding");
+        assert_eq!(body["data"]["retention_class"], "low_risk_metadata_write");
+
+        let trace = app
+            .clone()
+            .oneshot(empty_get("/v1/traces/trace_phase5_status"))
+            .await
+            .expect("trace route should respond");
+        assert_eq!(trace.status(), StatusCode::OK);
+        let body = body_json(trace).await;
+        assert_eq!(body["reason_code"], "overgate.trace_summary_phase5");
+        assert_eq!(body["data"]["trace_summary"]["command_count"], 1);
+        assert_eq!(body["data"]["caller_visible"], true);
+
+        let limits = app
+            .clone()
+            .oneshot(empty_get("/v1/limits"))
+            .await
+            .expect("limits route should respond");
+        assert_eq!(limits.status(), StatusCode::OK);
+        let body = body_json(limits).await;
+        assert_eq!(body["reason_code"], "overgate.limits_phase5");
+        assert_eq!(
+            body["data"]["idempotency_summary"]["visible_record_count"],
+            1
+        );
+
+        let cross_tenant = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/commands/command:overgate:phase3:0001")
+                    .header(TENANT_HEADER, "tenant:other")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("cross-tenant status route should respond");
+        assert_eq!(cross_tenant.status(), StatusCode::FORBIDDEN);
+        let body = body_json(cross_tenant).await;
+        assert_eq!(body["reason_code"], "overgate.status_visibility_denied");
+
+        let missing = app
+            .oneshot(empty_get("/v1/commands/command:overgate:missing"))
+            .await
+            .expect("missing status route should respond");
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+        let body = body_json(missing).await;
+        assert_eq!(body["reason_code"], "overgate.status_not_found");
+    }
+
+    #[tokio::test]
+    async fn phase5_retention_classes_cover_control_queue_finality_and_extension_refs() {
+        let cases = [
+            (
+                "overgate.phase5.tenant.update",
+                "control_plane_mutation",
+                7 * 24 * 60 * 60,
+            ),
+            (
+                "overgate.phase5.queue.workload.submit",
+                "queue_producing_workload_command",
+                7 * 24 * 60 * 60,
+            ),
+            (
+                "overgate.phase5.ledger.finality.dispute",
+                "finality_or_rights_command",
+                90 * 24 * 60 * 60,
+            ),
+        ];
+
+        for (command_type, retention_class, minimum_seconds) in cases {
+            let app = OvergateService::default().router();
+            let mut envelope = valid_command_envelope(&format!("trace_{retention_class}"));
+            envelope["command_type"] = json!(command_type);
+            envelope["idempotency_key"] = json!(format!("idem:{retention_class}"));
+            envelope["request_hash"] = json!(format!("hash:fixture:{retention_class}:request"));
+            envelope["payload_hash"] = json!(format!("hash:fixture:{retention_class}:payload"));
+            let response = app
+                .oneshot(command_post("/v1/commands", envelope))
+                .await
+                .expect("retention-class request should respond");
+            assert_eq!(response.status(), StatusCode::ACCEPTED);
+            let body = body_json(response).await;
+            assert_eq!(
+                body["data"]["retention"]["idempotency_retention_class"],
+                retention_class
+            );
+            assert_eq!(
+                body["data"]["retention"]["minimum_retention_seconds"],
+                minimum_seconds
+            );
+            if command_type.contains("dispute") {
+                assert!(body["data"]["retention"]["retention_extension_refs"]
+                    .as_array()
+                    .expect("extension refs should be an array")
+                    .iter()
+                    .any(|value| value == "retention_extension:dispute_ref"));
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn phase4_command_admission_records_signature_actor_tenant_and_service_accounts() {
         let app = OvergateService::default().router();
         let mut service_account = valid_command_envelope("trace_phase4_service_account");
@@ -784,7 +1062,7 @@ mod tests {
             .expect("service account admission should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         let body = body_json(response).await;
-        assert_eq!(body["reason_code"], "overgate.command_admitted_phase4");
+        assert_eq!(body["reason_code"], "overgate.command_accepted_phase5");
         assert_eq!(
             body["data"]["admission"]["service_account_admission"]["reason_code"],
             "auth.service_account_admitted_phase4"
@@ -1138,7 +1416,7 @@ mod tests {
         let body = body_json(allowed).await;
         assert_eq!(
             body["reason_code"],
-            "overgate.admin_idempotency_admitted_phase4"
+            "overgate.admin_idempotency_lookup_phase5"
         );
         assert_eq!(
             body["data"]["operator_admission"]["reason_code"],

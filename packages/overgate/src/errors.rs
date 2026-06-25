@@ -229,6 +229,39 @@ impl OvergateError {
         .with_dependency("overtenant")
     }
 
+    pub fn idempotency_conflict() -> Self {
+        Self::new(
+            StatusCode::CONFLICT,
+            "overgate.idempotency_conflict",
+            Retryability::NotRetryable,
+            vec!["idempotency_key", "request_hash"],
+            "Reuse an idempotency key only with the exact same request hash and credential context.",
+            "idempotency_request_hash_conflict",
+        )
+    }
+
+    pub fn status_not_found() -> Self {
+        Self::new(
+            StatusCode::NOT_FOUND,
+            "overgate.status_not_found",
+            Retryability::NotRetryable,
+            vec!["command_id"],
+            "Use a command id visible to this tenant after the command has reached Overgate.",
+            "status_record_not_found",
+        )
+    }
+
+    pub fn status_visibility_denied() -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            "overgate.status_visibility_denied",
+            Retryability::OperatorReview,
+            vec!["tenant_id", "command_id"],
+            "Use tenant-scoped credentials that are authorized to read this command status.",
+            "cross_tenant_status_denied",
+        )
+    }
+
     fn new(
         status: StatusCode,
         reason_code: &'static str,

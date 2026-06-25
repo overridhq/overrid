@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::admission::{operator_admission_record, overwatch_ready, OperatorAdmissionRecord};
 use crate::dependencies::DependencyMatrix;
+use crate::idempotency::IdempotencyRecord;
 use crate::routes::{
     header_value, stable_short_token, trace_id, ApiResponse, TENANT_HEADER, TRACE_HEADER,
 };
@@ -42,6 +43,7 @@ struct AdminLookupData {
     operator_admission: OperatorAdmissionRecord,
     visibility: &'static str,
     audit_hook_ref: String,
+    idempotency_records: Vec<IdempotencyRecord>,
 }
 
 pub fn admin_routes() -> Router<OvergateState> {
@@ -78,6 +80,7 @@ async fn admin_ingress_lookup(
             operator_admission: operator.admission,
             visibility: "signed_operator_tenant_scoped_phase4",
             audit_hook_ref,
+            idempotency_records: Vec::new(),
         },
     )))
 }
@@ -90,18 +93,22 @@ async fn admin_idempotency_lookup(
     let trace_id = trace_id(&headers, "trace_overgate_admin_idempotency");
     let operator = authorize_operator(&headers, Some(&tenant_id), &trace_id, &state.dependencies)?;
     let audit_hook_ref = admin_audit_ref(ADMIN_ROUTE_IDEMPOTENCY_LOOKUP, &trace_id);
+    let idempotency_records = state
+        .idempotency
+        .admin_records_for_key(&tenant_id, &idempotency_key);
     Ok(Json(ApiResponse::new(
         trace_id.clone(),
         "ok",
-        "overgate.admin_idempotency_admitted_phase4",
+        "overgate.admin_idempotency_lookup_phase5",
         AdminLookupData {
             route: ADMIN_ROUTE_IDEMPOTENCY_LOOKUP,
             requested_ref: format!("{tenant_id}/{idempotency_key}"),
             operator_tenant: operator.tenant_id,
             operator_role: operator.role,
             operator_admission: operator.admission,
-            visibility: "tenant_scoped_operator_phase4",
+            visibility: "tenant_scoped_operator_phase5",
             audit_hook_ref,
+            idempotency_records,
         },
     )))
 }
@@ -114,18 +121,24 @@ async fn admin_idempotency_expire(
     let trace_id = trace_id(&headers, "trace_overgate_admin_idempotency_expire");
     let operator = authorize_operator(&headers, None, &trace_id, &state.dependencies)?;
     let audit_hook_ref = admin_audit_ref(ADMIN_ROUTE_IDEMPOTENCY_EXPIRE, &trace_id);
+    let idempotency_records = state
+        .idempotency
+        .expire_record(&record_id)
+        .into_iter()
+        .collect::<Vec<_>>();
     Ok(Json(ApiResponse::new(
         trace_id.clone(),
         "accepted",
-        "overgate.admin_idempotency_expire_admitted_phase4",
+        "overgate.admin_idempotency_expire_phase5",
         AdminLookupData {
             route: ADMIN_ROUTE_IDEMPOTENCY_EXPIRE,
             requested_ref: record_id,
             operator_tenant: operator.tenant_id,
             operator_role: operator.role,
             operator_admission: operator.admission,
-            visibility: "signed_operator_expire_phase4",
+            visibility: "signed_operator_expire_phase5",
             audit_hook_ref,
+            idempotency_records,
         },
     )))
 }
@@ -149,6 +162,7 @@ async fn admin_rate_limits(
             operator_admission: operator.admission,
             visibility: "signed_operator_tenant_scoped_phase4",
             audit_hook_ref,
+            idempotency_records: Vec::new(),
         },
     )))
 }
