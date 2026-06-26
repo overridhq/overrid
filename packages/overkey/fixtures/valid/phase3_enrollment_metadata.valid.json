@@ -49,6 +49,24 @@
     "allowed_command_classes": [
       "command.verify"
     ],
+    "allowed_service_matrix": [
+      "service:overgate",
+      "service:node-agent",
+      "service:system-service",
+      "service:worker",
+      "service:overvault",
+      "service:grid-resident"
+    ],
+    "allowed_command_class_matrix": [
+      "command.verify",
+      "command.credential.read",
+      "command.credential.rotate",
+      "command.credential.revoke",
+      "command.node.enroll",
+      "command.secret.resolve",
+      "command.workload.execute",
+      "command.system.operate"
+    ],
     "broad_scope_rejected": true
   },
   "metadata_read": {

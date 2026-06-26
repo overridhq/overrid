@@ -38,7 +38,28 @@ pub const ROUTE_READYZ: &str = "GET /v1/readyz";
 const CANONICALIZATION_VERSION: &str = "overrid.canonical_json.v0";
 const LOCAL_PHASE3_TIMESTAMP: &str = "2026-06-26T00:00:00Z";
 const API_KEY_LOOKUP_HASH_ALGORITHM: &str = "BLAKE3-keyed-lookup";
+const API_KEY_HASH_REF_PREFIX: &str = "hash:api_key:blake3:";
+const API_KEY_LOOKUP_HASH_CONTEXT: &str = "overrid.overkey.api_key_lookup.v0";
+const API_KEY_LOOKUP_KEY_REF: &str = "secret://overvault/local/overkey/api-key-lookup-key";
 const SIGNING_ALGORITHM: &str = "Ed25519";
+const SERVICE_ACCOUNT_ALLOWED_SERVICES: [&str; 6] = [
+    "service:overgate",
+    "service:node-agent",
+    "service:system-service",
+    "service:worker",
+    "service:overvault",
+    "service:grid-resident",
+];
+const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 8] = [
+    "command.verify",
+    "command.credential.read",
+    "command.credential.rotate",
+    "command.credential.revoke",
+    "command.node.enroll",
+    "command.secret.resolve",
+    "command.workload.execute",
+    "command.system.operate",
+];
 const PHASE2_RESPONSE_SCHEMA_COMPATIBILITY: &str = "overkey.phase2.response.v0";
 const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 2] = [
     PHASE2_RESPONSE_SCHEMA_COMPATIBILITY,
@@ -441,9 +462,7 @@ async fn create_service_account(
     })?;
     let tenant_id = tenant_from_headers(&headers)?;
     let request: ServiceAccountCredentialRequest = parse_json_body(&headers, body)?;
-    if !narrow_service_account_scope(&request.allowed_services)
-        || !narrow_service_account_scope(&request.allowed_command_classes)
-    {
+    if !allowed_service_account_scope(&request.allowed_services, &request.allowed_command_classes) {
         return Err(OverkeyError::repository_rejected(
             trace_id,
             crate::repository::RepositoryError::BroadServiceAccountScope,
@@ -982,13 +1001,13 @@ fn api_key_hash_ref(
     trace_id: &str,
 ) -> Result<String, OverkeyError> {
     if let Some(hash_ref) = &request.api_key_hash_ref {
-        if hash_ref.starts_with("hash:api_key:") {
+        if hash_ref.starts_with(API_KEY_HASH_REF_PREFIX) {
             return Ok(hash_ref.clone());
         }
         return Err(OverkeyError::invalid_enrollment(
             trace_id.to_owned(),
             "overkey.api_key_hash_ref_invalid",
-            "api key enrollment requires a typed API key hash ref",
+            "api key enrollment requires a typed BLAKE3 API key hash ref",
             vec!["api_key_hash_ref"],
         ));
     }
@@ -1000,7 +1019,7 @@ fn api_key_hash_ref(
             vec!["raw_api_key", "api_key_hash_ref"],
         )
     })?;
-    Ok(blake3_ref("api_key", raw_api_key))
+    Ok(api_key_lookup_hash_ref(raw_api_key))
 }
 
 fn validate_signing_key_request(
@@ -1064,6 +1083,30 @@ fn narrow_service_account_scope(values: &[String]) -> bool {
                 && !lowered.contains("root")
                 && !lowered.contains("wildcard")
         })
+}
+
+fn allowed_service_account_scope(services: &[String], command_classes: &[String]) -> bool {
+    narrow_service_account_scope(services)
+        && narrow_service_account_scope(command_classes)
+        && services.iter().all(|value| {
+            SERVICE_ACCOUNT_ALLOWED_SERVICES
+                .iter()
+                .any(|allowed| value == allowed)
+        })
+        && command_classes.iter().all(|value| {
+            SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES
+                .iter()
+                .any(|allowed| value == allowed)
+        })
+}
+
+fn api_key_lookup_hash_ref(raw_api_key: &str) -> String {
+    let lookup_key = blake3::derive_key(
+        API_KEY_LOOKUP_HASH_CONTEXT,
+        API_KEY_LOOKUP_KEY_REF.as_bytes(),
+    );
+    let hash = blake3::keyed_hash(&lookup_key, raw_api_key.as_bytes());
+    format!("{API_KEY_HASH_REF_PREFIX}{hash}")
 }
 
 fn blake3_ref(kind: &str, value: &str) -> String {
@@ -1192,6 +1235,56 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("hash:api_key:blake3:"));
+    }
+
+    #[tokio::test]
+    async fn api_key_enrollment_requires_blake3_lookup_hash_ref() {
+        let router = OverkeyService::default().router();
+        let rejected = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase3")
+                    .header(TRACE_HEADER, "trace:overkey:api-key:bad-hash")
+                    .body(Body::from(
+                        r#"{"api_key_prefix":"ovk_bad","api_key_hash_ref":"hash:api_key:sha256:not-accepted"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+        let rejected_body = response_json(rejected).await;
+        assert_eq!(
+            rejected_body["reason_code"],
+            "overkey.api_key_hash_ref_invalid"
+        );
+
+        let raw_key = "phase3-keyed-lookup-test-key";
+        let accepted = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase3")
+                    .header(TRACE_HEADER, "trace:overkey:api-key:keyed-hash")
+                    .body(Body::from(format!(
+                        r#"{{"api_key_prefix":"ovk_keyed","raw_api_key":"{raw_key}"}}"#
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let accepted_body = response_json(accepted).await;
+        let hash_ref = accepted_body["data"]["api_key_hash_ref"].as_str().unwrap();
+        assert!(hash_ref.starts_with(API_KEY_HASH_REF_PREFIX));
+        let plain_hash = blake3::hash(raw_key.as_bytes());
+        assert_ne!(hash_ref, format!("hash:api_key:blake3:{plain_hash}"));
     }
 
     #[tokio::test]
@@ -1372,6 +1465,7 @@ mod tests {
         assert_eq!(unsigned.status(), StatusCode::FORBIDDEN);
 
         let broad = router
+            .clone()
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
@@ -1391,6 +1485,29 @@ mod tests {
         let body = response_json(broad).await;
         assert_eq!(
             body["reason_code"],
+            "overkey.broad_service_account_scope_rejected"
+        );
+
+        let unsupported = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/service-accounts")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase3")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase3")
+                    .body(Body::from(
+                        r#"{"service_account_id":"service-account:overgate","allowed_services":["service:unknown"],"allowed_command_classes":["command.verify"]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsupported.status(), StatusCode::BAD_REQUEST);
+        let unsupported_body = response_json(unsupported).await;
+        assert_eq!(
+            unsupported_body["reason_code"],
             "overkey.broad_service_account_scope_rejected"
         );
     }

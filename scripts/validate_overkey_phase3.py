@@ -125,8 +125,14 @@ def validate_rust_sources() -> None:
         "SUPPORTED_RESPONSE_SCHEMA_VERSIONS",
         "API_KEY_LOOKUP_HASH_ALGORITHM",
         "BLAKE3-keyed-lookup",
+        "API_KEY_HASH_REF_PREFIX",
+        "API_KEY_LOOKUP_HASH_CONTEXT",
+        "API_KEY_LOOKUP_KEY_REF",
+        "blake3::keyed_hash",
         "SIGNING_ALGORITHM",
         "Ed25519",
+        "SERVICE_ACCOUNT_ALLOWED_SERVICES",
+        "SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES",
         "ApiKeyEnrollmentRequest",
         "SigningKeyEnrollmentRequest",
         "ServiceAccountCredentialRequest",
@@ -136,6 +142,7 @@ def validate_rust_sources() -> None:
         "raw_key_discarded",
         "validate_signing_key_request",
         "narrow_service_account_scope",
+        "allowed_service_account_scope",
         "safe_metadata_redactions",
         "redacted_fields",
         "tenant_isolated",
@@ -215,6 +222,15 @@ def validate_schema_and_fixtures() -> None:
         if missing:
             raise AssertionError(f"{SCHEMA_JSON} {object_name} missing Phase 3 fields: {missing}")
 
+    api_key_hash_pattern = (
+        defs.get("api_key_record", {})
+        .get("properties", {})
+        .get("api_key_hash_ref", {})
+        .get("pattern")
+    )
+    if api_key_hash_pattern != "^hash:api_key:blake3:":
+        raise AssertionError(f"{SCHEMA_JSON} api_key_hash_ref must require typed BLAKE3 refs")
+
     if valid["schema_version"] != "overkey.phase3.credential_enrollment.v0":
         raise AssertionError("valid Phase 3 fixture has wrong schema_version")
     if valid["service_id"] != "service:overkey" or valid["base_path"] != "/overkey":
@@ -241,6 +257,32 @@ def validate_schema_and_fixtures() -> None:
         raise AssertionError("service-account fixture must require signed calls")
     if service_account["allowed_services"] == ["*"] or service_account["allowed_command_classes"] == ["*"]:
         raise AssertionError("service-account fixture must not use wildcard scope")
+    expected_services = {
+        "service:overgate",
+        "service:node-agent",
+        "service:system-service",
+        "service:worker",
+        "service:overvault",
+        "service:grid-resident",
+    }
+    expected_command_classes = {
+        "command.verify",
+        "command.credential.read",
+        "command.credential.rotate",
+        "command.credential.revoke",
+        "command.node.enroll",
+        "command.secret.resolve",
+        "command.workload.execute",
+        "command.system.operate",
+    }
+    if set(service_account["allowed_service_matrix"]) != expected_services:
+        raise AssertionError("service-account fixture must define the Phase 3 allowed-service matrix")
+    if set(service_account["allowed_command_class_matrix"]) != expected_command_classes:
+        raise AssertionError("service-account fixture must define the Phase 3 command-class matrix")
+    if not set(service_account["allowed_services"]).issubset(expected_services):
+        raise AssertionError("service-account fixture uses service outside the Phase 3 matrix")
+    if not set(service_account["allowed_command_classes"]).issubset(expected_command_classes):
+        raise AssertionError("service-account fixture uses command class outside the Phase 3 matrix")
     if service_account["broad_scope_rejected"] is not True:
         raise AssertionError("service-account fixture must prove broad scope rejection")
 
