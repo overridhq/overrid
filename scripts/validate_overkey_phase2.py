@@ -205,6 +205,7 @@ def validate_routes_repository_and_dependencies() -> None:
         "record_verification",
         "InMemoryCredentialRepository",
         "contains_raw_secret_marker",
+        "RepositoryError::DuplicateCredential",
         "RepositoryError::RawSecretMaterial",
     ):
         assert_contains(repository, expected, REPOSITORY)
@@ -232,9 +233,19 @@ def validate_routes_repository_and_dependencies() -> None:
         "API_KEY_RECORD_SCHEMA_REF",
         "PUBLIC_KEY_RECORD_SCHEMA_REF",
         "SERVICE_ACCOUNT_KEY_SCHEMA_REF",
+        "ROTATION_RECORD_SCHEMA_REF",
+        "REVOCATION_RECORD_SCHEMA_REF",
         "VERIFICATION_RESULT_SCHEMA_REF",
     ):
         assert_contains(routes, schema_constant, ROUTES)
+    for generic_schema_mismatch in (
+        '"rotation_record",\n            CREDENTIAL_RECORD_SCHEMA_REF',
+        '"revocation_record",\n            CREDENTIAL_RECORD_SCHEMA_REF',
+    ):
+        if generic_schema_mismatch in routes:
+            raise AssertionError(
+                f"{ROUTES} maps rotation/revocation records to the generic credential schema"
+            )
     for schema_object in REQUIRED_SCHEMA_OBJECTS:
         assert_contains(schema_rs, schema_object, SCHEMA_RS)
 
@@ -243,6 +254,7 @@ def validate_routes_repository_and_dependencies() -> None:
     assert_contains(dependencies, "DependencyRequirement::Required", DEPENDENCIES)
     assert_contains(dependencies, "DependencyRequirement::Optional", DEPENDENCIES)
     assert_contains(errors, "overkey.raw_secret_material_rejected", ERRORS)
+    assert_contains(errors, "overkey.duplicate_credential_rejected", ERRORS)
 
 
 def validate_schema_and_fixtures() -> None:
@@ -374,6 +386,7 @@ def validate_tests_exist() -> None:
 
     for test_name in (
         "appends_lifecycle_history_without_overwriting_record_identity",
+        "rejects_duplicate_credential_without_overwriting_record_identity",
         "rejects_raw_private_or_api_key_material",
     ):
         assert_contains(repository, f"fn {test_name}", REPOSITORY)

@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 use serde::Serialize;
 
+use crate::repository::RepositoryError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Retryability {
@@ -70,16 +72,29 @@ impl OverkeyError {
         }
     }
 
-    pub fn repository_rejected(trace_id: impl Into<String>) -> Self {
-        Self {
-            http_status: StatusCode::BAD_REQUEST,
-            trace_id: trace_id.into(),
-            reason_code: "overkey.raw_secret_material_rejected",
-            data: ApiErrorData {
-                error_code: "raw_secret_material_rejected",
-                message: "credential metadata cannot include direct key material",
-                retryability: Retryability::Terminal,
-                field_refs: vec!["credential_record.secret_ref"],
+    pub fn repository_rejected(trace_id: impl Into<String>, error: RepositoryError) -> Self {
+        match error {
+            RepositoryError::DuplicateCredential => Self {
+                http_status: StatusCode::CONFLICT,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.duplicate_credential_rejected",
+                data: ApiErrorData {
+                    error_code: "duplicate_credential_rejected",
+                    message: "credential metadata append would overwrite an existing credential",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["credential_record.credential_id"],
+                },
+            },
+            RepositoryError::RawSecretMaterial => Self {
+                http_status: StatusCode::BAD_REQUEST,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.raw_secret_material_rejected",
+                data: ApiErrorData {
+                    error_code: "raw_secret_material_rejected",
+                    message: "credential metadata cannot include direct key material",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["credential_record.secret_ref"],
+                },
             },
         }
     }

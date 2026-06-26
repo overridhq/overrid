@@ -8,6 +8,7 @@ use crate::schema::contains_raw_secret_marker;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RepositoryError {
+    DuplicateCredential,
     RawSecretMaterial,
 }
 
@@ -58,11 +59,14 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
     fn append_credential(&self, record: CredentialRecord) -> Result<(), RepositoryError> {
         reject_raw_secret_material(&record)?;
         let key = repository_key(&record.tenant_id, &record.credential_id);
-        self.state
+        let mut state = self
+            .state
             .lock()
-            .expect("credential repository lock poisoned")
-            .credentials
-            .insert(key, record);
+            .expect("credential repository lock poisoned");
+        if state.credentials.contains_key(&key) {
+            return Err(RepositoryError::DuplicateCredential);
+        }
+        state.credentials.insert(key, record);
         Ok(())
     }
 
@@ -186,6 +190,40 @@ mod tests {
                 .status_history("credential:api-key:fixture")
                 .len(),
             1
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_credential_without_overwriting_record_identity() {
+        let repository = InMemoryCredentialRepository::default();
+        let record = CredentialRecord::local_fixture(
+            "tenant:fixture",
+            "actor:original",
+            "credential:api-key:fixture",
+            "api_key",
+            vec!["request.verify".to_owned()],
+            SecretRef::local_fixture("secret://overvault/local/overkey/original-api-key"),
+        );
+        let duplicate = CredentialRecord::local_fixture(
+            "tenant:fixture",
+            "actor:replacement",
+            "credential:api-key:fixture",
+            "api_key",
+            vec!["request.verify".to_owned()],
+            SecretRef::local_fixture("secret://overvault/local/overkey/replacement-api-key"),
+        );
+
+        repository.append_credential(record).unwrap();
+        assert_eq!(
+            repository.append_credential(duplicate),
+            Err(RepositoryError::DuplicateCredential)
+        );
+        assert_eq!(
+            repository
+                .credential("tenant:fixture", "credential:api-key:fixture")
+                .unwrap()
+                .subject_ref,
+            "actor:original"
         );
     }
 

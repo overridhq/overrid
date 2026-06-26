@@ -13,7 +13,8 @@ use crate::repository::{CredentialMetadataRepository, StatusTransitionRecord};
 use crate::schema::{
     API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF,
     OVERKEY_PHASE2_RESPONSE_SCHEMA_VERSION, PUBLIC_KEY_RECORD_SCHEMA_REF,
-    SERVICE_ACCOUNT_KEY_SCHEMA_REF, VERIFICATION_RESULT_SCHEMA_REF,
+    REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SERVICE_ACCOUNT_KEY_SCHEMA_REF,
+    VERIFICATION_RESULT_SCHEMA_REF,
 };
 use crate::service::OverkeyState;
 
@@ -181,7 +182,7 @@ async fn create_api_key(
         ],
         "secret://overvault/local/overkey/api-key-ref",
     )
-    .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+    .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,
@@ -215,7 +216,7 @@ async fn create_signing_key(
         vec!["signature.verify".to_owned()],
         "secret://overvault/local/overkey/signing-key-ref",
     )
-    .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+    .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,
@@ -255,7 +256,7 @@ async fn create_service_account(
         ],
         "secret://overvault/local/overkey/service-account-key-ref",
     )
-    .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+    .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,
@@ -291,7 +292,7 @@ async fn rotate_credential(
             reason_code: "overkey.rotation_requested".to_owned(),
             audit_ref: format!("audit:overkey:rotation:{}", stable_trace_token(&trace_id)),
         })
-        .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,
@@ -301,7 +302,7 @@ async fn rotate_credential(
             tenant_id,
             credential_id,
             "rotation_record",
-            CREDENTIAL_RECORD_SCHEMA_REF,
+            ROTATION_RECORD_SCHEMA_REF,
             vec!["credential.rotate"],
             "secret://overvault/local/overkey/rotation-target-ref",
         ),
@@ -327,7 +328,7 @@ async fn revoke_credential(
             reason_code: "overkey.revocation_requested".to_owned(),
             audit_ref: format!("audit:overkey:revocation:{}", stable_trace_token(&trace_id)),
         })
-        .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,
@@ -337,7 +338,7 @@ async fn revoke_credential(
             tenant_id,
             credential_id,
             "revocation_record",
-            CREDENTIAL_RECORD_SCHEMA_REF,
+            REVOCATION_RECORD_SCHEMA_REF,
             vec!["credential.revoke"],
             "secret://overvault/local/overkey/revocation-ref",
         ),
@@ -491,7 +492,7 @@ fn verify_with_class(
     state
         .repository
         .record_verification(result)
-        .map_err(|_| OverkeyError::repository_rejected(trace_id.clone()))?;
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
     Ok(json_response(
         trace_id,

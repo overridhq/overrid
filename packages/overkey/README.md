@@ -28,6 +28,7 @@ Overkey is the Overrid credential and key authority service skeleton for SUB BUI
 
 - Credential metadata is recorded through `CredentialMetadataRepository`.
 - The default local implementation is an append-friendly in-memory stub.
+- Duplicate credential appends fail with `overkey.duplicate_credential_rejected` instead of replacing stored record identity.
 - Records store `secret_ref` handles and hash references, never direct key material.
 - Verification routes are internal-only skeletons guarded by service-account headers.
 - Readiness reports schema validation, credential metadata storage, Overgate, Overpass, Overtenant, Overwatch, and Overvault stub dependencies.
@@ -42,4 +43,3 @@ Overkey is the Overrid credential and key authority service skeleton for SUB BUI
 
 - `cargo test -p overrid-overkey`
 - `python3 scripts/validate_overkey_phase2.py`
-
