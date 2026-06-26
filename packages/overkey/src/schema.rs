@@ -3,11 +3,14 @@ pub const OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION: &str = "overkey.phase3.respons
 pub const OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION: &str = "overkey.phase4.response.v0";
 pub const OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION: &str = "overkey.phase5.response.v0";
 pub const OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION: &str = "overkey.phase6.response.v0";
+pub const OVERKEY_PHASE7_RESPONSE_SCHEMA_VERSION: &str = "overkey.phase7.response.v0";
 pub const OVERKEY_PHASE2_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase2.local_fixture.v0";
 pub const OVERKEY_PHASE3_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase3.credential_enrollment.v0";
 pub const OVERKEY_PHASE4_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase4.verification.v0";
 pub const OVERKEY_PHASE5_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase5.lifecycle.v0";
 pub const OVERKEY_PHASE6_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase6.delegation_policy_usage.v0";
+pub const OVERKEY_PHASE7_FIXTURE_SCHEMA_VERSION: &str =
+    "overkey.phase7.secret_protection_namespace.v0";
 pub const OVERKEY_SCHEMA_SOURCE: &str =
     "packages/schemas/overrid_contracts/v0/overkey_credential.schema.json";
 

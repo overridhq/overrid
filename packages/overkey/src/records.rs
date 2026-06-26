@@ -18,6 +18,12 @@ pub struct SecretRef {
     pub reference: String,
     pub protection_class: String,
     pub resolvable_by: Vec<String>,
+    pub secret_class: String,
+    pub resolver_service: String,
+    pub rotation_policy: String,
+    pub allowed_resolver_services: Vec<String>,
+    pub access_audit_refs: Vec<String>,
+    pub dependency_state: String,
 }
 
 impl SecretRef {
@@ -27,8 +33,56 @@ impl SecretRef {
             reference: reference.to_owned(),
             protection_class: "protection:tenant_bound_secret_ref".to_owned(),
             resolvable_by: vec!["service:overkey".to_owned()],
+            secret_class: "local_test_key_ref".to_owned(),
+            resolver_service: "service:overvault".to_owned(),
+            rotation_policy: "rotation:manual_local_fixture".to_owned(),
+            allowed_resolver_services: vec![
+                "service:overkey".to_owned(),
+                "service:overvault".to_owned(),
+            ],
+            access_audit_refs: vec!["audit:overkey:secret-ref:local-fixture".to_owned()],
+            dependency_state: "available".to_owned(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NamespaceCredentialBinding {
+    pub app_name_ref: String,
+    pub service_name_ref: String,
+    pub route_refs: Vec<String>,
+    pub native_app_pages: Vec<String>,
+    pub namespace_owner_ref: String,
+    pub namespace_delegation_ref: Option<String>,
+    pub storage_entitlement_refs: Vec<String>,
+    pub overasset_utility_refs: Vec<String>,
+    pub policy_decision_ref: String,
+    pub audit_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtectedDependencyState {
+    pub dependency: String,
+    pub state: String,
+    pub reason_code: String,
+    pub retryable: bool,
+    pub recovery_hint: String,
+    pub audit_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Phase7CredentialControls {
+    pub secret_ref: SecretRef,
+    pub environment_scope: String,
+    pub endpoint_scope: String,
+    pub test_credential: bool,
+    pub production_bound: bool,
+    pub protection_evidence_refs: Vec<String>,
+    pub namespace_binding: Option<NamespaceCredentialBinding>,
+    pub protected_dependency_states: Vec<ProtectedDependencyState>,
+    pub blocked_state: Option<String>,
+    pub recovery_hints: Vec<String>,
+    pub overasset_speculative_asset_created: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +114,15 @@ pub struct CredentialRecord {
     pub last_used_at: Option<String>,
     pub rotation_refs: Vec<String>,
     pub revocation_refs: Vec<String>,
+    pub environment_scope: String,
+    pub endpoint_scope: String,
+    pub test_credential: bool,
+    pub production_bound: bool,
+    pub protection_evidence_refs: Vec<String>,
+    pub namespace_binding: Option<NamespaceCredentialBinding>,
+    pub protected_dependency_states: Vec<ProtectedDependencyState>,
+    pub blocked_state: Option<String>,
+    pub recovery_hints: Vec<String>,
 }
 
 impl CredentialRecord {
@@ -99,6 +162,15 @@ impl CredentialRecord {
             last_used_at: None,
             rotation_refs: Vec::new(),
             revocation_refs: Vec::new(),
+            environment_scope: "loopback_development".to_owned(),
+            endpoint_scope: "loopback".to_owned(),
+            test_credential: true,
+            production_bound: false,
+            protection_evidence_refs: Vec::new(),
+            namespace_binding: None,
+            protected_dependency_states: Vec::new(),
+            blocked_state: None,
+            recovery_hints: vec!["local fixture only; reenroll for production".to_owned()],
         }
     }
 }

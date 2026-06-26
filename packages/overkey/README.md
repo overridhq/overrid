@@ -1,6 +1,6 @@
 # Overkey
 
-Overkey is the Overrid credential and key authority service for SUB BUILD PLAN #9. Its validator-compatible baseline covers Phase 2 through Phase 4, its lifecycle baseline covers Phase 2 through Phase 5, and its current documented coverage extends through Phase 6 delegated access, service-account scopes, Overguard policy handoff, usage hooks, and operator lifecycle controls. It is a Rust-first service crate using Tokio, Axum, Tower, Hyper-compatible serving, tracing, canonical JSON envelopes, JSON Schema references, Ed25519 verification semantics, BLAKE3 hash refs, and local Overrid-shaped fixtures.
+Overkey is the Overrid credential and key authority service for SUB BUILD PLAN #9. Its validator-compatible baseline covers Phase 2 through Phase 4, its lifecycle baseline covers Phase 2 through Phase 5, and its current documented coverage extends through Phase 7 secret refs, production protection classes, local/test credential isolation, namespace-aware native-app bindings, and protected dependency recovery. It is a Rust-first service crate using Tokio, Axum, Tower, Hyper-compatible serving, tracing, canonical JSON envelopes, JSON Schema references, Ed25519 verification semantics, BLAKE3 hash refs, and local Overrid-shaped fixtures.
 
 ## Local Surface
 
@@ -56,6 +56,14 @@ Overkey is the Overrid credential and key authority service for SUB BUILD PLAN #
 - Operator lifecycle controls require signed Overgate commands, operator/admin role refs, strong protection-class metadata, evidence refs, and audit refs for operator lifecycle revocation.
 - Phase 6 responses use `overkey.phase6.response.v0`; Phase 6 fixtures use `overkey.phase6.delegation_policy_usage.v0` and denial fixtures use `overkey.phase6.delegation_denials.v0`.
 
+## Phase 7 Secret References, Protection Classes, And Phase 8 Expansion
+
+- Credential and service-account metadata binds to `secret://` Overvault refs with secret class, resolver service, rotation policy, allowed resolvers, access audit refs, and dependency state.
+- High-risk production credentials require strong protection-class evidence before enrollment and fail closed when Overvault, Overwatch, policy, or cache-invalidation proof is unavailable.
+- Local file-backed and seed smoke credentials are test-marked and limited to loopback development or seed-smoke endpoint scopes; they cannot be promoted into production, tenant, grid-resident, or Overvault-backed use.
+- Namespace-aware native-app bindings carry app/service refs, routes, native page refs, namespace owner/delegation refs, storage entitlements, policy decision refs, audit refs, and Overasset utility refs without creating asset behavior.
+- Phase 7 responses use `overkey.phase7.response.v0`; Phase 7 fixtures use `overkey.phase7.secret_protection_namespace.v0` and denial fixtures use `overkey.phase7.secret_protection_denials.v0`.
+
 ## Fixtures
 
 - Valid local fixture: `fixtures/valid/phase2_local_credential.valid.json`
@@ -63,11 +71,13 @@ Overkey is the Overrid credential and key authority service for SUB BUILD PLAN #
 - Valid Phase 4 fixture: `fixtures/valid/phase4_verification.valid.json`
 - Valid Phase 5 fixture: `fixtures/valid/phase5_lifecycle.valid.json`
 - Valid Phase 6 fixture: `fixtures/valid/phase6_delegation_policy_usage.valid.json`
+- Valid Phase 7 fixture: `fixtures/valid/phase7_secret_protection_namespace.valid.json`
 - Invalid denial fixture: `fixtures/invalid/phase2_raw_secret.invalid.json`
 - Invalid Phase 3 denial fixture: `fixtures/invalid/phase3_raw_key_diagnostic.invalid.json`
 - Invalid Phase 4 denial fixture: `fixtures/invalid/phase4_verification_denials.invalid.json`
 - Invalid Phase 5 denial fixture: `fixtures/invalid/phase5_break_glass_denials.invalid.json`
 - Invalid Phase 6 denial fixture: `fixtures/invalid/phase6_delegation_denials.invalid.json`
+- Invalid Phase 7 denial fixture: `fixtures/invalid/phase7_secret_protection_denials.invalid.json`
 - Schema source: `packages/schemas/overrid_contracts/v0/overkey_credential.schema.json`
 
 ## Validation
@@ -78,3 +88,4 @@ Overkey is the Overrid credential and key authority service for SUB BUILD PLAN #
 - `python3 scripts/validate_overkey_phase4.py`
 - `python3 scripts/validate_overkey_phase5.py`
 - `python3 scripts/validate_overkey_phase6.py`
+- `python3 scripts/validate_overkey_phase7.py`

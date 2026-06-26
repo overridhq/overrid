@@ -11,9 +11,9 @@ pub mod service;
 pub use dependencies::{DependencyCheck, DependencyMatrix, DependencyRequirement, DependencyState};
 pub use errors::{ApiErrorData, OverkeyError, Retryability};
 pub use records::{
-    ApiKeyRecord, CredentialRecord, CredentialStatus, DelegationRecord, OverwatchEvent,
-    PublicKeyRecord, RevocationRecord, RotationRecord, SecretRef, ServiceAccountKey,
-    VerificationResult,
+    ApiKeyRecord, CredentialRecord, CredentialStatus, DelegationRecord, NamespaceCredentialBinding,
+    OverwatchEvent, Phase7CredentialControls, ProtectedDependencyState, PublicKeyRecord,
+    RevocationRecord, RotationRecord, SecretRef, ServiceAccountKey, VerificationResult,
 };
 pub use repository::{
     CredentialMetadataRepository, InMemoryCredentialRepository, RepositoryError,

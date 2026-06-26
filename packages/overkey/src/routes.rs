@@ -10,15 +10,16 @@ use serde::{Deserialize, Serialize};
 use crate::errors::OverkeyError;
 use crate::records::{
     AffectedInventory, CacheInvalidation, CredentialRecord, CredentialStatus, DelegationRecord,
-    PolicyHandoff, PropagationStatus, RevocationRecord, RotationRecord, SecretRef,
-    VerificationResult,
+    NamespaceCredentialBinding, Phase7CredentialControls, PolicyHandoff, PropagationStatus,
+    ProtectedDependencyState, RevocationRecord, RotationRecord, SecretRef, VerificationResult,
 };
 use crate::repository::CredentialMetadataRepository;
 use crate::schema::{
     API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF, DELEGATION_RECORD_SCHEMA_REF,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
-    PUBLIC_KEY_RECORD_SCHEMA_REF, REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF,
+    OVERKEY_PHASE7_RESPONSE_SCHEMA_VERSION, PUBLIC_KEY_RECORD_SCHEMA_REF,
+    REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SECRET_REF_SCHEMA_REF,
     SERVICE_ACCOUNT_KEY_SCHEMA_REF, VERIFICATION_RESULT_SCHEMA_REF,
 };
 use crate::service::OverkeyState;
@@ -95,13 +96,17 @@ const PHASE6_DELEGATION_ALLOWED_SCOPES: [&str; 6] = [
     "scope:queue.callback",
     "scope:runtime.callback",
 ];
+const PHASE7_LOCAL_ONLY_ENVIRONMENT_SCOPES: [&str; 2] = ["loopback_development", "seed_smoke_test"];
+const PHASE7_LOCAL_ONLY_ENDPOINT_SCOPES: [&str; 2] = ["loopback", "seed_smoke"];
+const PHASE7_PRODUCTION_ENDPOINT_SCOPES: [&str; 3] = ["production", "tenant", "grid_resident"];
 const PHASE2_RESPONSE_SCHEMA_COMPATIBILITY: &str = "overkey.phase2.response.v0";
-const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 5] = [
+const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 6] = [
     PHASE2_RESPONSE_SCHEMA_COMPATIBILITY,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
+    OVERKEY_PHASE7_RESPONSE_SCHEMA_VERSION,
 ];
 
 #[derive(Debug, Serialize)]
@@ -179,6 +184,8 @@ struct CredentialRouteData {
     overgate_admission_required: bool,
     overwatch_event_ref: String,
     overvault_secret_ref: String,
+    secret_ref_schema_ref: &'static str,
+    phase7_controls: Phase7CredentialControls,
     lifecycle_status: CredentialStatus,
     raw_key_discarded: bool,
     raw_secret_persisted: bool,
@@ -251,6 +258,16 @@ struct CredentialLookupData {
     rotation_refs: Vec<String>,
     revocation_refs: Vec<String>,
     protection_class_label: Option<String>,
+    secret_ref_schema_ref: &'static str,
+    overvault_secret_ref: Option<String>,
+    environment_scope: Option<String>,
+    endpoint_scope: Option<String>,
+    test_credential: Option<bool>,
+    production_bound: Option<bool>,
+    namespace_binding: Option<NamespaceCredentialBinding>,
+    protected_dependency_states: Vec<ProtectedDependencyState>,
+    blocked_state: Option<String>,
+    recovery_hints: Vec<String>,
     tenant_isolated: bool,
     raw_secret_persisted: bool,
     redacted_fields: Vec<&'static str>,
@@ -310,6 +327,20 @@ struct UsageData {
     seal_ledger_mutated: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct SecretRefRequest {
+    provider: Option<String>,
+    reference: String,
+    protection_class: Option<String>,
+    resolvable_by: Option<Vec<String>>,
+    secret_class: Option<String>,
+    resolver_service: Option<String>,
+    rotation_policy: Option<String>,
+    allowed_resolver_services: Option<Vec<String>>,
+    access_audit_refs: Option<Vec<String>>,
+    dependency_state: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct ApiKeyEnrollmentRequest {
     credential_id: Option<String>,
@@ -321,6 +352,16 @@ struct ApiKeyEnrollmentRequest {
     not_after: Option<String>,
     audit_refs: Option<Vec<String>>,
     protection_class: Option<String>,
+    secret_ref: Option<SecretRefRequest>,
+    environment_scope: Option<String>,
+    endpoint_scope: Option<String>,
+    test_credential: Option<bool>,
+    production_bound: Option<bool>,
+    protection_evidence_refs: Option<Vec<String>>,
+    namespace_binding: Option<NamespaceCredentialBinding>,
+    overvault_dependency_state: Option<String>,
+    overwatch_dependency_state: Option<String>,
+    policy_dependency_state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -337,6 +378,16 @@ struct SigningKeyEnrollmentRequest {
     not_after: Option<String>,
     protection_class: Option<String>,
     audit_refs: Option<Vec<String>>,
+    secret_ref: Option<SecretRefRequest>,
+    environment_scope: Option<String>,
+    endpoint_scope: Option<String>,
+    test_credential: Option<bool>,
+    production_bound: Option<bool>,
+    protection_evidence_refs: Option<Vec<String>>,
+    namespace_binding: Option<NamespaceCredentialBinding>,
+    overvault_dependency_state: Option<String>,
+    overwatch_dependency_state: Option<String>,
+    policy_dependency_state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -350,6 +401,16 @@ struct ServiceAccountCredentialRequest {
     not_after: Option<String>,
     protection_class: Option<String>,
     audit_refs: Option<Vec<String>>,
+    secret_ref: Option<SecretRefRequest>,
+    environment_scope: Option<String>,
+    endpoint_scope: Option<String>,
+    test_credential: Option<bool>,
+    production_bound: Option<bool>,
+    protection_evidence_refs: Option<Vec<String>>,
+    namespace_binding: Option<NamespaceCredentialBinding>,
+    overvault_dependency_state: Option<String>,
+    overwatch_dependency_state: Option<String>,
+    policy_dependency_state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -426,6 +487,11 @@ struct SignatureVerificationRequest {
     overtenant_membership_state: Option<String>,
     overguard_policy_decision_ref: Option<String>,
     overguard_decision: Option<String>,
+    overvault_dependency_state: Option<String>,
+    overwatch_dependency_state: Option<String>,
+    policy_dependency_state: Option<String>,
+    cache_invalidation_state: Option<String>,
+    fresh_overkey_lookup: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -446,6 +512,11 @@ struct ApiKeyVerificationRequest {
     overtenant_membership_state: Option<String>,
     overguard_policy_decision_ref: Option<String>,
     overguard_decision: Option<String>,
+    overvault_dependency_state: Option<String>,
+    overwatch_dependency_state: Option<String>,
+    policy_dependency_state: Option<String>,
+    cache_invalidation_state: Option<String>,
+    fresh_overkey_lookup: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -525,6 +596,29 @@ async fn create_api_key(
         .protection_class
         .clone()
         .unwrap_or_else(|| "protection:tenant_bound_secret_ref".to_owned());
+    let default_secret_ref = "secret://overvault/local/overkey/api-key-ref";
+    let allowed_services = vec!["service:overgate".to_owned()];
+    let allowed_command_classes = vec!["command.verify".to_owned()];
+    let phase7_controls = phase7_controls_for_enrollment(Phase7EnrollmentInput {
+        trace_id: &trace_id,
+        credential_class: "api_key",
+        default_secret_ref,
+        protection_class: &protection_class,
+        secret_ref: request.secret_ref.as_ref(),
+        environment_scope: request.environment_scope.as_deref(),
+        endpoint_scope: request.endpoint_scope.as_deref(),
+        test_credential: request.test_credential,
+        production_bound: request.production_bound,
+        protection_evidence_refs: request.protection_evidence_refs.as_deref(),
+        namespace_binding: request.namespace_binding.clone(),
+        dependencies: Phase7DependencyInputs {
+            overvault: request.overvault_dependency_state.as_deref(),
+            overwatch: request.overwatch_dependency_state.as_deref(),
+            policy: request.policy_dependency_state.as_deref(),
+        },
+        allowed_services: &allowed_services,
+        allowed_command_classes: &allowed_command_classes,
+    })?;
     let record = credential_record_for_phase3(CredentialRecordInput {
         tenant_id: tenant_id.clone(),
         subject_ref: request
@@ -545,23 +639,25 @@ async fn create_api_key(
         canonicalization: CANONICALIZATION_VERSION.to_owned(),
         audit_refs: audit_refs.clone(),
         protection_class: protection_class.clone(),
-        secret_ref: SecretRef::local_fixture("secret://overvault/local/overkey/api-key-ref"),
+        secret_ref: phase7_controls.secret_ref.clone(),
         api_key_prefix: Some(prefix.clone()),
         api_key_hash_ref: Some(api_key_hash_ref.clone()),
         public_key_ref: None,
         key_fingerprint_ref: None,
-        allowed_services: vec!["service:overgate".to_owned()],
-        allowed_command_classes: vec!["command.verify".to_owned()],
+        allowed_services: allowed_services.clone(),
+        allowed_command_classes: allowed_command_classes.clone(),
         revocation_epoch: 0,
+        phase7_controls: phase7_controls.clone(),
     });
     state
         .repository
         .append_credential(record)
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
-    Ok(json_response(
+    Ok(json_response_with_schema(
+        phase7_response_schema_for(&phase7_controls),
         trace_id,
-        "overkey.api_key_hash_enrolled",
+        phase7_response_reason_for("overkey.api_key_hash_enrolled", &phase7_controls),
         credential_data(CredentialRouteInput {
             route: ROUTE_CREATE_API_KEY,
             tenant_id,
@@ -571,16 +667,17 @@ async fn create_api_key(
             record_kind: "api_key_record",
             schema_ref: API_KEY_RECORD_SCHEMA_REF,
             allowed_uses,
-            allowed_services: vec!["service:overgate".to_owned()],
-            allowed_command_classes: vec!["command.verify".to_owned()],
+            allowed_services,
+            allowed_command_classes,
             api_key_prefix: Some(prefix),
             api_key_hash_ref: Some(api_key_hash_ref),
             public_key_ref: None,
             key_fingerprint_ref: None,
             service_account_id: None,
             audit_refs,
-            overvault_secret_ref: "secret://overvault/local/overkey/api-key-ref".to_owned(),
+            overvault_secret_ref: phase7_controls.secret_ref.reference.clone(),
             protection_class,
+            phase7_controls,
             lifecycle_status: CredentialStatus::Active,
             raw_key_discarded: request.raw_api_key.is_some(),
         }),
@@ -616,6 +713,29 @@ async fn create_signing_key(
         .clone()
         .unwrap_or_else(|| "protection:tenant_bound_public_key".to_owned());
     let key_fingerprint_ref = blake3_ref("key-fingerprint", &request.public_key_ref);
+    let default_secret_ref = "secret://overvault/local/overkey/signing-key-ref";
+    let allowed_services = vec!["service:overgate".to_owned()];
+    let allowed_command_classes = vec!["command.verify".to_owned()];
+    let phase7_controls = phase7_controls_for_enrollment(Phase7EnrollmentInput {
+        trace_id: &trace_id,
+        credential_class: "public_signing_key",
+        default_secret_ref,
+        protection_class: &protection_class,
+        secret_ref: request.secret_ref.as_ref(),
+        environment_scope: request.environment_scope.as_deref(),
+        endpoint_scope: request.endpoint_scope.as_deref(),
+        test_credential: request.test_credential,
+        production_bound: request.production_bound,
+        protection_evidence_refs: request.protection_evidence_refs.as_deref(),
+        namespace_binding: request.namespace_binding.clone(),
+        dependencies: Phase7DependencyInputs {
+            overvault: request.overvault_dependency_state.as_deref(),
+            overwatch: request.overwatch_dependency_state.as_deref(),
+            policy: request.policy_dependency_state.as_deref(),
+        },
+        allowed_services: &allowed_services,
+        allowed_command_classes: &allowed_command_classes,
+    })?;
     let record = credential_record_for_phase3(CredentialRecordInput {
         tenant_id: tenant_id.clone(),
         subject_ref: request
@@ -636,23 +756,25 @@ async fn create_signing_key(
         canonicalization: CANONICALIZATION_VERSION.to_owned(),
         audit_refs: audit_refs.clone(),
         protection_class: protection_class.clone(),
-        secret_ref: SecretRef::local_fixture("secret://overvault/local/overkey/signing-key-ref"),
+        secret_ref: phase7_controls.secret_ref.clone(),
         api_key_prefix: None,
         api_key_hash_ref: None,
         public_key_ref: Some(request.public_key_ref.clone()),
         key_fingerprint_ref: Some(key_fingerprint_ref.clone()),
-        allowed_services: vec!["service:overgate".to_owned()],
-        allowed_command_classes: vec!["command.verify".to_owned()],
+        allowed_services: allowed_services.clone(),
+        allowed_command_classes: allowed_command_classes.clone(),
         revocation_epoch: 0,
+        phase7_controls: phase7_controls.clone(),
     });
     state
         .repository
         .append_credential(record)
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
-    Ok(json_response(
+    Ok(json_response_with_schema(
+        phase7_response_schema_for(&phase7_controls),
         trace_id,
-        "overkey.public_key_enrolled",
+        phase7_response_reason_for("overkey.public_key_enrolled", &phase7_controls),
         credential_data(CredentialRouteInput {
             route: ROUTE_CREATE_SIGNING_KEY,
             tenant_id,
@@ -662,16 +784,17 @@ async fn create_signing_key(
             record_kind: "public_key_record",
             schema_ref: PUBLIC_KEY_RECORD_SCHEMA_REF,
             allowed_uses,
-            allowed_services: Vec::new(),
-            allowed_command_classes: Vec::new(),
+            allowed_services,
+            allowed_command_classes,
             api_key_prefix: None,
             api_key_hash_ref: None,
             public_key_ref: Some(request.public_key_ref),
             key_fingerprint_ref: Some(key_fingerprint_ref),
             service_account_id: None,
             audit_refs,
-            overvault_secret_ref: "secret://overvault/local/overkey/signing-key-ref".to_owned(),
+            overvault_secret_ref: phase7_controls.secret_ref.reference.clone(),
             protection_class,
+            phase7_controls,
             lifecycle_status: CredentialStatus::Active,
             raw_key_discarded: false,
         }),
@@ -721,6 +844,30 @@ async fn create_service_account(
         .protection_class
         .clone()
         .unwrap_or_else(|| "protection:service_account_internal".to_owned());
+    let default_secret_ref = "secret://overvault/local/overkey/service-account-key-ref";
+    let allowed_services = request.allowed_services.clone();
+    let allowed_command_classes = request.allowed_command_classes.clone();
+    let phase7_controls = phase7_controls_for_enrollment(Phase7EnrollmentInput {
+        trace_id: &trace_id,
+        credential_class: "service_account_key",
+        default_secret_ref,
+        protection_class: &protection_class,
+        secret_ref: request.secret_ref.as_ref(),
+        environment_scope: request.environment_scope.as_deref(),
+        endpoint_scope: request.endpoint_scope.as_deref(),
+        test_credential: request.test_credential,
+        production_bound: request.production_bound,
+        protection_evidence_refs: request.protection_evidence_refs.as_deref(),
+        namespace_binding: request.namespace_binding.clone(),
+        dependencies: Phase7DependencyInputs {
+            overvault: request.overvault_dependency_state.as_deref(),
+            overwatch: request.overwatch_dependency_state.as_deref(),
+            policy: request.policy_dependency_state.as_deref(),
+        },
+        allowed_services: &allowed_services,
+        allowed_command_classes: &allowed_command_classes,
+    })?;
+    let key_fingerprint_ref = blake3_ref("key-fingerprint", &public_key_ref);
     let record = credential_record_for_phase3(CredentialRecordInput {
         tenant_id: tenant_id.clone(),
         subject_ref: request.service_account_id.clone(),
@@ -738,25 +885,28 @@ async fn create_service_account(
         canonicalization: CANONICALIZATION_VERSION.to_owned(),
         audit_refs: audit_refs.clone(),
         protection_class: protection_class.clone(),
-        secret_ref: SecretRef::local_fixture(
-            "secret://overvault/local/overkey/service-account-key-ref",
-        ),
+        secret_ref: phase7_controls.secret_ref.clone(),
         api_key_prefix: None,
         api_key_hash_ref: None,
         public_key_ref: Some(public_key_ref.clone()),
-        key_fingerprint_ref: Some(blake3_ref("key-fingerprint", &public_key_ref)),
-        allowed_services: request.allowed_services.clone(),
-        allowed_command_classes: request.allowed_command_classes.clone(),
+        key_fingerprint_ref: Some(key_fingerprint_ref.clone()),
+        allowed_services: allowed_services.clone(),
+        allowed_command_classes: allowed_command_classes.clone(),
         revocation_epoch: 0,
+        phase7_controls: phase7_controls.clone(),
     });
     state
         .repository
         .append_credential(record)
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
-    Ok(json_response(
+    Ok(json_response_with_schema(
+        phase7_response_schema_for(&phase7_controls),
         trace_id,
-        "overkey.service_account_credential_enrolled",
+        phase7_response_reason_for(
+            "overkey.service_account_credential_enrolled",
+            &phase7_controls,
+        ),
         credential_data(CredentialRouteInput {
             route: ROUTE_CREATE_SERVICE_ACCOUNT,
             tenant_id,
@@ -765,18 +915,18 @@ async fn create_service_account(
             key_version,
             record_kind: "service_account_key",
             schema_ref: SERVICE_ACCOUNT_KEY_SCHEMA_REF,
-            allowed_uses: request.allowed_command_classes.clone(),
-            allowed_services: request.allowed_services,
-            allowed_command_classes: request.allowed_command_classes,
+            allowed_uses: allowed_command_classes.clone(),
+            allowed_services,
+            allowed_command_classes,
             api_key_prefix: None,
             api_key_hash_ref: None,
             public_key_ref: Some(public_key_ref),
-            key_fingerprint_ref: Some(blake3_ref("key-fingerprint", &request.service_account_id)),
+            key_fingerprint_ref: Some(key_fingerprint_ref),
             service_account_id: Some(request.service_account_id),
             audit_refs,
-            overvault_secret_ref: "secret://overvault/local/overkey/service-account-key-ref"
-                .to_owned(),
+            overvault_secret_ref: phase7_controls.secret_ref.reference.clone(),
             protection_class,
+            phase7_controls,
             lifecycle_status: CredentialStatus::Active,
             raw_key_discarded: false,
         }),
@@ -1172,6 +1322,16 @@ async fn get_credential(
             rotation_refs: record.rotation_refs,
             revocation_refs: record.revocation_refs,
             protection_class_label: Some(record.protection_class),
+            secret_ref_schema_ref: SECRET_REF_SCHEMA_REF,
+            overvault_secret_ref: Some(record.secret_ref.reference),
+            environment_scope: Some(record.environment_scope),
+            endpoint_scope: Some(record.endpoint_scope),
+            test_credential: Some(record.test_credential),
+            production_bound: Some(record.production_bound),
+            namespace_binding: record.namespace_binding,
+            protected_dependency_states: record.protected_dependency_states,
+            blocked_state: record.blocked_state,
+            recovery_hints: record.recovery_hints,
             tenant_isolated: true,
             raw_secret_persisted: false,
             redacted_fields: safe_metadata_redactions(),
@@ -1193,6 +1353,16 @@ async fn get_credential(
             rotation_refs: Vec::new(),
             revocation_refs: Vec::new(),
             protection_class_label: None,
+            secret_ref_schema_ref: SECRET_REF_SCHEMA_REF,
+            overvault_secret_ref: None,
+            environment_scope: None,
+            endpoint_scope: None,
+            test_credential: None,
+            production_bound: None,
+            namespace_binding: None,
+            protected_dependency_states: Vec::new(),
+            blocked_state: None,
+            recovery_hints: Vec::new(),
             tenant_isolated: true,
             raw_secret_persisted: false,
             redacted_fields: safe_metadata_redactions(),
@@ -1415,6 +1585,11 @@ fn verify_signature_request(
         request.overpass_subject_state.as_deref(),
         request.overtenant_tenant_state.as_deref(),
         request.overtenant_membership_state.as_deref(),
+        request.overvault_dependency_state.as_deref(),
+        request.overwatch_dependency_state.as_deref(),
+        request.policy_dependency_state.as_deref(),
+        request.cache_invalidation_state.as_deref(),
+        request.fresh_overkey_lookup.unwrap_or(false),
     )
     .or_else(|| {
         let record = record.as_ref()?;
@@ -1553,6 +1728,11 @@ fn verify_api_key_request(
         request.overpass_subject_state.as_deref(),
         request.overtenant_tenant_state.as_deref(),
         request.overtenant_membership_state.as_deref(),
+        request.overvault_dependency_state.as_deref(),
+        request.overwatch_dependency_state.as_deref(),
+        request.policy_dependency_state.as_deref(),
+        request.cache_invalidation_state.as_deref(),
+        request.fresh_overkey_lookup.unwrap_or(false),
     )
     .or_else(|| {
         let record = record.as_ref()?;
@@ -1679,6 +1859,11 @@ fn verification_denial_for_common_checks(
     overpass_subject_state: Option<&str>,
     overtenant_tenant_state: Option<&str>,
     overtenant_membership_state: Option<&str>,
+    overvault_dependency_state: Option<&str>,
+    overwatch_dependency_state: Option<&str>,
+    policy_dependency_state: Option<&str>,
+    cache_invalidation_state: Option<&str>,
+    fresh_overkey_lookup: bool,
 ) -> Option<&'static str> {
     if !APPROVED_VERIFICATION_SERVICE_ACCOUNTS
         .iter()
@@ -1714,6 +1899,19 @@ fn verification_denial_for_common_checks(
     if !credential_status_allows_verification(record) {
         return Some("auth.credential_not_active");
     }
+    if let Some(reason_code) = phase7_verification_dependency_denial(
+        data,
+        record,
+        Phase7DependencyInputs {
+            overvault: overvault_dependency_state,
+            overwatch: overwatch_dependency_state,
+            policy: policy_dependency_state,
+        },
+        cache_invalidation_state,
+        fresh_overkey_lookup,
+    ) {
+        return Some(reason_code);
+    }
     if timestamp < record.not_before.as_str() || timestamp > record.not_after.as_str() {
         return Some("auth.signature_expired");
     }
@@ -1738,8 +1936,52 @@ fn dependency_state_denied(state: Option<&str>) -> bool {
                 | "inactive"
                 | "not_member"
                 | "role_denied"
+                | "blocked"
+                | "unavailable"
+                | "failed"
+                | "deny"
+                | "denied"
+                | "stale"
+                | "evidence_unavailable"
+                | "invalidation_unavailable"
         )
     )
+}
+
+fn phase7_verification_dependency_denial(
+    data: &VerificationData,
+    record: &CredentialRecord,
+    dependencies: Phase7DependencyInputs<'_>,
+    cache_invalidation_state: Option<&str>,
+    fresh_overkey_lookup: bool,
+) -> Option<&'static str> {
+    let high_risk = record.production_bound
+        || is_high_risk_command_class(&data.command_class)
+        || record
+            .protected_dependency_states
+            .iter()
+            .any(|state| dependency_state_denied(Some(state.state.as_str())));
+    let protected_dependency_blocked = dependency_state_denied(dependencies.overvault)
+        || dependency_state_denied(dependencies.overwatch)
+        || dependency_state_denied(dependencies.policy)
+        || record
+            .protected_dependency_states
+            .iter()
+            .any(|state| dependency_state_denied(Some(state.state.as_str())));
+    if protected_dependency_blocked {
+        return Some("auth.phase7_protected_dependency_blocked");
+    }
+    if dependency_state_denied(cache_invalidation_state) {
+        if high_risk {
+            Some("auth.phase7_protected_dependency_blocked")
+        } else if fresh_overkey_lookup {
+            None
+        } else {
+            Some("auth.phase7_fresh_lookup_required")
+        }
+    } else {
+        None
+    }
 }
 
 fn credential_status_allows_verification(record: &CredentialRecord) -> bool {
@@ -1790,7 +2032,9 @@ fn body_hash_ref_valid(body_hash_ref: &str, body_hash_payload: Option<&str>) -> 
 fn apply_verification_decision(data: &mut VerificationData, denial: Option<&'static str>) {
     if let Some(reason_code) = denial {
         data.verified = false;
-        data.verification_state = if reason_code.contains("dependency") {
+        data.verification_state = if reason_code.contains("dependency")
+            || reason_code == "auth.phase7_fresh_lookup_required"
+        {
             "blocked".to_owned()
         } else {
             "denied".to_owned()
@@ -1884,6 +2128,7 @@ struct CredentialRecordInput {
     allowed_services: Vec<String>,
     allowed_command_classes: Vec<String>,
     revocation_epoch: u64,
+    phase7_controls: Phase7CredentialControls,
 }
 
 struct CredentialRouteInput {
@@ -1905,8 +2150,33 @@ struct CredentialRouteInput {
     audit_refs: Vec<String>,
     overvault_secret_ref: String,
     protection_class: String,
+    phase7_controls: Phase7CredentialControls,
     lifecycle_status: CredentialStatus,
     raw_key_discarded: bool,
+}
+
+struct Phase7EnrollmentInput<'a> {
+    trace_id: &'a str,
+    credential_class: &'static str,
+    default_secret_ref: &'static str,
+    protection_class: &'a str,
+    secret_ref: Option<&'a SecretRefRequest>,
+    environment_scope: Option<&'a str>,
+    endpoint_scope: Option<&'a str>,
+    test_credential: Option<bool>,
+    production_bound: Option<bool>,
+    protection_evidence_refs: Option<&'a [String]>,
+    namespace_binding: Option<NamespaceCredentialBinding>,
+    dependencies: Phase7DependencyInputs<'a>,
+    allowed_services: &'a [String],
+    allowed_command_classes: &'a [String],
+}
+
+#[derive(Clone, Copy)]
+struct Phase7DependencyInputs<'a> {
+    overvault: Option<&'a str>,
+    overwatch: Option<&'a str>,
+    policy: Option<&'a str>,
 }
 
 struct Phase5LifecycleInput {
@@ -1960,6 +2230,15 @@ fn credential_record_for_phase3(input: CredentialRecordInput) -> CredentialRecor
         last_used_at: None,
         rotation_refs: Vec::new(),
         revocation_refs: Vec::new(),
+        environment_scope: input.phase7_controls.environment_scope,
+        endpoint_scope: input.phase7_controls.endpoint_scope,
+        test_credential: input.phase7_controls.test_credential,
+        production_bound: input.phase7_controls.production_bound,
+        protection_evidence_refs: input.phase7_controls.protection_evidence_refs,
+        namespace_binding: input.phase7_controls.namespace_binding,
+        protected_dependency_states: input.phase7_controls.protected_dependency_states,
+        blocked_state: input.phase7_controls.blocked_state,
+        recovery_hints: input.phase7_controls.recovery_hints,
     }
 }
 
@@ -1987,6 +2266,8 @@ fn credential_data(input: CredentialRouteInput) -> CredentialRouteData {
         overgate_admission_required: true,
         overwatch_event_ref: "event:overwatch:credential_lifecycle:phase3".to_owned(),
         overvault_secret_ref: input.overvault_secret_ref,
+        secret_ref_schema_ref: SECRET_REF_SCHEMA_REF,
+        phase7_controls: input.phase7_controls,
         lifecycle_status: input.lifecycle_status,
         raw_key_discarded: input.raw_key_discarded,
         raw_secret_persisted: false,
@@ -2117,6 +2398,391 @@ fn non_empty_refs(input: Option<Vec<String>>, fallback: String) -> Vec<String> {
             .collect()
     } else {
         vec![fallback]
+    }
+}
+
+fn phase7_controls_for_enrollment(
+    input: Phase7EnrollmentInput<'_>,
+) -> Result<Phase7CredentialControls, OverkeyError> {
+    let requested_environment_scope = input.environment_scope.unwrap_or("").trim();
+    let requested_endpoint_scope = input.endpoint_scope.unwrap_or("").trim();
+    let production_scope_requested = input.production_bound.unwrap_or(false)
+        || requested_environment_scope == "production"
+        || PHASE7_PRODUCTION_ENDPOINT_SCOPES
+            .iter()
+            .any(|scope| requested_endpoint_scope == *scope);
+    let environment_scope = if requested_environment_scope.is_empty() {
+        if production_scope_requested {
+            "production"
+        } else {
+            "loopback_development"
+        }
+    } else {
+        requested_environment_scope
+    }
+    .to_owned();
+    let endpoint_scope = if requested_endpoint_scope.is_empty() {
+        if production_scope_requested {
+            "production"
+        } else {
+            "loopback"
+        }
+    } else {
+        requested_endpoint_scope
+    }
+    .to_owned();
+    let production_bound = production_scope_requested;
+    let test_credential = input.test_credential.unwrap_or(!production_bound);
+    let protection_evidence_refs = input
+        .protection_evidence_refs
+        .unwrap_or_default()
+        .iter()
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .collect::<Vec<_>>();
+    let secret_ref = secret_ref_for_phase7(
+        input.secret_ref,
+        input.default_secret_ref,
+        input.protection_class,
+        production_bound,
+        input.trace_id,
+    )?;
+
+    if test_credential {
+        let local_environment = PHASE7_LOCAL_ONLY_ENVIRONMENT_SCOPES
+            .iter()
+            .any(|scope| environment_scope == *scope);
+        let local_endpoint = PHASE7_LOCAL_ONLY_ENDPOINT_SCOPES
+            .iter()
+            .any(|scope| endpoint_scope == *scope);
+        if production_bound || !local_environment || !local_endpoint {
+            return Err(OverkeyError::invalid_enrollment(
+                input.trace_id.to_owned(),
+                "overkey.phase7_test_credential_production_denied",
+                "file-backed or local test credentials are limited to loopback development and seed smoke flows",
+                vec![
+                    "phase7_controls.environment_scope",
+                    "phase7_controls.endpoint_scope",
+                    "phase7_controls.test_credential",
+                ],
+            ));
+        }
+    }
+
+    if production_bound && (test_credential || phase7_secret_ref_is_local_only(&secret_ref)) {
+        return Err(OverkeyError::invalid_enrollment(
+            input.trace_id.to_owned(),
+            "overkey.phase7_test_credential_production_denied",
+            "production credentials cannot use loopback file-backed test key refs",
+            vec![
+                "phase7_controls.secret_ref",
+                "phase7_controls.test_credential",
+                "phase7_controls.production_bound",
+            ],
+        ));
+    }
+
+    let high_risk_production = production_bound
+        && (input
+            .allowed_command_classes
+            .iter()
+            .any(|command| is_high_risk_command_class(command))
+            || input.allowed_services.iter().any(|service| {
+                service == "service:grid-resident" || service == "service:overvault"
+            })
+            || input.credential_class == "public_signing_key"
+            || input.credential_class == "service_account_key");
+    if high_risk_production
+        && (!strong_phase7_protection_class(input.protection_class)
+            || protection_evidence_refs.is_empty()
+            || secret_ref.access_audit_refs.is_empty())
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            input.trace_id.to_owned(),
+            "overkey.phase7_protection_class_evidence_required",
+            "high-risk production credentials require non-exporting signer, hardware, TPM, secure enclave, host keychain, or Overvault protection evidence",
+            vec![
+                "phase7_controls.protection_evidence_refs",
+                "credential_record.protection_class",
+                "secret_ref.access_audit_refs",
+            ],
+        ));
+    }
+
+    validate_phase7_namespace_binding(
+        input.trace_id,
+        input.namespace_binding.as_ref(),
+        production_bound,
+    )?;
+
+    let mut protected_dependency_states =
+        protected_dependency_states_for_phase7(input.dependencies, input.trace_id);
+    if !secret_ref.dependency_state.trim().is_empty() {
+        protected_dependency_states.push(ProtectedDependencyState {
+            dependency: "service:overvault:secret_ref".to_owned(),
+            state: secret_ref.dependency_state.clone(),
+            reason_code: if dependency_state_denied(Some(secret_ref.dependency_state.as_str())) {
+                "overkey.phase7_secret_ref_dependency_blocked".to_owned()
+            } else {
+                "overkey.phase7_secret_ref_dependency_available".to_owned()
+            },
+            retryable: dependency_state_denied(Some(secret_ref.dependency_state.as_str())),
+            recovery_hint: "recover Overvault resolver activation before credential use".to_owned(),
+            audit_ref: format!(
+                "audit:overkey:phase7:secret-ref:{}",
+                stable_trace_token(input.trace_id)
+            ),
+        });
+    }
+    let blocked_dependencies = protected_dependency_states
+        .iter()
+        .filter(|state| dependency_state_denied(Some(state.state.as_str())))
+        .map(|state| state.dependency.clone())
+        .collect::<Vec<_>>();
+    if production_bound && !blocked_dependencies.is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            input.trace_id.to_owned(),
+            "overkey.phase7_dependency_blocked",
+            "production credential enrollment fails closed until protected dependencies prove active state",
+            vec![
+                "phase7_controls.protected_dependency_states",
+                "secret_ref.dependency_state",
+            ],
+        ));
+    }
+    let blocked_state = if blocked_dependencies.is_empty() {
+        None
+    } else {
+        Some(format!("blocked:{}", blocked_dependencies.join(",")))
+    };
+    let mut recovery_hints = vec![
+        "resolve secret refs through Overvault only".to_owned(),
+        "reenroll local test credentials before production promotion".to_owned(),
+    ];
+    if blocked_state.is_some() {
+        recovery_hints.push("retry after protected dependency activation is visible".to_owned());
+    }
+
+    Ok(Phase7CredentialControls {
+        secret_ref,
+        environment_scope,
+        endpoint_scope,
+        test_credential,
+        production_bound,
+        protection_evidence_refs,
+        namespace_binding: input.namespace_binding,
+        protected_dependency_states,
+        blocked_state,
+        recovery_hints,
+        overasset_speculative_asset_created: false,
+    })
+}
+
+fn secret_ref_for_phase7(
+    request: Option<&SecretRefRequest>,
+    default_reference: &str,
+    protection_class: &str,
+    production_bound: bool,
+    trace_id: &str,
+) -> Result<SecretRef, OverkeyError> {
+    let Some(request) = request else {
+        let mut local = SecretRef::local_fixture(default_reference);
+        local.protection_class = protection_class.to_owned();
+        return Ok(local);
+    };
+    if !request.reference.starts_with("secret://") {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.phase7_secret_ref_required",
+            "Phase 7 secret refs must be typed secret:// references, not raw material",
+            vec!["secret_ref.reference"],
+        ));
+    }
+    let resolver_service = request
+        .resolver_service
+        .clone()
+        .unwrap_or_else(|| "service:overvault".to_owned());
+    let allowed_resolver_services = non_empty_refs(
+        request.allowed_resolver_services.clone(),
+        resolver_service.clone(),
+    );
+    if !allowed_resolver_services
+        .iter()
+        .any(|service| service == &resolver_service)
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.phase7_secret_resolver_not_allowed",
+            "secret refs must name an allowed resolver service",
+            vec![
+                "secret_ref.resolver_service",
+                "secret_ref.allowed_resolver_services",
+            ],
+        ));
+    }
+    let access_audit_refs = non_empty_refs(
+        request.access_audit_refs.clone(),
+        format!(
+            "audit:overkey:phase7:secret-ref:{}",
+            stable_trace_token(trace_id)
+        ),
+    );
+    Ok(SecretRef {
+        provider: request
+            .provider
+            .clone()
+            .unwrap_or_else(|| "overvault".to_owned()),
+        reference: request.reference.clone(),
+        protection_class: request
+            .protection_class
+            .clone()
+            .unwrap_or_else(|| protection_class.to_owned()),
+        resolvable_by: non_empty_refs(request.resolvable_by.clone(), "service:overkey".to_owned()),
+        secret_class: request.secret_class.clone().unwrap_or_else(|| {
+            if production_bound {
+                "production_credential_ref".to_owned()
+            } else {
+                "local_test_key_ref".to_owned()
+            }
+        }),
+        resolver_service,
+        rotation_policy: request.rotation_policy.clone().unwrap_or_else(|| {
+            if production_bound {
+                "rotation:overvault_managed".to_owned()
+            } else {
+                "rotation:manual_local_fixture".to_owned()
+            }
+        }),
+        allowed_resolver_services,
+        access_audit_refs,
+        dependency_state: request
+            .dependency_state
+            .clone()
+            .unwrap_or_else(|| "available".to_owned()),
+    })
+}
+
+fn phase7_secret_ref_is_local_only(secret_ref: &SecretRef) -> bool {
+    let combined = format!(
+        "{}|{}|{}|{}|{}",
+        secret_ref.provider,
+        secret_ref.reference,
+        secret_ref.protection_class,
+        secret_ref.secret_class,
+        secret_ref.rotation_policy
+    )
+    .to_ascii_lowercase();
+    combined.contains("local")
+        || combined.contains("loopback")
+        || combined.contains("fixture")
+        || combined.contains("file")
+        || combined.contains("test_key")
+}
+
+fn strong_phase7_protection_class(protection_class: &str) -> bool {
+    let lowered = protection_class.to_ascii_lowercase();
+    lowered.contains("host_keychain")
+        || lowered.contains("hardware")
+        || lowered.contains("tpm")
+        || lowered.contains("secure_enclave")
+        || lowered.contains("non_exporting")
+        || lowered.contains("overvault")
+        || lowered.contains("operator")
+        || lowered.contains("break_glass")
+}
+
+fn validate_phase7_namespace_binding(
+    trace_id: &str,
+    binding: Option<&NamespaceCredentialBinding>,
+    production_bound: bool,
+) -> Result<(), OverkeyError> {
+    let Some(binding) = binding else {
+        return Ok(());
+    };
+    let refs_present = !binding.app_name_ref.trim().is_empty()
+        && !binding.service_name_ref.trim().is_empty()
+        && !binding.namespace_owner_ref.trim().is_empty()
+        && !binding.policy_decision_ref.trim().is_empty()
+        && binding
+            .route_refs
+            .iter()
+            .any(|value| !value.trim().is_empty())
+        && binding
+            .storage_entitlement_refs
+            .iter()
+            .any(|value| !value.trim().is_empty())
+        && binding
+            .audit_refs
+            .iter()
+            .any(|value| !value.trim().is_empty());
+    if !refs_present || (production_bound && binding.native_app_pages.is_empty()) {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.phase7_namespace_binding_evidence_required",
+            "namespace-aware native app credentials require owner, routes, storage entitlements, policy decision, page refs, and audit evidence",
+            vec![
+                "phase7_controls.namespace_binding",
+                "namespace_binding.policy_decision_ref",
+                "namespace_binding.storage_entitlement_refs",
+            ],
+        ));
+    }
+    Ok(())
+}
+
+fn protected_dependency_states_for_phase7(
+    dependencies: Phase7DependencyInputs<'_>,
+    trace_id: &str,
+) -> Vec<ProtectedDependencyState> {
+    [
+        ("service:overvault", dependencies.overvault),
+        ("service:overwatch", dependencies.overwatch),
+        ("service:overguard-policy", dependencies.policy),
+    ]
+    .into_iter()
+    .filter_map(|(dependency, state)| {
+        state.map(|state| {
+            let blocked = dependency_state_denied(Some(state));
+            ProtectedDependencyState {
+                dependency: dependency.to_owned(),
+                state: state.to_owned(),
+                reason_code: if blocked {
+                    "overkey.phase7_dependency_blocked".to_owned()
+                } else {
+                    "overkey.phase7_dependency_available".to_owned()
+                },
+                retryable: blocked,
+                recovery_hint: format!("recover {dependency} activation before credential use"),
+                audit_ref: format!(
+                    "audit:overkey:phase7:{}:{}",
+                    dependency.replace(':', "-"),
+                    stable_trace_token(trace_id)
+                ),
+            }
+        })
+    })
+    .collect()
+}
+
+fn phase7_response_schema_for(controls: &Phase7CredentialControls) -> &'static str {
+    if controls.production_bound
+        || controls.namespace_binding.is_some()
+        || controls.blocked_state.is_some()
+    {
+        OVERKEY_PHASE7_RESPONSE_SCHEMA_VERSION
+    } else {
+        OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION
+    }
+}
+
+fn phase7_response_reason_for(
+    phase3_reason: &'static str,
+    controls: &Phase7CredentialControls,
+) -> &'static str {
+    if phase7_response_schema_for(controls) == OVERKEY_PHASE7_RESPONSE_SCHEMA_VERSION {
+        "overkey.phase7_credential_controls_recorded"
+    } else {
+        phase3_reason
     }
 }
 
@@ -4278,6 +4944,447 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase7_secret_refs_store_overvault_metadata_without_raw_material() {
+        let router = OverkeyService::default().router();
+        let body = phase7_production_signing_key_body(
+            "credential:signing:phase7-prod",
+            "key:tenant:phase7-prod",
+        );
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(TRACE_HEADER, "trace:overkey:phase7:prod")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response_body = response_json(response).await;
+        assert_eq!(
+            response_body["schema_version"],
+            "overkey.phase7.response.v0"
+        );
+        assert_eq!(
+            response_body["reason_code"],
+            "overkey.phase7_credential_controls_recorded"
+        );
+        assert_eq!(
+            response_body["data"]["phase7_controls"]["secret_ref"]["reference"],
+            "secret://overvault/prod/tenant-phase7/signing-key"
+        );
+        assert_eq!(
+            response_body["data"]["phase7_controls"]["secret_ref"]["resolver_service"],
+            "service:overvault"
+        );
+        assert_eq!(
+            response_body["data"]["phase7_controls"]["production_bound"],
+            true
+        );
+        assert_eq!(
+            response_body["data"]["phase7_controls"]["overasset_speculative_asset_created"],
+            false
+        );
+        assert_eq!(response_body["data"]["raw_secret_persisted"], false);
+        let serialized = serde_json::to_string(&response_body).unwrap();
+        assert!(!serialized.contains("private_key="));
+        assert!(!serialized.contains("raw_api_key="));
+
+        let lookup = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/credentials/credential:signing:phase7-prod")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let lookup_body = response_json(lookup).await;
+        assert_eq!(lookup_body["data"]["credential_known"], true);
+        assert_eq!(
+            lookup_body["data"]["secret_ref_schema_ref"],
+            "schema:overkey:secret_ref:v0"
+        );
+        assert_eq!(lookup_body["data"]["production_bound"], true);
+        assert_eq!(
+            lookup_body["data"]["overvault_secret_ref"],
+            "secret://overvault/prod/tenant-phase7/signing-key"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase7_production_protection_and_test_credentials_fail_closed() {
+        let router = OverkeyService::default().router();
+        let production_test_key = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:signing:phase7-local-prod",
+                            "subject_ref": "actor:overpass:phase7",
+                            "key_id": "key:tenant:phase7-local-prod",
+                            "public_key_ref": "public-key-ref:ed25519:phase7-local-prod",
+                            "allowed_signature_uses": ["signature.verify"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:hardware_non_exporting_signer",
+                            "environment_scope": "production",
+                            "endpoint_scope": "production",
+                            "production_bound": true,
+                            "test_credential": true,
+                            "protection_evidence_refs": ["evidence:phase7:hardware"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(production_test_key.status(), StatusCode::BAD_REQUEST);
+        let production_test_body = response_json(production_test_key).await;
+        assert_eq!(
+            production_test_body["reason_code"],
+            "overkey.phase7_test_credential_production_denied"
+        );
+
+        let mut weak = phase7_production_signing_key_body(
+            "credential:signing:phase7-weak",
+            "key:tenant:phase7-weak",
+        );
+        weak["protection_class"] = json!("protection:tenant_bound_public_key");
+        weak["protection_evidence_refs"] = json!([]);
+        let weak_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(weak.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(weak_response.status(), StatusCode::BAD_REQUEST);
+        let weak_body = response_json(weak_response).await;
+        assert_eq!(
+            weak_body["reason_code"],
+            "overkey.phase7_protection_class_evidence_required"
+        );
+
+        let local_seed = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase7-seed",
+                            "api_key_prefix": "ovk_phase7_seed",
+                            "raw_api_key": "phase7-seed-key",
+                            "environment_scope": "seed_smoke_test",
+                            "endpoint_scope": "seed_smoke",
+                            "test_credential": true
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(local_seed.status(), StatusCode::OK);
+        let local_seed_body = response_json(local_seed).await;
+        assert_eq!(
+            local_seed_body["data"]["phase7_controls"]["test_credential"],
+            true
+        );
+        assert_eq!(
+            local_seed_body["data"]["phase7_controls"]["endpoint_scope"],
+            "seed_smoke"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase7_namespace_binding_requires_policy_owner_storage_evidence() {
+        let router = OverkeyService::default().router();
+        let invalid_namespace = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase7-namespace-invalid",
+                            "api_key_prefix": "ovk_phase7_ns_bad",
+                            "raw_api_key": "phase7-namespace-key",
+                            "namespace_binding": {
+                                "app_name_ref": "app:overrid:native:wallet",
+                                "service_name_ref": "service:overkey",
+                                "route_refs": [],
+                                "native_app_pages": [],
+                                "namespace_owner_ref": "",
+                                "namespace_delegation_ref": null,
+                                "storage_entitlement_refs": [],
+                                "overasset_utility_refs": ["overasset:utility:credential-display"],
+                                "policy_decision_ref": "",
+                                "audit_refs": []
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_namespace.status(), StatusCode::BAD_REQUEST);
+        let invalid_body = response_json(invalid_namespace).await;
+        assert_eq!(
+            invalid_body["reason_code"],
+            "overkey.phase7_namespace_binding_evidence_required"
+        );
+
+        let valid_namespace = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase7-namespace",
+                            "api_key_prefix": "ovk_phase7_ns",
+                            "raw_api_key": "phase7-namespace-key-ok",
+                            "namespace_binding": {
+                                "app_name_ref": "app:overrid:native:wallet",
+                                "service_name_ref": "service:overkey",
+                                "route_refs": ["route:/overkey/v1/credentials/api-keys"],
+                                "native_app_pages": ["native-page:wallet:credentials"],
+                                "namespace_owner_ref": "namespace:owner:tenant-phase7",
+                                "namespace_delegation_ref": "namespace:delegation:tenant-phase7:overkey",
+                                "storage_entitlement_refs": ["storage:entitlement:tenant-phase7:credential-metadata"],
+                                "overasset_utility_refs": ["overasset:utility:credential-display"],
+                                "policy_decision_ref": "policy:overguard:phase7:namespace-allow",
+                                "audit_refs": ["audit:overkey:phase7:namespace"]
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(valid_namespace.status(), StatusCode::OK);
+        let valid_body = response_json(valid_namespace).await;
+        assert_eq!(valid_body["schema_version"], "overkey.phase7.response.v0");
+        assert_eq!(
+            valid_body["data"]["phase7_controls"]["namespace_binding"]["namespace_owner_ref"],
+            "namespace:owner:tenant-phase7"
+        );
+        assert_eq!(
+            valid_body["data"]["phase7_controls"]["overasset_speculative_asset_created"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn phase7_protected_dependency_fail_closed_and_fresh_lookup_rules() {
+        let router = OverkeyService::default().router();
+        let create = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        phase7_production_signing_key_body(
+                            "credential:signing:phase7-verify",
+                            "key:tenant:phase7-verify",
+                        )
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+
+        let payload = "phase7-verification-body";
+        let mut blocked_verify = json!({
+            "credential_id": "credential:signing:phase7-verify",
+            "key_id": "key:tenant:phase7-verify",
+            "key_version": 1,
+            "algorithm": "Ed25519",
+            "canonicalization": "overrid.canonical_json.v0",
+            "timestamp": "2026-06-26T12:00:00Z",
+            "replay_window_id": "replay:phase7:protected",
+            "body_hash_ref": blake3_ref("body", payload),
+            "body_hash_payload": payload,
+            "allowed_use": "signature.verify",
+            "command_class": "command.verify",
+            "tenant_id": "tenant:phase7",
+            "subject_ref": "actor:overpass:phase7",
+            "signature_ref": "signature:fixture:phase7",
+            "revocation_epoch": 0,
+            "overpass_subject_state": "active",
+            "overtenant_tenant_state": "active",
+            "overtenant_membership_state": "active",
+            "overvault_dependency_state": "unavailable",
+            "overwatch_dependency_state": "active",
+            "policy_dependency_state": "active",
+            "overguard_policy_decision_ref": "policy:overguard:phase7:verification-allow",
+            "overguard_decision": "allow"
+        });
+        let blocked = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(blocked_verify.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let blocked_body = response_json(blocked).await;
+        assert_eq!(blocked_body["data"]["verified"], false);
+        assert_eq!(blocked_body["data"]["verification_state"], "blocked");
+        assert_eq!(
+            blocked_body["data"]["reason_code"],
+            "auth.phase7_protected_dependency_blocked"
+        );
+
+        blocked_verify["overvault_dependency_state"] = json!("active");
+        blocked_verify["cache_invalidation_state"] = json!("invalidation_unavailable");
+        blocked_verify["fresh_overkey_lookup"] = json!(false);
+        let cache_blocked = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(blocked_verify.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let cache_blocked_body = response_json(cache_blocked).await;
+        assert_eq!(
+            cache_blocked_body["data"]["reason_code"],
+            "auth.phase7_protected_dependency_blocked"
+        );
+
+        let api_create = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase7-ordinary",
+                            "api_key_prefix": "ovk_phase7_ord",
+                            "raw_api_key": "phase7-ordinary-key",
+                            "allowed_uses": ["request.verify"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let api_create_body = response_json(api_create).await;
+        let hash_ref = api_create_body["data"]["api_key_hash_ref"]
+            .as_str()
+            .unwrap();
+        let ordinary_verify = json!({
+            "credential_id": "credential:api-key:phase7-ordinary",
+            "api_key_prefix": "ovk_phase7_ord",
+            "api_key_hash_ref": hash_ref,
+            "timestamp": "2026-06-26T12:00:00Z",
+            "replay_window_id": "replay:phase7:ordinary",
+            "allowed_use": "request.verify",
+            "command_class": "command.verify",
+            "tenant_id": "tenant:phase7",
+            "cache_invalidation_state": "invalidation_unavailable",
+            "fresh_overkey_lookup": false
+        });
+        let fresh_required = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/api-key")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(ordinary_verify.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let fresh_required_body = response_json(fresh_required).await;
+        assert_eq!(
+            fresh_required_body["data"]["reason_code"],
+            "auth.phase7_fresh_lookup_required"
+        );
+        assert_eq!(fresh_required_body["data"]["verification_state"], "blocked");
+
+        let mut fresh_lookup = ordinary_verify;
+        fresh_lookup["fresh_overkey_lookup"] = json!(true);
+        let verified = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/api-key")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(fresh_lookup.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let verified_body = response_json(verified).await;
+        assert_eq!(verified_body["data"]["verified"], true);
+        assert_eq!(
+            verified_body["data"]["reason_code"],
+            "auth.api_key_verified_phase4"
+        );
+    }
+
+    #[tokio::test]
     async fn signing_key_enrollment_rejects_duplicate_active_key_ids() {
         let router = OverkeyService::default().router();
         let request = r#"{
@@ -4667,6 +5774,43 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(create.status(), StatusCode::OK);
+    }
+
+    fn phase7_production_signing_key_body(credential_id: &str, key_id: &str) -> Value {
+        json!({
+            "credential_id": credential_id,
+            "subject_ref": "actor:overpass:phase7",
+            "key_id": key_id,
+            "key_version": 1,
+            "public_key_ref": "public-key-ref:ed25519:phase7-prod",
+            "allowed_signature_uses": ["signature.verify"],
+            "not_after": "2026-12-31T23:59:59Z",
+            "protection_class": "protection:hardware_non_exporting_signer",
+            "environment_scope": "production",
+            "endpoint_scope": "production",
+            "production_bound": true,
+            "test_credential": false,
+            "protection_evidence_refs": [
+                "evidence:phase7:hardware-signer",
+                "audit:overwatch:phase7:protection"
+            ],
+            "secret_ref": {
+                "provider": "overvault",
+                "reference": "secret://overvault/prod/tenant-phase7/signing-key",
+                "protection_class": "protection:hardware_non_exporting_signer",
+                "resolvable_by": ["service:overkey", "service:overvault"],
+                "secret_class": "production_credential_ref",
+                "resolver_service": "service:overvault",
+                "rotation_policy": "rotation:overvault_managed",
+                "allowed_resolver_services": ["service:overvault"],
+                "access_audit_refs": ["audit:overkey:phase7:prod-secret-ref"],
+                "dependency_state": "available"
+            },
+            "overvault_dependency_state": "active",
+            "overwatch_dependency_state": "active",
+            "policy_dependency_state": "active",
+            "audit_refs": ["audit:overkey:phase7:prod-signing-key"]
+        })
     }
 
     async fn post_phase6_delegation(router: Router, body: Value) -> axum::response::Response {
