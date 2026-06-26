@@ -1,0 +1,29 @@
+[package]
+name = "overrid-overkey"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rust credential and key authority service skeleton for Overrid Overkey."
+
+[dependencies]
+axum = "0.7"
+overrid-contracts = { path = "../schemas/overrid_contracts" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.38", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
+[[bin]]
+name = "overkey"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+

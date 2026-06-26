@@ -12,6 +12,7 @@ pub const LOCAL_TEST_STATE_MARKER: &str = "overrid.local_test_state.v0";
 const READY_STACK_COMPONENTS: &[(&str, bool)] = &[
     ("service:local_stack", true),
     ("service:overgate", true),
+    ("service:overkey", true),
     ("service:overwatch", true),
     ("component:api", true),
     ("component:worker", true),

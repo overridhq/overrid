@@ -5,6 +5,7 @@ members = [
     "packages/local_stack",
     "packages/integration_harness",
     "packages/overgate",
+    "packages/overkey",
     "packages/cli",
 ]
 resolver = "2"

@@ -131,6 +131,7 @@ ALLOWED_RELEASE_STATES = {
 
 CONTRACTS_MANIFEST_MODULE_KEYS = [
     "shared_schema_package_phase2",
+    "overkey_phase2",
     "local_development_stack_phase2",
     "integration_harness_phase2",
     "integration_harness_phase6",

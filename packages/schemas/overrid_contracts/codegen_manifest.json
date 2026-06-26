@@ -42,6 +42,51 @@
       "packages/cli/fixtures/valid/phase10_release_readiness.valid.json"
     ]
   },
+  "overkey_phase2": {
+    "schema_family": "overkey",
+    "schema_version": "overkey.credential.v0",
+    "schema_ownership": {
+      "owning_service_family": "SDS #31 Overkey",
+      "downstream_consumers": [
+        "Overkey",
+        "Overgate",
+        "Overwatch",
+        "Integration Test Harness",
+        "Local Development Stack",
+        "CLI",
+        "SDK",
+        "Rust contract tests",
+        "Schema validators"
+      ],
+      "release_status": "validated",
+      "privacy_class": "tenant_private_secret_reference_metadata",
+      "compatibility_class": "phase_gated_current_plus_previous_major",
+      "review_authority": "Overkey maintainers using Build Plan #9 Phase 2 with Shared Schema Package metadata gates",
+      "consumer_notes": "Phase 2 credential metadata, delegation, rotation, revocation, and verification-result contracts. Secret material remains reference-only; JSON Schema is the canonical fixture and docs-facing authority."
+    },
+    "canonical_schema": "packages/schemas/overrid_contracts/v0/overkey_credential.schema.json",
+    "source_of_truth": "json_schema",
+    "rust_first_validation": true,
+    "rust_projection": {
+      "status": "rust_projection_from_json_schema_source",
+      "path": "packages/overkey/src/records.rs",
+      "source_schema": "packages/schemas/overrid_contracts/v0/overkey_credential.schema.json",
+      "non_authoritative": true
+    },
+    "fixtures": {
+      "valid": [
+        "packages/overkey/fixtures/valid/phase2_local_credential.valid.json"
+      ],
+      "invalid": [
+        "packages/overkey/fixtures/invalid/phase2_raw_secret.invalid.json"
+      ]
+    },
+    "guardrails": [
+      "Overkey Phase 2 records expose credential metadata, status, verification results, and audit refs without raw credential material.",
+      "API key hashes, public-key refs, service-account refs, delegation refs, rotation refs, revocation refs, and secret refs stay typed and reference-only.",
+      "Fixture validation must reject raw secrets, private keys, seed material, passwords, bearer tokens, decrypted payloads, and direct private storage paths."
+    ]
+  },
   "shared_schema_package_phase2": {
     "schema_family": "shared-schema-package",
     "schema_version": "shared-schema-package.v0.1",
