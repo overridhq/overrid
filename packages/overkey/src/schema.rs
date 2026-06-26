@@ -7,8 +7,7 @@ pub const OVERKEY_PHASE2_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase2.local_fi
 pub const OVERKEY_PHASE3_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase3.credential_enrollment.v0";
 pub const OVERKEY_PHASE4_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase4.verification.v0";
 pub const OVERKEY_PHASE5_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase5.lifecycle.v0";
-pub const OVERKEY_PHASE6_FIXTURE_SCHEMA_VERSION: &str =
-    "overkey.phase6.delegation_policy_usage.v0";
+pub const OVERKEY_PHASE6_FIXTURE_SCHEMA_VERSION: &str = "overkey.phase6.delegation_policy_usage.v0";
 pub const OVERKEY_SCHEMA_SOURCE: &str =
     "packages/schemas/overrid_contracts/v0/overkey_credential.schema.json";
 

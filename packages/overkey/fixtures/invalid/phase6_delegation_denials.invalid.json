@@ -1,0 +1,57 @@
+{
+  "schema_version": "overkey.phase6.delegation_denials.v0",
+  "service_id": "service:overkey",
+  "denials": [
+    {
+      "case": "delegation_missing_overgate",
+      "reason_code": "auth.delegation_overgate_required",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_missing_evidence",
+      "reason_code": "overkey.delegation_evidence_required",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_stale_delegate",
+      "reason_code": "overkey.delegation_delegate_stale",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_expired",
+      "reason_code": "overkey.delegation_expired",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_cross_tenant",
+      "reason_code": "overkey.delegation_cross_tenant_denied",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_overbroad_scope",
+      "reason_code": "overkey.delegation_scope_too_broad",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "delegation_policy_denied",
+      "reason_code": "policy.overguard_denied",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "service_account_accounting_mutation",
+      "reason_code": "overkey.broad_service_account_scope_rejected",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "operator_lifecycle_unsigned",
+      "reason_code": "auth.operator_lifecycle_unsigned",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "operator_lifecycle_missing_evidence",
+      "reason_code": "auth.operator_lifecycle_evidence_required",
+      "side_effects_allowed": false
+    }
+  ],
+  "raw_secret_persisted": false
+}

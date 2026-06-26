@@ -925,6 +925,7 @@ test_targets = [
     "python3 scripts/validate_overkey_phase3.py",
     "python3 scripts/validate_overkey_phase4.py",
     "python3 scripts/validate_overkey_phase5.py",
+    "python3 scripts/validate_overkey_phase6.py",
 ]
 local_stack_participation = "profile_consumer"
 documentation_links = [

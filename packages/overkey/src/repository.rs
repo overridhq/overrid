@@ -165,8 +165,7 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             .lock()
             .expect("credential repository lock poisoned");
         if state.delegations.iter().any(|existing| {
-            existing.tenant_id == record.tenant_id
-                && existing.delegation_id == record.delegation_id
+            existing.tenant_id == record.tenant_id && existing.delegation_id == record.delegation_id
         }) {
             return Err(RepositoryError::DuplicateDelegationRecord);
         }

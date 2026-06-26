@@ -1,0 +1,128 @@
+{
+  "schema_version": "overkey.phase6.delegation_policy_usage.v0",
+  "service_id": "service:overkey",
+  "base_path": "/overkey",
+  "delegation": {
+    "route": "POST /v1/delegations",
+    "schema_version": "overkey.phase6.response.v0",
+    "reason_code": "overkey.delegation_recorded_phase6",
+    "delegation_record": {
+      "delegation_id": "delegation:overkey:phase6:001",
+      "tenant_id": "tenant:phase6",
+      "delegator_tenant_id": "tenant:phase6",
+      "delegate_tenant_id": "tenant:phase6",
+      "delegator_ref": "actor:overpass:phase6-owner",
+      "delegate_ref": "actor:overpass:phase6-delegate",
+      "subject_ref": "actor:overpass:phase6-owner",
+      "delegated_to": "actor:overpass:phase6-delegate",
+      "allowed_scopes": [
+        "scope:credential.read",
+        "scope:credential.verify"
+      ],
+      "allowed_uses": [
+        "scope:credential.read",
+        "scope:credential.verify"
+      ],
+      "allowed_command_classes": [
+        "command.verify",
+        "command.credential.read"
+      ],
+      "not_after": "2026-12-31T23:59:59Z",
+      "revocation_state": "revocable",
+      "evidence_refs": [
+        "evidence:overkey:phase6:delegator-consent"
+      ],
+      "policy_decision_ref": "policy:overguard:phase6:allow-delegation",
+      "status": "active",
+      "audit_refs": [
+        "audit:overkey:phase6:delegation"
+      ]
+    },
+    "policy_handoff": {
+      "policy_engine_ref": "service:overguard",
+      "decision_ref": "policy:overguard:phase6:allow-delegation",
+      "decision": "allow",
+      "local_fallback": "phase1_local_low_risk_checks",
+      "checked_dimensions": [
+        "credential_class",
+        "delegation",
+        "protection_class",
+        "command_class",
+        "high_risk_operation"
+      ],
+      "overkey_policy_truth_stored": false
+    },
+    "overgate_admission_required": true,
+    "raw_secret_persisted": false,
+    "redacted_fields": [
+      "raw_api_key",
+      "private_key",
+      "bearer_token",
+      "seed_phrase",
+      "password",
+      "raw_signature"
+    ]
+  },
+  "service_account_scope_matrix": [
+    {
+      "service_id": "service:overgate",
+      "allowed_command_classes": [
+        "command.verify",
+        "command.credential.read",
+        "command.credential.rotate",
+        "command.credential.revoke"
+      ]
+    },
+    {
+      "service_id": "service:overvault",
+      "allowed_command_classes": [
+        "command.secret.resolve"
+      ]
+    },
+    {
+      "service_id": "service:overqueue",
+      "allowed_command_classes": [
+        "command.queue.execution_callback"
+      ]
+    },
+    {
+      "service_id": "service:worker",
+      "allowed_command_classes": [
+        "command.worker.runtime_callback",
+        "command.workload.execute"
+      ]
+    }
+  ],
+  "last_used_usage_hook": {
+    "route": "POST /v1/usage/last-used",
+    "usage_event_classes": [
+      "overkey.verification_volume",
+      "overkey.lifecycle_operation",
+      "overkey.service_account_use",
+      "overkey.credential_class_usage"
+    ],
+    "retry_safe_update_queued_on_repository_miss": true,
+    "overmeter_event_refs": [
+      "event:overmeter:overkey:verification-volume:phase6",
+      "event:overmeter:overkey:credential-class:phase6"
+    ],
+    "oru_balance_mutated": false,
+    "seal_ledger_mutated": false
+  },
+  "operator_lifecycle_controls": {
+    "signed_overgate_command_required": true,
+    "accepted_roles": [
+      "role:operator",
+      "role:admin",
+      "role:break_glass_admin"
+    ],
+    "strong_protection_classes": [
+      "operator",
+      "hardware",
+      "secure_enclave",
+      "break_glass"
+    ],
+    "overwatch_evidence_required": true,
+    "tenant_isolation_preserved": true
+  }
+}

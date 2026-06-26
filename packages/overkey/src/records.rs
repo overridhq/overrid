@@ -159,6 +159,8 @@ pub struct ServiceAccountKey {
 pub struct DelegationRecord {
     pub delegation_id: String,
     pub tenant_id: String,
+    pub delegator_tenant_id: String,
+    pub delegate_tenant_id: String,
     pub delegator_ref: String,
     pub delegate_ref: String,
     pub subject_ref: String,

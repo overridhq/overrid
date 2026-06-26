@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::OverkeyError;
 use crate::records::{
-    AffectedInventory, CacheInvalidation, CredentialRecord, CredentialStatus, PropagationStatus,
-    DelegationRecord, PolicyHandoff, RevocationRecord, RotationRecord, SecretRef,
+    AffectedInventory, CacheInvalidation, CredentialRecord, CredentialStatus, DelegationRecord,
+    PolicyHandoff, PropagationStatus, RevocationRecord, RotationRecord, SecretRef,
     VerificationResult,
 };
 use crate::repository::CredentialMetadataRepository;
@@ -18,9 +18,8 @@ use crate::schema::{
     API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF, DELEGATION_RECORD_SCHEMA_REF,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
-    PUBLIC_KEY_RECORD_SCHEMA_REF,
-    REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SERVICE_ACCOUNT_KEY_SCHEMA_REF,
-    VERIFICATION_RESULT_SCHEMA_REF,
+    PUBLIC_KEY_RECORD_SCHEMA_REF, REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF,
+    SERVICE_ACCOUNT_KEY_SCHEMA_REF, VERIFICATION_RESULT_SCHEMA_REF,
 };
 use crate::service::OverkeyState;
 
@@ -217,6 +216,8 @@ struct Phase6DelegationData {
     record_kind: &'static str,
     schema_ref: &'static str,
     repository_action: &'static str,
+    delegator_tenant_id: String,
+    delegate_tenant_id: String,
     delegator_ref: String,
     delegate_ref: String,
     allowed_scopes: Vec<String>,
@@ -354,6 +355,8 @@ struct ServiceAccountCredentialRequest {
 #[derive(Debug, Deserialize)]
 struct DelegationRequest {
     delegation_id: Option<String>,
+    delegator_tenant_id: String,
+    delegate_tenant_id: String,
     delegator_ref: String,
     delegate_ref: String,
     allowed_scopes: Vec<String>,
@@ -794,7 +797,7 @@ async fn create_delegation(
     })?;
     let tenant_id = tenant_from_headers(&headers)?;
     let request: DelegationRequest = parse_json_body(&headers, body)?;
-    let policy_handoff = validate_delegation_request(&headers, &request, &trace_id)?;
+    let policy_handoff = validate_delegation_request(&headers, &tenant_id, &request, &trace_id)?;
     let delegation_id = request
         .delegation_id
         .clone()
@@ -808,10 +811,7 @@ async fn create_delegation(
     );
     let audit_refs = non_empty_refs(
         request.audit_refs.clone(),
-        format!(
-            "audit:overkey:delegation:{}",
-            stable_trace_token(&trace_id)
-        ),
+        format!("audit:overkey:delegation:{}", stable_trace_token(&trace_id)),
     );
     let revocation_state = request
         .revocation_state
@@ -820,6 +820,8 @@ async fn create_delegation(
     let record = DelegationRecord {
         delegation_id: delegation_id.clone(),
         tenant_id: tenant_id.clone(),
+        delegator_tenant_id: request.delegator_tenant_id.clone(),
+        delegate_tenant_id: request.delegate_tenant_id.clone(),
         delegator_ref: request.delegator_ref.clone(),
         delegate_ref: request.delegate_ref.clone(),
         subject_ref: request.delegator_ref.clone(),
@@ -838,6 +840,7 @@ async fn create_delegation(
         .repository
         .append_delegation_record(record)
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+    let overwatch_event_ref = format!("event:overwatch:overkey:delegation:{delegation_id}");
 
     Ok(json_response_with_schema(
         OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
@@ -846,10 +849,12 @@ async fn create_delegation(
         Phase6DelegationData {
             route: ROUTE_CREATE_DELEGATION,
             tenant_id,
-            delegation_id,
+            delegation_id: delegation_id.clone(),
             record_kind: "delegation_record",
             schema_ref: DELEGATION_RECORD_SCHEMA_REF,
             repository_action: "append_delegation_record",
+            delegator_tenant_id: request.delegator_tenant_id,
+            delegate_tenant_id: request.delegate_tenant_id,
             delegator_ref: request.delegator_ref,
             delegate_ref: request.delegate_ref,
             allowed_scopes: request.allowed_scopes,
@@ -859,7 +864,7 @@ async fn create_delegation(
             evidence_refs,
             policy_handoff,
             overgate_admission_required: true,
-            overwatch_event_ref: format!("event:overwatch:overkey:delegation:{delegation_id}"),
+            overwatch_event_ref,
             audit_refs,
             raw_secret_persisted: false,
             redacted_fields: safe_metadata_redactions(),
@@ -1260,22 +1265,22 @@ async fn record_last_used(
     let used_at = request
         .used_at
         .unwrap_or_else(|| LOCAL_PHASE3_TIMESTAMP.to_owned());
-    let audit_ref = request.audit_ref.unwrap_or_else(|| {
-        format!("audit:overkey:last-used:{}", stable_trace_token(&trace_id))
-    });
-    let update_result = state
-        .repository
-        .update_last_used(
-            &tenant_id,
-            &request.credential_id,
-            used_at.clone(),
-            audit_ref.clone(),
-        );
+    let audit_ref = request
+        .audit_ref
+        .unwrap_or_else(|| format!("audit:overkey:last-used:{}", stable_trace_token(&trace_id)));
+    let update_result = state.repository.update_last_used(
+        &tenant_id,
+        &request.credential_id,
+        used_at.clone(),
+        audit_ref.clone(),
+    );
     let (usage_recorded, retry_safe_update_queued, response_reason) = match update_result {
         Ok(()) => (true, false, "overkey.usage_recorded_phase6"),
-        Err(crate::repository::RepositoryError::CredentialNotFound) => {
-            (false, true, "overkey.usage_update_queued_after_repository_miss")
-        }
+        Err(crate::repository::RepositoryError::CredentialNotFound) => (
+            false,
+            true,
+            "overkey.usage_update_queued_after_repository_miss",
+        ),
         Err(error) => return Err(OverkeyError::repository_rejected(trace_id.clone(), error)),
     };
 
@@ -1756,7 +1761,11 @@ fn policy_denial_for_high_risk(
     if !is_high_risk_command_class(command_class) {
         return None;
     }
-    if overguard_policy_decision_ref.unwrap_or("").trim().is_empty() {
+    if overguard_policy_decision_ref
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+    {
         return Some("policy.overguard_handoff_required");
     }
     if overguard_decision
@@ -1804,12 +1813,12 @@ fn apply_verification_decision(data: &mut VerificationData, denial: Option<&'sta
     data.reason_code = verification_positive_reason(data.verification_class).to_owned();
     data.retryability = "not_retryable_success".to_owned();
     data.cache_guidance.cacheable = true;
-    data.cache_guidance.max_positive_ttl_seconds = if is_high_risk_command_class(&data.command_class)
-    {
-        HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS
-    } else {
-        ORDINARY_POSITIVE_CACHE_TTL_SECONDS
-    };
+    data.cache_guidance.max_positive_ttl_seconds =
+        if is_high_risk_command_class(&data.command_class) {
+            HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS
+        } else {
+            ORDINARY_POSITIVE_CACHE_TTL_SECONDS
+        };
 }
 
 fn verification_positive_reason(verification_class: &str) -> &'static str {
@@ -2127,6 +2136,7 @@ fn affected_command_classes(request: &LifecycleRequest, current: &CredentialReco
 
 fn validate_delegation_request(
     headers: &HeaderMap,
+    tenant_id: &str,
     request: &DelegationRequest,
     trace_id: &str,
 ) -> Result<PolicyHandoff, OverkeyError> {
@@ -2147,7 +2157,10 @@ fn validate_delegation_request(
             trace_id.to_owned(),
             "overkey.delegation_subject_invalid",
             "delegation requires distinct delegator and delegate refs",
-            vec!["delegation_record.delegator_ref", "delegation_record.delegate_ref"],
+            vec![
+                "delegation_record.delegator_ref",
+                "delegation_record.delegate_ref",
+            ],
         ));
     }
     if !narrow_delegation_scope(&request.allowed_scopes)
@@ -2179,6 +2192,39 @@ fn validate_delegation_request(
             "overkey.delegation_expiry_required",
             "delegated access requires expiry metadata",
             vec!["delegation_record.not_after"],
+        ));
+    }
+    if request.delegator_tenant_id.trim().is_empty()
+        || request.delegate_tenant_id.trim().is_empty()
+        || request.delegator_tenant_id != tenant_id
+        || request.delegate_tenant_id != tenant_id
+        || request.delegator_tenant_id != request.delegate_tenant_id
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_cross_tenant_denied",
+            "delegated access requires delegator and delegate tenant refs to match the active tenant",
+            vec![
+                "delegation_record.tenant_id",
+                "delegation_record.delegator_tenant_id",
+                "delegation_record.delegate_tenant_id",
+            ],
+        ));
+    }
+    if request
+        .revocation_state
+        .as_deref()
+        .is_some_and(|state| matches!(state, "revoked" | "expired"))
+        || phase6_delegation_expired(&request.not_after)
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_expired",
+            "delegated access must be active, revocable, and not expired",
+            vec![
+                "delegation_record.not_after",
+                "delegation_record.revocation_state",
+            ],
         ));
     }
     if dependency_state_denied(request.overpass_delegate_state.as_deref())
@@ -2273,11 +2319,22 @@ fn policy_handoff_from_decision(
 }
 
 fn local_policy_handoff(decision_ref: &str) -> PolicyHandoff {
-    policy_handoff_from_decision(Some(decision_ref), Some("local_phase1_allow"), "command.verify")
+    policy_handoff_from_decision(
+        Some(decision_ref),
+        Some("local_phase1_allow"),
+        "command.verify",
+    )
 }
 
 fn narrow_delegation_scope(values: &[String]) -> bool {
     narrow_service_account_scope(values)
+}
+
+fn phase6_delegation_expired(not_after: &str) -> bool {
+    let value = not_after.trim();
+    value.len() == LOCAL_PHASE3_TIMESTAMP.len()
+        && value.ends_with('Z')
+        && value <= LOCAL_PHASE3_TIMESTAMP
 }
 
 fn is_high_risk_command_class(command_class: &str) -> bool {
@@ -2512,7 +2569,10 @@ fn validate_operator_lifecycle_request(
             trace_id.to_owned(),
             "auth.operator_lifecycle_evidence_required",
             "high-risk lifecycle commands require Overwatch audit and evidence refs",
-            vec!["lifecycle_request.audit_ref", "lifecycle_request.evidence_refs"],
+            vec![
+                "lifecycle_request.audit_ref",
+                "lifecycle_request.evidence_refs",
+            ],
         ));
     }
     Ok(())
@@ -3867,6 +3927,357 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase6_delegation_requires_overgate_policy_evidence_and_narrow_scope() {
+        let router = OverkeyService::default().router();
+        let valid_request = json!({
+            "delegation_id": "delegation:overkey:phase6:test",
+            "delegator_tenant_id": "tenant:phase6",
+            "delegate_tenant_id": "tenant:phase6",
+            "delegator_ref": "actor:overpass:phase6-owner",
+            "delegate_ref": "actor:overpass:phase6-delegate",
+            "allowed_scopes": ["scope:credential.read", "scope:credential.verify"],
+            "allowed_command_classes": ["command.credential.read", "command.verify"],
+            "not_after": "2026-12-31T23:59:59Z",
+            "evidence_refs": ["evidence:overkey:phase6:delegator-consent"],
+            "audit_refs": ["audit:overkey:phase6:delegation"],
+            "overguard_policy_decision_ref": "policy:overguard:phase6:allow-delegation",
+            "overguard_decision": "allow",
+            "overpass_delegate_state": "active",
+            "overtenant_tenant_state": "active",
+            "overtenant_membership_state": "active"
+        });
+
+        let wrong_ingress = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/delegations")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overvault")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(valid_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(wrong_ingress.status(), StatusCode::BAD_REQUEST);
+        let wrong_ingress_body = response_json(wrong_ingress).await;
+        assert_eq!(
+            wrong_ingress_body["reason_code"],
+            "auth.delegation_overgate_required"
+        );
+
+        let mut missing_evidence = valid_request.clone();
+        missing_evidence["evidence_refs"] = json!([]);
+        let missing_evidence_response =
+            post_phase6_delegation(router.clone(), missing_evidence).await;
+        assert_eq!(missing_evidence_response.status(), StatusCode::BAD_REQUEST);
+        let missing_evidence_body = response_json(missing_evidence_response).await;
+        assert_eq!(
+            missing_evidence_body["reason_code"],
+            "overkey.delegation_evidence_required"
+        );
+
+        let mut overbroad_scope = valid_request.clone();
+        overbroad_scope["allowed_scopes"] = json!(["*"]);
+        let overbroad_response = post_phase6_delegation(router.clone(), overbroad_scope).await;
+        assert_eq!(overbroad_response.status(), StatusCode::BAD_REQUEST);
+        let overbroad_body = response_json(overbroad_response).await;
+        assert_eq!(
+            overbroad_body["reason_code"],
+            "overkey.delegation_scope_too_broad"
+        );
+
+        let mut stale_delegate = valid_request.clone();
+        stale_delegate["overpass_delegate_state"] = json!("disabled");
+        let stale_response = post_phase6_delegation(router.clone(), stale_delegate).await;
+        assert_eq!(stale_response.status(), StatusCode::BAD_REQUEST);
+        let stale_body = response_json(stale_response).await;
+        assert_eq!(
+            stale_body["reason_code"],
+            "overkey.delegation_delegate_stale"
+        );
+
+        let mut expired = valid_request.clone();
+        expired["not_after"] = json!("2026-06-25T23:59:59Z");
+        let expired_response = post_phase6_delegation(router.clone(), expired).await;
+        assert_eq!(expired_response.status(), StatusCode::BAD_REQUEST);
+        let expired_body = response_json(expired_response).await;
+        assert_eq!(expired_body["reason_code"], "overkey.delegation_expired");
+
+        let mut cross_tenant = valid_request.clone();
+        cross_tenant["delegate_tenant_id"] = json!("tenant:other");
+        let cross_tenant_response = post_phase6_delegation(router.clone(), cross_tenant).await;
+        assert_eq!(cross_tenant_response.status(), StatusCode::BAD_REQUEST);
+        let cross_tenant_body = response_json(cross_tenant_response).await;
+        assert_eq!(
+            cross_tenant_body["reason_code"],
+            "overkey.delegation_cross_tenant_denied"
+        );
+
+        let mut policy_denied = valid_request.clone();
+        policy_denied["overguard_decision"] = json!("deny");
+        let policy_response = post_phase6_delegation(router.clone(), policy_denied).await;
+        assert_eq!(policy_response.status(), StatusCode::BAD_REQUEST);
+        let policy_body = response_json(policy_response).await;
+        assert_eq!(policy_body["reason_code"], "policy.overguard_denied");
+
+        let accepted = post_phase6_delegation(router, valid_request).await;
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let accepted_body = response_json(accepted).await;
+        assert_eq!(
+            accepted_body["schema_version"],
+            "overkey.phase6.response.v0"
+        );
+        assert_eq!(
+            accepted_body["reason_code"],
+            "overkey.delegation_recorded_phase6"
+        );
+        assert_eq!(
+            accepted_body["data"]["policy_handoff"]["policy_engine_ref"],
+            "service:overguard"
+        );
+        assert_eq!(
+            accepted_body["data"]["policy_handoff"]["overkey_policy_truth_stored"],
+            false
+        );
+        assert_eq!(accepted_body["data"]["raw_secret_persisted"], false);
+    }
+
+    #[tokio::test]
+    async fn phase6_service_account_scope_matrix_blocks_adjacent_authority() {
+        let router = OverkeyService::default().router();
+
+        let accounting_mutation = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/service-accounts")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(
+                        json!({
+                            "service_account_id": "service-account:phase6-accounting",
+                            "allowed_services": ["service:overgate"],
+                            "allowed_command_classes": ["command.accounting.mutate"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accounting_mutation.status(), StatusCode::BAD_REQUEST);
+        let accounting_body = response_json(accounting_mutation).await;
+        assert_eq!(
+            accounting_body["reason_code"],
+            "overkey.broad_service_account_scope_rejected"
+        );
+
+        let mismatched_service = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/service-accounts")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(
+                        json!({
+                            "service_account_id": "service-account:phase6-mismatch",
+                            "allowed_services": ["service:overgate"],
+                            "allowed_command_classes": ["command.secret.resolve"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(mismatched_service.status(), StatusCode::BAD_REQUEST);
+        let mismatched_body = response_json(mismatched_service).await;
+        assert_eq!(
+            mismatched_body["reason_code"],
+            "overkey.broad_service_account_scope_rejected"
+        );
+
+        let queue_callback = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/service-accounts")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(
+                        json!({
+                            "service_account_id": "service-account:phase6-overqueue",
+                            "allowed_services": ["service:overqueue"],
+                            "allowed_command_classes": ["command.queue.execution_callback"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(queue_callback.status(), StatusCode::OK);
+        let queue_body = response_json(queue_callback).await;
+        assert!(queue_body["data"]["allowed_services"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|service| service == "service:overqueue"));
+        assert!(queue_body["data"]["allowed_command_classes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|command| command == "command.queue.execution_callback"));
+    }
+
+    #[tokio::test]
+    async fn phase6_last_used_retry_hook_does_not_mutate_accounting() {
+        let response = OverkeyService::default()
+            .router()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/usage/last-used")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(TRACE_HEADER, "trace:overkey:phase6:last-used-miss")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:phase6:missing",
+                            "used_at": "2026-06-26T12:00:00Z",
+                            "audit_ref": "audit:overkey:phase6:last-used"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(
+            body["reason_code"],
+            "overkey.usage_update_queued_after_repository_miss"
+        );
+        assert_eq!(body["data"]["usage_recorded"], false);
+        assert_eq!(body["data"]["retry_safe_update_queued"], true);
+        assert_eq!(body["data"]["oru_balance_mutated"], false);
+        assert_eq!(body["data"]["seal_ledger_mutated"], false);
+        assert!(body["data"]["overmeter_event_refs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event.as_str().unwrap().contains("verification-volume")));
+    }
+
+    #[tokio::test]
+    async fn phase6_operator_lifecycle_requires_signed_evidence_and_strong_protection() {
+        let router = OverkeyService::default().router();
+        create_phase6_signing_credential(
+            router.clone(),
+            "credential:signing:phase6-operator",
+            "key:tenant:phase6-operator",
+        )
+        .await;
+
+        let valid_body = json!({
+            "operator_lifecycle": true,
+            "operator_role": "role:admin",
+            "protection_class": "protection:hardware_operator_key",
+            "overgate_command_signature": "signature:overgate:phase6",
+            "reason_code": "overkey.operator_lifecycle_revocation_phase6",
+            "affected_command_classes": ["command.credential.revoke"],
+            "evidence_refs": ["evidence:overkey:phase6:operator-lifecycle"],
+            "audit_ref": "audit:overkey:phase6:operator-lifecycle"
+        });
+
+        let unsigned = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase6-operator/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .body(Body::from(valid_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsigned.status(), StatusCode::BAD_REQUEST);
+        let unsigned_body = response_json(unsigned).await;
+        assert_eq!(
+            unsigned_body["reason_code"],
+            "auth.operator_lifecycle_unsigned"
+        );
+
+        let mut missing_evidence_body = valid_body.clone();
+        missing_evidence_body["evidence_refs"] = json!([]);
+        missing_evidence_body["audit_ref"] = json!("");
+        let missing_evidence = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase6-operator/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(missing_evidence_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(missing_evidence.status(), StatusCode::BAD_REQUEST);
+        let missing_evidence_json = response_json(missing_evidence).await;
+        assert_eq!(
+            missing_evidence_json["reason_code"],
+            "auth.operator_lifecycle_evidence_required"
+        );
+
+        let accepted = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase6-operator/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(valid_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let accepted_body = response_json(accepted).await;
+        assert_eq!(
+            accepted_body["reason_code"],
+            "overkey.revocation_recorded_phase5"
+        );
+        assert_eq!(accepted_body["data"]["lifecycle_status"], "revoked");
+        assert_eq!(
+            accepted_body["data"]["revocation_record"]["reason_code"],
+            "overkey.operator_lifecycle_revocation_phase6"
+        );
+    }
+
+    #[tokio::test]
     async fn signing_key_enrollment_rejects_duplicate_active_key_ids() {
         let router = OverkeyService::default().router();
         let request = r#"{
@@ -4228,6 +4639,51 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(create.status(), StatusCode::OK);
+    }
+
+    async fn create_phase6_signing_credential(router: Router, credential_id: &str, key_id: &str) {
+        let create = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(TRACE_HEADER, "trace:overkey:phase6:signing-create")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": credential_id,
+                            "subject_ref": "actor:overpass:phase6",
+                            "key_id": key_id,
+                            "public_key_ref": "public-key-ref:ed25519:phase6",
+                            "allowed_signature_uses": ["signature.verify"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:tenant_bound_public_key"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+    }
+
+    async fn post_phase6_delegation(router: Router, body: Value) -> axum::response::Response {
+        router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/delegations")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase6")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase6")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
     }
 
     fn phase4_signature_request(
