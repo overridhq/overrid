@@ -1,0 +1,50 @@
+{
+  "schema_version": "overkey.phase4.verification.v0",
+  "fixture_id": "fixture:overkey_phase4_verification",
+  "service_id": "service:overkey",
+  "base_path": "/overkey",
+  "signature_verification": {
+    "route": "POST /v1/verify/signature",
+    "credential_id": "credential:signing:phase4",
+    "key_id": "key:tenant:phase4-signer",
+    "key_version": 1,
+    "tenant_id": "tenant:phase4",
+    "subject_ref": "actor:overpass:phase4",
+    "allowed_use": "signature.verify",
+    "command_class": "command.verify",
+    "algorithm": "Ed25519",
+    "canonicalization": "overrid.canonical_json.v0",
+    "body_hash_ref": "hash:body:blake3:fixture-phase4-signature-body",
+    "request_hash_ref": "hash:overkey-verification-request:blake3:fixture-phase4-signature",
+    "evidence_ref": "hash:overkey-verification-evidence:blake3:fixture-phase4-signature",
+    "revocation_epoch": 0,
+    "cache_key_ref": "hash:overkey-verification-cache-key:blake3:fixture-phase4-signature",
+    "reason_code": "auth.signature_verified_phase4",
+    "verification_state": "verified",
+    "cacheable": true,
+    "max_positive_ttl_seconds": 30,
+    "raw_secret_persisted": false
+  },
+  "api_key_verification": {
+    "route": "POST /v1/verify/api-key",
+    "credential_id": "credential:api-key:phase4",
+    "api_key_prefix": "ovk_phase4",
+    "api_key_hash_ref": "hash:api_key:blake3:fixture-phase4-api-key",
+    "tenant_id": "tenant:phase4",
+    "subject_ref": "actor:overpass:phase4-api-key",
+    "allowed_use": "request.verify",
+    "command_class": "command.verify",
+    "algorithm": "BLAKE3-keyed-lookup",
+    "canonicalization": "overrid.canonical_json.v0",
+    "reason_code": "auth.api_key_verified_phase4",
+    "verification_state": "verified",
+    "raw_secret_persisted": false,
+    "redacted_fields": [
+      "raw_api_key",
+      "api_key_lookup_hash_internal",
+      "private_key_material",
+      "secret_ref.resolved_value",
+      "service_signature"
+    ]
+  }
+}

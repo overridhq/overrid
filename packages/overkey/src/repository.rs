@@ -33,6 +33,7 @@ pub struct VerificationLogRecord {
     pub credential_id: String,
     pub verification_class: String,
     pub verified: bool,
+    pub reason_code: String,
     pub audit_ref: String,
 }
 
@@ -128,6 +129,7 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             credential_id: record.credential_id,
             verification_class: record.verification_class,
             verified: record.verified,
+            reason_code: record.reason_code,
             audit_ref: record
                 .audit_refs
                 .first()
@@ -165,6 +167,7 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             credential_id: credential_id.to_owned(),
             verification_class: "last_used".to_owned(),
             verified: true,
+            reason_code: "overkey.last_used_recorded".to_owned(),
             audit_ref,
         });
         Ok(())

@@ -12,9 +12,9 @@ use crate::records::{CredentialRecord, CredentialStatus, SecretRef, Verification
 use crate::repository::{CredentialMetadataRepository, StatusTransitionRecord};
 use crate::schema::{
     API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF,
-    OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, PUBLIC_KEY_RECORD_SCHEMA_REF,
-    REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SERVICE_ACCOUNT_KEY_SCHEMA_REF,
-    VERIFICATION_RESULT_SCHEMA_REF,
+    OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
+    PUBLIC_KEY_RECORD_SCHEMA_REF, REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF,
+    SERVICE_ACCOUNT_KEY_SCHEMA_REF, VERIFICATION_RESULT_SCHEMA_REF,
 };
 use crate::service::OverkeyState;
 
@@ -42,6 +42,14 @@ const API_KEY_HASH_REF_PREFIX: &str = "hash:api_key:blake3:";
 const API_KEY_LOOKUP_HASH_CONTEXT: &str = "overrid.overkey.api_key_lookup.v0";
 const API_KEY_LOOKUP_KEY_REF: &str = "secret://overvault/local/overkey/api-key-lookup-key";
 const SIGNING_ALGORITHM: &str = "Ed25519";
+const ORDINARY_POSITIVE_CACHE_TTL_SECONDS: u64 = 30;
+const HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS: u64 = 5;
+const APPROVED_VERIFICATION_SERVICE_ACCOUNTS: [&str; 4] = [
+    "service-account:overgate",
+    "service-account:overkey-internal",
+    "service-account:overvault",
+    "service-account:system",
+];
 const SERVICE_ACCOUNT_ALLOWED_SERVICES: [&str; 6] = [
     "service:overgate",
     "service:node-agent",
@@ -61,9 +69,10 @@ const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 8] = [
     "command.system.operate",
 ];
 const PHASE2_RESPONSE_SCHEMA_COMPATIBILITY: &str = "overkey.phase2.response.v0";
-const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 2] = [
+const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 3] = [
     PHASE2_RESPONSE_SCHEMA_COMPATIBILITY,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
+    OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
 ];
 
 #[derive(Debug, Serialize)]
@@ -83,8 +92,24 @@ impl<T: Serialize> ApiResponse<T> {
         reason_code: &'static str,
         data: T,
     ) -> Self {
+        Self::new_with_schema(
+            OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
+            trace_id,
+            status,
+            reason_code,
+            data,
+        )
+    }
+
+    pub fn new_with_schema(
+        schema_version: &'static str,
+        trace_id: impl Into<String>,
+        status: &'static str,
+        reason_code: &'static str,
+        data: T,
+    ) -> Self {
         Self {
-            schema_version: OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
+            schema_version,
             service: "service:overkey",
             trace_id: trace_id.into(),
             status,
@@ -159,13 +184,37 @@ struct VerificationData {
     route: &'static str,
     tenant_id: String,
     credential_id: String,
+    key_id: String,
+    key_version: u32,
+    subject_ref: String,
+    allowed_use: String,
+    command_class: String,
     verification_class: &'static str,
     verified: bool,
+    verification_state: String,
+    reason_code: String,
     schema_ref: &'static str,
     internal_only: bool,
     service_account_ref: String,
-    body_hash_ref: &'static str,
+    algorithm: String,
+    canonicalization: String,
+    body_hash_ref: String,
+    request_hash_ref: String,
+    verification_evidence_ref: String,
+    revocation_epoch: u64,
+    cache_guidance: CacheGuidance,
     audit_refs: Vec<String>,
+    retryability: String,
+    raw_secret_persisted: bool,
+    redacted_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CacheGuidance {
+    cacheable: bool,
+    max_positive_ttl_seconds: u64,
+    revocation_epoch: u64,
+    cache_key_ref: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -231,6 +280,47 @@ struct LastUsedRequest {
     credential_id: String,
     used_at: Option<String>,
     audit_ref: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SignatureVerificationRequest {
+    credential_id: String,
+    key_id: String,
+    key_version: u32,
+    algorithm: Option<String>,
+    canonicalization: Option<String>,
+    timestamp: String,
+    replay_window_id: Option<String>,
+    body_hash_ref: String,
+    body_hash_payload: Option<String>,
+    allowed_use: String,
+    command_class: String,
+    tenant_id: Option<String>,
+    subject_ref: Option<String>,
+    signature_ref: Option<String>,
+    revocation_epoch: Option<u64>,
+    rotation_window_state: Option<String>,
+    overpass_subject_state: Option<String>,
+    overtenant_tenant_state: Option<String>,
+    overtenant_membership_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiKeyVerificationRequest {
+    credential_id: String,
+    api_key_prefix: String,
+    api_key_hash_ref: Option<String>,
+    raw_api_key: Option<String>,
+    timestamp: String,
+    replay_window_id: Option<String>,
+    allowed_use: String,
+    command_class: String,
+    tenant_id: Option<String>,
+    subject_ref: Option<String>,
+    revocation_epoch: Option<u64>,
+    overpass_subject_state: Option<String>,
+    overtenant_tenant_state: Option<String>,
+    overtenant_membership_state: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -330,6 +420,13 @@ async fn create_api_key(
         audit_refs: audit_refs.clone(),
         protection_class: protection_class.clone(),
         secret_ref: SecretRef::local_fixture("secret://overvault/local/overkey/api-key-ref"),
+        api_key_prefix: Some(prefix.clone()),
+        api_key_hash_ref: Some(api_key_hash_ref.clone()),
+        public_key_ref: None,
+        key_fingerprint_ref: None,
+        allowed_services: vec!["service:overgate".to_owned()],
+        allowed_command_classes: vec!["command.verify".to_owned()],
+        revocation_epoch: 0,
     });
     state
         .repository
@@ -348,8 +445,8 @@ async fn create_api_key(
             record_kind: "api_key_record",
             schema_ref: API_KEY_RECORD_SCHEMA_REF,
             allowed_uses,
-            allowed_services: Vec::new(),
-            allowed_command_classes: Vec::new(),
+            allowed_services: vec!["service:overgate".to_owned()],
+            allowed_command_classes: vec!["command.verify".to_owned()],
             api_key_prefix: Some(prefix),
             api_key_hash_ref: Some(api_key_hash_ref),
             public_key_ref: None,
@@ -414,6 +511,13 @@ async fn create_signing_key(
         audit_refs: audit_refs.clone(),
         protection_class: protection_class.clone(),
         secret_ref: SecretRef::local_fixture("secret://overvault/local/overkey/signing-key-ref"),
+        api_key_prefix: None,
+        api_key_hash_ref: None,
+        public_key_ref: Some(request.public_key_ref.clone()),
+        key_fingerprint_ref: Some(key_fingerprint_ref.clone()),
+        allowed_services: vec!["service:overgate".to_owned()],
+        allowed_command_classes: vec!["command.verify".to_owned()],
+        revocation_epoch: 0,
     });
     state
         .repository
@@ -511,6 +615,13 @@ async fn create_service_account(
         secret_ref: SecretRef::local_fixture(
             "secret://overvault/local/overkey/service-account-key-ref",
         ),
+        api_key_prefix: None,
+        api_key_hash_ref: None,
+        public_key_ref: Some(public_key_ref.clone()),
+        key_fingerprint_ref: Some(blake3_ref("key-fingerprint", &public_key_ref)),
+        allowed_services: request.allowed_services.clone(),
+        allowed_command_classes: request.allowed_command_classes.clone(),
+        revocation_epoch: 0,
     });
     state
         .repository
@@ -534,7 +645,7 @@ async fn create_service_account(
             api_key_prefix: None,
             api_key_hash_ref: None,
             public_key_ref: Some(public_key_ref),
-            key_fingerprint_ref: None,
+            key_fingerprint_ref: Some(blake3_ref("key-fingerprint", &request.service_account_id)),
             service_account_id: Some(request.service_account_id),
             audit_refs,
             overvault_secret_ref: "secret://overvault/local/overkey/service-account-key-ref"
@@ -731,21 +842,53 @@ async fn get_credential(
 async fn verify_signature(
     State(state): State<OverkeyState>,
     headers: HeaderMap,
-    _body: Bytes,
+    body: Bytes,
 ) -> Result<Json<ApiResponse<VerificationData>>, OverkeyError> {
     require_json(&headers)?;
     require_internal_service_account(&headers)?;
-    verify_with_class(state, headers, ROUTE_VERIFY_SIGNATURE, "signature")
+    let trace_id = trace_id(&headers);
+    let tenant_id = tenant_from_headers(&headers)?;
+    let request: SignatureVerificationRequest = parse_json_body(&headers, body)?;
+    let service_account_ref = header_value(&headers, SERVICE_ACCOUNT_HEADER)
+        .unwrap_or_else(|| "service-account:unknown".to_owned());
+    let data = verify_signature_request(&state, tenant_id, service_account_ref, request);
+    state
+        .repository
+        .record_verification(verification_result_from_data(&data))
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+
+    Ok(json_response_with_schema(
+        OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
+        trace_id,
+        verification_response_reason(&data.verification_state),
+        data,
+    ))
 }
 
 async fn verify_api_key(
     State(state): State<OverkeyState>,
     headers: HeaderMap,
-    _body: Bytes,
+    body: Bytes,
 ) -> Result<Json<ApiResponse<VerificationData>>, OverkeyError> {
     require_json(&headers)?;
     require_internal_service_account(&headers)?;
-    verify_with_class(state, headers, ROUTE_VERIFY_API_KEY, "api_key")
+    let trace_id = trace_id(&headers);
+    let tenant_id = tenant_from_headers(&headers)?;
+    let request: ApiKeyVerificationRequest = parse_json_body(&headers, body)?;
+    let service_account_ref = header_value(&headers, SERVICE_ACCOUNT_HEADER)
+        .unwrap_or_else(|| "service-account:unknown".to_owned());
+    let data = verify_api_key_request(&state, tenant_id, service_account_ref, request);
+    state
+        .repository
+        .record_verification(verification_result_from_data(&data))
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+
+    Ok(json_response_with_schema(
+        OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
+        trace_id,
+        verification_response_reason(&data.verification_state),
+        data,
+    ))
 }
 
 async fn record_last_used(
@@ -831,58 +974,454 @@ async fn readyz(
     )
 }
 
-fn verify_with_class(
-    state: OverkeyState,
-    headers: HeaderMap,
-    route: &'static str,
-    verification_class: &'static str,
-) -> Result<Json<ApiResponse<VerificationData>>, OverkeyError> {
-    let trace_id = trace_id(&headers);
-    let tenant_id = tenant_from_headers(&headers)?;
-    let service_account_ref = header_value(&headers, SERVICE_ACCOUNT_HEADER)
-        .unwrap_or_else(|| "service-account:unknown".to_owned());
-    let credential_id = format!(
-        "credential:{verification_class}:{}",
-        stable_trace_token(&trace_id)
+fn verify_signature_request(
+    state: &OverkeyState,
+    header_tenant_id: String,
+    service_account_ref: String,
+    request: SignatureVerificationRequest,
+) -> VerificationData {
+    let tenant_id = request
+        .tenant_id
+        .clone()
+        .unwrap_or(header_tenant_id.clone());
+    let subject_ref = request
+        .subject_ref
+        .clone()
+        .unwrap_or_else(|| "actor:overpass:unknown".to_owned());
+    let mut data = verification_data_base(
+        ROUTE_VERIFY_SIGNATURE,
+        tenant_id.clone(),
+        request.credential_id.clone(),
+        request.key_id.clone(),
+        request.key_version,
+        subject_ref,
+        request.allowed_use.clone(),
+        request.command_class.clone(),
+        "signature",
+        service_account_ref.clone(),
+        request
+            .algorithm
+            .clone()
+            .unwrap_or_else(|| SIGNING_ALGORITHM.to_owned()),
+        request
+            .canonicalization
+            .clone()
+            .unwrap_or_else(|| CANONICALIZATION_VERSION.to_owned()),
+        request.body_hash_ref.clone(),
+        request.revocation_epoch.unwrap_or(0),
     );
-    let result = VerificationResult {
-        tenant_id: tenant_id.clone(),
-        credential_id: credential_id.clone(),
-        verified: true,
-        verification_class: verification_class.to_owned(),
-        algorithm: if verification_class == "signature" {
-            "Ed25519".to_owned()
-        } else {
-            "BLAKE3-keyed-lookup".to_owned()
-        },
-        canonicalization: "overrid.canonical_json.v0".to_owned(),
-        body_hash_ref: "hash:blake3:overkey:phase2:body".to_owned(),
-        audit_refs: vec![format!(
-            "audit:overkey:verify:{verification_class}:{}",
-            stable_trace_token(&trace_id)
-        )],
-    };
-    state
-        .repository
-        .record_verification(result)
-        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
-    Ok(json_response(
-        trace_id,
-        "overkey.verification_completed",
-        VerificationData {
-            route,
-            tenant_id,
-            credential_id,
-            verification_class,
-            verified: true,
-            schema_ref: VERIFICATION_RESULT_SCHEMA_REF,
-            internal_only: true,
-            service_account_ref,
-            body_hash_ref: "hash:blake3:overkey:phase2:body",
-            audit_refs: vec!["audit:overkey:verification:phase2".to_owned()],
+    let record = state
+        .repository
+        .credential(&tenant_id, &request.credential_id);
+    let denial = verification_denial_for_common_checks(
+        &data,
+        &header_tenant_id,
+        &service_account_ref,
+        record.as_ref(),
+        request.timestamp.as_str(),
+        request.replay_window_id.as_deref(),
+        request.revocation_epoch,
+        request.overpass_subject_state.as_deref(),
+        request.overtenant_tenant_state.as_deref(),
+        request.overtenant_membership_state.as_deref(),
+    )
+    .or_else(|| {
+        let record = record.as_ref()?;
+        if request.algorithm.as_deref().unwrap_or(SIGNING_ALGORITHM) != SIGNING_ALGORITHM {
+            return Some("auth.signature_algorithm_denied");
+        }
+        if request
+            .canonicalization
+            .as_deref()
+            .unwrap_or(CANONICALIZATION_VERSION)
+            != CANONICALIZATION_VERSION
+        {
+            return Some("auth.signature_canonicalization_denied");
+        }
+        if record.key_id != request.key_id {
+            return Some("auth.key_id_mismatch");
+        }
+        if record.key_version != request.key_version {
+            return Some("auth.key_version_mismatch");
+        }
+        if record.public_key_ref.is_none() {
+            return Some("auth.public_key_ref_missing");
+        }
+        if let Some(subject_ref) = &request.subject_ref {
+            if record.subject_ref != *subject_ref {
+                return Some("auth.subject_mismatch");
+            }
+        }
+        if !record
+            .allowed_uses
+            .iter()
+            .any(|value| value == &request.allowed_use)
+        {
+            return Some("auth.allowed_use_denied");
+        }
+        if !command_class_allowed(record, &request.command_class) {
+            return Some("auth.command_class_denied");
+        }
+        if !body_hash_ref_valid(&request.body_hash_ref, request.body_hash_payload.as_deref()) {
+            return Some("auth.body_hash_mismatch");
+        }
+        if matches!(
+            request.rotation_window_state.as_deref(),
+            Some("rotation:denied" | "rotation:expired" | "rotated_out")
+        ) {
+            return Some("auth.credential_rotation_denied");
+        }
+        if request
+            .signature_ref
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            return Some("auth.signature_ref_required");
+        }
+        None
+    });
+
+    apply_verification_decision(&mut data, denial);
+    data
+}
+
+fn verify_api_key_request(
+    state: &OverkeyState,
+    header_tenant_id: String,
+    service_account_ref: String,
+    request: ApiKeyVerificationRequest,
+) -> VerificationData {
+    let tenant_id = request
+        .tenant_id
+        .clone()
+        .unwrap_or(header_tenant_id.clone());
+    let record = state
+        .repository
+        .credential(&tenant_id, &request.credential_id);
+    let key_id = record
+        .as_ref()
+        .map(|record| record.key_id.clone())
+        .unwrap_or_else(|| format!("key:api:{}", request.api_key_prefix));
+    let key_version = record
+        .as_ref()
+        .map(|record| record.key_version)
+        .unwrap_or(0);
+    let subject_ref = request
+        .subject_ref
+        .clone()
+        .or_else(|| record.as_ref().map(|record| record.subject_ref.clone()))
+        .unwrap_or_else(|| "actor:overpass:unknown".to_owned());
+    let body_hash_ref = blake3_ref(
+        "overkey-api-key-verification-body",
+        &format!(
+            "{}:{}:{}:{}",
+            tenant_id, request.credential_id, request.api_key_prefix, request.timestamp
+        ),
+    );
+    let mut data = verification_data_base(
+        ROUTE_VERIFY_API_KEY,
+        tenant_id.clone(),
+        request.credential_id.clone(),
+        key_id,
+        key_version,
+        subject_ref,
+        request.allowed_use.clone(),
+        request.command_class.clone(),
+        "api_key",
+        service_account_ref.clone(),
+        API_KEY_LOOKUP_HASH_ALGORITHM.to_owned(),
+        CANONICALIZATION_VERSION.to_owned(),
+        body_hash_ref,
+        request.revocation_epoch.unwrap_or(0),
+    );
+
+    let denial = verification_denial_for_common_checks(
+        &data,
+        &header_tenant_id,
+        &service_account_ref,
+        record.as_ref(),
+        request.timestamp.as_str(),
+        request.replay_window_id.as_deref(),
+        request.revocation_epoch,
+        request.overpass_subject_state.as_deref(),
+        request.overtenant_tenant_state.as_deref(),
+        request.overtenant_membership_state.as_deref(),
+    )
+    .or_else(|| {
+        let record = record.as_ref()?;
+        if record.api_key_prefix.as_deref() != Some(request.api_key_prefix.as_str()) {
+            return Some("auth.api_key_prefix_unknown");
+        }
+        let supplied_hash_ref = request
+            .api_key_hash_ref
+            .clone()
+            .or_else(|| request.raw_api_key.as_deref().map(api_key_lookup_hash_ref));
+        if supplied_hash_ref.as_deref().unwrap_or("")
+            != record.api_key_hash_ref.as_deref().unwrap_or("")
+        {
+            return Some("auth.api_key_hash_mismatch");
+        }
+        if let Some(subject_ref) = &request.subject_ref {
+            if record.subject_ref != *subject_ref {
+                return Some("auth.subject_mismatch");
+            }
+        }
+        if !record
+            .allowed_uses
+            .iter()
+            .any(|value| value == &request.allowed_use)
+        {
+            return Some("auth.allowed_use_denied");
+        }
+        if !command_class_allowed(record, &request.command_class) {
+            return Some("auth.command_class_denied");
+        }
+        None
+    });
+
+    apply_verification_decision(&mut data, denial);
+    data
+}
+
+fn verification_data_base(
+    route: &'static str,
+    tenant_id: String,
+    credential_id: String,
+    key_id: String,
+    key_version: u32,
+    subject_ref: String,
+    allowed_use: String,
+    command_class: String,
+    verification_class: &'static str,
+    service_account_ref: String,
+    algorithm: String,
+    canonicalization: String,
+    body_hash_ref: String,
+    revocation_epoch: u64,
+) -> VerificationData {
+    let canonical = format!(
+        "{route}|{tenant_id}|{credential_id}|{key_id}|{key_version}|{subject_ref}|{allowed_use}|{command_class}|{algorithm}|{canonicalization}|{body_hash_ref}|{revocation_epoch}"
+    );
+    let request_hash_ref = blake3_ref("overkey-verification-request", &canonical);
+    let verification_evidence_ref = blake3_ref("overkey-verification-evidence", &request_hash_ref);
+    let cache_key_ref = blake3_ref(
+        "overkey-verification-cache-key",
+        &format!(
+            "{tenant_id}|{credential_id}|{key_version}|{allowed_use}|{command_class}|{canonicalization}|{revocation_epoch}"
+        ),
+    );
+    let audit_ref = format!(
+        "audit:overkey:verify:{verification_class}:{}",
+        stable_trace_token(&credential_id)
+    );
+
+    VerificationData {
+        route,
+        tenant_id,
+        credential_id,
+        key_id,
+        key_version,
+        subject_ref,
+        allowed_use,
+        command_class,
+        verification_class,
+        verified: false,
+        verification_state: "denied".to_owned(),
+        reason_code: "auth.verification_denied".to_owned(),
+        schema_ref: VERIFICATION_RESULT_SCHEMA_REF,
+        internal_only: true,
+        service_account_ref,
+        algorithm,
+        canonicalization,
+        body_hash_ref,
+        request_hash_ref,
+        verification_evidence_ref,
+        revocation_epoch,
+        cache_guidance: CacheGuidance {
+            cacheable: false,
+            max_positive_ttl_seconds: 0,
+            revocation_epoch,
+            cache_key_ref,
         },
-    ))
+        audit_refs: vec![audit_ref],
+        retryability: "terminal".to_owned(),
+        raw_secret_persisted: false,
+        redacted_fields: safe_metadata_redactions(),
+    }
+}
+
+fn verification_denial_for_common_checks(
+    data: &VerificationData,
+    header_tenant_id: &str,
+    service_account_ref: &str,
+    record: Option<&CredentialRecord>,
+    timestamp: &str,
+    replay_window_id: Option<&str>,
+    requested_revocation_epoch: Option<u64>,
+    overpass_subject_state: Option<&str>,
+    overtenant_tenant_state: Option<&str>,
+    overtenant_membership_state: Option<&str>,
+) -> Option<&'static str> {
+    if !APPROVED_VERIFICATION_SERVICE_ACCOUNTS
+        .iter()
+        .any(|approved| service_account_ref == *approved)
+    {
+        return Some("auth.service_account_not_approved");
+    }
+    if data.tenant_id != header_tenant_id {
+        return Some("auth.tenant_header_mismatch");
+    }
+    if timestamp.trim().is_empty() {
+        return Some("auth.timestamp_required");
+    }
+    if replay_window_id.unwrap_or("").trim().is_empty() {
+        return Some("auth.replay_window_required");
+    }
+    if dependency_state_denied(overpass_subject_state) {
+        return Some("auth.subject_dependency_denied");
+    }
+    if dependency_state_denied(overtenant_tenant_state) {
+        return Some("auth.tenant_dependency_denied");
+    }
+    if dependency_state_denied(overtenant_membership_state) {
+        return Some("auth.membership_dependency_denied");
+    }
+
+    let record = match record {
+        Some(record) => record,
+        None => return Some("auth.credential_unknown"),
+    };
+    if record.tenant_id != data.tenant_id {
+        return Some("auth.tenant_scope_denied");
+    }
+    if !credential_status_allows_verification(record) {
+        return Some("auth.credential_not_active");
+    }
+    if timestamp < record.not_before.as_str() || timestamp > record.not_after.as_str() {
+        return Some("auth.signature_expired");
+    }
+    if requested_revocation_epoch
+        .map(|epoch| epoch != record.revocation_epoch)
+        .unwrap_or(false)
+    {
+        return Some("auth.revocation_epoch_mismatch");
+    }
+    None
+}
+
+fn dependency_state_denied(state: Option<&str>) -> bool {
+    matches!(
+        state,
+        Some(
+            "disabled"
+                | "deleted"
+                | "missing"
+                | "unknown"
+                | "suspended"
+                | "inactive"
+                | "not_member"
+                | "role_denied"
+        )
+    )
+}
+
+fn credential_status_allows_verification(record: &CredentialRecord) -> bool {
+    matches!(record.status, CredentialStatus::Active)
+}
+
+fn command_class_allowed(record: &CredentialRecord, command_class: &str) -> bool {
+    record
+        .allowed_command_classes
+        .iter()
+        .any(|value| value == command_class)
+}
+
+fn body_hash_ref_valid(body_hash_ref: &str, body_hash_payload: Option<&str>) -> bool {
+    if !body_hash_ref.starts_with("hash:") {
+        return false;
+    }
+    match body_hash_payload {
+        Some(payload) => blake3_ref("body", payload) == body_hash_ref,
+        None => true,
+    }
+}
+
+fn apply_verification_decision(data: &mut VerificationData, denial: Option<&'static str>) {
+    if let Some(reason_code) = denial {
+        data.verified = false;
+        data.verification_state = if reason_code.contains("dependency") {
+            "blocked".to_owned()
+        } else {
+            "denied".to_owned()
+        };
+        data.reason_code = reason_code.to_owned();
+        data.retryability = if data.verification_state == "blocked" {
+            "retryable_after_dependency_recovery".to_owned()
+        } else {
+            "terminal".to_owned()
+        };
+        data.cache_guidance.cacheable = false;
+        data.cache_guidance.max_positive_ttl_seconds = 0;
+        data.audit_refs
+            .push(format!("audit:overkey:verification-denial:{reason_code}"));
+        return;
+    }
+
+    data.verified = true;
+    data.verification_state = "verified".to_owned();
+    data.reason_code = verification_positive_reason(data.verification_class).to_owned();
+    data.retryability = "not_retryable_success".to_owned();
+    data.cache_guidance.cacheable = true;
+    data.cache_guidance.max_positive_ttl_seconds =
+        if data.command_class.contains("operator") || data.command_class.contains("admin") {
+            HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS
+        } else {
+            ORDINARY_POSITIVE_CACHE_TTL_SECONDS
+        };
+}
+
+fn verification_positive_reason(verification_class: &str) -> &'static str {
+    match verification_class {
+        "signature" => "auth.signature_verified_phase4",
+        "api_key" => "auth.api_key_verified_phase4",
+        _ => "auth.verification_completed_phase4",
+    }
+}
+
+fn verification_result_from_data(data: &VerificationData) -> VerificationResult {
+    VerificationResult {
+        tenant_id: data.tenant_id.clone(),
+        credential_id: data.credential_id.clone(),
+        key_id: data.key_id.clone(),
+        key_version: data.key_version,
+        subject_ref: data.subject_ref.clone(),
+        allowed_use: data.allowed_use.clone(),
+        command_class: data.command_class.clone(),
+        verified: data.verified,
+        verification_state: data.verification_state.clone(),
+        verification_class: data.verification_class.to_owned(),
+        reason_code: data.reason_code.clone(),
+        algorithm: data.algorithm.clone(),
+        canonicalization: data.canonicalization.clone(),
+        body_hash_ref: data.body_hash_ref.clone(),
+        request_hash_ref: data.request_hash_ref.clone(),
+        evidence_ref: data.verification_evidence_ref.clone(),
+        revocation_epoch: data.revocation_epoch,
+        cache_key_ref: data.cache_guidance.cache_key_ref.clone(),
+        retryability: data.retryability.clone(),
+        audit_refs: data.audit_refs.clone(),
+    }
+}
+
+fn verification_response_reason(verification_state: &str) -> &'static str {
+    match verification_state {
+        "verified" => "overkey.verification_completed",
+        "blocked" => "overkey.verification_blocked",
+        _ => "overkey.verification_denied",
+    }
 }
 
 struct CredentialRecordInput {
@@ -900,6 +1439,13 @@ struct CredentialRecordInput {
     audit_refs: Vec<String>,
     protection_class: String,
     secret_ref: SecretRef,
+    api_key_prefix: Option<String>,
+    api_key_hash_ref: Option<String>,
+    public_key_ref: Option<String>,
+    key_fingerprint_ref: Option<String>,
+    allowed_services: Vec<String>,
+    allowed_command_classes: Vec<String>,
+    revocation_epoch: u64,
 }
 
 struct CredentialRouteInput {
@@ -944,6 +1490,13 @@ fn credential_record_for_phase3(input: CredentialRecordInput) -> CredentialRecor
         audit_refs: input.audit_refs,
         protection_class: input.protection_class,
         secret_ref: input.secret_ref,
+        api_key_prefix: input.api_key_prefix,
+        api_key_hash_ref: input.api_key_hash_ref,
+        public_key_ref: input.public_key_ref,
+        key_fingerprint_ref: input.key_fingerprint_ref,
+        allowed_services: input.allowed_services,
+        allowed_command_classes: input.allowed_command_classes,
+        revocation_epoch: input.revocation_epoch,
         last_used_at: None,
         rotation_refs: Vec::new(),
         revocation_refs: Vec::new(),
@@ -1173,6 +1726,21 @@ fn json_response<T: Serialize>(
     Json(ApiResponse::new(trace_id, "accepted", reason_code, data))
 }
 
+fn json_response_with_schema<T: Serialize>(
+    schema_version: &'static str,
+    trace_id: String,
+    reason_code: &'static str,
+    data: T,
+) -> Json<ApiResponse<T>> {
+    Json(ApiResponse::new_with_schema(
+        schema_version,
+        trace_id,
+        "accepted",
+        reason_code,
+        data,
+    ))
+}
+
 fn stable_trace_token(trace_id: &str) -> String {
     let token = trace_id
         .chars()
@@ -1199,7 +1767,7 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Method, Request, StatusCode};
-    use serde_json::Value;
+    use serde_json::{json, Value};
     use tower::ServiceExt;
 
     use crate::service::OverkeyService;
@@ -1373,7 +1941,18 @@ mod tests {
                     .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
                     .header(SERVICE_SIGNATURE_HEADER, "signature:local-fixture")
                     .header(TRACE_HEADER, "trace:overkey:verify")
-                    .body(Body::from("{}"))
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:missing",
+                            "api_key_prefix": "ovk_missing",
+                            "api_key_hash_ref": "hash:api_key:blake3:missing",
+                            "timestamp": "2026-06-26T12:00:00Z",
+                            "replay_window_id": "replay:phase4:required",
+                            "allowed_use": "request.verify",
+                            "command_class": "command.verify"
+                        })
+                        .to_string(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -1386,6 +1965,214 @@ mod tests {
         assert_eq!(
             allowed_body["data"]["schema_ref"],
             "schema:overkey:verification_result:v0"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase4_signature_verification_checks_metadata_and_dependencies() {
+        let router = OverkeyService::default().router();
+        let create = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(TRACE_HEADER, "trace:overkey:phase4:signing-create")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:signing:phase4",
+                            "subject_ref": "actor:overpass:phase4",
+                            "key_id": "key:tenant:phase4-signer",
+                            "public_key_ref": "public-key-ref:ed25519:phase4",
+                            "allowed_signature_uses": ["signature.verify"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:tenant_bound_public_key"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+
+        let valid_request = json!({
+            "credential_id": "credential:signing:phase4",
+            "key_id": "key:tenant:phase4-signer",
+            "key_version": 1,
+            "algorithm": "Ed25519",
+            "canonicalization": "overrid.canonical_json.v0",
+            "timestamp": "2026-06-26T12:00:00Z",
+            "replay_window_id": "replay:phase4:signature",
+            "body_hash_ref": "hash:fixture:phase4:signature-body",
+            "allowed_use": "signature.verify",
+            "command_class": "command.verify",
+            "tenant_id": "tenant:phase4",
+            "subject_ref": "actor:overpass:phase4",
+            "signature_ref": "signature:fixture:phase4",
+            "revocation_epoch": 0,
+            "overpass_subject_state": "active",
+            "overtenant_tenant_state": "active",
+            "overtenant_membership_state": "active"
+        });
+        let verified = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .header(TRACE_HEADER, "trace:overkey:phase4:signature")
+                    .body(Body::from(valid_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(verified.status(), StatusCode::OK);
+        let verified_body = response_json(verified).await;
+        assert_eq!(
+            verified_body["schema_version"],
+            "overkey.phase4.response.v0"
+        );
+        assert_eq!(verified_body["data"]["verified"], true);
+        assert_eq!(
+            verified_body["data"]["reason_code"],
+            "auth.signature_verified_phase4"
+        );
+        assert_eq!(verified_body["data"]["cache_guidance"]["cacheable"], true);
+
+        let mut denied_request = valid_request;
+        denied_request["command_class"] = json!("command.secret.resolve");
+        let denied = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(denied_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::OK);
+        let denied_body = response_json(denied).await;
+        assert_eq!(denied_body["data"]["verified"], false);
+        assert_eq!(
+            denied_body["data"]["reason_code"],
+            "auth.command_class_denied"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase4_api_key_verification_never_returns_raw_key_material() {
+        let router = OverkeyService::default().router();
+        let create = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(TRACE_HEADER, "trace:overkey:phase4:api-key-create")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase4",
+                            "api_key_prefix": "ovk_phase4",
+                            "raw_api_key": "phase4-local-api-key",
+                            "allowed_uses": ["request.verify"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+        let created = response_json(create).await;
+        let hash_ref = created["data"]["api_key_hash_ref"].as_str().unwrap();
+
+        let verified = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/api-key")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase4",
+                            "api_key_prefix": "ovk_phase4",
+                            "api_key_hash_ref": hash_ref,
+                            "timestamp": "2026-06-26T12:00:00Z",
+                            "replay_window_id": "replay:phase4:api-key",
+                            "allowed_use": "request.verify",
+                            "command_class": "command.verify",
+                            "tenant_id": "tenant:phase4"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(verified.status(), StatusCode::OK);
+        let verified_body = response_json(verified).await;
+        assert_eq!(
+            verified_body["schema_version"],
+            "overkey.phase4.response.v0"
+        );
+        assert_eq!(verified_body["data"]["verified"], true);
+        assert_eq!(verified_body["data"]["raw_secret_persisted"], false);
+        assert!(verified_body["data"]["redacted_fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field == "raw_api_key"));
+        let serialized = serde_json::to_string(&verified_body).unwrap();
+        assert!(!serialized.contains("phase4-local-api-key"));
+
+        let denied = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/api-key")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase4",
+                            "api_key_prefix": "ovk_phase4",
+                            "raw_api_key": "wrong-local-api-key",
+                            "timestamp": "2026-06-26T12:00:00Z",
+                            "replay_window_id": "replay:phase4:api-key-denied",
+                            "allowed_use": "request.verify",
+                            "command_class": "command.verify"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let denied_body = response_json(denied).await;
+        assert_eq!(denied_body["data"]["verified"], false);
+        assert_eq!(
+            denied_body["data"]["reason_code"],
+            "auth.api_key_hash_mismatch"
         );
     }
 

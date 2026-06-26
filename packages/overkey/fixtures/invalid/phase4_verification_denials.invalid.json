@@ -1,0 +1,37 @@
+{
+  "schema_version": "overkey.phase4.invalid_fixture.v0",
+  "fixture_id": "fixture:overkey_phase4_verification_denials",
+  "service_id": "service:overkey",
+  "denials": [
+    {
+      "case": "wrong_command_class",
+      "route": "POST /v1/verify/signature",
+      "reason_code": "auth.command_class_denied",
+      "verification_state": "denied",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "api_key_hash_mismatch",
+      "route": "POST /v1/verify/api-key",
+      "reason_code": "auth.api_key_hash_mismatch",
+      "verification_state": "denied",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "disabled_subject_dependency",
+      "route": "POST /v1/verify/signature",
+      "reason_code": "auth.subject_dependency_denied",
+      "verification_state": "blocked",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "unapproved_service_account",
+      "route": "POST /v1/verify/api-key",
+      "reason_code": "auth.service_account_not_approved",
+      "verification_state": "denied",
+      "side_effects_allowed": false
+    }
+  ],
+  "raw_secret_persisted": false,
+  "raw_signature_returned": false
+}
