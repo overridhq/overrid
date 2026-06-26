@@ -159,12 +159,29 @@ pub struct ServiceAccountKey {
 pub struct DelegationRecord {
     pub delegation_id: String,
     pub tenant_id: String,
+    pub delegator_ref: String,
+    pub delegate_ref: String,
     pub subject_ref: String,
     pub delegated_to: String,
+    pub allowed_scopes: Vec<String>,
     pub allowed_uses: Vec<String>,
+    pub allowed_command_classes: Vec<String>,
     pub not_after: String,
+    pub revocation_state: String,
+    pub evidence_refs: Vec<String>,
+    pub policy_decision_ref: String,
     pub status: CredentialStatus,
     pub audit_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyHandoff {
+    pub policy_engine_ref: String,
+    pub decision_ref: String,
+    pub decision: String,
+    pub local_fallback: String,
+    pub checked_dimensions: Vec<String>,
+    pub overkey_policy_truth_stored: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

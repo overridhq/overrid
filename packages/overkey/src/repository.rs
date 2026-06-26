@@ -4,7 +4,8 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 
 use crate::records::{
-    CredentialRecord, CredentialStatus, RevocationRecord, RotationRecord, VerificationResult,
+    CredentialRecord, CredentialStatus, DelegationRecord, RevocationRecord, RotationRecord,
+    VerificationResult,
 };
 use crate::schema::contains_raw_secret_marker;
 
@@ -18,6 +19,7 @@ pub enum RepositoryError {
     UnsignedServiceAccountCall,
     RawSecretMaterial,
     DuplicateLifecycleRecord,
+    DuplicateDelegationRecord,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -47,6 +49,7 @@ pub trait CredentialMetadataRepository: Clone + Send + Sync + 'static {
         record: StatusTransitionRecord,
     ) -> Result<(), RepositoryError>;
     fn record_verification(&self, record: VerificationResult) -> Result<(), RepositoryError>;
+    fn append_delegation_record(&self, record: DelegationRecord) -> Result<(), RepositoryError>;
     fn append_rotation_record(&self, record: RotationRecord) -> Result<(), RepositoryError>;
     fn append_revocation_record(&self, record: RevocationRecord) -> Result<(), RepositoryError>;
     fn update_last_used(
@@ -61,6 +64,7 @@ pub trait CredentialMetadataRepository: Clone + Send + Sync + 'static {
     fn verification_log(&self, credential_id: &str) -> Vec<VerificationLogRecord>;
     fn rotation_records(&self, credential_id: &str) -> Vec<RotationRecord>;
     fn revocation_records(&self, credential_id: &str) -> Vec<RevocationRecord>;
+    fn delegation_records(&self, tenant_id: &str) -> Vec<DelegationRecord>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -73,6 +77,7 @@ struct RepositoryState {
     credentials: BTreeMap<String, CredentialRecord>,
     status_history: Vec<StatusTransitionRecord>,
     verification_log: Vec<VerificationLogRecord>,
+    delegations: Vec<DelegationRecord>,
     rotations: Vec<RotationRecord>,
     revocations: Vec<RevocationRecord>,
 }
@@ -150,6 +155,22 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             .expect("credential repository lock poisoned")
             .verification_log
             .push(log_record);
+        Ok(())
+    }
+
+    fn append_delegation_record(&self, record: DelegationRecord) -> Result<(), RepositoryError> {
+        reject_raw_secret_material(&record)?;
+        let mut state = self
+            .state
+            .lock()
+            .expect("credential repository lock poisoned");
+        if state.delegations.iter().any(|existing| {
+            existing.tenant_id == record.tenant_id
+                && existing.delegation_id == record.delegation_id
+        }) {
+            return Err(RepositoryError::DuplicateDelegationRecord);
+        }
+        state.delegations.push(record);
         Ok(())
     }
 
@@ -329,6 +350,17 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             .revocations
             .iter()
             .filter(|record| record.credential_id == credential_id)
+            .cloned()
+            .collect()
+    }
+
+    fn delegation_records(&self, tenant_id: &str) -> Vec<DelegationRecord> {
+        self.state
+            .lock()
+            .expect("credential repository lock poisoned")
+            .delegations
+            .iter()
+            .filter(|record| record.tenant_id == tenant_id)
             .cloned()
             .collect()
     }

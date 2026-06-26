@@ -10,13 +10,15 @@ use serde::{Deserialize, Serialize};
 use crate::errors::OverkeyError;
 use crate::records::{
     AffectedInventory, CacheInvalidation, CredentialRecord, CredentialStatus, PropagationStatus,
-    RevocationRecord, RotationRecord, SecretRef, VerificationResult,
+    DelegationRecord, PolicyHandoff, RevocationRecord, RotationRecord, SecretRef,
+    VerificationResult,
 };
 use crate::repository::CredentialMetadataRepository;
 use crate::schema::{
-    API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF,
+    API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF, DELEGATION_RECORD_SCHEMA_REF,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
-    OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION, PUBLIC_KEY_RECORD_SCHEMA_REF,
+    OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
+    PUBLIC_KEY_RECORD_SCHEMA_REF,
     REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SERVICE_ACCOUNT_KEY_SCHEMA_REF,
     VERIFICATION_RESULT_SCHEMA_REF,
 };
@@ -30,6 +32,7 @@ pub const SERVICE_SIGNATURE_HEADER: &str = "x-overrid-service-signature";
 pub const ROUTE_CREATE_API_KEY: &str = "POST /v1/credentials/api-keys";
 pub const ROUTE_CREATE_SIGNING_KEY: &str = "POST /v1/credentials/signing-keys";
 pub const ROUTE_CREATE_SERVICE_ACCOUNT: &str = "POST /v1/credentials/service-accounts";
+pub const ROUTE_CREATE_DELEGATION: &str = "POST /v1/delegations";
 pub const ROUTE_ROTATE_CREDENTIAL: &str = "POST /v1/credentials/{credential_id}/rotate";
 pub const ROUTE_REVOKE_CREDENTIAL: &str = "POST /v1/credentials/{credential_id}/revoke";
 pub const ROUTE_GET_CREDENTIAL: &str = "GET /v1/credentials/{credential_id}";
@@ -63,15 +66,17 @@ const APPROVED_VERIFICATION_SERVICE_ACCOUNTS: [&str; 4] = [
     "service-account:overvault",
     "service-account:system",
 ];
-const SERVICE_ACCOUNT_ALLOWED_SERVICES: [&str; 6] = [
+const SERVICE_ACCOUNT_ALLOWED_SERVICES: [&str; 8] = [
     "service:overgate",
     "service:node-agent",
     "service:system-service",
     "service:worker",
     "service:overvault",
     "service:grid-resident",
+    "service:overqueue",
+    "service:overrun",
 ];
-const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 8] = [
+const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 10] = [
     "command.verify",
     "command.credential.read",
     "command.credential.rotate",
@@ -80,13 +85,24 @@ const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 8] = [
     "command.secret.resolve",
     "command.workload.execute",
     "command.system.operate",
+    "command.queue.execution_callback",
+    "command.worker.runtime_callback",
+];
+const PHASE6_DELEGATION_ALLOWED_SCOPES: [&str; 6] = [
+    "scope:credential.read",
+    "scope:credential.verify",
+    "scope:credential.rotate",
+    "scope:secret.resolve",
+    "scope:queue.callback",
+    "scope:runtime.callback",
 ];
 const PHASE2_RESPONSE_SCHEMA_COMPATIBILITY: &str = "overkey.phase2.response.v0";
-const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 4] = [
+const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 5] = [
     PHASE2_RESPONSE_SCHEMA_COMPATIBILITY,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
+    OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
 ];
 
 #[derive(Debug, Serialize)]
@@ -194,6 +210,29 @@ struct Phase5LifecycleData {
 }
 
 #[derive(Debug, Serialize)]
+struct Phase6DelegationData {
+    route: &'static str,
+    tenant_id: String,
+    delegation_id: String,
+    record_kind: &'static str,
+    schema_ref: &'static str,
+    repository_action: &'static str,
+    delegator_ref: String,
+    delegate_ref: String,
+    allowed_scopes: Vec<String>,
+    allowed_command_classes: Vec<String>,
+    not_after: String,
+    revocation_state: String,
+    evidence_refs: Vec<String>,
+    policy_handoff: PolicyHandoff,
+    overgate_admission_required: bool,
+    overwatch_event_ref: String,
+    audit_refs: Vec<String>,
+    raw_secret_persisted: bool,
+    redacted_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
 struct CredentialLookupData {
     route: &'static str,
     tenant_id: String,
@@ -240,6 +279,7 @@ struct VerificationData {
     verification_evidence_ref: String,
     revocation_epoch: u64,
     cache_guidance: CacheGuidance,
+    policy_handoff: PolicyHandoff,
     audit_refs: Vec<String>,
     retryability: String,
     raw_secret_persisted: bool,
@@ -261,7 +301,12 @@ struct UsageData {
     credential_id: String,
     last_used_at: String,
     usage_recorded: bool,
+    retry_safe_update_queued: bool,
     overwatch_event_ref: String,
+    overmeter_event_refs: Vec<String>,
+    usage_event_classes: Vec<String>,
+    oru_balance_mutated: bool,
+    seal_ledger_mutated: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -307,6 +352,24 @@ struct ServiceAccountCredentialRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct DelegationRequest {
+    delegation_id: Option<String>,
+    delegator_ref: String,
+    delegate_ref: String,
+    allowed_scopes: Vec<String>,
+    allowed_command_classes: Vec<String>,
+    not_after: String,
+    revocation_state: Option<String>,
+    evidence_refs: Option<Vec<String>>,
+    audit_refs: Option<Vec<String>>,
+    overguard_policy_decision_ref: Option<String>,
+    overguard_decision: Option<String>,
+    overpass_delegate_state: Option<String>,
+    overtenant_tenant_state: Option<String>,
+    overtenant_membership_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct LifecycleRequest {
     reason_code: Option<String>,
     audit_ref: Option<String>,
@@ -327,6 +390,7 @@ struct LifecycleRequest {
     protection_class: Option<String>,
     overgate_command_signature: Option<String>,
     idempotency_key: Option<String>,
+    operator_lifecycle: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -357,6 +421,8 @@ struct SignatureVerificationRequest {
     overpass_subject_state: Option<String>,
     overtenant_tenant_state: Option<String>,
     overtenant_membership_state: Option<String>,
+    overguard_policy_decision_ref: Option<String>,
+    overguard_decision: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -375,6 +441,8 @@ struct ApiKeyVerificationRequest {
     overpass_subject_state: Option<String>,
     overtenant_tenant_state: Option<String>,
     overtenant_membership_state: Option<String>,
+    overguard_policy_decision_ref: Option<String>,
+    overguard_decision: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -403,6 +471,7 @@ pub fn public_routes() -> Router<OverkeyState> {
             "/v1/credentials/service-accounts",
             post(create_service_account),
         )
+        .route("/v1/delegations", post(create_delegation))
         .route(
             "/v1/credentials/:credential_id/rotate",
             post(rotate_credential),
@@ -711,6 +780,93 @@ async fn create_service_account(
     ))
 }
 
+async fn create_delegation(
+    State(state): State<OverkeyState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<ApiResponse<Phase6DelegationData>>, OverkeyError> {
+    let trace_id = trace_id(&headers);
+    require_internal_service_account(&headers).map_err(|_| {
+        OverkeyError::repository_rejected(
+            trace_id.clone(),
+            crate::repository::RepositoryError::UnsignedServiceAccountCall,
+        )
+    })?;
+    let tenant_id = tenant_from_headers(&headers)?;
+    let request: DelegationRequest = parse_json_body(&headers, body)?;
+    let policy_handoff = validate_delegation_request(&headers, &request, &trace_id)?;
+    let delegation_id = request
+        .delegation_id
+        .clone()
+        .unwrap_or_else(|| format!("delegation:overkey:{}", stable_trace_token(&trace_id)));
+    let evidence_refs = non_empty_refs(
+        request.evidence_refs.clone(),
+        format!(
+            "evidence:overkey:delegation:{}",
+            stable_trace_token(&trace_id)
+        ),
+    );
+    let audit_refs = non_empty_refs(
+        request.audit_refs.clone(),
+        format!(
+            "audit:overkey:delegation:{}",
+            stable_trace_token(&trace_id)
+        ),
+    );
+    let revocation_state = request
+        .revocation_state
+        .clone()
+        .unwrap_or_else(|| "revocable".to_owned());
+    let record = DelegationRecord {
+        delegation_id: delegation_id.clone(),
+        tenant_id: tenant_id.clone(),
+        delegator_ref: request.delegator_ref.clone(),
+        delegate_ref: request.delegate_ref.clone(),
+        subject_ref: request.delegator_ref.clone(),
+        delegated_to: request.delegate_ref.clone(),
+        allowed_scopes: request.allowed_scopes.clone(),
+        allowed_uses: request.allowed_scopes.clone(),
+        allowed_command_classes: request.allowed_command_classes.clone(),
+        not_after: request.not_after.clone(),
+        revocation_state: revocation_state.clone(),
+        evidence_refs: evidence_refs.clone(),
+        policy_decision_ref: policy_handoff.decision_ref.clone(),
+        status: CredentialStatus::Active,
+        audit_refs: audit_refs.clone(),
+    };
+    state
+        .repository
+        .append_delegation_record(record)
+        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+
+    Ok(json_response_with_schema(
+        OVERKEY_PHASE6_RESPONSE_SCHEMA_VERSION,
+        trace_id,
+        "overkey.delegation_recorded_phase6",
+        Phase6DelegationData {
+            route: ROUTE_CREATE_DELEGATION,
+            tenant_id,
+            delegation_id,
+            record_kind: "delegation_record",
+            schema_ref: DELEGATION_RECORD_SCHEMA_REF,
+            repository_action: "append_delegation_record",
+            delegator_ref: request.delegator_ref,
+            delegate_ref: request.delegate_ref,
+            allowed_scopes: request.allowed_scopes,
+            allowed_command_classes: request.allowed_command_classes,
+            not_after: request.not_after,
+            revocation_state,
+            evidence_refs,
+            policy_handoff,
+            overgate_admission_required: true,
+            overwatch_event_ref: format!("event:overwatch:overkey:delegation:{delegation_id}"),
+            audit_refs,
+            raw_secret_persisted: false,
+            redacted_fields: safe_metadata_redactions(),
+        },
+    ))
+}
+
 async fn rotate_credential(
     State(state): State<OverkeyState>,
     Path(credential_id): Path<String>,
@@ -729,6 +885,7 @@ async fn rotate_credential(
                 crate::repository::RepositoryError::CredentialNotFound,
             )
         })?;
+    validate_operator_lifecycle_request(&headers, &request, &current, &trace_id)?;
     let audit_ref = request
         .audit_ref
         .clone()
@@ -851,6 +1008,7 @@ async fn revoke_credential(
                 crate::repository::RepositoryError::CredentialNotFound,
             )
         })?;
+    validate_operator_lifecycle_request(&headers, &request, &current, &trace_id)?;
     let audit_ref = request
         .audit_ref
         .clone()
@@ -1102,28 +1260,48 @@ async fn record_last_used(
     let used_at = request
         .used_at
         .unwrap_or_else(|| LOCAL_PHASE3_TIMESTAMP.to_owned());
-    state
+    let audit_ref = request.audit_ref.unwrap_or_else(|| {
+        format!("audit:overkey:last-used:{}", stable_trace_token(&trace_id))
+    });
+    let update_result = state
         .repository
         .update_last_used(
             &tenant_id,
             &request.credential_id,
             used_at.clone(),
-            request.audit_ref.unwrap_or_else(|| {
-                format!("audit:overkey:last-used:{}", stable_trace_token(&trace_id))
-            }),
-        )
-        .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+            audit_ref.clone(),
+        );
+    let (usage_recorded, retry_safe_update_queued, response_reason) = match update_result {
+        Ok(()) => (true, false, "overkey.usage_recorded_phase6"),
+        Err(crate::repository::RepositoryError::CredentialNotFound) => {
+            (false, true, "overkey.usage_update_queued_after_repository_miss")
+        }
+        Err(error) => return Err(OverkeyError::repository_rejected(trace_id.clone(), error)),
+    };
 
     Ok(json_response(
         trace_id.clone(),
-        "overkey.usage_recorded",
+        response_reason,
         UsageData {
             route: ROUTE_USAGE_LAST_USED,
             tenant_id,
-            credential_id: request.credential_id,
+            credential_id: request.credential_id.clone(),
             last_used_at: used_at,
-            usage_recorded: true,
+            usage_recorded,
+            retry_safe_update_queued,
             overwatch_event_ref: format!("event:overwatch:overkey:last-used:{trace_id}"),
+            overmeter_event_refs: vec![
+                format!("event:overmeter:overkey:verification-volume:{trace_id}"),
+                format!("event:overmeter:overkey:credential-class:{trace_id}"),
+            ],
+            usage_event_classes: vec![
+                "overkey.verification_volume".to_owned(),
+                "overkey.lifecycle_operation".to_owned(),
+                "overkey.service_account_use".to_owned(),
+                "overkey.credential_class_usage".to_owned(),
+            ],
+            oru_balance_mutated: false,
+            seal_ledger_mutated: false,
         },
     ))
 }
@@ -1212,6 +1390,11 @@ fn verify_signature_request(
         request.replay_window_id.as_deref(),
         request.revocation_epoch.unwrap_or(0),
     );
+    data.policy_handoff = policy_handoff_from_decision(
+        request.overguard_policy_decision_ref.as_deref(),
+        request.overguard_decision.as_deref(),
+        &request.command_class,
+    );
 
     let record = state
         .repository
@@ -1264,6 +1447,13 @@ fn verify_signature_request(
         }
         if !command_class_allowed(record, &request.command_class) {
             return Some("auth.command_class_denied");
+        }
+        if let Some(reason_code) = policy_denial_for_high_risk(
+            &request.command_class,
+            request.overguard_policy_decision_ref.as_deref(),
+            request.overguard_decision.as_deref(),
+        ) {
+            return Some(reason_code);
         }
         if !body_hash_ref_valid(&request.body_hash_ref, request.body_hash_payload.as_deref()) {
             return Some("auth.body_hash_mismatch");
@@ -1341,6 +1531,11 @@ fn verify_api_key_request(
         request.replay_window_id.as_deref(),
         request.revocation_epoch.unwrap_or(0),
     );
+    data.policy_handoff = policy_handoff_from_decision(
+        request.overguard_policy_decision_ref.as_deref(),
+        request.overguard_decision.as_deref(),
+        &request.command_class,
+    );
 
     let denial = verification_denial_for_common_checks(
         &data,
@@ -1382,6 +1577,13 @@ fn verify_api_key_request(
         }
         if !command_class_allowed(record, &request.command_class) {
             return Some("auth.command_class_denied");
+        }
+        if let Some(reason_code) = policy_denial_for_high_risk(
+            &request.command_class,
+            request.overguard_policy_decision_ref.as_deref(),
+            request.overguard_decision.as_deref(),
+        ) {
+            return Some(reason_code);
         }
         None
     });
@@ -1453,6 +1655,7 @@ fn verification_data_base(
             revocation_epoch,
             cache_key_ref,
         },
+        policy_handoff: local_policy_handoff("policy:overguard:phase6:local-low-risk"),
         audit_refs: vec![audit_ref],
         retryability: "terminal".to_owned(),
         raw_secret_persisted: false,
@@ -1496,7 +1699,6 @@ fn verification_denial_for_common_checks(
     if dependency_state_denied(overtenant_membership_state) {
         return Some("auth.membership_dependency_denied");
     }
-
     let record = match record {
         Some(record) => record,
         None => return Some("auth.credential_unknown"),
@@ -1546,6 +1748,26 @@ fn command_class_allowed(record: &CredentialRecord, command_class: &str) -> bool
         .any(|value| value == command_class)
 }
 
+fn policy_denial_for_high_risk(
+    command_class: &str,
+    overguard_policy_decision_ref: Option<&str>,
+    overguard_decision: Option<&str>,
+) -> Option<&'static str> {
+    if !is_high_risk_command_class(command_class) {
+        return None;
+    }
+    if overguard_policy_decision_ref.unwrap_or("").trim().is_empty() {
+        return Some("policy.overguard_handoff_required");
+    }
+    if overguard_decision
+        .map(|decision| decision != "allow")
+        .unwrap_or(true)
+    {
+        return Some("policy.overguard_denied");
+    }
+    None
+}
+
 fn body_hash_ref_valid(body_hash_ref: &str, body_hash_payload: Option<&str>) -> bool {
     if !body_hash_ref.starts_with("hash:body:blake3:") {
         return false;
@@ -1582,12 +1804,12 @@ fn apply_verification_decision(data: &mut VerificationData, denial: Option<&'sta
     data.reason_code = verification_positive_reason(data.verification_class).to_owned();
     data.retryability = "not_retryable_success".to_owned();
     data.cache_guidance.cacheable = true;
-    data.cache_guidance.max_positive_ttl_seconds =
-        if data.command_class.contains("operator") || data.command_class.contains("admin") {
-            HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS
-        } else {
-            ORDINARY_POSITIVE_CACHE_TTL_SECONDS
-        };
+    data.cache_guidance.max_positive_ttl_seconds = if is_high_risk_command_class(&data.command_class)
+    {
+        HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS
+    } else {
+        ORDINARY_POSITIVE_CACHE_TTL_SECONDS
+    };
 }
 
 fn verification_positive_reason(verification_class: &str) -> &'static str {
@@ -1903,6 +2125,172 @@ fn affected_command_classes(request: &LifecycleRequest, current: &CredentialReco
         })
 }
 
+fn validate_delegation_request(
+    headers: &HeaderMap,
+    request: &DelegationRequest,
+    trace_id: &str,
+) -> Result<PolicyHandoff, OverkeyError> {
+    let service_account = header_value(headers, SERVICE_ACCOUNT_HEADER).unwrap_or_default();
+    if service_account != "service-account:overgate" {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.delegation_overgate_required",
+            "delegation lifecycle commands must enter through Overgate",
+            vec!["header:x-overrid-service-account"],
+        ));
+    }
+    if request.delegator_ref.trim().is_empty()
+        || request.delegate_ref.trim().is_empty()
+        || request.delegator_ref == request.delegate_ref
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_subject_invalid",
+            "delegation requires distinct delegator and delegate refs",
+            vec!["delegation_record.delegator_ref", "delegation_record.delegate_ref"],
+        ));
+    }
+    if !narrow_delegation_scope(&request.allowed_scopes)
+        || !narrow_service_account_scope(&request.allowed_command_classes)
+        || !request.allowed_scopes.iter().all(|value| {
+            PHASE6_DELEGATION_ALLOWED_SCOPES
+                .iter()
+                .any(|allowed| value == allowed)
+        })
+        || !request.allowed_command_classes.iter().all(|value| {
+            SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES
+                .iter()
+                .any(|allowed| value == allowed)
+        })
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_scope_too_broad",
+            "delegated access must use narrow scopes and command classes",
+            vec![
+                "delegation_record.allowed_scopes",
+                "delegation_record.allowed_command_classes",
+            ],
+        ));
+    }
+    if request.not_after.trim().is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_expiry_required",
+            "delegated access requires expiry metadata",
+            vec!["delegation_record.not_after"],
+        ));
+    }
+    if dependency_state_denied(request.overpass_delegate_state.as_deref())
+        || dependency_state_denied(request.overtenant_tenant_state.as_deref())
+        || dependency_state_denied(request.overtenant_membership_state.as_deref())
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_delegate_stale",
+            "delegated access is denied when delegate, tenant, or membership state is stale",
+            vec![
+                "delegation_record.delegate_ref",
+                "overpass_delegate_state",
+                "overtenant_membership_state",
+            ],
+        ));
+    }
+    let has_evidence = request
+        .evidence_refs
+        .as_ref()
+        .map(|refs| refs.iter().any(|value| !value.trim().is_empty()))
+        .unwrap_or(false);
+    if !has_evidence {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.delegation_evidence_required",
+            "delegated access requires evidence refs",
+            vec!["delegation_record.evidence_refs"],
+        ));
+    }
+    validate_overguard_policy_handoff(
+        request.overguard_policy_decision_ref.as_deref(),
+        request.overguard_decision.as_deref(),
+        trace_id,
+    )
+}
+
+fn validate_overguard_policy_handoff(
+    decision_ref: Option<&str>,
+    decision: Option<&str>,
+    trace_id: &str,
+) -> Result<PolicyHandoff, OverkeyError> {
+    if decision_ref.unwrap_or("").trim().is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "policy.overguard_handoff_required",
+            "credential-class and delegation policy require an Overguard decision ref",
+            vec!["policy_handoff.overguard_policy_decision_ref"],
+        ));
+    }
+    if decision.unwrap_or("") != "allow" {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "policy.overguard_denied",
+            "Overkey honors Overguard deny decisions without storing policy truth",
+            vec!["policy_handoff.overguard_decision"],
+        ));
+    }
+    Ok(policy_handoff_from_decision(
+        decision_ref,
+        decision,
+        "command.delegation.create",
+    ))
+}
+
+fn policy_handoff_from_decision(
+    decision_ref: Option<&str>,
+    decision: Option<&str>,
+    command_class: &str,
+) -> PolicyHandoff {
+    let decision_ref = decision_ref
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("policy:overguard:phase6:local-low-risk");
+    PolicyHandoff {
+        policy_engine_ref: "service:overguard".to_owned(),
+        decision_ref: decision_ref.to_owned(),
+        decision: decision.unwrap_or("local_phase1_allow").to_owned(),
+        local_fallback: if is_high_risk_command_class(command_class) {
+            "deny_by_default_until_overguard_allow".to_owned()
+        } else {
+            "phase1_local_low_risk_checks".to_owned()
+        },
+        checked_dimensions: vec![
+            "credential_class".to_owned(),
+            "delegation".to_owned(),
+            "protection_class".to_owned(),
+            "command_class".to_owned(),
+            "high_risk_operation".to_owned(),
+        ],
+        overkey_policy_truth_stored: false,
+    }
+}
+
+fn local_policy_handoff(decision_ref: &str) -> PolicyHandoff {
+    policy_handoff_from_decision(Some(decision_ref), Some("local_phase1_allow"), "command.verify")
+}
+
+fn narrow_delegation_scope(values: &[String]) -> bool {
+    narrow_service_account_scope(values)
+}
+
+fn is_high_risk_command_class(command_class: &str) -> bool {
+    command_class.contains("operator")
+        || command_class.contains("admin")
+        || command_class == "command.credential.rotate"
+        || command_class == "command.credential.revoke"
+        || command_class == "command.secret.resolve"
+        || command_class == "command.system.operate"
+        || command_class == "command.queue.execution_callback"
+        || command_class == "command.worker.runtime_callback"
+}
+
 fn validate_rotation_successor(
     state: &OverkeyState,
     tenant_id: &str,
@@ -2050,6 +2438,86 @@ fn validate_break_glass_request(
     Ok(())
 }
 
+fn validate_operator_lifecycle_request(
+    headers: &HeaderMap,
+    request: &LifecycleRequest,
+    current: &CredentialRecord,
+    trace_id: &str,
+) -> Result<(), OverkeyError> {
+    if !request.operator_lifecycle.unwrap_or(false) {
+        return Ok(());
+    }
+    let service_account = header_value(headers, SERVICE_ACCOUNT_HEADER).unwrap_or_default();
+    let service_signature = header_value(headers, SERVICE_SIGNATURE_HEADER).unwrap_or_default();
+    if service_account != "service-account:overgate" || service_signature.trim().is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.operator_lifecycle_unsigned",
+            "high-risk operator lifecycle commands must enter through signed Overgate service account commands",
+            vec![
+                "header:x-overrid-service-account",
+                "header:x-overrid-service-signature",
+            ],
+        ));
+    }
+    if request
+        .overgate_command_signature
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.operator_lifecycle_unsigned",
+            "high-risk operator lifecycle commands require a signed Overgate command envelope",
+            vec!["lifecycle_request.overgate_command_signature"],
+        ));
+    }
+    let role = request.operator_role.as_deref().unwrap_or("");
+    if !matches!(
+        role,
+        "role:operator" | "role:admin" | "role:break_glass_admin"
+    ) {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.operator_lifecycle_role_required",
+            "high-risk lifecycle commands require operator or admin role evidence",
+            vec!["lifecycle_request.operator_role"],
+        ));
+    }
+    let protection_class = request
+        .protection_class
+        .as_deref()
+        .unwrap_or(current.protection_class.as_str());
+    if !(protection_class.contains("operator")
+        || protection_class.contains("hardware")
+        || protection_class.contains("secure_enclave")
+        || protection_class.contains("break_glass"))
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.operator_lifecycle_protection_class_required",
+            "high-risk lifecycle commands require a stronger operator/admin protection class",
+            vec!["lifecycle_request.protection_class"],
+        ));
+    }
+    let has_evidence = request
+        .evidence_refs
+        .as_ref()
+        .map(|refs| refs.iter().any(|value| !value.trim().is_empty()))
+        .unwrap_or(false);
+    if !has_evidence || request.audit_ref.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.operator_lifecycle_evidence_required",
+            "high-risk lifecycle commands require Overwatch audit and evidence refs",
+            vec!["lifecycle_request.audit_ref", "lifecycle_request.evidence_refs"],
+        ));
+    }
+    Ok(())
+}
+
 fn parse_json_body<T: for<'de> Deserialize<'de>>(
     headers: &HeaderMap,
     body: Bytes,
@@ -2167,6 +2635,49 @@ fn allowed_service_account_scope(services: &[String], command_classes: &[String]
                 .iter()
                 .any(|allowed| value == allowed)
         })
+        && services.iter().all(|service| {
+            command_classes
+                .iter()
+                .any(|command| service_supports_command(service, command))
+        })
+        && command_classes.iter().all(|command| {
+            services
+                .iter()
+                .any(|service| service_supports_command(service, command))
+        })
+        && command_classes.iter().all(|command| {
+            !matches!(
+                command.as_str(),
+                "command.accounting.mutate"
+                    | "command.rights.mutate"
+                    | "command.payout.mutate"
+                    | "command.namespace.mutate"
+                    | "command.policy.mutate"
+            )
+        })
+}
+
+fn service_supports_command(service: &str, command: &str) -> bool {
+    match service {
+        "service:overgate" => matches!(
+            command,
+            "command.verify"
+                | "command.credential.read"
+                | "command.credential.rotate"
+                | "command.credential.revoke"
+        ),
+        "service:overvault" => command == "command.secret.resolve",
+        "service:node-agent" => command == "command.node.enroll",
+        "service:system-service" | "service:grid-resident" => command == "command.system.operate",
+        "service:overqueue" => command == "command.queue.execution_callback",
+        "service:worker" | "service:overrun" => {
+            matches!(
+                command,
+                "command.worker.runtime_callback" | "command.workload.execute"
+            )
+        }
+        _ => false,
+    }
 }
 
 fn api_key_lookup_hash_ref(raw_api_key: &str) -> String {
