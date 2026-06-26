@@ -1008,6 +1008,8 @@ fn verify_signature_request(
             .clone()
             .unwrap_or_else(|| CANONICALIZATION_VERSION.to_owned()),
         request.body_hash_ref.clone(),
+        request.timestamp.as_str(),
+        request.replay_window_id.as_deref(),
         request.revocation_epoch.unwrap_or(0),
     );
 
@@ -1135,6 +1137,8 @@ fn verify_api_key_request(
         API_KEY_LOOKUP_HASH_ALGORITHM.to_owned(),
         CANONICALIZATION_VERSION.to_owned(),
         body_hash_ref,
+        request.timestamp.as_str(),
+        request.replay_window_id.as_deref(),
         request.revocation_epoch.unwrap_or(0),
     );
 
@@ -1200,10 +1204,13 @@ fn verification_data_base(
     algorithm: String,
     canonicalization: String,
     body_hash_ref: String,
+    timestamp: &str,
+    replay_window_id: Option<&str>,
     revocation_epoch: u64,
 ) -> VerificationData {
+    let replay_window_id = replay_window_id.unwrap_or("replay:missing");
     let canonical = format!(
-        "{route}|{tenant_id}|{credential_id}|{key_id}|{key_version}|{subject_ref}|{allowed_use}|{command_class}|{algorithm}|{canonicalization}|{body_hash_ref}|{revocation_epoch}"
+        "{route}|{tenant_id}|{credential_id}|{key_id}|{key_version}|{subject_ref}|{allowed_use}|{command_class}|{algorithm}|{canonicalization}|{body_hash_ref}|{timestamp}|{replay_window_id}|{revocation_epoch}"
     );
     let request_hash_ref = blake3_ref("overkey-verification-request", &canonical);
     let verification_evidence_ref = blake3_ref("overkey-verification-evidence", &request_hash_ref);
@@ -1340,7 +1347,7 @@ fn command_class_allowed(record: &CredentialRecord, command_class: &str) -> bool
 }
 
 fn body_hash_ref_valid(body_hash_ref: &str, body_hash_payload: Option<&str>) -> bool {
-    if !body_hash_ref.starts_with("hash:") {
+    if !body_hash_ref.starts_with("hash:body:blake3:") {
         return false;
     }
     match body_hash_payload {
@@ -1998,6 +2005,8 @@ mod tests {
             .unwrap();
         assert_eq!(create.status(), StatusCode::OK);
 
+        let signature_body_payload = "phase4-signature-body";
+        let signature_body_hash_ref = blake3_ref("body", signature_body_payload);
         let valid_request = json!({
             "credential_id": "credential:signing:phase4",
             "key_id": "key:tenant:phase4-signer",
@@ -2006,7 +2015,8 @@ mod tests {
             "canonicalization": "overrid.canonical_json.v0",
             "timestamp": "2026-06-26T12:00:00Z",
             "replay_window_id": "replay:phase4:signature",
-            "body_hash_ref": "hash:fixture:phase4:signature-body",
+            "body_hash_ref": signature_body_hash_ref,
+            "body_hash_payload": signature_body_payload,
             "allowed_use": "signature.verify",
             "command_class": "command.verify",
             "tenant_id": "tenant:phase4",
@@ -2046,7 +2056,79 @@ mod tests {
         );
         assert_eq!(verified_body["data"]["cache_guidance"]["cacheable"], true);
 
-        let mut denied_request = valid_request;
+        let mut timestamp_changed_request = valid_request.clone();
+        timestamp_changed_request["timestamp"] = json!("2026-06-26T12:00:01Z");
+        let timestamp_changed = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(timestamp_changed_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let timestamp_changed_body = response_json(timestamp_changed).await;
+        assert_eq!(timestamp_changed_body["data"]["verified"], true);
+        assert_ne!(
+            verified_body["data"]["request_hash_ref"],
+            timestamp_changed_body["data"]["request_hash_ref"]
+        );
+
+        let mut replay_changed_request = valid_request.clone();
+        replay_changed_request["replay_window_id"] = json!("replay:phase4:signature:changed");
+        let replay_changed = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(replay_changed_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let replay_changed_body = response_json(replay_changed).await;
+        assert_eq!(replay_changed_body["data"]["verified"], true);
+        assert_ne!(
+            verified_body["data"]["request_hash_ref"],
+            replay_changed_body["data"]["request_hash_ref"]
+        );
+
+        let mut body_mismatch_request = valid_request.clone();
+        body_mismatch_request["body_hash_payload"] = json!("phase4-tampered-body");
+        let body_mismatch = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(body_mismatch_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body_mismatch_body = response_json(body_mismatch).await;
+        assert_eq!(body_mismatch_body["data"]["verified"], false);
+        assert_eq!(
+            body_mismatch_body["data"]["reason_code"],
+            "auth.body_hash_mismatch"
+        );
+
+        let mut denied_request = valid_request.clone();
         denied_request["command_class"] = json!("command.secret.resolve");
         let denied = router
             .oneshot(
@@ -2174,6 +2256,196 @@ mod tests {
             denied_body["data"]["reason_code"],
             "auth.api_key_hash_mismatch"
         );
+    }
+
+    #[tokio::test]
+    async fn phase4_signature_verification_covers_plan_denials() {
+        let router = OverkeyService::default().router();
+        create_phase4_signing_credential(router.clone(), "credential:signing:phase4-denials").await;
+
+        let body_hash_payload = "phase4-denial-body";
+        let body_hash_ref = blake3_ref("body", body_hash_payload);
+        let valid_request = phase4_signature_request(
+            "credential:signing:phase4-denials",
+            "key:tenant:phase4-denials-signer",
+            body_hash_ref.as_str(),
+            body_hash_payload,
+        );
+
+        let mut wrong_tenant = valid_request.clone();
+        wrong_tenant["tenant_id"] = json!("tenant:other");
+        assert_phase4_denial(
+            router.clone(),
+            wrong_tenant,
+            "service-account:overgate",
+            "auth.tenant_header_mismatch",
+            "denied",
+        )
+        .await;
+
+        let mut wrong_key_version = valid_request.clone();
+        wrong_key_version["key_version"] = json!(2);
+        assert_phase4_denial(
+            router.clone(),
+            wrong_key_version,
+            "service-account:overgate",
+            "auth.key_version_mismatch",
+            "denied",
+        )
+        .await;
+
+        let mut expired = valid_request.clone();
+        expired["timestamp"] = json!("2027-01-01T00:00:00Z");
+        assert_phase4_denial(
+            router.clone(),
+            expired,
+            "service-account:overgate",
+            "auth.signature_expired",
+            "denied",
+        )
+        .await;
+
+        let mut replayed = valid_request.clone();
+        replayed["replay_window_id"] = json!("");
+        assert_phase4_denial(
+            router.clone(),
+            replayed,
+            "service-account:overgate",
+            "auth.replay_window_required",
+            "denied",
+        )
+        .await;
+
+        let mut unknown_credential = valid_request.clone();
+        unknown_credential["credential_id"] = json!("credential:signing:missing");
+        assert_phase4_denial(
+            router.clone(),
+            unknown_credential,
+            "service-account:overgate",
+            "auth.credential_unknown",
+            "denied",
+        )
+        .await;
+
+        let mut disabled_subject = valid_request.clone();
+        disabled_subject["overpass_subject_state"] = json!("disabled");
+        assert_phase4_denial(
+            router.clone(),
+            disabled_subject,
+            "service-account:overgate",
+            "auth.subject_dependency_denied",
+            "blocked",
+        )
+        .await;
+
+        assert_phase4_denial(
+            router.clone(),
+            valid_request.clone(),
+            "service-account:unapproved",
+            "auth.service_account_not_approved",
+            "denied",
+        )
+        .await;
+
+        let malformed = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from("{not-json"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(malformed.status(), StatusCode::BAD_REQUEST);
+
+        let revoked_router = OverkeyService::default().router();
+        create_phase4_signing_credential(
+            revoked_router.clone(),
+            "credential:signing:phase4-revoked",
+        )
+        .await;
+        lifecycle_transition(
+            revoked_router.clone(),
+            "/v1/credentials/credential:signing:phase4-revoked/revoke",
+        )
+        .await;
+        assert_phase4_denial(
+            revoked_router,
+            phase4_signature_request(
+                "credential:signing:phase4-revoked",
+                "key:tenant:phase4-denials-signer",
+                body_hash_ref.as_str(),
+                body_hash_payload,
+            ),
+            "service-account:overgate",
+            "auth.credential_not_active",
+            "denied",
+        )
+        .await;
+
+        let rotating_router = OverkeyService::default().router();
+        create_phase4_signing_credential(
+            rotating_router.clone(),
+            "credential:signing:phase4-rotating",
+        )
+        .await;
+        lifecycle_transition(
+            rotating_router.clone(),
+            "/v1/credentials/credential:signing:phase4-rotating/rotate",
+        )
+        .await;
+        assert_phase4_denial(
+            rotating_router,
+            phase4_signature_request(
+                "credential:signing:phase4-rotating",
+                "key:tenant:phase4-denials-signer",
+                body_hash_ref.as_str(),
+                body_hash_payload,
+            ),
+            "service-account:overgate",
+            "auth.credential_not_active",
+            "denied",
+        )
+        .await;
+
+        let suspended_service = OverkeyService::default();
+        let suspended_router = suspended_service.router();
+        create_phase4_signing_credential(
+            suspended_router.clone(),
+            "credential:signing:phase4-suspended",
+        )
+        .await;
+        suspended_service
+            .state()
+            .repository
+            .append_status_transition(StatusTransitionRecord {
+                tenant_id: "tenant:phase4".to_owned(),
+                credential_id: "credential:signing:phase4-suspended".to_owned(),
+                from_status: CredentialStatus::Active,
+                to_status: CredentialStatus::Suspended,
+                reason_code: "overkey.phase4.test_suspension".to_owned(),
+                audit_ref: "audit:overkey:phase4:test-suspension".to_owned(),
+            })
+            .unwrap();
+        assert_phase4_denial(
+            suspended_router,
+            phase4_signature_request(
+                "credential:signing:phase4-suspended",
+                "key:tenant:phase4-denials-signer",
+                body_hash_ref.as_str(),
+                body_hash_payload,
+            ),
+            "service-account:overgate",
+            "auth.credential_not_active",
+            "denied",
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -2456,6 +2728,112 @@ mod tests {
             fixture["credential_record"]["canonicalization"],
             "overrid.canonical_json.v0"
         );
+    }
+
+    async fn create_phase4_signing_credential(router: Router, credential_id: &str) {
+        let create = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(TRACE_HEADER, "trace:overkey:phase4:signing-denial-create")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": credential_id,
+                            "subject_ref": "actor:overpass:phase4",
+                            "key_id": "key:tenant:phase4-denials-signer",
+                            "public_key_ref": "public-key-ref:ed25519:phase4-denials",
+                            "allowed_signature_uses": ["signature.verify"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:tenant_bound_public_key"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+    }
+
+    fn phase4_signature_request(
+        credential_id: &str,
+        key_id: &str,
+        body_hash_ref: &str,
+        body_hash_payload: &str,
+    ) -> Value {
+        json!({
+            "credential_id": credential_id,
+            "key_id": key_id,
+            "key_version": 1,
+            "algorithm": "Ed25519",
+            "canonicalization": "overrid.canonical_json.v0",
+            "timestamp": "2026-06-26T12:00:00Z",
+            "replay_window_id": "replay:phase4:denial",
+            "body_hash_ref": body_hash_ref,
+            "body_hash_payload": body_hash_payload,
+            "allowed_use": "signature.verify",
+            "command_class": "command.verify",
+            "tenant_id": "tenant:phase4",
+            "subject_ref": "actor:overpass:phase4",
+            "signature_ref": "signature:fixture:phase4-denial",
+            "revocation_epoch": 0,
+            "overpass_subject_state": "active",
+            "overtenant_tenant_state": "active",
+            "overtenant_membership_state": "active"
+        })
+    }
+
+    async fn assert_phase4_denial(
+        router: Router,
+        request: Value,
+        service_account_ref: &str,
+        expected_reason_code: &str,
+        expected_state: &str,
+    ) {
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .header(SERVICE_ACCOUNT_HEADER, service_account_ref)
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase4")
+                    .body(Body::from(request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["data"]["verified"], false);
+        assert_eq!(body["data"]["reason_code"], expected_reason_code);
+        assert_eq!(body["data"]["verification_state"], expected_state);
+    }
+
+    async fn lifecycle_transition(router: Router, uri: &str) {
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(uri)
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase4")
+                    .body(Body::from(
+                        json!({
+                            "reason_code": "overkey.phase4.test_transition",
+                            "audit_ref": "audit:overkey:phase4:test-transition"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     async fn response_json(response: axum::response::Response) -> Value {

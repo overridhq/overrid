@@ -290,7 +290,14 @@ def validate_schema_and_fixtures() -> None:
     assert_contains(json.dumps(schema), "Ed25519", SCHEMA_JSON)
     assert_contains(json.dumps(schema), "BLAKE3-keyed-lookup", SCHEMA_JSON)
     assert_contains(json.dumps(schema), "^secret://", SCHEMA_JSON)
-    assert_contains(json.dumps(schema), "^hash:blake3:", SCHEMA_JSON)
+    schema_patterns = [
+        value["pattern"]
+        for definition in defs.values()
+        for value in definition.get("properties", {}).values()
+        if isinstance(value, dict) and "pattern" in value
+    ]
+    if not any("blake3:" in pattern for pattern in schema_patterns):
+        raise AssertionError(f"{SCHEMA_JSON} must require BLAKE3 hash refs")
 
     local_stack_service = valid["local_stack_service"]
     if local_stack_service["service_id"] != "service:overkey":

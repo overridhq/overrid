@@ -99,8 +99,12 @@ def validate_docs_and_wiring() -> None:
     assert_contains(tech_stack, "Rust-first infrastructure stack", TECH_STACK)
     assert_contains(tech_stack, "Canonical JSON plus JSON Schema", TECH_STACK)
 
+    if "Phase 2 and Phase 3" not in readme and "Phase 2 through Phase 4" not in readme:
+        raise AssertionError(
+            f"{README} is missing expected text: Phase 2 and Phase 3 or Phase 2 through Phase 4"
+        )
+
     for expected in (
-        "Phase 2 and Phase 3",
         "BLAKE3 hash refs",
         "Duplicate active tenant-scoped key ids",
         "API key enrollment stores non-secret prefixes",

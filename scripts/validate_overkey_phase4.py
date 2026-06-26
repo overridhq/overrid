@@ -127,18 +127,21 @@ def validate_rust_sources() -> None:
 
     for expected in (
         "OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION",
-        "OVERKEY_PHASE4_FIXTURE_SCHEMA_VERSION",
         "APPROVED_VERIFICATION_SERVICE_ACCOUNTS",
         "verify_signature_request",
         "verify_api_key_request",
         "verification_data_base",
         "verification_denial_for_common_checks",
         "body_hash_ref_valid",
+        "hash:body:blake3:",
+        "timestamp: &str",
+        "replay_window_id: Option<&str>",
         "verification_result_from_data",
         "json_response_with_schema",
         "auth.signature_verified_phase4",
         "auth.api_key_verified_phase4",
         "auth.command_class_denied",
+        "auth.body_hash_mismatch",
         "auth.api_key_hash_mismatch",
         "auth.subject_dependency_denied",
         "request_hash_ref",
@@ -148,6 +151,16 @@ def validate_rust_sources() -> None:
         "raw_secret_persisted",
         "phase4_signature_verification_checks_metadata_and_dependencies",
         "phase4_api_key_verification_never_returns_raw_key_material",
+        "phase4_signature_verification_covers_plan_denials",
+        "timestamp_changed_request",
+        "replay_changed_request",
+        "body_mismatch_request",
+        "auth.signature_expired",
+        "auth.key_version_mismatch",
+        "auth.replay_window_required",
+        "auth.credential_unknown",
+        "auth.credential_not_active",
+        "CredentialStatus::Suspended",
     ):
         assert_contains(routes, expected, ROUTES)
 
@@ -168,6 +181,7 @@ def validate_rust_sources() -> None:
         assert_contains(records, expected, RECORDS)
 
     assert_contains(repository, "reason_code: record.reason_code", REPOSITORY)
+    assert_contains(schema_rs, "OVERKEY_PHASE4_FIXTURE_SCHEMA_VERSION", SCHEMA_RS)
     assert_contains(schema_rs, "overkey.phase4.response.v0", SCHEMA_RS)
     assert_contains(schema_rs, "overkey.phase4.verification.v0", SCHEMA_RS)
 
