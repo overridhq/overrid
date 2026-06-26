@@ -7,6 +7,7 @@ description = "Rust credential and key authority service skeleton for Overrid Ov
 
 [dependencies]
 axum = "0.7"
+blake3 = "1.5"
 overrid-contracts = { path = "../schemas/overrid_contracts" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -26,4 +27,3 @@ path = "src/lib.rs"
 
 [lints]
 workspace = true
-

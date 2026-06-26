@@ -1,0 +1,20 @@
+{
+  "schema_version": "overkey.phase3.credential_enrollment.v0",
+  "case": "raw key material must not appear in persisted records, diagnostics, audit exports, fixtures, or metadata responses",
+  "credential_record": {
+    "tenant_id": "tenant:phase3",
+    "credential_id": "credential:api-key:bad",
+    "raw_api_key": "api_key=do-not-persist",
+    "direct_secret_material_present": true
+  },
+  "expected_denial": {
+    "status": 400,
+    "reason_code": "overkey.raw_secret_material_rejected",
+    "redacted_fields": [
+      "raw_api_key",
+      "api_key_lookup_hash_internal",
+      "private_key_material",
+      "secret_ref.resolved_value"
+    ]
+  }
+}

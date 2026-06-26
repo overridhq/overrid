@@ -85,6 +85,67 @@ impl OverkeyError {
                     field_refs: vec!["credential_record.credential_id"],
                 },
             },
+            RepositoryError::DuplicateActiveKey => Self {
+                http_status: StatusCode::CONFLICT,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.duplicate_active_key_rejected",
+                data: ApiErrorData {
+                    error_code: "duplicate_active_key_rejected",
+                    message: "an active key with this tenant-scoped key id already exists",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["credential_record.key_id"],
+                },
+            },
+            RepositoryError::CredentialNotFound => Self {
+                http_status: StatusCode::NOT_FOUND,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.credential_not_found",
+                data: ApiErrorData {
+                    error_code: "credential_not_found",
+                    message: "credential metadata was not found in the tenant scope",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["credential_id", "header:x-overrid-tenant-id"],
+                },
+            },
+            RepositoryError::InvalidStatusTransition => Self {
+                http_status: StatusCode::CONFLICT,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.invalid_lifecycle_transition",
+                data: ApiErrorData {
+                    error_code: "invalid_lifecycle_transition",
+                    message: "credential lifecycle transition is not allowed",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["credential_record.status"],
+                },
+            },
+            RepositoryError::BroadServiceAccountScope => Self {
+                http_status: StatusCode::BAD_REQUEST,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.broad_service_account_scope_rejected",
+                data: ApiErrorData {
+                    error_code: "broad_service_account_scope_rejected",
+                    message: "service-account credentials require narrow service and command class scopes",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec![
+                        "service_account_key.allowed_services",
+                        "service_account_key.allowed_command_classes",
+                    ],
+                },
+            },
+            RepositoryError::UnsignedServiceAccountCall => Self {
+                http_status: StatusCode::FORBIDDEN,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.service_account_signature_required",
+                data: ApiErrorData {
+                    error_code: "service_account_signature_required",
+                    message: "service-account credential enrollment requires a signed service-account call",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec![
+                        "header:x-overrid-service-account",
+                        "header:x-overrid-service-signature",
+                    ],
+                },
+            },
             RepositoryError::RawSecretMaterial => Self {
                 http_status: StatusCode::BAD_REQUEST,
                 trace_id: trace_id.into(),
@@ -95,6 +156,25 @@ impl OverkeyError {
                     retryability: Retryability::Terminal,
                     field_refs: vec!["credential_record.secret_ref"],
                 },
+            },
+        }
+    }
+
+    pub fn invalid_enrollment(
+        trace_id: impl Into<String>,
+        reason_code: &'static str,
+        message: &'static str,
+        field_refs: Vec<&'static str>,
+    ) -> Self {
+        Self {
+            http_status: StatusCode::BAD_REQUEST,
+            trace_id: trace_id.into(),
+            reason_code,
+            data: ApiErrorData {
+                error_code: reason_code,
+                message,
+                retryability: Retryability::Terminal,
+                field_refs,
             },
         }
     }

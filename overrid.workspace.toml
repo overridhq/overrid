@@ -922,6 +922,7 @@ generated_output_paths = []
 test_targets = [
     "cargo test -p overrid-overkey",
     "python3 scripts/validate_overkey_phase2.py",
+    "python3 scripts/validate_overkey_phase3.py",
 ]
 local_stack_participation = "profile_consumer"
 documentation_links = [

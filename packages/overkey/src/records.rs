@@ -37,9 +37,12 @@ pub struct CredentialRecord {
     pub tenant_id: String,
     pub subject_ref: String,
     pub credential_id: String,
+    pub key_id: String,
+    pub key_version: u32,
     pub credential_class: String,
     pub allowed_uses: Vec<String>,
     pub status: CredentialStatus,
+    pub created_at: String,
     pub not_before: String,
     pub not_after: String,
     pub algorithm: String,
@@ -47,6 +50,9 @@ pub struct CredentialRecord {
     pub audit_refs: Vec<String>,
     pub protection_class: String,
     pub secret_ref: SecretRef,
+    pub last_used_at: Option<String>,
+    pub rotation_refs: Vec<String>,
+    pub revocation_refs: Vec<String>,
 }
 
 impl CredentialRecord {
@@ -63,9 +69,12 @@ impl CredentialRecord {
             tenant_id: tenant_id.to_owned(),
             subject_ref: subject_ref.to_owned(),
             credential_id: credential_id.to_owned(),
+            key_id: format!("key:{}", credential_id.trim_start_matches("credential:")),
+            key_version: 1,
             credential_class: credential_class.to_owned(),
             allowed_uses,
             status: CredentialStatus::Active,
+            created_at: "2026-01-01T00:00:00Z".to_owned(),
             not_before: "2026-01-01T00:00:00Z".to_owned(),
             not_after: "2026-12-31T23:59:59Z".to_owned(),
             algorithm: "Ed25519".to_owned(),
@@ -73,6 +82,9 @@ impl CredentialRecord {
             audit_refs: vec!["audit:overkey:phase2:fixture".to_owned()],
             protection_class: "protection:tenant_bound_secret_ref".to_owned(),
             secret_ref,
+            last_used_at: None,
+            rotation_refs: Vec::new(),
+            revocation_refs: Vec::new(),
         }
     }
 }
@@ -81,11 +93,16 @@ impl CredentialRecord {
 pub struct ApiKeyRecord {
     pub credential_id: String,
     pub tenant_id: String,
+    pub key_version: u32,
     pub api_key_prefix: String,
     pub api_key_hash_ref: String,
     pub hash_algorithm: String,
     pub allowed_uses: Vec<String>,
     pub status: CredentialStatus,
+    pub created_at: String,
+    pub last_used_at: Option<String>,
+    pub lookup_hint_rules: Vec<String>,
+    pub raw_key_discarded: bool,
     pub audit_refs: Vec<String>,
 }
 
@@ -94,10 +111,15 @@ pub struct PublicKeyRecord {
     pub credential_id: String,
     pub tenant_id: String,
     pub key_id: String,
+    pub key_version: u32,
     pub algorithm: String,
     pub public_key_ref: String,
+    pub key_fingerprint_ref: String,
     pub canonicalization: String,
     pub allowed_signature_uses: Vec<String>,
+    pub not_before: String,
+    pub not_after: String,
+    pub protection_class: String,
     pub status: CredentialStatus,
     pub audit_refs: Vec<String>,
 }
@@ -107,9 +129,14 @@ pub struct ServiceAccountKey {
     pub credential_id: String,
     pub tenant_id: String,
     pub service_account_id: String,
+    pub key_version: u32,
     pub public_key_ref: String,
     pub algorithm: String,
+    pub allowed_services: Vec<String>,
+    pub allowed_command_classes: Vec<String>,
     pub allowed_uses: Vec<String>,
+    pub protection_class: String,
+    pub signed_call_required: bool,
     pub status: CredentialStatus,
     pub audit_refs: Vec<String>,
 }

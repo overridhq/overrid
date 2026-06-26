@@ -1,0 +1,99 @@
+{
+  "schema_version": "overkey.phase3.credential_enrollment.v0",
+  "service_id": "service:overkey",
+  "base_path": "/overkey",
+  "api_key_enrollment": {
+    "route": "POST /v1/credentials/api-keys",
+    "tenant_id": "tenant:phase3",
+    "credential_id": "credential:api-key:phase3",
+    "key_id": "key:api:ovk_phase3",
+    "key_version": 1,
+    "api_key_prefix": "ovk_phase3",
+    "api_key_hash_ref": "hash:api_key:blake3:phase3_fixture_hash",
+    "hash_algorithm": "BLAKE3-keyed-lookup",
+    "allowed_uses": [
+      "request.authenticate",
+      "request.verify"
+    ],
+    "raw_key_discarded": true,
+    "raw_secret_persisted": false,
+    "redacted_fields": [
+      "raw_api_key",
+      "api_key_lookup_hash_internal",
+      "private_key_material",
+      "secret_ref.resolved_value"
+    ]
+  },
+  "signing_key_enrollment": {
+    "route": "POST /v1/credentials/signing-keys",
+    "tenant_id": "tenant:phase3",
+    "credential_id": "credential:signing-key:phase3",
+    "key_id": "key:tenant:phase3",
+    "key_version": 1,
+    "algorithm": "Ed25519",
+    "public_key_ref": "public-key-ref:ed25519:phase3",
+    "key_fingerprint_ref": "hash:key-fingerprint:blake3:phase3_fixture_hash",
+    "canonicalization": "overrid.canonical_json.v0",
+    "not_after": "2026-12-31T23:59:59Z",
+    "protection_class": "protection:tenant_bound_public_key"
+  },
+  "service_account_credential": {
+    "route": "POST /v1/credentials/service-accounts",
+    "tenant_id": "tenant:phase3",
+    "credential_id": "credential:service-account:phase3",
+    "service_account_id": "service-account:overgate",
+    "signed_call_required": true,
+    "allowed_services": [
+      "service:overgate"
+    ],
+    "allowed_command_classes": [
+      "command.verify"
+    ],
+    "broad_scope_rejected": true
+  },
+  "metadata_read": {
+    "route": "GET /v1/credentials/{credential_id}",
+    "tenant_isolated": true,
+    "raw_secret_persisted": false,
+    "safe_fields": [
+      "credential_id",
+      "key_id",
+      "key_version",
+      "lifecycle_status",
+      "not_after",
+      "last_used_at",
+      "rotation_refs",
+      "revocation_refs",
+      "protection_class_label"
+    ],
+    "redacted_fields": [
+      "raw_api_key",
+      "api_key_lookup_hash_internal",
+      "private_key_material",
+      "secret_ref.resolved_value",
+      "service_signature"
+    ]
+  },
+  "lifecycle": {
+    "statuses": [
+      "pending",
+      "active",
+      "rotating",
+      "suspended",
+      "revoked",
+      "expired",
+      "tombstoned"
+    ],
+    "append_only_history": true,
+    "valid_transitions": [
+      "active->rotating",
+      "active->revoked",
+      "rotating->active",
+      "revoked->tombstoned"
+    ],
+    "invalid_transitions": [
+      "revoked->active",
+      "tombstoned->active"
+    ]
+  }
+}
