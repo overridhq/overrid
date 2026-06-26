@@ -157,6 +157,17 @@ impl OverkeyError {
                     field_refs: vec!["credential_record.secret_ref"],
                 },
             },
+            RepositoryError::DuplicateLifecycleRecord => Self {
+                http_status: StatusCode::CONFLICT,
+                trace_id: trace_id.into(),
+                reason_code: "overkey.duplicate_lifecycle_record_rejected",
+                data: ApiErrorData {
+                    error_code: "duplicate_lifecycle_record_rejected",
+                    message: "lifecycle record append would duplicate an existing record",
+                    retryability: Retryability::Terminal,
+                    field_refs: vec!["rotation_record.rotation_id", "revocation_record.revocation_id"],
+                },
+            },
         }
     }
 

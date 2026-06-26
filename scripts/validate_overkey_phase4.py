@@ -72,6 +72,12 @@ def assert_contains(text: str, expected: str, source: Path) -> None:
         raise AssertionError(f"{source} is missing expected text: {expected}")
 
 
+def assert_any_contains(text: str, expected_options: tuple[str, ...], source: Path) -> None:
+    if not any(expected in text for expected in expected_options):
+        joined = " or ".join(expected_options)
+        raise AssertionError(f"{source} is missing expected text: {joined}")
+
+
 def validate_docs_and_wiring() -> None:
     workspace = read(WORKSPACE_LAYOUT)
     readme = read(README)
@@ -107,8 +113,12 @@ def validate_docs_and_wiring() -> None:
     assert_contains(phase_progress, "Overkey Phase 4 Progress", PHASE_PROGRESS)
     assert_contains(phase_progress, "Docdex impact", PHASE_PROGRESS)
 
+    assert_any_contains(
+        readme,
+        ("Phase 2 through Phase 4", "Phase 2 through Phase 5"),
+        README,
+    )
     for expected in (
-        "Phase 2 through Phase 4",
         "Verification routes are internal-only Phase 4 helpers",
         "overkey.phase4.response.v0",
         "BLAKE3 request/evidence/cache refs",

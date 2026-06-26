@@ -1,0 +1,140 @@
+{
+  "schema_version": "overkey.phase5.lifecycle.v0",
+  "service_id": "service:overkey",
+  "base_path": "/overkey",
+  "rotation_plan": {
+    "route": "POST /v1/credentials/{credential_id}/rotate",
+    "schema_version": "overkey.phase5.response.v0",
+    "rotation_record": {
+      "rotation_id": "rotation:credential:signing:phase5:001",
+      "tenant_id": "tenant:phase5",
+      "credential_id": "credential:signing:phase5",
+      "predecessor_credential_id": "credential:signing:phase5",
+      "predecessor_key_id": "key:tenant:phase5-v1",
+      "predecessor_key_version": 1,
+      "successor_credential_id": "credential:signing:phase5-successor",
+      "successor_key_id": "key:tenant:phase5-v2",
+      "successor_key_version": 2,
+      "grace_window_seconds": 120,
+      "rotation_state": "rotation_started",
+      "initiated_by": "actor:operator:phase5",
+      "reason_code": "overkey.rotation_started_phase5",
+      "activation_at": "2026-06-26T00:02:00Z",
+      "evidence_refs": [
+        "evidence:overkey:phase5:rotation"
+      ],
+      "revocation_epoch": 1,
+      "propagation_status": [
+        {
+          "service_id": "service:overgate",
+          "propagation_state": "confirmed",
+          "required_before_unblock": true,
+          "last_checked_at": "2026-06-26T00:00:00Z",
+          "audit_ref": "audit:overkey:phase5:rotation:overgate"
+        },
+        {
+          "service_id": "service:overvault",
+          "propagation_state": "pending_confirmation",
+          "required_before_unblock": true,
+          "last_checked_at": "2026-06-26T00:00:00Z",
+          "audit_ref": "audit:overkey:phase5:rotation:overvault"
+        }
+      ],
+      "audit_refs": [
+        "audit:overkey:phase5:rotation"
+      ]
+    }
+  },
+  "break_glass_revocation": {
+    "route": "POST /v1/credentials/{credential_id}/revoke",
+    "schema_version": "overkey.phase5.response.v0",
+    "signed_overgate_command_required": true,
+    "revocation_record": {
+      "revocation_id": "revocation:credential:signing:phase5:001",
+      "tenant_id": "tenant:phase5",
+      "credential_id": "credential:signing:phase5",
+      "revoked_by": "actor:operator:phase5",
+      "revoked_at": "2026-06-26T00:00:00Z",
+      "effective_at": "2026-06-26T00:00:00Z",
+      "reason_code": "overkey.break_glass_revocation",
+      "affected_command_classes": [
+        "command.verify",
+        "command.operator.revoke"
+      ],
+      "incident_refs": [
+        "incident:phase5:break-glass"
+      ],
+      "evidence_refs": [
+        "evidence:phase5:break-glass"
+      ],
+      "expected_current_status": "active",
+      "revocation_epoch": 2,
+      "break_glass": true,
+      "idempotency_key": "idem:phase5:break-glass",
+      "propagation_status": [
+        {
+          "service_id": "service:overgate",
+          "propagation_state": "confirmed",
+          "required_before_unblock": true,
+          "last_checked_at": "2026-06-26T00:00:00Z",
+          "audit_ref": "audit:overkey:phase5:revocation:overgate"
+        },
+        {
+          "service_id": "service:overqueue",
+          "propagation_state": "pending_confirmation",
+          "required_before_unblock": true,
+          "last_checked_at": "2026-06-26T00:00:00Z",
+          "audit_ref": "audit:overkey:phase5:revocation:overqueue"
+        }
+      ],
+      "audit_refs": [
+        "audit:overkey:phase5:break-glass"
+      ]
+    }
+  },
+  "cache_invalidation": {
+    "cache_key_ref": "hash:overkey-phase5-cache-key:blake3:fixture",
+    "revocation_epoch": 2,
+    "max_positive_ttl_seconds": 30,
+    "high_risk_max_positive_ttl_seconds": 5,
+    "invalidation_event_ref": "event:overkey:cache_invalidation:phase5",
+    "invalidation_reason": "overkey.break_glass_revocation",
+    "invalidated_at": "2026-06-26T00:00:00Z"
+  },
+  "affected_inventory": {
+    "tenant_id": "tenant:phase5",
+    "subject_ref": "actor:overpass:phase5",
+    "credential_id": "credential:signing:phase5",
+    "command_classes": [
+      "command.verify",
+      "command.operator.revoke"
+    ],
+    "services": [
+      "service:overgate",
+      "service:overvault",
+      "service:overqueue",
+      "service:oversched",
+      "service:overcell",
+      "service:system-services",
+      "service:product-clients"
+    ],
+    "product_clients": [
+      "client:sdk",
+      "client:cli",
+      "client:admin-ui"
+    ],
+    "follow_up_tasks": [
+      "operator:confirm-propagation",
+      "operator:rotate-successor-or-reenroll"
+    ]
+  },
+  "raw_secret_persisted": false,
+  "redacted_fields": [
+    "raw_api_key",
+    "private_key",
+    "bearer_token",
+    "seed_phrase",
+    "password",
+    "raw_signature"
+  ]
+}

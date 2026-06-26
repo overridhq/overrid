@@ -172,9 +172,20 @@ pub struct RotationRecord {
     pub rotation_id: String,
     pub tenant_id: String,
     pub credential_id: String,
-    pub from_key_ref: String,
-    pub to_key_ref: String,
-    pub status: CredentialStatus,
+    pub predecessor_credential_id: String,
+    pub predecessor_key_id: String,
+    pub predecessor_key_version: u32,
+    pub successor_credential_id: String,
+    pub successor_key_id: String,
+    pub successor_key_version: u32,
+    pub grace_window_seconds: u64,
+    pub rotation_state: String,
+    pub initiated_by: String,
+    pub reason_code: String,
+    pub activation_at: String,
+    pub evidence_refs: Vec<String>,
+    pub revocation_epoch: u64,
+    pub propagation_status: Vec<PropagationStatus>,
     pub audit_refs: Vec<String>,
 }
 
@@ -183,9 +194,50 @@ pub struct RevocationRecord {
     pub revocation_id: String,
     pub tenant_id: String,
     pub credential_id: String,
+    pub revoked_by: String,
     pub revoked_at: String,
+    pub effective_at: String,
     pub reason_code: String,
+    pub affected_command_classes: Vec<String>,
+    pub incident_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub expected_current_status: CredentialStatus,
+    pub revocation_epoch: u64,
+    pub break_glass: bool,
+    pub idempotency_key: Option<String>,
+    pub propagation_status: Vec<PropagationStatus>,
     pub audit_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CacheInvalidation {
+    pub cache_key_ref: String,
+    pub revocation_epoch: u64,
+    pub max_positive_ttl_seconds: u64,
+    pub high_risk_max_positive_ttl_seconds: u64,
+    pub invalidation_event_ref: String,
+    pub invalidation_reason: String,
+    pub invalidated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PropagationStatus {
+    pub service_id: String,
+    pub propagation_state: String,
+    pub required_before_unblock: bool,
+    pub last_checked_at: String,
+    pub audit_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AffectedInventory {
+    pub tenant_id: String,
+    pub subject_ref: String,
+    pub credential_id: String,
+    pub command_classes: Vec<String>,
+    pub services: Vec<String>,
+    pub product_clients: Vec<String>,
+    pub follow_up_tasks: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

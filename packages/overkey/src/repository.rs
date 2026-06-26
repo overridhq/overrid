@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 
-use crate::records::{CredentialRecord, CredentialStatus, VerificationResult};
+use crate::records::{
+    CredentialRecord, CredentialStatus, RevocationRecord, RotationRecord, VerificationResult,
+};
 use crate::schema::contains_raw_secret_marker;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +17,7 @@ pub enum RepositoryError {
     BroadServiceAccountScope,
     UnsignedServiceAccountCall,
     RawSecretMaterial,
+    DuplicateLifecycleRecord,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -44,6 +47,8 @@ pub trait CredentialMetadataRepository: Clone + Send + Sync + 'static {
         record: StatusTransitionRecord,
     ) -> Result<(), RepositoryError>;
     fn record_verification(&self, record: VerificationResult) -> Result<(), RepositoryError>;
+    fn append_rotation_record(&self, record: RotationRecord) -> Result<(), RepositoryError>;
+    fn append_revocation_record(&self, record: RevocationRecord) -> Result<(), RepositoryError>;
     fn update_last_used(
         &self,
         tenant_id: &str,
@@ -54,6 +59,8 @@ pub trait CredentialMetadataRepository: Clone + Send + Sync + 'static {
     fn credential(&self, tenant_id: &str, credential_id: &str) -> Option<CredentialRecord>;
     fn status_history(&self, credential_id: &str) -> Vec<StatusTransitionRecord>;
     fn verification_log(&self, credential_id: &str) -> Vec<VerificationLogRecord>;
+    fn rotation_records(&self, credential_id: &str) -> Vec<RotationRecord>;
+    fn revocation_records(&self, credential_id: &str) -> Vec<RevocationRecord>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -66,6 +73,8 @@ struct RepositoryState {
     credentials: BTreeMap<String, CredentialRecord>,
     status_history: Vec<StatusTransitionRecord>,
     verification_log: Vec<VerificationLogRecord>,
+    rotations: Vec<RotationRecord>,
+    revocations: Vec<RevocationRecord>,
 }
 
 impl CredentialMetadataRepository for InMemoryCredentialRepository {
@@ -144,6 +153,104 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
         Ok(())
     }
 
+    fn append_rotation_record(&self, record: RotationRecord) -> Result<(), RepositoryError> {
+        reject_raw_secret_material(&record)?;
+        let mut state = self
+            .state
+            .lock()
+            .expect("credential repository lock poisoned");
+        if state
+            .rotations
+            .iter()
+            .any(|existing| existing.rotation_id == record.rotation_id)
+        {
+            return Err(RepositoryError::DuplicateLifecycleRecord);
+        }
+        let credential = state
+            .credentials
+            .get_mut(&repository_key(&record.tenant_id, &record.credential_id))
+            .ok_or(RepositoryError::CredentialNotFound)?;
+        let from_status = credential.status.clone();
+        if !valid_status_transition(&from_status, &CredentialStatus::Rotating) {
+            return Err(RepositoryError::InvalidStatusTransition);
+        }
+        credential.status = CredentialStatus::Rotating;
+        credential.revocation_epoch = credential.revocation_epoch.max(record.revocation_epoch);
+        if !credential.rotation_refs.contains(&record.rotation_id) {
+            credential.rotation_refs.push(record.rotation_id.clone());
+        }
+        for audit_ref in &record.audit_refs {
+            if !credential.rotation_refs.contains(audit_ref) {
+                credential.rotation_refs.push(audit_ref.clone());
+            }
+        }
+        state.status_history.push(StatusTransitionRecord {
+            tenant_id: record.tenant_id.clone(),
+            credential_id: record.credential_id.clone(),
+            from_status,
+            to_status: CredentialStatus::Rotating,
+            reason_code: record.reason_code.clone(),
+            audit_ref: record
+                .audit_refs
+                .first()
+                .cloned()
+                .unwrap_or_else(|| format!("audit:overkey:rotation:{}", record.rotation_id)),
+        });
+        state.rotations.push(record);
+        Ok(())
+    }
+
+    fn append_revocation_record(&self, record: RevocationRecord) -> Result<(), RepositoryError> {
+        reject_raw_secret_material(&record)?;
+        let mut state = self
+            .state
+            .lock()
+            .expect("credential repository lock poisoned");
+        if state
+            .revocations
+            .iter()
+            .any(|existing| existing.revocation_id == record.revocation_id)
+        {
+            return Err(RepositoryError::DuplicateLifecycleRecord);
+        }
+        let credential = state
+            .credentials
+            .get_mut(&repository_key(&record.tenant_id, &record.credential_id))
+            .ok_or(RepositoryError::CredentialNotFound)?;
+        let from_status = credential.status.clone();
+        if record.expected_current_status != from_status
+            || !valid_status_transition(&from_status, &CredentialStatus::Revoked)
+        {
+            return Err(RepositoryError::InvalidStatusTransition);
+        }
+        credential.status = CredentialStatus::Revoked;
+        credential.revocation_epoch = credential.revocation_epoch.max(record.revocation_epoch);
+        if !credential.revocation_refs.contains(&record.revocation_id) {
+            credential
+                .revocation_refs
+                .push(record.revocation_id.clone());
+        }
+        for audit_ref in &record.audit_refs {
+            if !credential.revocation_refs.contains(audit_ref) {
+                credential.revocation_refs.push(audit_ref.clone());
+            }
+        }
+        state.status_history.push(StatusTransitionRecord {
+            tenant_id: record.tenant_id.clone(),
+            credential_id: record.credential_id.clone(),
+            from_status,
+            to_status: CredentialStatus::Revoked,
+            reason_code: record.reason_code.clone(),
+            audit_ref: record
+                .audit_refs
+                .first()
+                .cloned()
+                .unwrap_or_else(|| format!("audit:overkey:revocation:{}", record.revocation_id)),
+        });
+        state.revocations.push(record);
+        Ok(())
+    }
+
     fn update_last_used(
         &self,
         tenant_id: &str,
@@ -198,6 +305,28 @@ impl CredentialMetadataRepository for InMemoryCredentialRepository {
             .lock()
             .expect("credential repository lock poisoned")
             .verification_log
+            .iter()
+            .filter(|record| record.credential_id == credential_id)
+            .cloned()
+            .collect()
+    }
+
+    fn rotation_records(&self, credential_id: &str) -> Vec<RotationRecord> {
+        self.state
+            .lock()
+            .expect("credential repository lock poisoned")
+            .rotations
+            .iter()
+            .filter(|record| record.credential_id == credential_id)
+            .cloned()
+            .collect()
+    }
+
+    fn revocation_records(&self, credential_id: &str) -> Vec<RevocationRecord> {
+        self.state
+            .lock()
+            .expect("credential repository lock poisoned")
+            .revocations
             .iter()
             .filter(|record| record.credential_id == credential_id)
             .cloned()

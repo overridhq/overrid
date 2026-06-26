@@ -1,0 +1,32 @@
+{
+  "schema_version": "overkey.phase5.break_glass_denials.v0",
+  "service_id": "service:overkey",
+  "denials": [
+    {
+      "case": "unsigned_overgate_command",
+      "reason_code": "auth.break_glass_unsigned",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "wrong_operator_role",
+      "reason_code": "auth.break_glass_wrong_role",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "weak_protection_class",
+      "reason_code": "auth.break_glass_protection_class_required",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "missing_evidence_refs",
+      "reason_code": "auth.break_glass_missing_evidence",
+      "side_effects_allowed": false
+    },
+    {
+      "case": "missing_idempotency_key",
+      "reason_code": "auth.break_glass_idempotency_required",
+      "side_effects_allowed": false
+    }
+  ],
+  "raw_secret_persisted": false
+}

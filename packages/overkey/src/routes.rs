@@ -8,13 +8,17 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::OverkeyError;
-use crate::records::{CredentialRecord, CredentialStatus, SecretRef, VerificationResult};
-use crate::repository::{CredentialMetadataRepository, StatusTransitionRecord};
+use crate::records::{
+    AffectedInventory, CacheInvalidation, CredentialRecord, CredentialStatus, PropagationStatus,
+    RevocationRecord, RotationRecord, SecretRef, VerificationResult,
+};
+use crate::repository::CredentialMetadataRepository;
 use crate::schema::{
     API_KEY_RECORD_SCHEMA_REF, CREDENTIAL_RECORD_SCHEMA_REF,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION, OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
-    PUBLIC_KEY_RECORD_SCHEMA_REF, REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF,
-    SERVICE_ACCOUNT_KEY_SCHEMA_REF, VERIFICATION_RESULT_SCHEMA_REF,
+    OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION, PUBLIC_KEY_RECORD_SCHEMA_REF,
+    REVOCATION_RECORD_SCHEMA_REF, ROTATION_RECORD_SCHEMA_REF, SERVICE_ACCOUNT_KEY_SCHEMA_REF,
+    VERIFICATION_RESULT_SCHEMA_REF,
 };
 use crate::service::OverkeyState;
 
@@ -44,6 +48,15 @@ const API_KEY_LOOKUP_KEY_REF: &str = "secret://overvault/local/overkey/api-key-l
 const SIGNING_ALGORITHM: &str = "Ed25519";
 const ORDINARY_POSITIVE_CACHE_TTL_SECONDS: u64 = 30;
 const HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS: u64 = 5;
+const PHASE5_PROPAGATION_SERVICES: [&str; 7] = [
+    "service:overgate",
+    "service:overvault",
+    "service:overqueue",
+    "service:oversched",
+    "service:overcell",
+    "service:system-services",
+    "service:product-clients",
+];
 const APPROVED_VERIFICATION_SERVICE_ACCOUNTS: [&str; 4] = [
     "service-account:overgate",
     "service-account:overkey-internal",
@@ -69,10 +82,11 @@ const SERVICE_ACCOUNT_ALLOWED_COMMAND_CLASSES: [&str; 8] = [
     "command.system.operate",
 ];
 const PHASE2_RESPONSE_SCHEMA_COMPATIBILITY: &str = "overkey.phase2.response.v0";
-const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 3] = [
+const SUPPORTED_RESPONSE_SCHEMA_VERSIONS: [&str; 4] = [
     PHASE2_RESPONSE_SCHEMA_COMPATIBILITY,
     OVERKEY_PHASE3_RESPONSE_SCHEMA_VERSION,
     OVERKEY_PHASE4_RESPONSE_SCHEMA_VERSION,
+    OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
 ];
 
 #[derive(Debug, Serialize)]
@@ -152,6 +166,29 @@ struct CredentialRouteData {
     overvault_secret_ref: String,
     lifecycle_status: CredentialStatus,
     raw_key_discarded: bool,
+    raw_secret_persisted: bool,
+    redacted_fields: Vec<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
+struct Phase5LifecycleData {
+    route: &'static str,
+    tenant_id: String,
+    credential_id: String,
+    key_id: String,
+    key_version: u32,
+    record_kind: &'static str,
+    schema_ref: &'static str,
+    repository_action: &'static str,
+    lifecycle_status: CredentialStatus,
+    rotation_record: Option<RotationRecord>,
+    revocation_record: Option<RevocationRecord>,
+    cache_invalidation: CacheInvalidation,
+    propagation_status: Vec<PropagationStatus>,
+    affected_inventory: AffectedInventory,
+    break_glass_accepted: bool,
+    idempotency_key: Option<String>,
+    audit_refs: Vec<String>,
     raw_secret_persisted: bool,
     redacted_fields: Vec<&'static str>,
 }
@@ -273,6 +310,23 @@ struct ServiceAccountCredentialRequest {
 struct LifecycleRequest {
     reason_code: Option<String>,
     audit_ref: Option<String>,
+    successor_credential_id: Option<String>,
+    successor_key_id: Option<String>,
+    successor_key_version: Option<u32>,
+    grace_window_seconds: Option<u64>,
+    initiated_by: Option<String>,
+    activation_at: Option<String>,
+    revoked_by: Option<String>,
+    effective_at: Option<String>,
+    affected_command_classes: Option<Vec<String>>,
+    incident_refs: Option<Vec<String>>,
+    evidence_refs: Option<Vec<String>>,
+    expected_current_status: Option<CredentialStatus>,
+    break_glass: Option<bool>,
+    operator_role: Option<String>,
+    protection_class: Option<String>,
+    overgate_command_signature: Option<String>,
+    idempotency_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -662,7 +716,7 @@ async fn rotate_credential(
     Path(credential_id): Path<String>,
     headers: HeaderMap,
     body: Bytes,
-) -> Result<Json<ApiResponse<CredentialRouteData>>, OverkeyError> {
+) -> Result<Json<ApiResponse<Phase5LifecycleData>>, OverkeyError> {
     let trace_id = trace_id(&headers);
     let tenant_id = tenant_from_headers(&headers)?;
     let request: LifecycleRequest = parse_json_body(&headers, body)?;
@@ -677,45 +731,94 @@ async fn rotate_credential(
         })?;
     let audit_ref = request
         .audit_ref
+        .clone()
         .unwrap_or_else(|| format!("audit:overkey:rotation:{}", stable_trace_token(&trace_id)));
+    let reason_code = request
+        .reason_code
+        .clone()
+        .unwrap_or_else(|| "overkey.rotation_requested".to_owned());
+    let successor_credential_id = request.successor_credential_id.clone().unwrap_or_else(|| {
+        format!(
+            "{}:successor:{}",
+            credential_id,
+            stable_trace_token(&trace_id)
+        )
+    });
+    let successor_key_version = request
+        .successor_key_version
+        .unwrap_or(current.key_version + 1);
+    let successor_key_id = request
+        .successor_key_id
+        .clone()
+        .unwrap_or_else(|| format!("{}:v{}", current.key_id, successor_key_version));
+    let revocation_epoch = current.revocation_epoch + 1;
+    let propagation_status = default_propagation_status("rotation", &audit_ref);
+    let affected_command_classes = affected_command_classes(&request, &current);
+    let rotation_record = RotationRecord {
+        rotation_id: format!(
+            "rotation:{}:{}",
+            credential_id,
+            stable_trace_token(&trace_id)
+        ),
+        tenant_id: tenant_id.clone(),
+        credential_id: credential_id.clone(),
+        predecessor_credential_id: credential_id.clone(),
+        predecessor_key_id: current.key_id.clone(),
+        predecessor_key_version: current.key_version,
+        successor_credential_id: successor_credential_id.clone(),
+        successor_key_id: successor_key_id.clone(),
+        successor_key_version,
+        grace_window_seconds: request.grace_window_seconds.unwrap_or(300),
+        rotation_state: "rotation_started".to_owned(),
+        initiated_by: request
+            .initiated_by
+            .clone()
+            .unwrap_or_else(|| "actor:overgate:lifecycle".to_owned()),
+        reason_code: reason_code.clone(),
+        activation_at: request
+            .activation_at
+            .clone()
+            .unwrap_or_else(|| "2026-06-26T00:05:00Z".to_owned()),
+        evidence_refs: non_empty_refs(
+            request.evidence_refs.clone(),
+            format!(
+                "evidence:overkey:rotation:{}",
+                stable_trace_token(&trace_id)
+            ),
+        ),
+        revocation_epoch,
+        propagation_status: propagation_status.clone(),
+        audit_refs: vec![audit_ref.clone()],
+    };
     state
         .repository
-        .append_status_transition(StatusTransitionRecord {
-            tenant_id: tenant_id.clone(),
-            credential_id: credential_id.clone(),
-            from_status: current.status.clone(),
-            to_status: CredentialStatus::Rotating,
-            reason_code: request
-                .reason_code
-                .unwrap_or_else(|| "overkey.rotation_requested".to_owned()),
-            audit_ref: audit_ref.clone(),
-        })
+        .append_rotation_record(rotation_record.clone())
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
 
-    Ok(json_response(
+    Ok(json_response_with_schema(
+        OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
         trace_id,
-        "overkey.rotation_requested",
-        credential_data(CredentialRouteInput {
+        "overkey.rotation_started_phase5",
+        phase5_lifecycle_data(Phase5LifecycleInput {
             route: ROUTE_ROTATE_CREDENTIAL,
             tenant_id,
             credential_id,
-            key_id: current.key_id,
-            key_version: current.key_version + 1,
+            key_id: successor_key_id,
+            key_version: successor_key_version,
             record_kind: "rotation_record",
             schema_ref: ROTATION_RECORD_SCHEMA_REF,
-            allowed_uses: vec!["credential.rotate".to_owned()],
-            allowed_services: Vec::new(),
-            allowed_command_classes: Vec::new(),
-            api_key_prefix: None,
-            api_key_hash_ref: None,
-            public_key_ref: None,
-            key_fingerprint_ref: None,
-            service_account_id: None,
-            audit_refs: vec![audit_ref],
-            overvault_secret_ref: "secret://overvault/local/overkey/rotation-target-ref".to_owned(),
-            protection_class: current.protection_class,
+            repository_action: "append_rotation_record",
             lifecycle_status: CredentialStatus::Rotating,
-            raw_key_discarded: false,
+            rotation_record: Some(rotation_record),
+            revocation_record: None,
+            revocation_epoch,
+            invalidation_reason: reason_code,
+            affected_command_classes,
+            subject_ref: current.subject_ref,
+            propagation_status,
+            break_glass_accepted: false,
+            idempotency_key: None,
+            audit_refs: vec![audit_ref],
         }),
     ))
 }
@@ -725,7 +828,7 @@ async fn revoke_credential(
     Path(credential_id): Path<String>,
     headers: HeaderMap,
     body: Bytes,
-) -> Result<Json<ApiResponse<CredentialRouteData>>, OverkeyError> {
+) -> Result<Json<ApiResponse<Phase5LifecycleData>>, OverkeyError> {
     let trace_id = trace_id(&headers);
     let tenant_id = tenant_from_headers(&headers)?;
     let request: LifecycleRequest = parse_json_body(&headers, body)?;
@@ -740,25 +843,113 @@ async fn revoke_credential(
         })?;
     let audit_ref = request
         .audit_ref
+        .clone()
         .unwrap_or_else(|| format!("audit:overkey:revocation:{}", stable_trace_token(&trace_id)));
+    validate_break_glass_request(&headers, &request, &current, &trace_id)?;
+    if let Some(idempotency_key) = request.idempotency_key.as_deref() {
+        if let Some(existing) = state
+            .repository
+            .revocation_records(&credential_id)
+            .into_iter()
+            .find(|record| {
+                record.tenant_id == tenant_id
+                    && record.idempotency_key.as_deref() == Some(idempotency_key)
+            })
+        {
+            let propagation_status = existing.propagation_status.clone();
+            return Ok(json_response_with_schema(
+                OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
+                trace_id,
+                "overkey.break_glass_revocation_idempotent_replay",
+                phase5_lifecycle_data(Phase5LifecycleInput {
+                    route: ROUTE_REVOKE_CREDENTIAL,
+                    tenant_id,
+                    credential_id,
+                    key_id: current.key_id,
+                    key_version: current.key_version,
+                    record_kind: "revocation_record",
+                    schema_ref: REVOCATION_RECORD_SCHEMA_REF,
+                    repository_action: "idempotent_replay",
+                    lifecycle_status: CredentialStatus::Revoked,
+                    rotation_record: None,
+                    revocation_record: Some(existing.clone()),
+                    revocation_epoch: existing.revocation_epoch,
+                    invalidation_reason: existing.reason_code,
+                    affected_command_classes: existing.affected_command_classes,
+                    subject_ref: current.subject_ref,
+                    propagation_status,
+                    break_glass_accepted: existing.break_glass,
+                    idempotency_key: existing.idempotency_key,
+                    audit_refs: existing.audit_refs,
+                }),
+            ));
+        }
+    }
+    let reason_code = request
+        .reason_code
+        .clone()
+        .unwrap_or_else(|| "overkey.revocation_requested".to_owned());
+    let affected_command_classes = affected_command_classes(&request, &current);
+    let revocation_epoch = current.revocation_epoch + 1;
+    let break_glass = request.break_glass.unwrap_or(false);
+    let propagation_status = default_propagation_status("revocation", &audit_ref);
+    let idempotency_key = request.idempotency_key.clone();
+    let revocation_record = RevocationRecord {
+        revocation_id: format!(
+            "revocation:{}:{}",
+            credential_id,
+            stable_trace_token(&trace_id)
+        ),
+        tenant_id: tenant_id.clone(),
+        credential_id: credential_id.clone(),
+        revoked_by: request
+            .revoked_by
+            .clone()
+            .or_else(|| request.initiated_by.clone())
+            .unwrap_or_else(|| "actor:overgate:lifecycle".to_owned()),
+        revoked_at: LOCAL_PHASE3_TIMESTAMP.to_owned(),
+        effective_at: request
+            .effective_at
+            .clone()
+            .unwrap_or_else(|| LOCAL_PHASE3_TIMESTAMP.to_owned()),
+        reason_code: reason_code.clone(),
+        affected_command_classes: affected_command_classes.clone(),
+        incident_refs: request
+            .incident_refs
+            .clone()
+            .unwrap_or_else(|| vec!["incident:overkey:phase5:local-fixture".to_owned()]),
+        evidence_refs: non_empty_refs(
+            request.evidence_refs.clone(),
+            format!(
+                "evidence:overkey:revocation:{}",
+                stable_trace_token(&trace_id)
+            ),
+        ),
+        expected_current_status: request
+            .expected_current_status
+            .clone()
+            .unwrap_or_else(|| current.status.clone()),
+        revocation_epoch,
+        break_glass,
+        idempotency_key,
+        propagation_status: propagation_status.clone(),
+        audit_refs: vec![audit_ref.clone()],
+    };
     state
         .repository
-        .append_status_transition(StatusTransitionRecord {
-            tenant_id: tenant_id.clone(),
-            credential_id: credential_id.clone(),
-            from_status: current.status.clone(),
-            to_status: CredentialStatus::Revoked,
-            reason_code: request
-                .reason_code
-                .unwrap_or_else(|| "overkey.revocation_requested".to_owned()),
-            audit_ref: audit_ref.clone(),
-        })
+        .append_revocation_record(revocation_record.clone())
         .map_err(|error| OverkeyError::repository_rejected(trace_id.clone(), error))?;
+    let response_idempotency_key = revocation_record.idempotency_key.clone();
 
-    Ok(json_response(
+    Ok(json_response_with_schema(
+        OVERKEY_PHASE5_RESPONSE_SCHEMA_VERSION,
         trace_id,
-        "overkey.revocation_requested",
-        credential_data(CredentialRouteInput {
+        if break_glass {
+            "overkey.break_glass_revocation_accepted_phase5"
+        } else {
+            "overkey.revocation_recorded_phase5"
+        },
+        phase5_lifecycle_data(Phase5LifecycleInput {
             route: ROUTE_REVOKE_CREDENTIAL,
             tenant_id,
             credential_id,
@@ -766,19 +957,18 @@ async fn revoke_credential(
             key_version: current.key_version,
             record_kind: "revocation_record",
             schema_ref: REVOCATION_RECORD_SCHEMA_REF,
-            allowed_uses: vec!["credential.revoke".to_owned()],
-            allowed_services: Vec::new(),
-            allowed_command_classes: Vec::new(),
-            api_key_prefix: None,
-            api_key_hash_ref: None,
-            public_key_ref: None,
-            key_fingerprint_ref: None,
-            service_account_id: None,
-            audit_refs: vec![audit_ref],
-            overvault_secret_ref: "secret://overvault/local/overkey/revocation-ref".to_owned(),
-            protection_class: current.protection_class,
+            repository_action: "append_revocation_record",
             lifecycle_status: CredentialStatus::Revoked,
-            raw_key_discarded: false,
+            rotation_record: None,
+            revocation_record: Some(revocation_record),
+            revocation_epoch,
+            invalidation_reason: reason_code,
+            affected_command_classes,
+            subject_ref: current.subject_ref,
+            propagation_status,
+            break_glass_accepted: break_glass,
+            idempotency_key: response_idempotency_key,
+            audit_refs: vec![audit_ref],
         }),
     ))
 }
@@ -1478,6 +1668,28 @@ struct CredentialRouteInput {
     raw_key_discarded: bool,
 }
 
+struct Phase5LifecycleInput {
+    route: &'static str,
+    tenant_id: String,
+    credential_id: String,
+    key_id: String,
+    key_version: u32,
+    record_kind: &'static str,
+    schema_ref: &'static str,
+    repository_action: &'static str,
+    lifecycle_status: CredentialStatus,
+    rotation_record: Option<RotationRecord>,
+    revocation_record: Option<RevocationRecord>,
+    revocation_epoch: u64,
+    invalidation_reason: String,
+    affected_command_classes: Vec<String>,
+    subject_ref: String,
+    propagation_status: Vec<PropagationStatus>,
+    break_glass_accepted: bool,
+    idempotency_key: Option<String>,
+    audit_refs: Vec<String>,
+}
+
 fn credential_record_for_phase3(input: CredentialRecordInput) -> CredentialRecord {
     CredentialRecord {
         schema_version: CREDENTIAL_RECORD_SCHEMA_REF.to_owned(),
@@ -1539,6 +1751,239 @@ fn credential_data(input: CredentialRouteInput) -> CredentialRouteData {
         raw_secret_persisted: false,
         redacted_fields: safe_metadata_redactions(),
     }
+}
+
+fn phase5_lifecycle_data(input: Phase5LifecycleInput) -> Phase5LifecycleData {
+    let cache_invalidation = cache_invalidation_for(
+        &input.tenant_id,
+        &input.credential_id,
+        input.key_version,
+        &input.affected_command_classes,
+        input.revocation_epoch,
+        &input.invalidation_reason,
+    );
+    let affected_inventory = affected_inventory_for(
+        &input.tenant_id,
+        &input.subject_ref,
+        &input.credential_id,
+        input.affected_command_classes.clone(),
+    );
+    Phase5LifecycleData {
+        route: input.route,
+        tenant_id: input.tenant_id,
+        credential_id: input.credential_id,
+        key_id: input.key_id,
+        key_version: input.key_version,
+        record_kind: input.record_kind,
+        schema_ref: input.schema_ref,
+        repository_action: input.repository_action,
+        lifecycle_status: input.lifecycle_status,
+        rotation_record: input.rotation_record,
+        revocation_record: input.revocation_record,
+        cache_invalidation,
+        propagation_status: input.propagation_status,
+        affected_inventory,
+        break_glass_accepted: input.break_glass_accepted,
+        idempotency_key: input.idempotency_key,
+        audit_refs: input.audit_refs,
+        raw_secret_persisted: false,
+        redacted_fields: safe_metadata_redactions(),
+    }
+}
+
+fn cache_invalidation_for(
+    tenant_id: &str,
+    credential_id: &str,
+    key_version: u32,
+    command_classes: &[String],
+    revocation_epoch: u64,
+    reason_code: &str,
+) -> CacheInvalidation {
+    let command_scope = if command_classes.is_empty() {
+        "command.any".to_owned()
+    } else {
+        command_classes.join(",")
+    };
+    let cache_key_ref = blake3_ref(
+        "overkey-phase5-cache-key",
+        &format!(
+            "{tenant_id}|{credential_id}|{key_version}|{command_scope}|{CANONICALIZATION_VERSION}|{revocation_epoch}"
+        ),
+    );
+    CacheInvalidation {
+        invalidation_event_ref: format!(
+            "event:overkey:cache_invalidation:{}",
+            stable_trace_token(&cache_key_ref)
+        ),
+        cache_key_ref,
+        revocation_epoch,
+        max_positive_ttl_seconds: ORDINARY_POSITIVE_CACHE_TTL_SECONDS,
+        high_risk_max_positive_ttl_seconds: HIGH_RISK_POSITIVE_CACHE_TTL_SECONDS,
+        invalidation_reason: reason_code.to_owned(),
+        invalidated_at: LOCAL_PHASE3_TIMESTAMP.to_owned(),
+    }
+}
+
+fn default_propagation_status(action: &str, audit_ref: &str) -> Vec<PropagationStatus> {
+    PHASE5_PROPAGATION_SERVICES
+        .iter()
+        .map(|service_id| PropagationStatus {
+            service_id: (*service_id).to_owned(),
+            propagation_state: if *service_id == "service:overgate" {
+                "confirmed".to_owned()
+            } else {
+                "pending_confirmation".to_owned()
+            },
+            required_before_unblock: *service_id != "service:product-clients",
+            last_checked_at: LOCAL_PHASE3_TIMESTAMP.to_owned(),
+            audit_ref: format!("{audit_ref}:{action}:{}", service_id.replace(':', "-")),
+        })
+        .collect()
+}
+
+fn affected_inventory_for(
+    tenant_id: &str,
+    subject_ref: &str,
+    credential_id: &str,
+    command_classes: Vec<String>,
+) -> AffectedInventory {
+    AffectedInventory {
+        tenant_id: tenant_id.to_owned(),
+        subject_ref: subject_ref.to_owned(),
+        credential_id: credential_id.to_owned(),
+        command_classes,
+        services: PHASE5_PROPAGATION_SERVICES
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect(),
+        product_clients: vec![
+            "client:sdk".to_owned(),
+            "client:cli".to_owned(),
+            "client:admin-ui".to_owned(),
+        ],
+        follow_up_tasks: vec![
+            "operator:confirm-propagation".to_owned(),
+            "operator:rotate-successor-or-reenroll".to_owned(),
+        ],
+    }
+}
+
+fn non_empty_refs(input: Option<Vec<String>>, fallback: String) -> Vec<String> {
+    let refs = input.unwrap_or_default();
+    if refs.iter().any(|value| !value.trim().is_empty()) {
+        refs.into_iter()
+            .filter(|value| !value.trim().is_empty())
+            .collect()
+    } else {
+        vec![fallback]
+    }
+}
+
+fn affected_command_classes(request: &LifecycleRequest, current: &CredentialRecord) -> Vec<String> {
+    request
+        .affected_command_classes
+        .clone()
+        .filter(|values| values.iter().any(|value| !value.trim().is_empty()))
+        .unwrap_or_else(|| {
+            if current.allowed_command_classes.is_empty() {
+                vec!["command.verify".to_owned()]
+            } else {
+                current.allowed_command_classes.clone()
+            }
+        })
+}
+
+fn validate_break_glass_request(
+    headers: &HeaderMap,
+    request: &LifecycleRequest,
+    current: &CredentialRecord,
+    trace_id: &str,
+) -> Result<(), OverkeyError> {
+    if !request.break_glass.unwrap_or(false) {
+        return Ok(());
+    }
+    let service_account = header_value(headers, SERVICE_ACCOUNT_HEADER).unwrap_or_default();
+    let service_signature = header_value(headers, SERVICE_SIGNATURE_HEADER).unwrap_or_default();
+    if service_account != "service-account:overgate" || service_signature.trim().is_empty() {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_unsigned",
+            "break-glass revocation must enter through signed Overgate service account command",
+            vec![
+                "header:x-overrid-service-account",
+                "header:x-overrid-service-signature",
+            ],
+        ));
+    }
+    if request
+        .overgate_command_signature
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_unsigned",
+            "break-glass revocation requires a signed Overgate command envelope",
+            vec!["revocation_record.overgate_command_signature"],
+        ));
+    }
+    let role = request.operator_role.as_deref().unwrap_or("");
+    if !matches!(
+        role,
+        "role:operator" | "role:admin" | "role:break_glass_admin"
+    ) {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_wrong_role",
+            "break-glass revocation requires an operator or admin role",
+            vec!["revocation_record.operator_role"],
+        ));
+    }
+    let protection_class = request
+        .protection_class
+        .as_deref()
+        .unwrap_or(current.protection_class.as_str());
+    if !(protection_class.contains("break_glass")
+        || protection_class.contains("hardware")
+        || protection_class.contains("secure_enclave"))
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_protection_class_required",
+            "break-glass revocation requires a high-risk protection class",
+            vec!["revocation_record.protection_class"],
+        ));
+    }
+    let has_evidence = request
+        .evidence_refs
+        .as_ref()
+        .map(|refs| refs.iter().any(|value| !value.trim().is_empty()))
+        .unwrap_or(false);
+    if !has_evidence {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_missing_evidence",
+            "break-glass revocation requires evidence refs",
+            vec!["revocation_record.evidence_refs"],
+        ));
+    }
+    if request
+        .idempotency_key
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "auth.break_glass_idempotency_required",
+            "break-glass revocation requires an idempotency key",
+            vec!["revocation_record.idempotency_key"],
+        ));
+    }
+    Ok(())
 }
 
 fn parse_json_body<T: for<'de> Deserialize<'de>>(
@@ -1777,6 +2222,7 @@ mod tests {
     use serde_json::{json, Value};
     use tower::ServiceExt;
 
+    use crate::repository::StatusTransitionRecord;
     use crate::service::OverkeyService;
 
     #[tokio::test]
@@ -2449,6 +2895,309 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn phase5_rotation_records_epoch_cache_and_propagation() {
+        let router = OverkeyService::default().router();
+        create_phase5_signing_credential(
+            router.clone(),
+            "credential:signing:phase5-rotation",
+            "key:tenant:phase5-rotation",
+        )
+        .await;
+
+        let rotated = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-rotation/rotate")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(TRACE_HEADER, "trace:overkey:phase5:rotation")
+                    .body(Body::from(
+                        json!({
+                            "successor_credential_id": "credential:signing:phase5-rotation-successor",
+                            "successor_key_id": "key:tenant:phase5-rotation-v2",
+                            "successor_key_version": 2,
+                            "grace_window_seconds": 120,
+                            "initiated_by": "actor:operator:phase5",
+                            "activation_at": "2026-06-26T00:02:00Z",
+                            "reason_code": "overkey.rotation_started_phase5",
+                            "affected_command_classes": ["command.verify", "command.operator.rotate"],
+                            "evidence_refs": ["evidence:overkey:phase5:rotation"],
+                            "audit_ref": "audit:overkey:phase5:rotation"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(rotated.status(), StatusCode::OK);
+        let body = response_json(rotated).await;
+        assert_eq!(body["schema_version"], "overkey.phase5.response.v0");
+        assert_eq!(body["reason_code"], "overkey.rotation_started_phase5");
+        assert_eq!(body["data"]["record_kind"], "rotation_record");
+        assert_eq!(
+            body["data"]["rotation_record"]["successor_key_id"],
+            "key:tenant:phase5-rotation-v2"
+        );
+        assert_eq!(body["data"]["rotation_record"]["grace_window_seconds"], 120);
+        assert_eq!(body["data"]["cache_invalidation"]["revocation_epoch"], 1);
+        assert_eq!(
+            body["data"]["cache_invalidation"]["max_positive_ttl_seconds"],
+            30
+        );
+        assert_eq!(
+            body["data"]["cache_invalidation"]["high_risk_max_positive_ttl_seconds"],
+            5
+        );
+        assert!(body["data"]["propagation_status"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["service_id"] == "service:overgate"
+                && entry["propagation_state"] == "confirmed"));
+
+        let lookup = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/credentials/credential:signing:phase5-rotation")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let lookup_body = response_json(lookup).await;
+        assert_eq!(lookup_body["data"]["lifecycle_status"], "rotating");
+        assert!(lookup_body["data"]["rotation_refs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry.as_str().unwrap().contains("rotation:")));
+    }
+
+    #[tokio::test]
+    async fn phase5_break_glass_revocation_requires_signed_idempotent_command() {
+        let router = OverkeyService::default().router();
+        create_phase5_signing_credential(
+            router.clone(),
+            "credential:signing:phase5-break-glass",
+            "key:tenant:phase5-break-glass",
+        )
+        .await;
+
+        let unsigned = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .body(Body::from(
+                        json!({
+                            "break_glass": true,
+                            "operator_role": "role:admin",
+                            "protection_class": "protection:break_glass_hardware_key",
+                            "overgate_command_signature": "signature:overgate:phase5",
+                            "idempotency_key": "idem:phase5:bg",
+                            "evidence_refs": ["evidence:phase5:bg"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsigned.status(), StatusCode::BAD_REQUEST);
+        let unsigned_body = response_json(unsigned).await;
+        assert_eq!(unsigned_body["reason_code"], "auth.break_glass_unsigned");
+
+        let wrong_role = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .body(Body::from(
+                        json!({
+                            "break_glass": true,
+                            "operator_role": "role:viewer",
+                            "protection_class": "protection:break_glass_hardware_key",
+                            "overgate_command_signature": "signature:overgate:phase5",
+                            "idempotency_key": "idem:phase5:bg",
+                            "evidence_refs": ["evidence:phase5:bg"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let wrong_role_body = response_json(wrong_role).await;
+        assert_eq!(
+            wrong_role_body["reason_code"],
+            "auth.break_glass_wrong_role"
+        );
+
+        let weak_protection = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .body(Body::from(
+                        json!({
+                            "break_glass": true,
+                            "operator_role": "role:admin",
+                            "protection_class": "protection:tenant_bound_public_key",
+                            "overgate_command_signature": "signature:overgate:phase5",
+                            "idempotency_key": "idem:phase5:bg",
+                            "evidence_refs": ["evidence:phase5:bg"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let weak_protection_body = response_json(weak_protection).await;
+        assert_eq!(
+            weak_protection_body["reason_code"],
+            "auth.break_glass_protection_class_required"
+        );
+
+        let valid_body = json!({
+            "break_glass": true,
+            "operator_role": "role:admin",
+            "protection_class": "protection:break_glass_hardware_key",
+            "overgate_command_signature": "signature:overgate:phase5",
+            "idempotency_key": "idem:phase5:bg",
+            "revoked_by": "actor:operator:phase5",
+            "effective_at": "2026-06-26T00:00:00Z",
+            "reason_code": "overkey.break_glass_revocation",
+            "affected_command_classes": ["command.verify", "command.operator.revoke"],
+            "incident_refs": ["incident:phase5:bg"],
+            "evidence_refs": ["evidence:phase5:bg"],
+            "expected_current_status": "active",
+            "audit_ref": "audit:overkey:phase5:break-glass"
+        });
+        let accepted = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .header(TRACE_HEADER, "trace:overkey:phase5:break-glass")
+                    .body(Body::from(valid_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let accepted_body = response_json(accepted).await;
+        assert_eq!(
+            accepted_body["reason_code"],
+            "overkey.break_glass_revocation_accepted_phase5"
+        );
+        assert_eq!(accepted_body["data"]["break_glass_accepted"], true);
+        assert_eq!(
+            accepted_body["data"]["revocation_record"]["break_glass"],
+            true
+        );
+        assert_eq!(
+            accepted_body["data"]["revocation_record"]["idempotency_key"],
+            "idem:phase5:bg"
+        );
+        assert_eq!(
+            accepted_body["data"]["cache_invalidation"]["revocation_epoch"],
+            1
+        );
+
+        let replay = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .body(Body::from(valid_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(replay.status(), StatusCode::OK);
+        let replay_body = response_json(replay).await;
+        assert_eq!(
+            replay_body["reason_code"],
+            "overkey.break_glass_revocation_idempotent_replay"
+        );
+        assert_eq!(
+            replay_body["data"]["repository_action"],
+            "idempotent_replay"
+        );
+
+        let denied_after_revoke = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:signing:phase5-break-glass",
+                            "key_id": "key:tenant:phase5-break-glass",
+                            "key_version": 1,
+                            "algorithm": "Ed25519",
+                            "canonicalization": "overrid.canonical_json.v0",
+                            "timestamp": "2026-06-26T12:00:00Z",
+                            "replay_window_id": "replay:phase5:bg",
+                            "body_hash_ref": blake3_ref("body", "phase5-bg-body"),
+                            "body_hash_payload": "phase5-bg-body",
+                            "allowed_use": "signature.verify",
+                            "command_class": "command.verify",
+                            "tenant_id": "tenant:phase5",
+                            "subject_ref": "actor:overpass:phase5",
+                            "signature_ref": "signature:fixture:phase5",
+                            "revocation_epoch": 1,
+                            "overpass_subject_state": "active",
+                            "overtenant_tenant_state": "active",
+                            "overtenant_membership_state": "active"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let denied_after_revoke_body = response_json(denied_after_revoke).await;
+        assert_eq!(
+            denied_after_revoke_body["data"]["reason_code"],
+            "auth.credential_not_active"
+        );
+    }
+
+    #[tokio::test]
     async fn signing_key_enrollment_rejects_duplicate_active_key_ids() {
         let router = OverkeyService::default().router();
         let request = r#"{
@@ -2745,6 +3494,34 @@ mod tests {
                             "subject_ref": "actor:overpass:phase4",
                             "key_id": "key:tenant:phase4-denials-signer",
                             "public_key_ref": "public-key-ref:ed25519:phase4-denials",
+                            "allowed_signature_uses": ["signature.verify"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:tenant_bound_public_key"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+    }
+
+    async fn create_phase5_signing_credential(router: Router, credential_id: &str, key_id: &str) {
+        let create = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(TRACE_HEADER, "trace:overkey:phase5:signing-create")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": credential_id,
+                            "subject_ref": "actor:overpass:phase5",
+                            "key_id": key_id,
+                            "public_key_ref": "public-key-ref:ed25519:phase5",
                             "allowed_signature_uses": ["signature.verify"],
                             "not_after": "2026-12-31T23:59:59Z",
                             "protection_class": "protection:tenant_bound_public_key"
