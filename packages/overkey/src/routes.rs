@@ -2602,6 +2602,24 @@ fn secret_ref_for_phase7(
         .resolver_service
         .clone()
         .unwrap_or_else(|| "service:overvault".to_owned());
+    if resolver_service != "service:overvault"
+        || !request.reference.starts_with("secret://overvault/")
+        || request
+            .provider
+            .as_deref()
+            .is_some_and(|provider| provider != "overvault")
+    {
+        return Err(OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.phase7_secret_resolver_not_allowed",
+            "Phase 7 secret refs must remain Overvault metadata refs resolved by Overvault",
+            vec![
+                "secret_ref.provider",
+                "secret_ref.reference",
+                "secret_ref.resolver_service",
+            ],
+        ));
+    }
     let allowed_resolver_services = non_empty_refs(
         request.allowed_resolver_services.clone(),
         resolver_service.clone(),
@@ -2712,18 +2730,28 @@ fn validate_phase7_namespace_binding(
             .iter()
             .any(|value| !value.trim().is_empty())
         && binding
+            .overasset_utility_refs
+            .iter()
+            .any(|value| !value.trim().is_empty())
+        && binding
             .audit_refs
             .iter()
-            .any(|value| !value.trim().is_empty());
+            .any(|value| !value.trim().is_empty())
+        && binding
+            .namespace_delegation_ref
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
     if !refs_present || (production_bound && binding.native_app_pages.is_empty()) {
         return Err(OverkeyError::invalid_enrollment(
             trace_id.to_owned(),
             "overkey.phase7_namespace_binding_evidence_required",
-            "namespace-aware native app credentials require owner, routes, storage entitlements, policy decision, page refs, and audit evidence",
+            "namespace-aware native app credentials require owner, delegation, routes, storage entitlements, Overasset utility refs, policy decision, page refs, and audit evidence",
             vec![
                 "phase7_controls.namespace_binding",
+                "namespace_binding.namespace_delegation_ref",
                 "namespace_binding.policy_decision_ref",
                 "namespace_binding.storage_entitlement_refs",
+                "namespace_binding.overasset_utility_refs",
             ],
         ));
     }
@@ -3006,6 +3034,14 @@ fn phase6_delegation_expired(not_after: &str) -> bool {
 fn is_high_risk_command_class(command_class: &str) -> bool {
     command_class.contains("operator")
         || command_class.contains("admin")
+        || command_class.contains("namespace")
+        || command_class.contains("policy")
+        || command_class.contains("accounting")
+        || command_class.contains("rights")
+        || command_class.contains("payout")
+        || command_class.contains("vault")
+        || command_class == "command.node.enroll"
+        || command_class == "command.workload.execute"
         || command_class == "command.credential.rotate"
         || command_class == "command.credential.revoke"
         || command_class == "command.secret.resolve"
@@ -4995,6 +5031,36 @@ mod tests {
         assert!(!serialized.contains("private_key="));
         assert!(!serialized.contains("raw_api_key="));
 
+        let mut non_overvault_ref = phase7_production_signing_key_body(
+            "credential:signing:phase7-non-overvault",
+            "key:tenant:phase7-non-overvault",
+        );
+        non_overvault_ref["secret_ref"]["provider"] = json!("other-vault");
+        non_overvault_ref["secret_ref"]["reference"] =
+            json!("secret://other-vault/prod/signing-key");
+        non_overvault_ref["secret_ref"]["resolver_service"] = json!("service:other-vault");
+        non_overvault_ref["secret_ref"]["allowed_resolver_services"] =
+            json!(["service:other-vault"]);
+        let non_overvault_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/signing-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(non_overvault_ref.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(non_overvault_response.status(), StatusCode::BAD_REQUEST);
+        let non_overvault_body = response_json(non_overvault_response).await;
+        assert_eq!(
+            non_overvault_body["reason_code"],
+            "overkey.phase7_secret_resolver_not_allowed"
+        );
+
         let lookup = router
             .oneshot(
                 Request::builder()
@@ -5157,6 +5223,48 @@ mod tests {
         let invalid_body = response_json(invalid_namespace).await;
         assert_eq!(
             invalid_body["reason_code"],
+            "overkey.phase7_namespace_binding_evidence_required"
+        );
+
+        let missing_delegation_and_utility = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/api-keys")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:api-key:phase7-namespace-no-delegation",
+                            "api_key_prefix": "ovk_phase7_ns_no_delegate",
+                            "raw_api_key": "phase7-namespace-key-no-delegate",
+                            "namespace_binding": {
+                                "app_name_ref": "app:overrid:native:wallet",
+                                "service_name_ref": "service:overkey",
+                                "route_refs": ["route:/overkey/v1/credentials/api-keys"],
+                                "native_app_pages": ["native-page:wallet:credentials"],
+                                "namespace_owner_ref": "namespace:owner:tenant-phase7",
+                                "namespace_delegation_ref": null,
+                                "storage_entitlement_refs": ["storage:entitlement:tenant-phase7:credential-metadata"],
+                                "overasset_utility_refs": [],
+                                "policy_decision_ref": "policy:overguard:phase7:namespace-allow",
+                                "audit_refs": ["audit:overkey:phase7:namespace"]
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            missing_delegation_and_utility.status(),
+            StatusCode::BAD_REQUEST
+        );
+        let missing_delegation_body = response_json(missing_delegation_and_utility).await;
+        assert_eq!(
+            missing_delegation_body["reason_code"],
             "overkey.phase7_namespace_binding_evidence_required"
         );
 
@@ -5381,6 +5489,110 @@ mod tests {
         assert_eq!(
             verified_body["data"]["reason_code"],
             "auth.api_key_verified_phase4"
+        );
+    }
+
+    #[tokio::test]
+    async fn phase7_high_risk_node_enrollment_requires_policy_handoff() {
+        let router = OverkeyService::default().router();
+        let service_account_id = "service-account:phase7-node-enroller";
+        let create = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/service-accounts")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:service-account:phase7-node-enroller",
+                            "service_account_id": service_account_id,
+                            "public_key_ref": "public-key-ref:ed25519:phase7-node-enroller",
+                            "allowed_services": ["service:node-agent"],
+                            "allowed_command_classes": ["command.node.enroll"],
+                            "not_after": "2026-12-31T23:59:59Z",
+                            "protection_class": "protection:hardware_non_exporting_signer",
+                            "environment_scope": "production",
+                            "endpoint_scope": "production",
+                            "production_bound": true,
+                            "test_credential": false,
+                            "protection_evidence_refs": [
+                                "evidence:phase7:node-enrollment-hardware",
+                                "audit:overwatch:phase7:node-enrollment-protection"
+                            ],
+                            "secret_ref": {
+                                "provider": "overvault",
+                                "reference": "secret://overvault/prod/tenant-phase7/node-enrollment",
+                                "protection_class": "protection:hardware_non_exporting_signer",
+                                "resolvable_by": ["service:overkey", "service:overvault"],
+                                "secret_class": "production_credential_ref",
+                                "resolver_service": "service:overvault",
+                                "rotation_policy": "rotation:overvault_managed",
+                                "allowed_resolver_services": ["service:overvault"],
+                                "access_audit_refs": ["audit:overkey:phase7:node-enrollment-secret-ref"],
+                                "dependency_state": "available"
+                            },
+                            "overvault_dependency_state": "active",
+                            "overwatch_dependency_state": "active",
+                            "policy_dependency_state": "active",
+                            "audit_refs": ["audit:overkey:phase7:node-enrollment"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+
+        let payload = "phase7-node-enrollment-body";
+        let without_policy = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/verify/signature")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase7")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:phase7")
+                    .body(Body::from(
+                        json!({
+                            "credential_id": "credential:service-account:phase7-node-enroller",
+                            "key_id": format!("key:service-account:{service_account_id}"),
+                            "key_version": 1,
+                            "algorithm": "Ed25519",
+                            "canonicalization": "overrid.canonical_json.v0",
+                            "timestamp": "2026-06-26T12:00:00Z",
+                            "replay_window_id": "replay:phase7:node-enrollment",
+                            "body_hash_ref": blake3_ref("body", payload),
+                            "body_hash_payload": payload,
+                            "allowed_use": "command.node.enroll",
+                            "command_class": "command.node.enroll",
+                            "tenant_id": "tenant:phase7",
+                            "subject_ref": service_account_id,
+                            "signature_ref": "signature:fixture:phase7-node-enrollment",
+                            "revocation_epoch": 0,
+                            "overpass_subject_state": "active",
+                            "overtenant_tenant_state": "active",
+                            "overtenant_membership_state": "active",
+                            "overvault_dependency_state": "active",
+                            "overwatch_dependency_state": "active",
+                            "policy_dependency_state": "active"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let without_policy_body = response_json(without_policy).await;
+        assert_eq!(without_policy_body["data"]["verified"], false);
+        assert_eq!(
+            without_policy_body["data"]["reason_code"],
+            "policy.overguard_handoff_required"
         );
     }
 

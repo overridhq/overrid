@@ -74,6 +74,7 @@ PHASE7_RUST_TESTS = {
     "phase7_production_protection_and_test_credentials_fail_closed",
     "phase7_namespace_binding_requires_policy_owner_storage_evidence",
     "phase7_protected_dependency_fail_closed_and_fresh_lookup_rules",
+    "phase7_high_risk_node_enrollment_requires_policy_handoff",
 }
 
 
@@ -173,6 +174,14 @@ def validate_rust_sources() -> None:
         "phase7_verification_dependency_denial",
         "phase7_response_schema_for",
         "phase7_response_reason_for",
+        'resolver_service != "service:overvault"',
+        '!request.reference.starts_with("secret://overvault/")',
+        "binding.namespace_delegation_ref",
+        "binding.overasset_utility_refs",
+        'command_class.contains("namespace")',
+        'command_class.contains("policy")',
+        'command_class == "command.node.enroll"',
+        'command_class == "command.workload.execute"',
         "overkey.phase7_secret_ref_required",
         "overkey.phase7_secret_resolver_not_allowed",
         "overkey.phase7_test_credential_production_denied",
@@ -242,6 +251,17 @@ def validate_schema_and_fixtures() -> None:
         raise AssertionError(f"{SCHEMA_JSON} missing namespace_credential_binding")
     if "protected_dependency_state" not in defs:
         raise AssertionError(f"{SCHEMA_JSON} missing protected_dependency_state")
+    namespace_def = defs["namespace_credential_binding"]["properties"]
+    delegation_schema = namespace_def["namespace_delegation_ref"]
+    if delegation_schema.get("type") != "string" or delegation_schema.get("minLength") != 1:
+        raise AssertionError(
+            f"{SCHEMA_JSON} namespace_credential_binding must require non-empty delegation refs"
+        )
+    overasset_schema = namespace_def["overasset_utility_refs"]
+    if overasset_schema.get("minItems") != 1:
+        raise AssertionError(
+            f"{SCHEMA_JSON} namespace_credential_binding must require Overasset utility refs"
+        )
 
     if valid.get("schema_version") != "overkey.phase7.secret_protection_namespace.v0":
         raise AssertionError("valid Phase 7 fixture has wrong schema_version")
@@ -257,8 +277,15 @@ def validate_schema_and_fixtures() -> None:
     if not credential["protection_evidence_refs"]:
         raise AssertionError("Phase 7 production fixture must include protection evidence")
     namespace = credential["namespace_binding"]
-    if not namespace["route_refs"] or not namespace["storage_entitlement_refs"]:
-        raise AssertionError("Phase 7 namespace fixture must include route and storage evidence")
+    if (
+        not namespace["route_refs"]
+        or not namespace["storage_entitlement_refs"]
+        or not namespace["namespace_delegation_ref"]
+        or not namespace["overasset_utility_refs"]
+    ):
+        raise AssertionError(
+            "Phase 7 namespace fixture must include route, storage, delegation, and Overasset evidence"
+        )
     controls = valid["credential_controls"]["phase7_controls"]
     for key in (
         "overvault_metadata_only",
