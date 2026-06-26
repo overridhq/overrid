@@ -751,6 +751,16 @@ async fn rotate_credential(
         .successor_key_id
         .clone()
         .unwrap_or_else(|| format!("{}:v{}", current.key_id, successor_key_version));
+    validate_rotation_successor(
+        &state,
+        &tenant_id,
+        &credential_id,
+        &successor_credential_id,
+        &successor_key_id,
+        successor_key_version,
+        &current,
+        &trace_id,
+    )?;
     let revocation_epoch = current.revocation_epoch + 1;
     let propagation_status = default_propagation_status("rotation", &audit_ref);
     let affected_command_classes = affected_command_classes(&request, &current);
@@ -1893,6 +1903,60 @@ fn affected_command_classes(request: &LifecycleRequest, current: &CredentialReco
         })
 }
 
+fn validate_rotation_successor(
+    state: &OverkeyState,
+    tenant_id: &str,
+    credential_id: &str,
+    successor_credential_id: &str,
+    successor_key_id: &str,
+    successor_key_version: u32,
+    current: &CredentialRecord,
+    trace_id: &str,
+) -> Result<(), OverkeyError> {
+    let invalid_successor = |field_refs| {
+        OverkeyError::invalid_enrollment(
+            trace_id.to_owned(),
+            "overkey.rotation_successor_invalid",
+            "rotation requires a distinct active successor credential in the same tenant scope",
+            field_refs,
+        )
+    };
+
+    if successor_credential_id.trim().is_empty()
+        || successor_key_id.trim().is_empty()
+        || successor_credential_id == credential_id
+        || successor_key_version <= current.key_version
+    {
+        return Err(invalid_successor(vec![
+            "rotation_record.successor_credential_id",
+            "rotation_record.successor_key_id",
+            "rotation_record.successor_key_version",
+        ]));
+    }
+
+    let Some(successor) = state
+        .repository
+        .credential(tenant_id, successor_credential_id)
+    else {
+        return Err(invalid_successor(vec![
+            "rotation_record.successor_credential_id",
+        ]));
+    };
+
+    if successor.status != CredentialStatus::Active
+        || successor.key_id != successor_key_id
+        || successor.key_version != successor_key_version
+    {
+        return Err(invalid_successor(vec![
+            "rotation_record.successor_credential_id",
+            "rotation_record.successor_key_id",
+            "rotation_record.successor_key_version",
+        ]));
+    }
+
+    Ok(())
+}
+
 fn validate_break_glass_request(
     headers: &HeaderMap,
     request: &LifecycleRequest,
@@ -2841,6 +2905,13 @@ mod tests {
             "credential:signing:phase4-rotating",
         )
         .await;
+        create_phase4_signing_credential_with_key(
+            rotating_router.clone(),
+            "credential:signing:phase4-rotating-successor",
+            "key:tenant:phase4-denials-signer-v2",
+            2,
+        )
+        .await;
         lifecycle_transition(
             rotating_router.clone(),
             "/v1/credentials/credential:signing:phase4-rotating/rotate",
@@ -2901,6 +2972,61 @@ mod tests {
             router.clone(),
             "credential:signing:phase5-rotation",
             "key:tenant:phase5-rotation",
+        )
+        .await;
+
+        let invalid_successor = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-rotation/rotate")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .header(TRACE_HEADER, "trace:overkey:phase5:rotation-invalid")
+                    .body(Body::from(
+                        json!({
+                            "successor_credential_id": "credential:signing:phase5-missing-successor",
+                            "successor_key_id": "key:tenant:phase5-missing-successor",
+                            "successor_key_version": 2,
+                            "reason_code": "overkey.rotation_started_phase5",
+                            "affected_command_classes": ["command.verify"],
+                            "evidence_refs": ["evidence:overkey:phase5:rotation-invalid"],
+                            "audit_ref": "audit:overkey:phase5:rotation-invalid"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_successor.status(), StatusCode::BAD_REQUEST);
+        let invalid_successor_body = response_json(invalid_successor).await;
+        assert_eq!(
+            invalid_successor_body["reason_code"],
+            "overkey.rotation_successor_invalid"
+        );
+
+        let still_active = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/credentials/credential:signing:phase5-rotation")
+                    .header(TENANT_HEADER, "tenant:phase5")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let still_active_body = response_json(still_active).await;
+        assert_eq!(still_active_body["data"]["lifecycle_status"], "active");
+
+        create_phase5_signing_credential_with_version(
+            router.clone(),
+            "credential:signing:phase5-rotation-successor",
+            "key:tenant:phase5-rotation-v2",
+            2,
         )
         .await;
 
@@ -2987,6 +3113,38 @@ mod tests {
             "key:tenant:phase5-break-glass",
         )
         .await;
+
+        let cross_tenant = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/credentials/credential:signing:phase5-break-glass/revoke")
+                    .header(CONTENT_TYPE, "application/json")
+                    .header(TENANT_HEADER, "tenant:phase5-other")
+                    .header(SERVICE_ACCOUNT_HEADER, "service-account:overgate")
+                    .header(SERVICE_SIGNATURE_HEADER, "signature:service-account:phase5")
+                    .body(Body::from(
+                        json!({
+                            "break_glass": true,
+                            "operator_role": "role:admin",
+                            "protection_class": "protection:break_glass_hardware_key",
+                            "overgate_command_signature": "signature:overgate:phase5",
+                            "idempotency_key": "idem:phase5:bg-cross-tenant",
+                            "evidence_refs": ["evidence:phase5:bg"]
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cross_tenant.status(), StatusCode::NOT_FOUND);
+        let cross_tenant_body = response_json(cross_tenant).await;
+        assert_eq!(
+            cross_tenant_body["reason_code"],
+            "overkey.credential_not_found"
+        );
 
         let unsigned = router
             .clone()
@@ -3480,6 +3638,21 @@ mod tests {
     }
 
     async fn create_phase4_signing_credential(router: Router, credential_id: &str) {
+        create_phase4_signing_credential_with_key(
+            router,
+            credential_id,
+            "key:tenant:phase4-denials-signer",
+            1,
+        )
+        .await;
+    }
+
+    async fn create_phase4_signing_credential_with_key(
+        router: Router,
+        credential_id: &str,
+        key_id: &str,
+        key_version: u32,
+    ) {
         let create = router
             .oneshot(
                 Request::builder()
@@ -3492,7 +3665,8 @@ mod tests {
                         json!({
                             "credential_id": credential_id,
                             "subject_ref": "actor:overpass:phase4",
-                            "key_id": "key:tenant:phase4-denials-signer",
+                            "key_id": key_id,
+                            "key_version": key_version,
                             "public_key_ref": "public-key-ref:ed25519:phase4-denials",
                             "allowed_signature_uses": ["signature.verify"],
                             "not_after": "2026-12-31T23:59:59Z",
@@ -3508,6 +3682,15 @@ mod tests {
     }
 
     async fn create_phase5_signing_credential(router: Router, credential_id: &str, key_id: &str) {
+        create_phase5_signing_credential_with_version(router, credential_id, key_id, 1).await;
+    }
+
+    async fn create_phase5_signing_credential_with_version(
+        router: Router,
+        credential_id: &str,
+        key_id: &str,
+        key_version: u32,
+    ) {
         let create = router
             .oneshot(
                 Request::builder()
@@ -3521,6 +3704,7 @@ mod tests {
                             "credential_id": credential_id,
                             "subject_ref": "actor:overpass:phase5",
                             "key_id": key_id,
+                            "key_version": key_version,
                             "public_key_ref": "public-key-ref:ed25519:phase5",
                             "allowed_signature_uses": ["signature.verify"],
                             "not_after": "2026-12-31T23:59:59Z",
@@ -3592,6 +3776,20 @@ mod tests {
     }
 
     async fn lifecycle_transition(router: Router, uri: &str) {
+        let body = if uri.ends_with("/rotate") {
+            json!({
+                "successor_credential_id": "credential:signing:phase4-rotating-successor",
+                "successor_key_id": "key:tenant:phase4-denials-signer-v2",
+                "successor_key_version": 2,
+                "reason_code": "overkey.phase4.test_transition",
+                "audit_ref": "audit:overkey:phase4:test-transition"
+            })
+        } else {
+            json!({
+                "reason_code": "overkey.phase4.test_transition",
+                "audit_ref": "audit:overkey:phase4:test-transition"
+            })
+        };
         let response = router
             .oneshot(
                 Request::builder()
@@ -3599,13 +3797,7 @@ mod tests {
                     .uri(uri)
                     .header(CONTENT_TYPE, "application/json")
                     .header(TENANT_HEADER, "tenant:phase4")
-                    .body(Body::from(
-                        json!({
-                            "reason_code": "overkey.phase4.test_transition",
-                            "audit_ref": "audit:overkey:phase4:test-transition"
-                        })
-                        .to_string(),
-                    ))
+                    .body(Body::from(body.to_string()))
                     .unwrap(),
             )
             .await

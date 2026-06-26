@@ -159,12 +159,16 @@ def validate_rust_sources() -> None:
         "append_rotation_record",
         "append_revocation_record",
         "let revocation_epoch = current.revocation_epoch + 1",
+        "validate_rotation_successor",
+        "overkey.rotation_successor_invalid",
         "validate_break_glass_request",
         "auth.break_glass_unsigned",
         "auth.break_glass_wrong_role",
         "auth.break_glass_protection_class_required",
         "auth.break_glass_missing_evidence",
         "auth.break_glass_idempotency_required",
+        "tenant:phase5-other",
+        "overkey.credential_not_found",
         "overkey.break_glass_revocation_idempotent_replay",
         "phase5_rotation_records_epoch_cache_and_propagation",
         "phase5_break_glass_revocation_requires_signed_idempotent_command",
@@ -263,6 +267,7 @@ def validate_schema_and_fixtures() -> None:
         "auth.break_glass_protection_class_required",
         "auth.break_glass_missing_evidence",
         "auth.break_glass_idempotency_required",
+        "overkey.credential_not_found",
     }
     if reason_codes != expected_denials:
         raise AssertionError(f"invalid fixture denial reason drift: {sorted(reason_codes)}")

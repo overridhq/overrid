@@ -26,6 +26,11 @@
       "case": "missing_idempotency_key",
       "reason_code": "auth.break_glass_idempotency_required",
       "side_effects_allowed": false
+    },
+    {
+      "case": "cross_tenant_scope",
+      "reason_code": "overkey.credential_not_found",
+      "side_effects_allowed": false
     }
   ],
   "raw_secret_persisted": false
